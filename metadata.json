@@ -1,0 +1,6 @@
+{
+  "name": "Exam Plan AI",
+  "description": "Upload exam materials and syllabus to generate personalized study plans with calendar sync, daily to-dos, and real-time adaptive progress tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

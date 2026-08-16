@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --notion-bg: #ffffff;
+    --notion-sidebar: #f7f6f3;
+    --notion-hover: #efefed;
+    --notion-text: #37352f;
+    --notion-text-muted: #787774;
+    --notion-text-subtle: #9b9a97;
+    --notion-border: #e9e9e7;
+    --notion-border-strong: #dfdfde;
+    --notion-callout: #f7f6f5;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif;
+    color: #37352f;
+    background-color: #ffffff;
+  }
+}
+
+/* Notion custom minimalist scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(55, 53, 47, 0.15);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(55, 53, 47, 0.28);
+}
+
+/* Notion Tag Pill Colors */
+.notion-tag-gray {
+  background-color: #f1f1ef;
+  color: #5a5a57;
+  border: 1px solid #e3e2e0;
+}
+
+.notion-tag-brown {
+  background-color: #f4eeee;
+  color: #937264;
+  border: 1px solid #e8dedc;
+}
+
+.notion-tag-orange {
+  background-color: #faece3;
+  color: #d9730d;
+  border: 1px solid #f3d6c1;
+}
+
+.notion-tag-yellow {
+  background-color: #fbf3db;
+  color: #cb912f;
+  border: 1px solid #f6e3b5;
+}
+
+.notion-tag-green {
+  background-color: #edf3ec;
+  color: #448361;
+  border: 1px solid #d5e5d3;
+}
+
+.notion-tag-blue {
+  background-color: #e7f3f8;
+  color: #2b78a0;
+  border: 1px solid #c9e6f3;
+}
+
+.notion-tag-purple {
+  background-color: #f4f0f7;
+  color: #9065b0;
+  border: 1px solid #e4daf0;
+}
+
+.notion-tag-pink {
+  background-color: #f9f0f5;
+  color: #c14c8a;
+  border: 1px solid #f2dae7;
+}
+
+.notion-tag-red {
+  background-color: #fdebec;
+  color: #d44c47;
+  border: 1px solid #f9d3d5;
+}
+
+/* Notion Callout Box */
+.notion-callout {
+  background-color: #f7f6f5;
+  border: 1px solid #e9e9e7;
+  border-radius: 8px;
+}
