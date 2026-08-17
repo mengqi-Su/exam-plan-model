@@ -13,17 +13,32 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-app.use(express.json({ limit: "25mb" }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// Initialize Gemini Client
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      "User-Agent": "aistudio-build",
-    },
-  },
-});
+// Initialize Gemini Client Lazily
+let aiClient: GoogleGenAI | null = null;
+function getAI(): GoogleGenAI | null {
+  if (!aiClient) {
+    const key = process.env.GEMINI_API_KEY;
+    if (key && key !== "MY_GEMINI_API_KEY") {
+      try {
+        aiClient = new GoogleGenAI({
+          apiKey: key,
+          httpOptions: {
+            headers: {
+              "User-Agent": "aistudio-build",
+            },
+          },
+        });
+      } catch (err) {
+        console.warn("Failed to initialize GoogleGenAI client:", err);
+        aiClient = null;
+      }
+    }
+  }
+  return aiClient;
+}
 
 // Helper for sleep/backoff
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -36,6 +51,12 @@ async function generateWithRetryAndFallback<T>(
   parseResult: (text: string) => T,
   fallbackGenerator: () => T
 ): Promise<T> {
+  const client = getAI();
+  if (!client) {
+    // If no client / API key available, immediately use robust algorithmic fallback
+    return fallbackGenerator();
+  }
+
   // Use recommended standard models with priority on gemini-3.7-flash and gemini-3.1-flash-lite
   const models = ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-flash-latest"];
 
@@ -43,7 +64,7 @@ async function generateWithRetryAndFallback<T>(
     for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const params = buildParams(model);
-        const response = await ai.models.generateContent(params);
+        const response = await client.models.generateContent(params);
         const text = response.text || "";
         if (!text.trim()) {
           throw new Error("Empty response received from AI model");
@@ -267,9 +288,10 @@ function fallbackGeneratePlan(topics: any[], preferences: any) {
     const startH = sched.preferredTimeSlot === "morning" ? 9 : sched.preferredTimeSlot === "afternoon" ? 14 : 18;
     const sessionDuration = preferences.sessionLengthMinutes || 45;
 
+    const randSalt = Math.random().toString(36).slice(2, 6);
     if (isMockDay) {
       tasks.push({
-        id: `task-${dateStr}-mock`,
+        id: `task-${dateStr}-${randSalt}-mock`,
         title: isZh ? `全真限时模拟考试：${preferences.examName || "阶段模考"}` : `Full Timed Practice Exam: ${preferences.examName || "Mastery Mock"}`,
         description: isZh
           ? "严格模拟正式考试环境：关闭所有参考资料，开启倒计时并在限定时间内独立完成全套试题。"
@@ -300,7 +322,7 @@ function fallbackGeneratePlan(topics: any[], preferences: any) {
       totalHours += 2;
     } else if (isBufferDay) {
       tasks.push({
-        id: `task-${dateStr}-buffer`,
+        id: `task-${dateStr}-${randSalt}-buffer`,
         title: isZh ? `考前缓冲与查漏补缺：${topic.title}` : `Buffer Review: High-Yield Formula Sheet & Tricky Concepts`,
         description: isZh
           ? "对核心公式表、高频考点速记卡及错题本进行轻量级多轮复习。"
@@ -331,7 +353,7 @@ function fallbackGeneratePlan(topics: any[], preferences: any) {
       // Regular study session
       const isWeak = preferences.weakTopicsFocus?.includes(topic.title);
       tasks.push({
-        id: `task-${dateStr}-1`,
+        id: `task-${dateStr}-${randSalt}-1`,
         title: isZh ? `考点精读与笔记梳理：${topic.title}` : `Active Study & Concept Mapping: ${topic.title}`,
         description: isZh
           ? `精读讲义与教材，梳理 ${topic.title} 的核心定理、定义及逻辑脉络。`
@@ -364,7 +386,7 @@ function fallbackGeneratePlan(topics: any[], preferences: any) {
       // Add a practice / active recall task if available hours >= 2
       if (sched.availableHours >= 2) {
         tasks.push({
-          id: `task-${dateStr}-2`,
+          id: `task-${dateStr}-${randSalt}-2`,
           title: isZh ? `习题专项演练与主动回忆：${topic.title}` : `Active Recall & Problem Drills: ${topic.title}`,
           description: isZh
             ? `针对 ${topic.title} 进行真题与课后综合应用题演练，提升解题熟练度。`
@@ -572,15 +594,39 @@ async function parseUploadedDocument(
   // 3. PDF Parsing with pdf-parse (Fast local extraction)
   if (ext === ".pdf" || fileType === "application/pdf") {
     try {
-      const data = await (pdfParse as any)(buffer);
-      if (data && data.text && data.text.trim().length > 50) {
-        return {
-          text: data.text.trim(),
-          pageCount: data.numpages,
-        };
+      if (typeof pdfParse === "function") {
+        const data = await (pdfParse as any)(buffer);
+        if (data && data.text && data.text.trim().length > 20) {
+          return {
+            text: data.text.trim(),
+            pageCount: data.numpages,
+          };
+        }
+      } else {
+        const { PDFParse } = pdfParseModule as any;
+        if (PDFParse) {
+          const parser = new PDFParse({ data: buffer });
+          const textResult = await parser.getText();
+          const text = typeof textResult === "string" ? textResult : (textResult?.text || "");
+          let pageCount = undefined;
+          try {
+            const info = await parser.getInfo();
+            pageCount = info?.pages || info?.numPages || info?.pageCount;
+          } catch (e) {}
+          try {
+            await parser.destroy?.();
+          } catch (e) {}
+
+          if (text && text.trim().length > 20) {
+            return {
+              text: text.trim(),
+              pageCount,
+            };
+          }
+        }
       }
     } catch (e) {
-      console.warn("Local PDF text extraction produced empty text or failed, escalating to Gemini OCR parser", e);
+      console.warn("Local PDF text extraction error, escalating to Gemini OCR/fallback parser", e);
     }
   }
 
@@ -866,7 +912,19 @@ REQUIREMENTS FOR THE PLAN:
       () => fallbackGeneratePlan(topics, preferences)
     );
 
-    res.json(result);
+    const sanitizedResult = {
+      ...result,
+      tasks: (result.tasks || []).map((t: any, idx: number) => {
+        const dateStr = t.date || new Date().toISOString().split("T")[0];
+        const salt = Math.random().toString(36).slice(2, 6);
+        return {
+          ...t,
+          id: t.id ? (t.id.includes(salt) ? t.id : `${t.id}-${salt}-${idx}`) : `task-${dateStr}-${salt}-${idx}`,
+        };
+      }),
+    };
+
+    res.json(sanitizedResult);
   } catch (error: any) {
     console.error("Error generating study plan:", error);
     const fallback = fallbackGeneratePlan(req.body.topics || [], req.body.preferences || {});
@@ -954,7 +1012,19 @@ INSTRUCTIONS:
       () => fallbackRebalancePlan(currentPlan, todayStr, reason)
     );
 
-    res.json(result);
+    const sanitized = {
+      ...result,
+      tasks: (result.tasks || []).map((t: any, idx: number) => {
+        const dateStr = t.date || new Date().toISOString().split("T")[0];
+        const salt = Math.random().toString(36).slice(2, 6);
+        return {
+          ...t,
+          id: t.id || `task-${dateStr}-${salt}-${idx}`,
+        };
+      }),
+    };
+
+    res.json(sanitized);
   } catch (error: any) {
     console.error("Error rebalancing plan:", error);
     const fallback = fallbackRebalancePlan(req.body.currentPlan, req.body.currentDate, req.body.reason);

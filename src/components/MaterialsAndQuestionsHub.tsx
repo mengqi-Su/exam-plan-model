@@ -22,7 +22,9 @@ import {
   Zap,
   BookmarkPlus,
   ArrowRight,
-  GraduationCap
+  GraduationCap,
+  AlertTriangle,
+  Flame
 } from "lucide-react";
 import { StudyMaterial, ExamStudyPlan, StudyTask } from "../types";
 import { INITIAL_SAMPLE_DOCUMENTS } from "../lib/storage";
@@ -366,7 +368,7 @@ export function MaterialsAndQuestionsHub({
             <option value="all">{language === "zh" ? "全部难度" : "All Difficulties"}</option>
             <option value="easy">{language === "zh" ? "简单" : "Easy"}</option>
             <option value="medium">{language === "zh" ? "中等" : "Medium"}</option>
-            <option value="hard">{language === "zh" ? "高难 🔥" : "Hard 🔥"}</option>
+            <option value="hard">{language === "zh" ? "高难" : "Hard"}</option>
           </select>
         </div>
       </div>
@@ -471,7 +473,7 @@ export function MaterialsAndQuestionsHub({
                           ? "text-[#cb912f] bg-[#fbf3db]"
                           : "text-[#448361] bg-[#edf3ec]"
                       }`}>
-                        {item.difficulty === "hard" ? "高难 🔥" : item.difficulty === "medium" ? "中等" : "基础"}
+                        {item.difficulty === "hard" ? (language === "zh" ? "高难" : "Hard") : item.difficulty === "medium" ? (language === "zh" ? "中等" : "Medium") : (language === "zh" ? "基础" : "Easy")}
                       </span>
                       <button
                         onClick={() => handleDeleteMaterial(item.id)}
@@ -496,8 +498,9 @@ export function MaterialsAndQuestionsHub({
                   {/* Key Traps / Highlights if available */}
                   {item.keyTraps && item.keyTraps.length > 0 && (
                     <div className="p-2 bg-[#fbf3db]/50 border border-[#f5e0b7] rounded-md space-y-1">
-                      <span className="text-[10px] font-bold text-[#cb912f] block">
-                        {language === "zh" ? "⚠️ 历年高频易错考点 / 陷阱提醒：" : "⚠️ Key Exam Traps:"}
+                      <span className="text-[10px] font-bold text-[#cb912f] flex items-center space-x-1">
+                        <AlertTriangle className="w-3 h-3 text-[#cb912f] shrink-0" />
+                        <span>{language === "zh" ? "历年高频易错考点 / 陷阱提醒：" : "Key Exam Traps:"}</span>
                       </span>
                       <ul className="text-[10px] text-[#787774] list-disc list-inside space-y-0.5">
                         {item.keyTraps.slice(0, 2).map((trap, tIdx) => (
@@ -549,9 +552,9 @@ export function MaterialsAndQuestionsHub({
           <div className="bg-white border border-[#e9e9e7] rounded-xl shadow-xl w-full max-w-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-[#e9e9e7]">
               <div className="flex items-center space-x-2">
-                <span className="text-xl">
-                  {hubTab === "questions" ? "📝" : "📚"}
-                </span>
+                <div className="w-6 h-6 rounded bg-[#f7f6f3] flex items-center justify-center text-[#787774]">
+                  {hubTab === "questions" ? <FileQuestion className="w-4 h-4 text-[#2b78a0]" /> : <BookOpen className="w-4 h-4 text-[#2b78a0]" />}
+                </div>
                 <h3 className="font-bold text-sm text-[#37352f]">
                   {hubTab === "questions"
                     ? (language === "zh" ? "录入历年真题 / 模拟测试卷" : "Add Past Exam / Mock Paper")

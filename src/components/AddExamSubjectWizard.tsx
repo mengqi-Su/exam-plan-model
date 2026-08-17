@@ -18,7 +18,12 @@ import {
   AlertCircle,
   HelpCircle,
   Zap,
-  BookmarkPlus
+  BookmarkPlus,
+  Eye,
+  X,
+  FileQuestion,
+  Layers,
+  Check
 } from "lucide-react";
 import { 
   DaySchedulePreference, 
@@ -30,6 +35,7 @@ import {
 import { DEFAULT_WEEK_SCHEDULE, SAMPLE_MATERIALS } from "../lib/storage";
 import { useI18n } from "../lib/i18n";
 import { parseDocumentFile } from "../lib/documentParser";
+import { fallbackExtractSyllabusClient, fallbackGeneratePlanClient } from "../lib/fallbackPlanner";
 
 interface AddExamSubjectWizardProps {
   onPlanCreated: (newPlan: ExamStudyPlan) => void;
@@ -87,7 +93,7 @@ export function AddExamSubjectWizard({
 }: AddExamSubjectWizardProps) {
   const { t, language } = useI18n();
 
-  // Wizard Step: 1 = Basic Info & Course, 2 = Syllabus & Topics, 3 = Pacing & Schedule Settings
+  // Wizard Step: 1 = Basic Info & Course, 2 = Syllabus & Multi-Documents, 3 = Pacing & Schedule Settings
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
   // Step 1: Basic Subject Info
@@ -106,14 +112,22 @@ export function AddExamSubjectWizard({
   const [examDate, setExamDate] = useState(defaultExamDate);
   const [examTime, setExamTime] = useState("09:00");
 
-  // Step 2: Syllabus & Topics
-  const [syllabusDocName, setSyllabusDocName] = useState("");
-  const [syllabusContent, setSyllabusContent] = useState("");
+  // Step 2: Multi-Document Repository for this single Course
+  const [courseDocuments, setCourseDocuments] = useState<StudyMaterial[]>([]);
+  const [pasteDocTitle, setPasteDocTitle] = useState("");
+  const [pasteDocType, setPasteDocType] = useState<StudyMaterial["type"]>("notes");
+  const [pasteDocContent, setPasteDocContent] = useState("");
+  const [showPasteForm, setShowPasteForm] = useState(false);
+
+  // Topics & AI Extraction
   const [topics, setTopics] = useState<SyllabusTopic[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
-  const [isParsingFile, setIsParsingFile] = useState(false);
-  const [fileParseStatus, setFileParseStatus] = useState("");
+  const [isParsingFiles, setIsParsingFiles] = useState(false);
+  const [parsingStatus, setParsingStatus] = useState("");
   const [extractError, setExtractError] = useState<string | null>(null);
+
+  // Document preview modal
+  const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
 
   // Step 3: Preferences
   const [studyPace, setStudyPace] = useState<UserStudyPreferences["studyPace"]>("deep_mastery");
@@ -137,34 +151,132 @@ export function AddExamSubjectWizard({
     setSelectedWeakTopics(tmpl.topics.filter(t => t.difficulty === "hard").map(t => t.title));
   };
 
-  // Upload syllabus file
-  const handleFileUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const file = files[0];
-    setIsParsingFile(true);
-    setExtractError(null);
-    setFileParseStatus(language === "zh" ? `正在解析 ${file.name}...` : `Parsing ${file.name}...`);
-
-    try {
-      const parsed = await parseDocumentFile(file, language, (status) => setFileParseStatus(status));
-      setSyllabusDocName(file.name);
-      setSyllabusContent(parsed.text);
-      if (!examName) {
-        setExamName(file.name.replace(/\.[^/.]+$/, "").replace(/大纲|syllabus|期末|考试/i, "").trim() || file.name);
-      }
-    } catch (err: any) {
-      console.error(err);
-      setExtractError(language === "zh" ? `读取 ${file.name} 失败` : `Failed to parse ${file.name}`);
-    } finally {
-      setIsParsingFile(false);
-      setFileParseStatus("");
+  // Helper to determine document type and category group from filename
+  const inferDocumentType = (fileName: string): { type: StudyMaterial["type"]; categoryGroup: StudyMaterial["categoryGroup"] } => {
+    const lower = fileName.toLowerCase();
+    if (lower.includes("大纲") || lower.includes("syllabus") || lower.includes("curriculum") || lower.includes("考纲")) {
+      return { type: "syllabus", categoryGroup: "course_syllabus" };
     }
+    if (lower.includes("真题") || lower.includes("试卷") || lower.includes("exam") || lower.includes("quiz") || lower.includes("test") || lower.includes("paper")) {
+      return { type: "past_exam", categoryGroup: "exam_question" };
+    }
+    if (lower.includes("讲义") || lower.includes("课件") || lower.includes("slide") || lower.includes("ppt") || lower.includes("lecture")) {
+      return { type: "lecture_slides", categoryGroup: "study_material" };
+    }
+    if (lower.includes("公式") || lower.includes("提纲") || lower.includes("cheat") || lower.includes("summary") || lower.includes("速查")) {
+      return { type: "textbook_outline", categoryGroup: "study_material" };
+    }
+    return { type: "notes", categoryGroup: "study_material" };
   };
 
-  // AI Syllabus Topic Extraction
+  // Handle uploading multiple files for THIS course
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setIsParsingFiles(true);
+    setExtractError(null);
+
+    const fileArray = Array.from(files);
+    const newDocs: StudyMaterial[] = [];
+
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i];
+      setParsingStatus(
+        language === "zh"
+          ? `正在解析 (${i + 1}/${fileArray.length})：${file.name}...`
+          : `Parsing (${i + 1}/${fileArray.length}): ${file.name}...`
+      );
+
+      try {
+        const parsed = await parseDocumentFile(file, language, (status) => setParsingStatus(status));
+        const { type, categoryGroup } = inferDocumentType(file.name);
+
+        const newDoc: StudyMaterial = {
+          id: `mat-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          name: file.name,
+          type,
+          categoryGroup,
+          content: parsed.text,
+          sizeBytes: file.size,
+          uploadedAt: new Date().toISOString(),
+          difficulty: type === "past_exam" ? "hard" : "medium",
+          summaryNotes: parsed.text.slice(0, 160) + (parsed.text.length > 160 ? "..." : ""),
+        };
+
+        newDocs.push(newDoc);
+
+        // If examName is empty and this is the first file/syllabus, suggest course name
+        if (!examName && (type === "syllabus" || i === 0)) {
+          const suggested = file.name.replace(/\.[^/.]+$/, "").replace(/大纲|syllabus|期末|考试|试卷|讲义/i, "").trim();
+          if (suggested) {
+            setExamName(suggested);
+          }
+        }
+      } catch (err: any) {
+        console.error("Failed to parse file:", file.name, err);
+      }
+    }
+
+    if (newDocs.length > 0) {
+      setCourseDocuments((prev) => [...prev, ...newDocs]);
+    }
+
+    setIsParsingFiles(false);
+    setParsingStatus("");
+  };
+
+  // Handle manually adding pasted text as a document for this course
+  const handleAddPastedDocument = () => {
+    if (!pasteDocContent.trim()) return;
+
+    const { categoryGroup } = inferDocumentType(pasteDocTitle || "notes.txt");
+    const newDoc: StudyMaterial = {
+      id: `mat-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      name: pasteDocTitle.trim() || `${language === "zh" ? "学习笔记与考点提纲" : "Course Notes"} (${new Date().toLocaleDateString()})`,
+      type: pasteDocType,
+      categoryGroup: pasteDocType === "syllabus" ? "course_syllabus" : pasteDocType === "past_exam" ? "exam_question" : "study_material",
+      content: pasteDocContent.trim(),
+      uploadedAt: new Date().toISOString(),
+      sizeBytes: new Blob([pasteDocContent]).size,
+      difficulty: "medium",
+      summaryNotes: pasteDocContent.slice(0, 160) + "...",
+    };
+
+    setCourseDocuments((prev) => [...prev, newDoc]);
+    setPasteDocTitle("");
+    setPasteDocContent("");
+    setShowPasteForm(false);
+  };
+
+  // Update a document's classification or role in this course
+  const handleUpdateDocument = (id: string, patch: Partial<StudyMaterial>) => {
+    setCourseDocuments((prev) =>
+      prev.map((doc) => {
+        if (doc.id === id) {
+          const updated = { ...doc, ...patch };
+          if (patch.type) {
+            updated.categoryGroup =
+              patch.type === "syllabus"
+                ? "course_syllabus"
+                : patch.type === "past_exam"
+                ? "exam_question"
+                : "study_material";
+          }
+          return updated;
+        }
+        return doc;
+      })
+    );
+  };
+
+  // Delete a document from this course
+  const handleDeleteDocument = (id: string) => {
+    setCourseDocuments((prev) => prev.filter((d) => d.id !== id));
+  };
+
+  // AI Multi-Document Syllabus & Topic Extraction
   const handleExtractSyllabus = async () => {
-    if (!syllabusContent.trim()) {
-      setExtractError(language === "zh" ? "请先上传考纲文件或粘贴大纲文本。" : "Please upload or paste syllabus content first.");
+    if (courseDocuments.length === 0) {
+      setExtractError(language === "zh" ? "请先上传至少一份课程考纲、讲义或试卷文件。" : "Please upload at least one course document first.");
       return;
     }
 
@@ -172,35 +284,39 @@ export function AddExamSubjectWizard({
     setExtractError(null);
 
     try {
-      const res = await fetch("/api/extract-syllabus", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          materials: [
-            {
-              name: syllabusDocName || "Syllabus.txt",
-              type: "syllabus",
-              content: syllabusContent,
-            },
-          ],
-          examName: examName || "新考试科目",
-          subject: subject || "综合学科",
-          language,
-        }),
-      });
+      let data: any = null;
+      try {
+        const res = await fetch("/api/extract-syllabus", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            materials: courseDocuments,
+            examName: examName || "新考试科目",
+            subject: subject || "综合学科",
+            language,
+          }),
+        });
 
-      if (!res.ok) {
-        throw new Error("Failed to extract syllabus");
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (fetchErr) {
+        console.warn("Network error during syllabus extraction:", fetchErr);
       }
 
-      const data = await res.json();
+      if (!data || !data.topics || data.topics.length === 0) {
+        data = fallbackExtractSyllabusClient(courseDocuments, examName || "新考试科目", subject || "综合学科", language);
+      }
+
       if (data.topics && Array.isArray(data.topics) && data.topics.length > 0) {
         setTopics(data.topics);
         setSelectedWeakTopics(data.topics.filter((t: any) => t.difficulty === "hard").map((t: any) => t.title));
       }
     } catch (err: any) {
-      console.error("Extraction error:", err);
-      setExtractError(language === "zh" ? "考纲解析遇到问题，已为您自动生成预设考点结构。" : "Extraction completed with fallback topics.");
+      console.error("Extraction error handled:", err);
+      const fallback = fallbackExtractSyllabusClient(courseDocuments, examName || "新考试科目", subject || "综合学科", language);
+      setTopics(fallback.topics);
+      setSelectedWeakTopics(fallback.topics.filter((t: any) => t.difficulty === "hard").map((t: any) => t.title));
     } finally {
       setIsExtracting(false);
     }
@@ -232,7 +348,7 @@ export function AddExamSubjectWizard({
     setTopics((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Generate Plan Handler
+  // Generate Plan Handler: attaches all course documents to newPlan.materials
   const handleGenerateFinalPlan = async () => {
     if (!examName.trim()) {
       setGenerateError(language === "zh" ? "请输入考试科目名称。" : "Please enter the exam name.");
@@ -265,22 +381,34 @@ export function AddExamSubjectWizard({
       additionalNotes,
     };
 
-    try {
-      const res = await fetch("/api/generate-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topics,
-          preferences,
-          materialsSummary: syllabusDocName || examName,
-        }),
-      });
+    const materialsSummaryText = courseDocuments.length > 0
+      ? courseDocuments.map(d => `${d.name} (${d.type})`).join("、")
+      : examName;
 
-      if (!res.ok) {
-        throw new Error("Failed to generate plan");
+    try {
+      let data: any = null;
+      try {
+        const res = await fetch("/api/generate-plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topics,
+            preferences,
+            materialsSummary: materialsSummaryText,
+          }),
+        });
+
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (fetchErr) {
+        console.warn("Network error during plan generation:", fetchErr);
       }
 
-      const data = await res.json();
+      if (!data || !data.tasks || data.tasks.length === 0) {
+        data = fallbackGeneratePlanClient(topics, preferences);
+      }
+
       const newPlanId = `plan-${Date.now()}`;
       const generatedTasks = data.tasks || [];
       const totalHours = Math.round(
@@ -299,29 +427,34 @@ export function AddExamSubjectWizard({
         updatedAt: new Date().toISOString(),
         preferences,
         topics,
-        materials: syllabusContent
-          ? [
-              {
-                id: `mat-${Date.now()}`,
-                name: syllabusDocName || `${examName} 考试大纲`,
-                type: "syllabus",
-                categoryGroup: "course_syllabus",
-                content: syllabusContent,
-                uploadedAt: new Date().toISOString(),
-                difficulty: "medium",
-                summaryNotes: syllabusContent.slice(0, 140) + "...",
-              },
-            ]
-          : [],
+        materials: courseDocuments,
         phases: data.phases || [],
         tasks: generatedTasks,
-        materialsSummary: data.summary || syllabusDocName || examName,
+        materialsSummary: data.summary || materialsSummaryText,
       };
 
       onPlanCreated(newPlan);
     } catch (err: any) {
-      console.error(err);
-      setGenerateError(language === "zh" ? "生成计划时遇到网络延迟，已为您激活离线自适应引擎。" : "Generated with adaptive offline engine.");
+      console.error("Plan creation fallback handling:", err);
+      const safeData = fallbackGeneratePlanClient(topics, preferences);
+      const newPlan: ExamStudyPlan = {
+        id: `plan-${Date.now()}`,
+        examName,
+        subject: subject || "通用学科",
+        examDate,
+        examTime,
+        startDate,
+        totalPlannedHours: safeData.totalPlannedHours || 25,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        preferences,
+        topics,
+        materials: courseDocuments,
+        phases: safeData.phases,
+        tasks: safeData.tasks,
+        materialsSummary: materialsSummaryText,
+      };
+      onPlanCreated(newPlan);
     } finally {
       setIsGenerating(false);
     }
@@ -361,7 +494,7 @@ export function AddExamSubjectWizard({
           <span>{language === "zh" ? "全新考试科目与智能备考规划" : "New Exam Subject & AI Study Optimization"}</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#37352f] flex items-center space-x-2">
-          <span>➕</span>
+          <Plus className="w-6 h-6 text-[#37352f]" />
           <span>{language === "zh" ? "添加新考试科目" : "Add Exam Subject"}</span>
         </h1>
         <p className="text-sm text-[#787774] mt-1">
@@ -396,7 +529,7 @@ export function AddExamSubjectWizard({
           }`}
         >
           <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-bold">2</span>
-          <span className="truncate">{language === "zh" ? "考纲解析与知识点" : "2. Syllabus & Topics"}</span>
+          <span className="truncate">{language === "zh" ? "考纲与多文件资料" : "2. Syllabus & Documents"}</span>
         </button>
 
         <button
@@ -571,85 +704,219 @@ export function AddExamSubjectWizard({
               }}
               className="flex items-center space-x-2 px-5 py-2.5 rounded-lg bg-[#37352f] text-white hover:bg-[#201f1d] font-semibold text-xs transition-colors"
             >
-              <span>{language === "zh" ? "下一步：配置考纲与考点" : "Next: Syllabus & Topics"}</span>
+              <span>{language === "zh" ? "下一步：上传课程资料与考纲" : "Next: Course Documents & Syllabus"}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
 
-      {/* ================= STEP 2: SYLLABUS & TOPICS ================= */}
+      {/* ================= STEP 2: COURSE DOCUMENTS & TOPICS ================= */}
       {step === 2 && (
         <div className="space-y-6">
-          {/* Upload / Paste Area */}
+          {/* Multi-Document Upload & Management Card for this Course */}
           <div className="bg-white p-5 rounded-xl border border-[#e9e9e7] space-y-4">
-            <div className="flex items-center justify-between border-b border-[#e9e9e7] pb-2.5">
-              <h3 className="text-sm font-bold text-[#37352f] flex items-center space-x-2">
-                <BookOpen className="w-4 h-4 text-[#2b78a0]" />
-                <span>{language === "zh" ? "导入考纲文件或文本" : "Import Syllabus"}</span>
-              </h3>
-              <span className="text-xs text-[#787774]">
-                {language === "zh" ? "支持 PDF, Word (.docx), TXT, Markdown" : "PDF, Word, TXT, Markdown"}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* File Upload Drop Area */}
-              <label className="border-2 border-dashed border-[#e9e9e7] hover:border-[#2b78a0] bg-[#fafaf9] hover:bg-[#f0f7f5] rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all text-center group">
-                <input
-                  type="file"
-                  accept=".txt,.md,.doc,.docx,.pdf,.rtf,image/*"
-                  onChange={(e) => handleFileUpload(e.target.files)}
-                  className="hidden"
-                />
-                <div className="w-10 h-10 rounded-full bg-white shadow-xs border border-[#e9e9e7] flex items-center justify-center text-[#2b78a0] mb-2 group-hover:scale-110 transition-transform">
-                  {isParsingFile ? (
-                    <div className="w-5 h-5 border-2 border-[#2b78a0] border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Upload className="w-5 h-5" />
-                  )}
-                </div>
-                <span className="text-xs font-semibold text-[#37352f]">
-                  {isParsingFile
-                    ? (fileParseStatus || (language === "zh" ? "正在智能解析文件..." : "Parsing file..."))
-                    : (syllabusDocName || (language === "zh" ? "点击或拖拽上传考纲文件" : "Click or drag syllabus file"))}
-                </span>
-                <span className="text-[10px] text-[#787774] mt-1">
-                  {language === "zh" ? "自动提取章节、考点权重与预估学时" : "Auto-extract chapters & weights"}
-                </span>
-              </label>
-
-              {/* Textarea Paste */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#e9e9e7] pb-3 gap-2">
               <div>
-                <label className="block text-xs font-semibold text-[#37352f] mb-1">
-                  {language === "zh" ? "或直接粘贴考纲内容" : "Or Paste Syllabus Outline"}
-                </label>
-                <textarea
-                  rows={5}
-                  value={syllabusContent}
-                  onChange={(e) => setSyllabusContent(e.target.value)}
-                  placeholder={language === "zh" ? "例如：\n第 1 单元：基础理论与概念定义\n第 2 单元：核心推导与应用题型\n第 3 单元：综合攻坚与真题演练" : "Unit 1: Foundations\nUnit 2: Advanced theorems\nUnit 3: Practice mock problems"}
-                  className="w-full px-3 py-2 text-xs rounded-md border border-[#d3d2cf] focus:border-[#2b78a0] outline-none font-mono"
-                />
+                <h3 className="text-sm font-bold text-[#37352f] flex items-center space-x-2">
+                  <BookOpen className="w-4 h-4 text-[#2b78a0]" />
+                  <span>{language === "zh" ? `「${examName || "当前课程"}」的备考资料与考纲` : `Course Materials for "${examName || "Course"}"`}</span>
+                </h3>
+                <p className="text-xs text-[#787774] mt-0.5">
+                  {language === "zh"
+                    ? "可一次性批量上传或持续添加属于本门课程的大纲、讲义课件、模拟试卷等多个文件，AI 将联合深度解析。"
+                    : "Upload multiple files (syllabus, lecture slides, mock exams) for this single course."}
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowPasteForm(!showPasteForm)}
+                  className="flex items-center space-x-1 px-3 py-1.5 rounded-md border border-[#e9e9e7] hover:bg-[#efefed] text-xs text-[#37352f] transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{language === "zh" ? "粘贴文本资料" : "Paste Text"}</span>
+                </button>
               </div>
             </div>
+
+            {/* Optional Manual Paste Form */}
+            {showPasteForm && (
+              <div className="p-4 bg-[#fafaf9] rounded-lg border border-[#e9e9e7] space-y-3 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[#37352f]">
+                    {language === "zh" ? "添加自定义文本 / 笔记到本课程" : "Add Text Notes to this Course"}
+                  </span>
+                  <button onClick={() => setShowPasteForm(false)} className="text-[#787774] hover:text-[#37352f]">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    value={pasteDocTitle}
+                    onChange={(e) => setPasteDocTitle(e.target.value)}
+                    placeholder={language === "zh" ? "资料名称，例如：第3章核心公式速记" : "Document title..."}
+                    className="px-3 py-1.5 text-xs bg-white border border-[#d3d2cf] rounded-md outline-none"
+                  />
+                  <select
+                    value={pasteDocType}
+                    onChange={(e) => setPasteDocType(e.target.value as any)}
+                    className="px-3 py-1.5 text-xs bg-white border border-[#d3d2cf] rounded-md outline-none"
+                  >
+                    <option value="syllabus">{language === "zh" ? "课程教学大纲 (Syllabus)" : "Syllabus"}</option>
+                    <option value="lecture_slides">{language === "zh" ? "课件讲义 (Lecture Slides)" : "Lecture Slides"}</option>
+                    <option value="notes">{language === "zh" ? "课程笔记 (Study Notes)" : "Notes"}</option>
+                    <option value="past_exam">{language === "zh" ? "模拟试卷 / 真题 (Exam Paper)" : "Exam Paper"}</option>
+                    <option value="textbook_outline">{language === "zh" ? "考点提纲 / 速查 (Cheat Sheet)" : "Outline"}</option>
+                  </select>
+                </div>
+                <textarea
+                  rows={4}
+                  value={pasteDocContent}
+                  onChange={(e) => setPasteDocContent(e.target.value)}
+                  placeholder={language === "zh" ? "直接粘贴大纲章节、知识要点或典型题目..." : "Paste outline, topics or problems..."}
+                  className="w-full px-3 py-2 text-xs bg-white border border-[#d3d2cf] rounded-md outline-none font-mono"
+                />
+                <div className="flex justify-end space-x-2">
+                  <button
+                    onClick={() => setShowPasteForm(false)}
+                    className="px-3 py-1 text-xs text-[#787774] hover:bg-[#efefed] rounded"
+                  >
+                    {language === "zh" ? "取消" : "Cancel"}
+                  </button>
+                  <button
+                    onClick={handleAddPastedDocument}
+                    disabled={!pasteDocContent.trim()}
+                    className="px-3 py-1 text-xs bg-[#2b78a0] text-white rounded font-medium disabled:opacity-50"
+                  >
+                    {language === "zh" ? "加入本课程资料库" : "Add to Course"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Drag & Drop Multi-file Uploader */}
+            <label className="border-2 border-dashed border-[#e9e9e7] hover:border-[#2b78a0] bg-[#fafaf9] hover:bg-[#f0f7f5] rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all text-center group">
+              <input
+                type="file"
+                multiple
+                accept=".txt,.md,.doc,.docx,.pdf,.rtf,image/*"
+                onChange={(e) => handleFileUpload(e.target.files)}
+                className="hidden"
+              />
+              <div className="w-11 h-11 rounded-full bg-white shadow-xs border border-[#e9e9e7] flex items-center justify-center text-[#2b78a0] mb-2 group-hover:scale-110 transition-transform">
+                {isParsingFiles ? (
+                  <div className="w-5 h-5 border-2 border-[#2b78a0] border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Upload className="w-5 h-5" />
+                )}
+              </div>
+              <span className="text-xs font-semibold text-[#37352f]">
+                {isParsingFiles
+                  ? (parsingStatus || (language === "zh" ? "正在批量解析文件..." : "Parsing files..."))
+                  : (language === "zh" ? "点击或拖拽上传多个课程文件（支持多选）" : "Click or drag multiple course files")}
+              </span>
+              <span className="text-[11px] text-[#787774] mt-1">
+                {language === "zh"
+                  ? "支持 PDF、Word (.docx)、TXT、Markdown，单门课程可同时包含大纲、讲义、真题等多个文件"
+                  : "Supports PDF, Word (.docx), TXT, Markdown. All files belong to this course."}
+              </span>
+            </label>
+
+            {/* List of uploaded course documents */}
+            {courseDocuments.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <div className="flex items-center justify-between text-xs font-semibold text-[#37352f]">
+                  <span className="flex items-center space-x-1.5">
+                    <Layers className="w-4 h-4 text-[#2b78a0]" />
+                    <span>{language === "zh" ? `本课程已包含 ${courseDocuments.length} 份文件资料：` : `Attached files for this course (${courseDocuments.length}):`}</span>
+                  </span>
+                  <span className="text-[11px] text-[#787774] font-normal">
+                    {language === "zh" ? "可修改文档类型以指导 AI 专项分析" : "Change document role for tailored AI analysis"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2">
+                  {courseDocuments.map((doc, idx) => (
+                    <div
+                      key={doc.id}
+                      className="p-3 bg-[#fafaf9] hover:bg-[#f7f6f3] border border-[#e9e9e7] rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-colors"
+                    >
+                      <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                        <div className="w-7 h-7 rounded bg-white border border-[#e9e9e7] flex items-center justify-center text-xs shrink-0 text-[#787774]">
+                          <FileText className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-semibold text-xs text-[#37352f] truncate">{doc.name}</span>
+                            {doc.sizeBytes && (
+                              <span className="text-[10px] text-[#787774] shrink-0">
+                                ({Math.round(doc.sizeBytes / 1024)} KB)
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-[#787774] block truncate">
+                            {doc.content.slice(0, 80)}... ({doc.content.length} {language === "zh" ? "字" : "chars"})
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-2 shrink-0 self-end sm:self-auto">
+                        <select
+                          value={doc.type}
+                          onChange={(e) => handleUpdateDocument(doc.id, { type: e.target.value as any })}
+                          className="text-[11px] px-2 py-1 bg-white border border-[#d3d2cf] rounded text-[#37352f] outline-none font-medium"
+                        >
+                          <option value="syllabus">{language === "zh" ? "课程教学大纲" : "Syllabus"}</option>
+                          <option value="lecture_slides">{language === "zh" ? "讲义课件/PPT" : "Lecture Slides"}</option>
+                          <option value="notes">{language === "zh" ? "课程笔记" : "Study Notes"}</option>
+                          <option value="past_exam">{language === "zh" ? "历年真题/试卷" : "Past Exam"}</option>
+                          <option value="textbook_outline">{language === "zh" ? "公式提纲速查" : "Cheat Sheet"}</option>
+                        </select>
+
+                        <button
+                          onClick={() => setPreviewDoc(doc)}
+                          className="p-1.5 text-[#787774] hover:text-[#2b78a0] hover:bg-white rounded transition-colors"
+                          title={language === "zh" ? "预览文档内容" : "Preview Document Content"}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          className="p-1.5 text-[#787774] hover:text-[#d44c47] hover:bg-white rounded transition-colors"
+                          title={language === "zh" ? "从本课程移除" : "Remove from course"}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* AI Extraction Button */}
             <div className="flex justify-end pt-2">
               <button
                 onClick={handleExtractSyllabus}
-                disabled={isExtracting || !syllabusContent.trim()}
-                className="flex items-center space-x-2 px-4 py-2 rounded-lg bg-[#2b78a0] hover:bg-[#236384] disabled:opacity-50 text-white text-xs font-semibold transition-colors"
+                disabled={isExtracting || courseDocuments.length === 0}
+                className="flex items-center space-x-2 px-4 py-2.5 rounded-lg bg-[#2b78a0] hover:bg-[#236384] disabled:opacity-50 text-white text-xs font-semibold transition-colors shadow-2xs"
               >
                 {isExtracting ? (
                   <>
                     <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>{language === "zh" ? "AI 正在智能提炼考纲架构..." : "Extracting topics with AI..."}</span>
+                    <span>{language === "zh" ? "AI 正在联合解析全部文件并提炼考纲架构..." : "Extracting topics from all documents..."}</span>
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>{language === "zh" ? "AI 智能提取考点与分值分布" : "Extract Topics with AI"}</span>
+                    <span>
+                      {language === "zh"
+                        ? `AI 联合提炼考点与权重 (${courseDocuments.length} 份文件)`
+                        : `Extract Topics with AI (${courseDocuments.length} files)`}
+                    </span>
                   </>
                 )}
               </button>
@@ -661,10 +928,10 @@ export function AddExamSubjectWizard({
             <div className="flex items-center justify-between border-b border-[#e9e9e7] pb-2.5">
               <div>
                 <h3 className="text-sm font-bold text-[#37352f]">
-                  {language === "zh" ? "结构化考点架构" : "Structured Topic Breakdown"}
+                  {language === "zh" ? "结构化考点与分值架构" : "Structured Topic Breakdown"}
                 </h3>
                 <span className="text-xs text-[#787774]">
-                  {language === "zh" ? `已设置 ${topics.length} 个核心考点模块` : `${topics.length} topics defined`}
+                  {language === "zh" ? `已生成 ${topics.length} 个核心知识模块` : `${topics.length} topics defined`}
                 </span>
               </div>
 
@@ -680,7 +947,7 @@ export function AddExamSubjectWizard({
             {topics.length === 0 ? (
               <div className="text-center py-8 text-[#787774] text-xs">
                 <BookOpen className="w-8 h-8 mx-auto text-[#d3d2cf] mb-2" />
-                <p>{language === "zh" ? "暂无考点，请上传考纲、使用 AI 提取或点击「添加考点」。" : "No topics yet. Upload syllabus, use AI, or click Add Topic."}</p>
+                <p>{language === "zh" ? "暂无考点，请上传课程文件后点击「AI 联合提炼考点」或手动添加。" : "No topics yet. Upload course files and extract topics."}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -785,6 +1052,18 @@ export function AddExamSubjectWizard({
               <Sliders className="w-4 h-4 text-[#2b78a0]" />
               <span>{language === "zh" ? "复习节奏与智能算法设置" : "Study Pacing & Optimization Strategy"}</span>
             </h3>
+
+            {/* Attached Documents Summary */}
+            <div className="p-3 bg-[#f7f6f3] rounded-lg border border-[#e9e9e7] flex items-center justify-between text-xs">
+              <span className="text-[#787774]">
+                {language === "zh" ? "已关联课程资料：" : "Linked Course Documents: "}
+                <span className="font-semibold text-[#37352f]">{courseDocuments.length} {language === "zh" ? "份文件" : "files"}</span>
+              </span>
+              <span className="text-[#787774]">
+                {language === "zh" ? "核心考点数：" : "Total Topics: "}
+                <span className="font-semibold text-[#37352f]">{topics.length} {language === "zh" ? "个" : "units"}</span>
+              </span>
+            </div>
 
             {/* Study Pacing Mode */}
             <div>
@@ -897,13 +1176,14 @@ export function AddExamSubjectWizard({
                             setSelectedWeakTopics([...selectedWeakTopics, t.title]);
                           }
                         }}
-                        className={`text-xs px-2.5 py-1 rounded-full border transition-all ${
+                        className={`text-xs px-2.5 py-1 rounded-full border transition-all inline-flex items-center space-x-1 ${
                           isSelected
                             ? "bg-[#fbf3f2] text-[#d44c47] border-[#f5d5d3] font-semibold"
                             : "bg-white text-[#787774] border-[#e9e9e7] hover:bg-[#efefed]"
                         }`}
                       >
-                        {isSelected ? "⚡ " : ""}{t.title}
+                        {isSelected && <Zap className="w-3 h-3 text-[#d44c47] shrink-0" />}
+                        <span>{t.title}</span>
                       </button>
                     );
                   })}
@@ -935,13 +1215,51 @@ export function AddExamSubjectWizard({
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span>{language === "zh" ? "🚀 一键生成全新科目备考计划" : "Generate Subject Study Plan"}</span>
+                  <span>{language === "zh" ? "一键生成全新科目备考计划" : "Generate Subject Study Plan"}</span>
                 </>
               )}
             </button>
           </div>
         </div>
       )}
+
+      {/* Document Text Preview Modal */}
+      {previewDoc && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-[#e9e9e7]">
+            <div className="p-4 border-b border-[#e9e9e7] flex items-center justify-between">
+              <div className="flex items-center space-x-2 min-w-0">
+                <FileText className="w-4 h-4 text-[#2b78a0]" />
+                <span className="font-bold text-sm text-[#37352f] truncate">{previewDoc.name}</span>
+                <span className="text-[11px] px-2 py-0.5 bg-[#efefed] text-[#787774] rounded font-medium">
+                  {previewDoc.type}
+                </span>
+              </div>
+              <button
+                onClick={() => setPreviewDoc(null)}
+                className="p-1 rounded-md text-[#787774] hover:text-[#37352f] hover:bg-[#efefed]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto flex-1 font-mono text-xs text-[#37352f] bg-[#fafaf9] whitespace-pre-wrap leading-relaxed">
+              {previewDoc.content || (language === "zh" ? "文档内容为空" : "Empty document content")}
+            </div>
+
+            <div className="p-3 border-t border-[#e9e9e7] flex items-center justify-between text-xs text-[#787774]">
+              <span>{previewDoc.content.length} {language === "zh" ? "字符" : "characters"}</span>
+              <button
+                onClick={() => setPreviewDoc(null)}
+                className="px-4 py-1.5 rounded bg-[#37352f] text-white text-xs font-semibold"
+              >
+                {language === "zh" ? "关闭预览" : "Close"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

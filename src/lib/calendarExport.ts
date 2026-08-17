@@ -67,7 +67,7 @@ UID:exam-day-${plan.id}@examplan.ai
 DTSTAMP:${dtStamp}
 DTSTART:${examDtStart}
 DTEND:${examDtEnd}
-SUMMARY:🎯 EXAM DAY: ${plan.examName}
+SUMMARY:EXAM DAY: ${plan.examName}
 DESCRIPTION:Target Exam Day for ${plan.examName} (${plan.subject}). Good luck!
 STATUS:CONFIRMED
 PRIORITY:1

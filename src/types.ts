@@ -24,9 +24,10 @@ export interface SyllabusTopic {
   description?: string;
   weightPercentage?: number; // e.g. 20% of exam
   difficulty: 'easy' | 'medium' | 'hard';
-  userKnowledgeLevel: 'beginner' | 'intermediate' | 'advanced';
+  userKnowledgeLevel?: 'beginner' | 'intermediate' | 'advanced';
   subtopics: string[];
   estimatedHours: number;
+  isWeakTopic?: boolean;
 }
 
 export interface DaySchedulePreference {

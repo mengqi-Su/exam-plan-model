@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { NotionSidebar } from "./components/NotionSidebar";
 import { NotionPageHeader } from "./components/NotionPageHeader";
-import { CourseSyllabusManager } from "./components/CourseSyllabusManager";
-import { MaterialsAndQuestionsHub } from "./components/MaterialsAndQuestionsHub";
+import { MasterDashboard } from "./components/MasterDashboard";
+import { CourseKnowledgeHub } from "./components/CourseKnowledgeHub";
 import { PlanPreferencesForm } from "./components/PlanPreferencesForm";
 import { DailyTodoList } from "./components/DailyTodoList";
 import { CalendarView } from "./components/CalendarView";
@@ -20,7 +20,7 @@ import {
 export default function App() {
   const [plans, setPlans] = useState<ExamStudyPlan[]>(() => loadSavedPlans());
   const [activePlanId, setActivePlanIdState] = useState<string>(() => getActivePlanId());
-  const [currentTab, setCurrentTab] = useState<"todo" | "calendar" | "realtime" | "course" | "materials" | "add_subject">("todo");
+  const [currentTab, setCurrentTab] = useState<"dashboard" | "todo" | "calendar" | "realtime" | "course" | "materials" | "add_subject">("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   
@@ -71,11 +71,23 @@ export default function App() {
     setCurrentTab("add_subject");
   };
 
-  // Update active plan
-  const handleUpdateActivePlan = (updatedPlan: ExamStudyPlan) => {
+  // Update active plan or any plan
+  const handleUpdatePlan = (updatedPlan: ExamStudyPlan) => {
     setPlans((prev) =>
       prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p))
     );
+  };
+
+  // Delete plan
+  const handleDeletePlan = (planId: string) => {
+    setPlans((prev) => {
+      const next = prev.filter((p) => p.id !== planId);
+      if (activePlanId === planId && next.length > 0) {
+        setActivePlanIdState(next[0].id);
+        setActivePlanId(next[0].id);
+      }
+      return next;
+    });
   };
 
   // Handle newly generated plan
@@ -84,8 +96,26 @@ export default function App() {
     setPlans(nextPlans);
     setActivePlanIdState(newPlan.id);
     setActivePlanId(newPlan.id);
-    setCurrentTab("todo");
+    setCurrentTab("dashboard");
     setSelectedDate(newPlan.startDate || new Date().toISOString().split("T")[0]);
+  };
+
+  // Navigation handler
+  const handleNavigateToTab = (tab: "dashboard" | "todo" | "calendar" | "realtime" | "course" | "add_subject", planId?: string) => {
+    if (planId) {
+      handleSelectPlan(planId);
+    }
+    setCurrentTab(tab);
+    if (tab === "course") {
+      const target = planId ? plans.find((p) => p.id === planId) : activePlan;
+      if (target) {
+        setCurrentTopics(target.topics || []);
+        setExamName(target.examName);
+        setSubject(target.subject);
+        setMaterialsSummary(target.materialsSummary || "");
+        setCourseStep("syllabus");
+      }
+    }
   };
 
   return (
@@ -96,18 +126,16 @@ export default function App() {
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         plans={plans}
         activePlan={activePlan}
-        onSelectPlan={handleSelectPlan}
+        onSelectPlan={(id) => {
+          handleSelectPlan(id);
+          if (currentTab === "dashboard") {
+            // Keep on dashboard or switch to course
+          }
+        }}
         onNewPlan={handleNewPlan}
         currentTab={currentTab}
         onTabChange={(tab) => {
-          setCurrentTab(tab);
-          if (tab === "course" && activePlan) {
-            setCurrentTopics(activePlan.topics || []);
-            setExamName(activePlan.examName);
-            setSubject(activePlan.subject);
-            setMaterialsSummary(activePlan.materialsSummary || "");
-            setCourseStep("syllabus");
-          }
+          handleNavigateToTab(tab);
         }}
         onOpenRebalanceModal={() => {
           setCurrentTab("realtime");
@@ -125,14 +153,7 @@ export default function App() {
           activePlan={activePlan}
           currentTab={currentTab}
           onTabChange={(tab) => {
-            setCurrentTab(tab);
-            if (tab === "course" && activePlan) {
-              setCurrentTopics(activePlan.topics || []);
-              setExamName(activePlan.examName);
-              setSubject(activePlan.subject);
-              setMaterialsSummary(activePlan.materialsSummary || "");
-              setCourseStep("syllabus");
-            }
+            handleNavigateToTab(tab as any);
           }}
           onOpenRebalanceModal={() => setCurrentTab("realtime")}
           onNewPlan={handleNewPlan}
@@ -142,10 +163,22 @@ export default function App() {
 
         {/* Tab Views */}
         <main className="flex-1 pb-16">
+          {currentTab === "dashboard" && (
+            <MasterDashboard
+              plans={plans}
+              activePlan={activePlan}
+              onSelectPlan={handleSelectPlan}
+              onNavigateToTab={handleNavigateToTab}
+              onUpdatePlan={handleUpdatePlan}
+              onDeletePlan={handleDeletePlan}
+              onAddNewSubject={handleNewPlan}
+            />
+          )}
+
           {currentTab === "todo" && activePlan && (
             <DailyTodoList
               plan={activePlan}
-              onUpdatePlan={handleUpdateActivePlan}
+              onUpdatePlan={handleUpdatePlan}
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
               searchQuery={searchQuery}
@@ -169,7 +202,7 @@ export default function App() {
               plans={plans}
               onSelectPlan={handleSelectPlan}
               onAddNewSubject={() => setCurrentTab("add_subject")}
-              onUpdatePlan={handleUpdateActivePlan}
+              onUpdatePlan={handleUpdatePlan}
               onNavigateToTab={setCurrentTab}
               isRebalanceModalOpen={isRebalanceModalOpen}
               onCloseRebalanceModal={() => setIsRebalanceModalOpen(false)}
@@ -180,13 +213,14 @@ export default function App() {
             <AddExamSubjectWizard
               existingPlans={plans}
               onPlanCreated={handlePlanGenerated}
-              onCancel={() => setCurrentTab(activePlan ? "todo" : "course")}
+              onCancel={() => setCurrentTab("dashboard")}
             />
           )}
 
-          {currentTab === "course" && (
+          {(currentTab === "course" || currentTab === "materials") && (
             courseStep === "syllabus" ? (
-              <CourseSyllabusManager
+              <CourseKnowledgeHub
+                plan={activePlan}
                 examName={examName}
                 onExamNameChange={setExamName}
                 subject={subject}
@@ -199,8 +233,9 @@ export default function App() {
                 onTopicsChange={setCurrentTopics}
                 materialsSummary={materialsSummary}
                 onMaterialsSummaryChange={setMaterialsSummary}
+                onUpdatePlan={handleUpdatePlan}
                 onProceedToPlanConfig={() => setCourseStep("config")}
-                onGoToMaterialsAndQuestions={() => setCurrentTab("materials")}
+                onNavigateToTab={(tab) => setCurrentTab(tab as any)}
               />
             ) : (
               <PlanPreferencesForm
@@ -213,14 +248,6 @@ export default function App() {
                 onPlanGenerated={handlePlanGenerated}
               />
             )
-          )}
-
-          {currentTab === "materials" && activePlan && (
-            <MaterialsAndQuestionsHub
-              plan={activePlan}
-              onUpdatePlan={handleUpdateActivePlan}
-              onGoToCourseSyllabus={() => setCurrentTab("course")}
-            />
           )}
         </main>
       </div>

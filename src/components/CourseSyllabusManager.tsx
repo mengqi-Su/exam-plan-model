@@ -68,28 +68,48 @@ export function CourseSyllabusManager({
     onSyllabusContentChange(sample.text);
   };
 
-  // Handle syllabus file upload (PDF, Word DOCX, TXT, MD, Images)
+  // Handle syllabus files upload (multiple files supported: PDF, Word DOCX, TXT, MD, Images)
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const file = files[0];
     setIsParsingDoc(true);
     setExtractError(null);
-    setParsingStatus(language === "zh" ? `正在解析 ${file.name}...` : `Parsing ${file.name}...`);
 
-    try {
-      const parsed = await parseDocumentFile(file, language, (status) => setParsingStatus(status));
-      onSyllabusDocNameChange(file.name);
-      onSyllabusContentChange(parsed.text);
-      if (!examName) {
-        onExamNameChange(file.name.replace(/\.[^/.]+$/, "").replace(/大纲|syllabus|期末|考试/i, "").trim() || file.name);
+    const fileArray = Array.from(files);
+    let combinedContent = syllabusContent ? syllabusContent + "\n\n" : "";
+    const processedNames: string[] = [];
+
+    for (let i = 0; i < fileArray.length; i++) {
+      const file = fileArray[i];
+      setParsingStatus(
+        language === "zh"
+          ? `正在解析 (${i + 1}/${fileArray.length})：${file.name}...`
+          : `Parsing (${i + 1}/${fileArray.length}): ${file.name}...`
+      );
+
+      try {
+        const parsed = await parseDocumentFile(file, language, (status) => setParsingStatus(status));
+        processedNames.push(file.name);
+        combinedContent += `\n\n=== 课程资料: ${file.name} ===\n${parsed.text}\n`;
+
+        if (!examName && (file.name.includes("大纲") || file.name.includes("syllabus") || i === 0)) {
+          onExamNameChange(file.name.replace(/\.[^/.]+$/, "").replace(/大纲|syllabus|期末|考试/i, "").trim() || file.name);
+        }
+      } catch (err: any) {
+        console.error(err);
       }
-    } catch (err: any) {
-      console.error(err);
-      setExtractError(language === "zh" ? `读取 ${file.name} 失败，请检查文件格式。` : `Failed to parse ${file.name}.`);
-    } finally {
-      setIsParsingDoc(false);
-      setParsingStatus("");
     }
+
+    if (processedNames.length > 0) {
+      const newDocDisplayName = processedNames.length === 1 
+        ? processedNames[0] 
+        : `${processedNames.length} 份课程资料 (${processedNames.slice(0, 2).join(", ")}${processedNames.length > 2 ? " 等" : ""})`;
+      
+      onSyllabusDocNameChange(newDocDisplayName);
+      onSyllabusContentChange(combinedContent.trim());
+    }
+
+    setIsParsingDoc(false);
+    setParsingStatus("");
   };
 
   // Trigger Gemini AI extraction of syllabus topics
@@ -274,8 +294,9 @@ export function CourseSyllabusManager({
             </p>
           </div>
           {syllabusDocName && (
-            <span className="notion-tag-gray px-2 py-0.5 rounded text-[11px] font-medium truncate max-w-xs">
-              📄 {syllabusDocName}
+            <span className="notion-tag-gray px-2 py-0.5 rounded text-[11px] font-medium truncate max-w-xs flex items-center space-x-1">
+              <FileText className="w-3 h-3 text-[#787774]" />
+              <span>{syllabusDocName}</span>
             </span>
           )}
         </div>
@@ -304,6 +325,7 @@ export function CourseSyllabusManager({
               <input
                 id="syllabus-file-input"
                 type="file"
+                multiple
                 accept=".txt,.md,.doc,.docx,.pdf,.rtf,image/*"
                 onChange={(e) => handleFileUpload(e.target.files)}
                 className="hidden"
@@ -318,10 +340,10 @@ export function CourseSyllabusManager({
               <h4 className="font-semibold text-[#37352f] text-xs">
                 {isParsingDoc
                   ? (parsingStatus || (language === "zh" ? "正在解析文档..." : "Parsing document..."))
-                  : (language === "zh" ? "上传考纲文件" : "Upload Syllabus Document")}
+                  : (language === "zh" ? "上传或追加课程考纲文件（支持多选）" : "Upload or add course files (multi-select)")}
               </h4>
               <p className="text-[10px] text-[#787774] mt-0.5">
-                {language === "zh" ? "支持 PDF, Word (.docx), TXT, Markdown" : "PDF, Word (.docx), TXT, Markdown supported"}
+                {language === "zh" ? "支持 PDF, Word (.docx), TXT, Markdown，可添加多份文件" : "Supports PDF, Word, TXT, Markdown (multiple files)"}
               </p>
             </div>
           </div>
@@ -479,7 +501,7 @@ export function CourseSyllabusManager({
                       >
                         <option value="easy">{language === "zh" ? "简单" : "Easy"}</option>
                         <option value="medium">{language === "zh" ? "中等" : "Medium"}</option>
-                        <option value="hard">{language === "zh" ? "高难 🔥" : "Hard 🔥"}</option>
+                        <option value="hard">{language === "zh" ? "高难" : "Hard"}</option>
                       </select>
                     </td>
 

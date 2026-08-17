@@ -21,7 +21,8 @@ import {
   Star,
   Clock,
   HelpCircle,
-  Languages
+  Languages,
+  LayoutDashboard
 } from "lucide-react";
 import { ExamStudyPlan } from "../types";
 import { downloadICSFile } from "../lib/calendarExport";
@@ -34,8 +35,8 @@ interface NotionSidebarProps {
   activePlan: ExamStudyPlan | null;
   onSelectPlan: (planId: string) => void;
   onNewPlan: () => void;
-  currentTab: "todo" | "calendar" | "realtime" | "course" | "materials" | "add_subject";
-  onTabChange: (tab: "todo" | "calendar" | "realtime" | "course" | "materials" | "add_subject") => void;
+  currentTab: "dashboard" | "todo" | "calendar" | "realtime" | "course" | "materials" | "add_subject";
+  onTabChange: (tab: "dashboard" | "todo" | "calendar" | "realtime" | "course" | "add_subject") => void;
   onOpenRebalanceModal: () => void;
 }
 
@@ -96,6 +97,18 @@ export function NotionSidebar({
       {/* Quick Navigation / Primary Views */}
       <div className="px-2 py-3 space-y-0.5 border-b border-[#e9e9e7]">
         <button
+          onClick={() => onTabChange("dashboard")}
+          className={`w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-left transition-colors ${
+            currentTab === "dashboard"
+              ? "bg-[#efefed] font-semibold text-[#37352f]"
+              : "hover:bg-[#efefed] text-[#5a5a57]"
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4 text-[#2b78a0]" />
+          <span className="flex-1 truncate">{t("tabDashboard")}</span>
+        </button>
+
+        <button
           onClick={() => onTabChange("todo")}
           className={`w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-left transition-colors ${
             currentTab === "todo"
@@ -134,25 +147,13 @@ export function NotionSidebar({
         <button
           onClick={() => onTabChange("course")}
           className={`w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-left transition-colors ${
-            currentTab === "course"
+            currentTab === "course" || currentTab === "materials"
               ? "bg-[#efefed] font-semibold text-[#37352f]"
               : "hover:bg-[#efefed] text-[#5a5a57]"
           }`}
         >
           <GraduationCap className="w-4 h-4 text-[#2b78a0]" />
           <span className="flex-1 truncate">{t("tabCourse")}</span>
-        </button>
-
-        <button
-          onClick={() => onTabChange("materials")}
-          className={`w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-left transition-colors ${
-            currentTab === "materials"
-              ? "bg-[#efefed] font-semibold text-[#37352f]"
-              : "hover:bg-[#efefed] text-[#5a5a57]"
-          }`}
-        >
-          <BookOpen className="w-4 h-4 text-[#9065b0]" />
-          <span className="flex-1 truncate">{t("tabMaterials")}</span>
         </button>
       </div>
 
@@ -185,7 +186,7 @@ export function NotionSidebar({
                   : "hover:bg-[#efefed] text-[#5a5a57]"
               }`}
             >
-              <span className="text-sm shrink-0 mt-0.5">🎓</span>
+              <GraduationCap className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[#787774]" />
               <div className="flex-1 min-w-0">
                 <span className="block truncate text-xs">{p.examName}</span>
                 <div className="flex items-center space-x-1.5 text-[10px] text-[#9b9a97] mt-0.5">

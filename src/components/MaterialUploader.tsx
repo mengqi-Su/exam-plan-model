@@ -15,6 +15,7 @@ import {
 import { StudyMaterial, SyllabusTopic } from "../types";
 import { SAMPLE_MATERIALS } from "../lib/storage";
 import { useI18n } from "../lib/i18n";
+import { fallbackExtractSyllabusClient } from "../lib/fallbackPlanner";
 
 interface MaterialUploaderProps {
   materials: StudyMaterial[];
@@ -130,23 +131,35 @@ export function MaterialUploader({
     setExtractError(null);
 
     try {
-      const res = await fetch("/api/extract-syllabus", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          materials: activeMats,
-          examName: examName || (language === "zh" ? "即将到来的考试" : "Upcoming Exam"),
-          subject: subject || (language === "zh" ? "综合学科" : "General"),
-          language,
-        }),
-      });
+      let data: any = null;
+      try {
+        const res = await fetch("/api/extract-syllabus", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            materials: activeMats,
+            examName: examName || (language === "zh" ? "即将到来的考试" : "Upcoming Exam"),
+            subject: subject || (language === "zh" ? "综合学科" : "General"),
+            language,
+          }),
+        });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || (language === "zh" ? "解析大纲失败" : "Failed to extract syllabus"));
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (fetchErr) {
+        console.warn("Network error during syllabus extraction in MaterialUploader:", fetchErr);
       }
 
-      const data = await res.json();
+      if (!data || !data.topics || data.topics.length === 0) {
+        data = fallbackExtractSyllabusClient(
+          activeMats,
+          examName || (language === "zh" ? "即将到来的考试" : "Upcoming Exam"),
+          subject || (language === "zh" ? "综合学科" : "General"),
+          language
+        );
+      }
+
       if (data.summary) {
         onMaterialsSummaryChange(data.summary);
       }
@@ -154,8 +167,15 @@ export function MaterialUploader({
         onTopicsChange(data.topics);
       }
     } catch (err: any) {
-      console.error(err);
-      setExtractError(err.message || (language === "zh" ? "解析大纲失败，请重试。" : "Failed to extract syllabus. Check your connection or API key."));
+      console.error("Extraction error handled:", err);
+      const fallback = fallbackExtractSyllabusClient(
+        activeMats,
+        examName || (language === "zh" ? "即将到来的考试" : "Upcoming Exam"),
+        subject || (language === "zh" ? "综合学科" : "General"),
+        language
+      );
+      if (fallback.summary) onMaterialsSummaryChange(fallback.summary);
+      if (fallback.topics) onTopicsChange(fallback.topics);
     } finally {
       setIsExtracting(false);
     }
@@ -191,7 +211,9 @@ export function MaterialUploader({
       {/* Notion Callout Box Intro */}
       <div className="notion-callout p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-start space-x-3">
-          <span className="text-2xl">📚</span>
+          <div className="w-8 h-8 rounded bg-[#efefed] flex items-center justify-center text-[#787774] shrink-0">
+            <BookOpen className="w-4 h-4" />
+          </div>
           <div>
             <div className="flex items-center space-x-2">
               <h2 className="text-base font-bold text-[#37352f]">
@@ -531,7 +553,7 @@ export function MaterialUploader({
                       >
                         <option value="easy">{language === "zh" ? "简单" : "Easy"}</option>
                         <option value="medium">{language === "zh" ? "中等" : "Medium"}</option>
-                        <option value="hard">{language === "zh" ? "高难 🔥" : "Hard 🔥"}</option>
+                        <option value="hard">{language === "zh" ? "高难" : "Hard"}</option>
                       </select>
                     </td>
 

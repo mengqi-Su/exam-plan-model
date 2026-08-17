@@ -10,11 +10,13 @@ import {
   Zap, 
   AlertCircle,
   ArrowLeft,
-  CalendarDays
+  CalendarDays,
+  Flame
 } from "lucide-react";
 import { DaySchedulePreference, ExamStudyPlan, StudyMaterial, SyllabusTopic, UserStudyPreferences } from "../types";
 import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
 import { useI18n } from "../lib/i18n";
+import { fallbackGeneratePlanClient } from "../lib/fallbackPlanner";
 
 interface PlanPreferencesFormProps {
   examName: string;
@@ -118,23 +120,29 @@ export function PlanPreferencesForm({
     };
 
     try {
-      const res = await fetch("/api/generate-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topics,
-          preferences,
-          materialsSummary,
-          language,
-        }),
-      });
+      let data: any = null;
+      try {
+        const res = await fetch("/api/generate-plan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topics,
+            preferences,
+            materialsSummary,
+            language,
+          }),
+        });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || (language === "zh" ? "生成学习计划失败" : "Failed to generate study plan"));
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (fetchErr) {
+        console.warn("Network error during plan generation in preferences form:", fetchErr);
       }
 
-      const data = await res.json();
+      if (!data || !data.tasks || data.tasks.length === 0) {
+        data = fallbackGeneratePlanClient(topics, preferences);
+      }
 
       const createdPlan: ExamStudyPlan = {
         id: `plan-${Date.now()}`,
@@ -156,8 +164,26 @@ export function PlanPreferencesForm({
 
       onPlanGenerated(createdPlan);
     } catch (err: any) {
-      console.error(err);
-      setGenerateError(err.message || (language === "zh" ? "生成学习计划失败，请重试。" : "Failed to generate plan. Please try again."));
+      console.error("Plan creation fallback handling:", err);
+      const safeData = fallbackGeneratePlanClient(topics, preferences);
+      const createdPlan: ExamStudyPlan = {
+        id: `plan-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        examName: preferences.examName,
+        subject: preferences.subject,
+        startDate: preferences.startDate,
+        examDate: preferences.examDate,
+        examTime: preferences.examTime,
+        totalPlannedHours: safeData.totalPlannedHours || 30,
+        phases: safeData.phases,
+        topics,
+        tasks: safeData.tasks,
+        preferences,
+        materialsSummary,
+        materials: materials && materials.length > 0 ? materials : undefined,
+      };
+      onPlanGenerated(createdPlan);
     } finally {
       setIsGenerating(false);
     }
@@ -481,7 +507,7 @@ export function PlanPreferencesForm({
                     }`}
                   >
                     <span>{top.title}</span>
-                    {top.difficulty === "hard" && <span className="text-[10px]">🔥</span>}
+                    {top.difficulty === "hard" && <Flame className="w-3 h-3 text-[#eb5757]" />}
                   </button>
                 );
               })}

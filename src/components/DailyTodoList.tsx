@@ -253,7 +253,7 @@ export function DailyTodoList({
 
           <div className="flex items-center space-x-2 pl-2">
             <h2 className="text-base font-bold text-[#37352f] flex items-center space-x-2">
-              <span>📅</span>
+              <CalendarIcon className="w-4 h-4 text-[#787774]" />
               <span>{formattedDate}</span>
             </h2>
             <input
@@ -331,7 +331,7 @@ export function DailyTodoList({
       {/* Notion Callout Box if no tasks or general daily guidance */}
       {filteredTasks.length === 0 ? (
         <div className="notion-callout p-6 text-center space-y-2">
-          <span className="text-3xl block">📖</span>
+          <BookOpen className="w-8 h-8 mx-auto text-[#787774]" />
           <h3 className="font-semibold text-sm text-[#37352f]">
             {t("noTasksToday", { date: formattedDate })}
           </h3>
@@ -696,7 +696,7 @@ export function DailyTodoList({
 
                     {task.activeRecallPrompt && (
                       <div className="notion-callout p-2.5 text-xs text-[#37352f] flex items-start space-x-2 mt-2">
-                        <span className="text-sm">💡</span>
+                        <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                         <div>
                           <strong className="font-semibold text-[11px] block">{t("activeRecallPromptTitle")}</strong>
                           <span className="text-[11px] text-[#5a5a57]">{task.activeRecallPrompt}</span>

@@ -12,7 +12,9 @@ import {
   Filter,
   Layers,
   ArrowRight,
-  Plus
+  Plus,
+  Target,
+  Compass
 } from "lucide-react";
 import { ExamStudyPlan, StudyTask } from "../types";
 import { downloadICSFile } from "../lib/calendarExport";
@@ -264,8 +266,9 @@ export function CalendarView({
                   </span>
 
                   {day.isExamDay && (
-                    <span className="notion-tag-red px-1.5 py-0.2 rounded text-[9px] font-bold uppercase">
-                      🎯 {language === "zh" ? "考试日" : "Exam"}
+                    <span className="notion-tag-red px-1.5 py-0.2 rounded text-[9px] font-bold uppercase flex items-center space-x-1">
+                      <Target className="w-2.5 h-2.5 shrink-0" />
+                      <span>{language === "zh" ? "考试日" : "Exam"}</span>
                     </span>
                   )}
 
@@ -319,7 +322,7 @@ export function CalendarView({
       {plan.phases && plan.phases.length > 0 && (
         <div className="notion-callout p-5 space-y-3">
           <div className="flex items-center space-x-2">
-            <span className="text-lg">🗺️</span>
+            <Compass className="w-4 h-4 text-[#787774]" />
             <h3 className="font-semibold text-sm text-[#37352f]">
               {language === "zh" ? "备考阶段规划与关键里程碑" : "Master Study Phases & Milestones"}
             </h3>

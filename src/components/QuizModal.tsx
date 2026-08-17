@@ -3,6 +3,7 @@ import { X, Sparkles, CheckCircle2, XCircle, HelpCircle, ArrowRight, Check } fro
 import { ActiveRecallQuizQuestion, StudyTask } from "../types";
 import { playCompletionChime } from "../lib/audio";
 import { useI18n } from "../lib/i18n";
+import { fallbackGenerateQuizClient } from "../lib/fallbackPlanner";
 
 interface QuizModalProps {
   task: StudyTask;
@@ -32,50 +33,38 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
       setRevealedAnswers({});
 
       try {
-        const res = await fetch("/api/generate-quiz", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            topicTitle: task.topicTitle,
-            taskTitle: task.title,
-            keyObjectives: task.keyObjectives,
-            language,
-          }),
-        });
+        let data: any = null;
+        try {
+          const res = await fetch("/api/generate-quiz", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              topicTitle: task.topicTitle,
+              taskTitle: task.title,
+              keyObjectives: task.keyObjectives,
+              language,
+            }),
+          });
 
-        if (!res.ok) {
-          throw new Error(language === "zh" ? "生成测试题失败" : "Failed to generate quiz questions");
+          if (res.ok) {
+            data = await res.json();
+          }
+        } catch (fetchErr) {
+          console.warn("Network error during quiz fetch, generating local questions:", fetchErr);
         }
 
-        const data = await res.json();
+        if (!data || !data.questions || data.questions.length === 0) {
+          data = fallbackGenerateQuizClient(task.topicTitle, task.title, language);
+        }
+
         if (data.questions && data.questions.length > 0) {
           setQuestions(data.questions);
         } else {
-          // Fallback if empty
-          setQuestions([
-            {
-              id: "q-fallback",
-              question: task.activeRecallPrompt || (language === "zh" ? `请阐述关于「${task.topicTitle}」的核心概念与解题要点。` : `Explain the core principles of ${task.topicTitle}.`),
-              options: language === "zh" ? [
-                "掌握核心公式推导与理论基础",
-                "辨析易错边界条件与特殊约束",
-                "运用方法进行多步骤综合解题",
-                "以上全部均是掌握要求"
-              ] : [
-                "Understand the primary formula and theoretical derivation",
-                "Recognize edge case scenarios and constraints",
-                "Apply the method to multi-step problem solving",
-                "All of the above"
-              ],
-              correctAnswer: language === "zh" ? "以上全部均是掌握要求" : "All of the above",
-              explanation: language === "zh" ? "全面掌握知识点既需要概念清晰，也需要在限时条件下灵活解题。" : "Mastery requires both conceptual clarity and application under timed constraints.",
-              topicTitle: task.topicTitle,
-            }
-          ]);
+          setQuestions(fallbackGenerateQuizClient(task.topicTitle, task.title, language).questions);
         }
       } catch (err: any) {
-        console.error(err);
-        setError(err.message || (language === "zh" ? "加载自测题失败" : "Failed to load quiz"));
+        console.error("Quiz load handled:", err);
+        setQuestions(fallbackGenerateQuizClient(task.topicTitle, task.title, language).questions);
       } finally {
         setLoading(false);
       }

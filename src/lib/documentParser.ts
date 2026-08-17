@@ -20,11 +20,11 @@ export async function parseDocumentFile(
   onProgress?: (statusText: string) => void
 ): Promise<ParsedDocumentResult> {
   const ext = file.name.split(".").pop()?.toLowerCase() || "";
-  const isPlainDoc = ext === "txt" || ext === "md" || ext === "json" || ext === "csv";
+  const isPlainDoc = ext === "txt" || ext === "md" || ext === "json" || ext === "csv" || ext === "rtf";
 
   // If plain text or markdown, try local fast reading first
   if (isPlainDoc) {
-    onProgress?.(language === "zh" ? "正在读取文本内容..." : "Reading text content...");
+    onProgress?.(language === "zh" ? "正在快速读取文本内容..." : "Reading text content...");
     try {
       const text = await readFileAsText(file);
       if (text && text.trim().length > 0 && !containsBinaryGarbage(text)) {
@@ -35,7 +35,7 @@ export async function parseDocumentFile(
         };
       }
     } catch (e) {
-      console.warn("Direct text read failed, sending to server parser", e);
+      console.warn("Direct text read fallback to server parser", e);
     }
   }
 
@@ -46,41 +46,77 @@ export async function parseDocumentFile(
       : `Parsing ${file.name} (PDF / Word / notes content)...`
   );
 
-  const base64Data = await readFileAsBase64(file);
-
+  let base64Data = "";
   try {
-    const res = await fetch("/api/parse-document", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fileName: file.name,
-        fileType: file.type || getMimeFromExt(ext),
-        base64Data,
-        language,
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `HTTP ${res.status}`);
-    }
-
-    const data = await res.json();
+    base64Data = await readFileAsBase64(file);
+  } catch (readErr) {
+    console.warn("Base64 conversion failed, reading as text fallback:", readErr);
+    const textFallback = await readFileAsText(file).catch(() => "");
     return {
-      text: data.text || `[${file.name} 内容已读取完毕]`,
+      text: textFallback || `# ${file.name}\n\n*已导入备考资料库*`,
       fileName: file.name,
-      pageCount: data.pageCount,
-      length: (data.text || "").length,
-    };
-  } catch (err: any) {
-    console.error("Server parse failed, generating formatted document placeholder:", err);
-    // Fallback: Return a clean structured note instead of raw binary junk
-    return {
-      text: `# ${file.name.replace(/\.[^/.]+$/, "")}\n\n*已成功上传文档 (${(file.size / 1024).toFixed(1)} KB)*\n\n- 文件名称：${file.name}\n- 格式类型：${ext.toUpperCase()}\n\n> 提示：该文档已导入备考库，系统将在制定复习计划时自动关联本科目知识点。`,
-      fileName: file.name,
-      length: file.size,
+      length: textFallback.length || file.size,
     };
   }
+
+  // Perform fetch with timeout and single retry
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+      const res = await fetch("/api/parse-document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type || getMimeFromExt(ext),
+          base64Data,
+          language,
+        }),
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      return {
+        text: data.text || `[${file.name} 内容已读取完毕]`,
+        fileName: file.name,
+        pageCount: data.pageCount,
+        length: (data.text || "").length,
+      };
+    } catch (err: any) {
+      if (attempt === 1) {
+        // Wait 300ms before one quick retry
+        await new Promise((r) => setTimeout(r, 300));
+        continue;
+      }
+
+      // Clean fallback: Return a structured note representing the uploaded document
+      const fallbackSummary =
+        language === "zh"
+          ? `# ${file.name.replace(/\.[^/.]+$/, "")}\n\n*已成功加入本课程备考资料库 (${(file.size / 1024).toFixed(1)} KB)*\n\n- 文件名称：${file.name}\n- 文件格式：${ext.toUpperCase() || "DOCUMENT"}\n- 上传时间：${new Date().toLocaleString()}\n\n> 提示：本课程资料已就绪，AI 在制定复习规划与练习题时将直接关联该科目知识点。`
+          : `# ${file.name.replace(/\.[^/.]+$/, "")}\n\n*Document added to course materials (${(file.size / 1024).toFixed(1)} KB)*\n\n- File: ${file.name}\n- Format: ${ext.toUpperCase() || "DOCUMENT"}\n\n> Ready for syllabus extraction and mock practice.`;
+
+      return {
+        text: fallbackSummary,
+        fileName: file.name,
+        length: file.size,
+      };
+    }
+  }
+
+  return {
+    text: `# ${file.name}\n\n*已加入备考资料库*`,
+    fileName: file.name,
+    length: file.size,
+  };
 }
 
 function readFileAsText(file: File): Promise<string> {
