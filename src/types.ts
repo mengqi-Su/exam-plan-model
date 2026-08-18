@@ -135,3 +135,46 @@ export interface PlanAnalytics {
   currentStreakDays: number;
   averageMasteryScore: number;
 }
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+  institution?: string;
+  major?: string;
+  targetDegreeOrGoal?: string;
+  isLoggedIn: boolean;
+  memberSince: string;
+  membershipTier: 'Free' | 'Pro Student' | 'Master Scholar';
+  totalStudyMinutes: number;
+  studyStreakDays: number;
+  completedExamsCount: number;
+}
+
+export interface AppSettings {
+  defaultFocusDuration: number; // 25, 45, 60, 90 mins
+  enableSoundAlerts: boolean;
+  enableDailyReminders: boolean;
+  firstDayOfWeek: 'monday' | 'sunday';
+  dateFormat: 'YYYY-MM-DD' | 'MM/DD/YYYY' | 'DD/MM/YYYY';
+  rebalanceSensitivity: 'high' | 'balanced' | 'conservative';
+  defaultStudyPace: 'balanced' | 'intensive_crash' | 'deep_mastery' | 'spaced_repetition';
+  autoSaveCloud: boolean;
+  themeMode: 'light' | 'dark' | 'system';
+}
+
+export interface AppVersionInfo {
+  version: string;
+  releaseName: string;
+  buildDate: string;
+  buildNumber: string;
+  environment: string;
+  changelog: {
+    version: string;
+    date: string;
+    title: string;
+    highlights: string[];
+  }[];
+}
+

@@ -38,8 +38,9 @@ export function generateICSContent(plan: ExamStudyPlan, selectedTasks?: StudyTas
     const startTime = task.startTime || "09:00";
     const dtStart = formatDateToICS(task.date, startTime);
     const dtEnd = getEndTime(task.date, startTime, task.durationMinutes);
-    const summary = `[Study] ${task.title}`;
-    const description = `Exam: ${plan.examName} (${plan.subject})\\nTopic: ${task.topicTitle}\\nCategory: ${task.category.toUpperCase()}\\nPriority: ${task.priority.toUpperCase()}\\nDuration: ${task.durationMinutes} mins\\n\\nObjectives:\\n${(task.keyObjectives || []).map(obj => `- ${obj}`).join('\\n')}\\n\\nDetails:\\n${task.description.replace(/\n/g, '\\n')}`;
+    const summary = `[Study] ${task.title || "Study Task"}`;
+    const taskDesc = (task.description || "").replace(/\n/g, '\\n');
+    const description = `Exam: ${plan.examName || "Exam"} (${plan.subject || "Subject"})\\nTopic: ${task.topicTitle || "Topic"}\\nCategory: ${(task.category || "study").toUpperCase()}\\nPriority: ${(task.priority || "medium").toUpperCase()}\\nDuration: ${task.durationMinutes || 45} mins\\n\\nObjectives:\\n${(task.keyObjectives || []).map(obj => `- ${obj}`).join('\\n')}\\n\\nDetails:\\n${taskDesc}`;
 
     return `BEGIN:VEVENT
 UID:study-task-${task.id}@examplan.ai
@@ -106,7 +107,7 @@ export function downloadICSFile(plan: ExamStudyPlan, selectedTasks?: StudyTask[]
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.setAttribute("download", `${plan.examName.toLowerCase().replace(/[^a-z0-9]/g, "_")}_study_plan.ics`);
+  link.setAttribute("download", `${(plan.examName || "exam").toLowerCase().replace(/[^a-z0-9]/g, "_")}_study_plan.ics`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

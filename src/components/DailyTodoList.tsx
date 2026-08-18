@@ -252,15 +252,11 @@ export function DailyTodoList({
           </div>
 
           <div className="flex items-center space-x-2 pl-2">
-            <h2 className="text-base font-bold text-[#37352f] flex items-center space-x-2">
-              <CalendarIcon className="w-4 h-4 text-[#787774]" />
-              <span>{formattedDate}</span>
-            </h2>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => onSelectDate(e.target.value)}
-              className="text-xs text-[#787774] hover:text-[#37352f] bg-transparent border-none focus:outline-none cursor-pointer"
+              className="text-xs text-[#787774] hover:text-[#37352f] bg-transparent border border-[#e9e9e7] rounded px-2 py-1 focus:outline-none cursor-pointer"
             />
           </div>
         </div>

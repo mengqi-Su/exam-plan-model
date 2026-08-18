@@ -13,10 +13,20 @@
     --notion-callout: #f7f6f5;
   }
 
+  html, body, button, input, select, textarea {
+    font-family: 'Google Sans', 'Plus Jakarta Sans', 'Noto Sans SC', 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif;
     color: #37352f;
     background-color: #ffffff;
+  }
+
+  code, kbd, samp, pre {
+    font-family: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   }
 }
 

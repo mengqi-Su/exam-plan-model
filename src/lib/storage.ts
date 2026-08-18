@@ -1,4 +1,4 @@
-import { ExamStudyPlan, StudyMaterial, UserStudyPreferences } from "../types";
+import { ExamStudyPlan, StudyMaterial, UserStudyPreferences, UserProfile, AppSettings } from "../types";
 
 const STORAGE_KEY_PLANS = "exam_planner_saved_plans_v1";
 const STORAGE_KEY_ACTIVE_ID = "exam_planner_active_plan_id_v1";
@@ -493,3 +493,173 @@ export function saveUploadedMaterials(materials: StudyMaterial[]) {
     console.error("Failed to save materials", e);
   }
 }
+
+// User Profile & Authentication State
+const STORAGE_KEY_USER = "exam_planner_user_profile_v1";
+
+export const DEFAULT_USER_PROFILE = {
+  id: "user-default-101",
+  name: "Alex Chen",
+  email: "alex.chen@university.edu",
+  avatar: "🎓",
+  institution: "Computer Science & Engineering Dept",
+  major: "Computer Science",
+  targetDegreeOrGoal: "Fall Final Exams & GRE prep",
+  isLoggedIn: true,
+  memberSince: "2026-01-15",
+  membershipTier: "Pro Student" as const,
+  totalStudyMinutes: 2460,
+  studyStreakDays: 12,
+  completedExamsCount: 3,
+};
+
+export const DEMO_ACCOUNTS = [
+  {
+    id: "user-alex",
+    name: "Alex Chen (陈博宇)",
+    email: "alex.chen@cs.edu",
+    avatar: "🎓",
+    institution: "School of Computing",
+    major: "Computer Science",
+    targetDegreeOrGoal: "期末算法统考 90+ 与 保研冲刺",
+    membershipTier: "Pro Student" as const,
+    totalStudyMinutes: 2460,
+    studyStreakDays: 12,
+    completedExamsCount: 3,
+  },
+  {
+    id: "user-sarah",
+    name: "Sarah Li (李晓萱)",
+    email: "sarah.li@med.edu",
+    avatar: "🔬",
+    institution: "School of Medicine",
+    major: "Clinical Medicine & Physiology",
+    targetDegreeOrGoal: "生理学综合统考 A 等级",
+    membershipTier: "Master Scholar" as const,
+    totalStudyMinutes: 3890,
+    studyStreakDays: 24,
+    completedExamsCount: 5,
+  },
+  {
+    id: "user-david",
+    name: "David Zhang (张浩然)",
+    email: "david.zhang@econ.edu",
+    avatar: "📊",
+    institution: "School of Economics & Finance",
+    major: "Quantitative Finance",
+    targetDegreeOrGoal: "CFA 一级 & 计量经济学期末",
+    membershipTier: "Pro Student" as const,
+    totalStudyMinutes: 1720,
+    studyStreakDays: 7,
+    completedExamsCount: 2,
+  },
+];
+
+export function loadUserProfile(): UserProfile {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_USER);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+    return DEFAULT_USER_PROFILE;
+  } catch (e) {
+    return DEFAULT_USER_PROFILE;
+  }
+}
+
+export function saveUserProfile(profile: UserProfile) {
+  try {
+    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(profile));
+  } catch (e) {
+    console.error("Failed to save user profile", e);
+  }
+}
+
+// App Settings & Configuration
+const STORAGE_KEY_SETTINGS = "exam_planner_app_settings_v1";
+
+export const DEFAULT_APP_SETTINGS: AppSettings = {
+  defaultFocusDuration: 45,
+  enableSoundAlerts: true,
+  enableDailyReminders: true,
+  firstDayOfWeek: "monday",
+  dateFormat: "YYYY-MM-DD",
+  rebalanceSensitivity: "balanced",
+  defaultStudyPace: "spaced_repetition",
+  autoSaveCloud: true,
+  themeMode: "light",
+};
+
+export function loadAppSettings(): AppSettings {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_SETTINGS);
+    if (raw) {
+      return { ...DEFAULT_APP_SETTINGS, ...JSON.parse(raw) };
+    }
+    return DEFAULT_APP_SETTINGS;
+  } catch (e) {
+    return DEFAULT_APP_SETTINGS;
+  }
+}
+
+export function saveAppSettings(settings: AppSettings) {
+  try {
+    localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+  } catch (e) {
+    console.error("Failed to save app settings", e);
+  }
+}
+
+export const SAMPLE_PLANS: ExamStudyPlan[] = [getSamplePlan()];
+
+// Version & Changelog Information
+export const APP_VERSION_DATA = {
+  version: "v2.5.0",
+  releaseName: "Notion Modular Hub & Intelligent Orchestrator",
+  buildDate: "2026-08-18",
+  buildNumber: "build-20260818.025",
+  environment: "Production (Cloud Run Sandbox)",
+  changelog: [
+    {
+      version: "v2.5.0",
+      date: "2026-08-18",
+      title: "系统配置中心、用户账户体系与多语言切换",
+      highlights: [
+        "全新多功能设置中心 (Configuration Modal)，涵盖专注时长、提醒音效与算法灵敏度配置",
+        "完整用户登录与账户切换系统 (User Auth & Profiles)，支持多学科学生身份即时切换",
+        "一键语言调节中心 (Multi-Language Settings)，支持中英双语即时切换与持久化存储",
+        "版本档案与系统诊断看板 (Version Diagnostics & Changelog)，实时查看数据同步与运行状态",
+      ],
+    },
+    {
+      version: "v2.4.0",
+      date: "2026-08-18",
+      title: "科目专属层级化结构与子功能视图重构",
+      highlights: [
+        "重构左侧 Notion 树形导航：点击具体科目直接展开'每日清单'、'复习日历'、'进度追踪'与'知识库大纲'",
+        "在页面顶部属性栏内置直观的子视图快速切换条，大幅提升科目备考上下文流转效率",
+        "优化全学科备考总览主看板 (Master Study Hub) 作为统一工作区入口",
+      ],
+    },
+    {
+      version: "v2.3.0",
+      date: "2026-08-17",
+      title: "Active Recall 智能自测问答与考纲精通度跟踪",
+      highlights: [
+        "引入艾宾浩斯与费曼学习法的主动回忆 (Active Recall) 交互式测验弹窗",
+        "支持考纲知识点掌握程度 (Mastery Score) 实时评级与薄弱考点重点标注",
+        "新增考纲与真题试卷库分类知识库分类管理器 (Materials & Questions Hub)",
+      ],
+    },
+    {
+      version: "v2.2.0",
+      date: "2026-08-16",
+      title: "Notion 风格视觉规范与 ICS 日历同步",
+      highlights: [
+        "深度还原 Notion 风格渐变封面、属性矩阵与轻量卡片布局",
+        "支持一键导出全套备考排程为标准 .ICS 格式，无缝导入 Google Calendar 与 Apple 日历",
+      ],
+    },
+  ],
+};
+

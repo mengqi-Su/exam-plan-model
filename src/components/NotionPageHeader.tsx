@@ -18,20 +18,27 @@ import {
   Zap,
   Layers,
   BarChart3,
-  LayoutDashboard
+  LayoutDashboard,
+  Settings,
+  User,
+  Languages,
+  Info
 } from "lucide-react";
-import { ExamStudyPlan } from "../types";
+import { ExamStudyPlan, UserProfile } from "../types";
 import { downloadICSFile } from "../lib/calendarExport";
 import { useI18n } from "../lib/i18n";
+import { APP_VERSION_DATA } from "../lib/storage";
 
 interface NotionPageHeaderProps {
   activePlan: ExamStudyPlan | null;
-  currentTab: "dashboard" | "todo" | "calendar" | "realtime" | "course" | "materials" | "add_subject";
-  onTabChange: (tab: "dashboard" | "todo" | "calendar" | "realtime" | "course" | "materials" | "add_subject") => void;
+  currentTab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject";
+  onTabChange: (tab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject") => void;
   onOpenRebalanceModal: () => void;
   onNewPlan: () => void;
   searchQuery: string;
   onSearchChange: (q: string) => void;
+  userProfile?: UserProfile;
+  onOpenSettings?: (tab?: "general" | "account" | "language" | "version") => void;
 }
 
 export function NotionPageHeader({
@@ -42,8 +49,10 @@ export function NotionPageHeader({
   onNewPlan,
   searchQuery,
   onSearchChange,
+  userProfile,
+  onOpenSettings,
 }: NotionPageHeaderProps) {
-  const { t, language } = useI18n();
+  const { t, language, setLanguage } = useI18n();
 
   if (currentTab === "add_subject") {
     return (
@@ -66,7 +75,7 @@ export function NotionPageHeader({
             <span>/</span>
             <span className="font-medium text-[#37352f] truncate flex items-center space-x-1.5">
               <Plus className="w-3.5 h-3.5" />
-              <span>{language === "zh" ? "添加新考试科目与智能备考" : "Add Exam Subject & Plan"}</span>
+              <span>{language === "zh" ? "新建科目" : "Add Exam Subject & Plan"}</span>
             </span>
           </div>
 
@@ -107,7 +116,21 @@ export function NotionPageHeader({
             <span>/</span>
             <span className="font-medium text-[#37352f] truncate flex items-center space-x-1.5">
               <LayoutDashboard className="w-3.5 h-3.5 text-[#2b78a0]" />
-              <span>{language === "zh" ? "全学科备考总览主看板" : "Master Study Hub"}</span>
+              <span>{language === "zh" ? "总览看板" : "Master Study Hub"}</span>
+            </span>
+          </div>
+        ) : currentTab === "master_calendar" ? (
+          <div className="flex items-center space-x-2 truncate">
+            <button
+              onClick={() => onTabChange("dashboard")}
+              className="hover:text-[#37352f] transition-colors"
+            >
+              {t("workspace")}
+            </button>
+            <span>/</span>
+            <span className="font-medium text-[#37352f] truncate flex items-center space-x-1.5">
+              <Calendar className="w-3.5 h-3.5 text-[#2b78a0]" />
+              <span>{language === "zh" ? "全科日历" : "Master Calendar"}</span>
             </span>
           </div>
         ) : (
@@ -134,26 +157,15 @@ export function NotionPageHeader({
         )}
 
         <div className="flex items-center space-x-1 sm:space-x-2">
-          {currentTab !== "dashboard" && activePlan && (
-            <>
-              <button
-                onClick={onOpenRebalanceModal}
-                className="flex items-center space-x-1 px-2.5 py-1 text-[#937264] hover:bg-[#f4eeee] rounded text-xs transition-colors border border-[#e8dedc]"
-                title="Dynamically adjust and rebalance study schedule"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t("adaptiveRebalance")}</span>
-              </button>
-
-              <button
-                onClick={() => downloadICSFile(activePlan)}
-                className="flex items-center space-x-1 px-2.5 py-1 text-[#448361] hover:bg-[#edf3ec] rounded text-xs transition-colors border border-[#d5e5d3]"
-                title="Export .ics calendar sync file"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t("exportICS")}</span>
-              </button>
-            </>
+          {currentTab !== "dashboard" && currentTab !== "master_calendar" && activePlan && (
+            <button
+              onClick={onOpenRebalanceModal}
+              className="flex items-center space-x-1 px-2.5 py-1 text-[#937264] hover:bg-[#f4eeee] rounded text-xs transition-colors border border-[#e8dedc]"
+              title="Dynamically adjust and rebalance study schedule"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{t("adaptiveRebalance")}</span>
+            </button>
           )}
 
           <button
@@ -161,26 +173,60 @@ export function NotionPageHeader({
             className="flex items-center space-x-1.5 px-2.5 py-1 text-[#37352f] bg-[#efefed] hover:bg-[#e3e2e0] rounded text-xs transition-colors font-medium shadow-2xs"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{language === "zh" ? "添加新科目" : t("newPlan")}</span>
+            <span className="hidden sm:inline">{language === "zh" ? "新建科目" : t("newPlan")}</span>
           </button>
+
+          {/* Language Switcher Button */}
+          <button
+            onClick={() => onOpenSettings ? onOpenSettings("language") : setLanguage(language === "zh" ? "en" : "zh")}
+            className="flex items-center space-x-1 px-2 py-1 text-[#5a5a57] hover:bg-[#efefed] hover:text-[#37352f] rounded text-xs transition-colors border border-[#e9e9e7]"
+            title="Adjust Language / 切换语言"
+          >
+            <Languages className="w-3.5 h-3.5 text-[#787774]" />
+            <span className="font-semibold text-[11px]">{language === "zh" ? "中" : "EN"}</span>
+          </button>
+
+          {/* Settings & Configuration Button */}
+          {onOpenSettings && (
+            <button
+              onClick={() => onOpenSettings("general")}
+              className="p-1.5 text-[#5a5a57] hover:bg-[#efefed] hover:text-[#37352f] rounded text-xs transition-colors border border-[#e9e9e7]"
+              title={t("settingsTitle")}
+            >
+              <Settings className="w-3.5 h-3.5" />
+            </button>
+          )}
+
+          {/* User Account & Login Profile Button */}
+          {onOpenSettings && userProfile && (
+            <button
+              onClick={() => onOpenSettings("account")}
+              className={`flex items-center space-x-1.5 pl-1.5 pr-2.5 py-1 rounded text-xs transition-all border ${
+                userProfile.isLoggedIn
+                  ? "bg-[#faf9f6] border-[#e9e9e7] hover:border-[#37352f] text-[#37352f]"
+                  : "bg-[#37352f] text-white border-[#37352f]"
+              }`}
+              title={userProfile.isLoggedIn ? userProfile.name : t("userLoginBtn")}
+            >
+              <span className="text-xs">{userProfile.isLoggedIn ? (userProfile.avatar || "🎓") : "👤"}</span>
+              <span className="font-medium max-w-[80px] sm:max-w-[110px] truncate text-[11px]">
+                {userProfile.isLoggedIn ? userProfile.name.split(" ")[0] : t("userLoginBtn")}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* Notion Page Cover Banner & Single-Course Properties Header: Only shown on Course-specific tabs */}
-      {currentTab !== "dashboard" && (
+      {currentTab !== "dashboard" && currentTab !== "master_calendar" && (
         <>
           {/* Notion Page Cover Banner */}
           <div className="h-32 sm:h-40 w-full bg-gradient-to-r from-[#f7f6f3] via-[#faece3] to-[#e7f3f8] relative overflow-hidden">
             <div className="absolute inset-0 bg-[radial-gradient(#e9e9e7_1px,transparent_1px)] [background-size:16px_16px] opacity-40" />
           </div>
 
-          {/* Notion Page Content Header: Floating Icon, Title, Notion Properties */}
-          <div className="max-w-6xl mx-auto px-4 sm:px-8 -mt-9 pb-4">
-            {/* Floating Page Icon */}
-            <div className="w-16 h-16 rounded-xl bg-white border border-[#e9e9e7] shadow-sm flex items-center justify-center select-none mb-3">
-              <GraduationCap className="w-8 h-8 text-[#37352f]" />
-            </div>
-
+          {/* Notion Page Content Header: Title, Notion Properties */}
+          <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-4 pb-4">
             {/* Title */}
             <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-[#37352f]">
               {activePlan?.examName || t("untitledPlan")}
@@ -237,7 +283,7 @@ export function NotionPageHeader({
                     <span>{t("propStudyPace")}</span>
                   </span>
                   <span className="notion-tag-purple px-2 py-0.5 rounded text-[11px] font-medium capitalize">
-                    {activePlan.preferences.studyPace.replace("_", " ")}
+                    {(activePlan.preferences?.studyPace || "spaced_repetition").replace(/_/g, " ")}
                   </span>
                 </div>
 
@@ -267,12 +313,12 @@ export function NotionPageHeader({
                     <span>{t("propTargetScore")}</span>
                   </span>
                   <span className="notion-tag-yellow px-2 py-0.5 rounded text-[11px] font-medium">
-                    {activePlan.preferences.targetScoreOrGrade || "Target Grade A"}
+                    {activePlan.preferences?.targetScoreOrGrade || "Target Grade A"}
                   </span>
                 </div>
 
                 {/* Weak Areas Focus */}
-                {activePlan.preferences.weakTopicsFocus && activePlan.preferences.weakTopicsFocus.length > 0 && (
+                {activePlan.preferences?.weakTopicsFocus && activePlan.preferences.weakTopicsFocus.length > 0 && (
                   <div className="flex items-center space-x-2">
                     <span className="w-28 text-[#787774] flex items-center space-x-1.5 shrink-0">
                       <Target className="w-3.5 h-3.5" />
@@ -294,93 +340,71 @@ export function NotionPageHeader({
                 )}
               </div>
             )}
+
+            {/* Course Sub-View Navigation Segment */}
+            <div className="mt-4 pt-2 border-t border-[#e9e9e7] flex items-center justify-between overflow-x-auto no-scrollbar">
+              <div className="flex items-center space-x-1.5">
+                <button
+                  onClick={() => onTabChange("todo")}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    currentTab === "todo"
+                      ? "bg-[#37352f] text-white shadow-xs"
+                      : "text-[#5a5a57] hover:bg-[#efefed] hover:text-[#37352f]"
+                  }`}
+                >
+                  <CheckCircle2 className={`w-3.5 h-3.5 ${currentTab === "todo" ? "text-white" : "text-[#448361]"}`} />
+                  <span>{language === "zh" ? "每日待办" : "Daily Checklist"}</span>
+                  {activePlan && (
+                    <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] ${currentTab === "todo" ? "bg-white/20 text-white" : "bg-[#e9e9e7] text-[#5a5a57]"}`}>
+                      {activePlan.tasks.length}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => onTabChange("realtime")}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    currentTab === "realtime"
+                      ? "bg-[#37352f] text-white shadow-xs"
+                      : "text-[#5a5a57] hover:bg-[#efefed] hover:text-[#37352f]"
+                  }`}
+                >
+                  <BarChart3 className={`w-3.5 h-3.5 ${currentTab === "realtime" ? "text-white" : "text-[#cb912f]"}`} />
+                  <span>{language === "zh" ? "进度追踪" : "Progress Tracker"}</span>
+                </button>
+
+                <button
+                  onClick={() => onTabChange("course")}
+                  className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    currentTab === "course" || currentTab === "materials"
+                      ? "bg-[#37352f] text-white shadow-xs"
+                      : "text-[#5a5a57] hover:bg-[#efefed] hover:text-[#37352f]"
+                  }`}
+                >
+                  <GraduationCap className={`w-3.5 h-3.5 ${currentTab === "course" || currentTab === "materials" ? "text-white" : "text-[#2b78a0]"}`} />
+                  <span>{language === "zh" ? "考纲资料" : "Knowledge Base"}</span>
+                  {activePlan && (
+                    <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] ${currentTab === "course" || currentTab === "materials" ? "bg-white/20 text-white" : "bg-[#e9e9e7] text-[#5a5a57]"}`}>
+                      {(activePlan.topics?.length || 0) + (activePlan.materials?.length || 0)}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Quick Search */}
+              <div className="relative my-0.5 hidden sm:block">
+                <Search className="w-3.5 h-3.5 text-[#9b9a97] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  placeholder={t("searchPlaceholder")}
+                  className="pl-8 pr-3 py-1 bg-[#f7f6f3] border border-[#e9e9e7] hover:border-[#dfdfde] focus:border-[#2b78a0] focus:bg-white rounded-md text-xs text-[#37352f] placeholder-[#9b9a97] focus:outline-none w-44 transition-all"
+                />
+              </div>
+            </div>
           </div>
         </>
-      )}
-
-      {/* Notion Database Views Tab Strip: Only shown on Course-specific tabs */}
-      {currentTab !== "dashboard" && (
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 flex items-center justify-between border-t border-[#e9e9e7] overflow-x-auto no-scrollbar">
-          <div className="flex space-x-1 py-1">
-            <button
-              onClick={() => onTabChange("dashboard")}
-              className="flex items-center space-x-1.5 px-3 py-2 text-xs font-medium rounded-md whitespace-nowrap transition-colors text-[#787774] hover:text-[#37352f] hover:bg-[#f7f6f3]"
-            >
-              <LayoutDashboard className="w-3.5 h-3.5 text-[#2b78a0]" />
-              <span>{t("tabDashboard")}</span>
-            </button>
-
-            <button
-              onClick={() => onTabChange("todo")}
-              className={`flex items-center space-x-1.5 px-3 py-2 text-xs font-medium rounded-md whitespace-nowrap transition-colors ${
-                currentTab === "todo"
-                  ? "bg-[#efefed] text-[#37352f] shadow-xs"
-                  : "text-[#787774] hover:text-[#37352f] hover:bg-[#f7f6f3]"
-              }`}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 text-[#448361]" />
-              <span>{t("tabTodo")}</span>
-              {activePlan && (
-                <span className="ml-1 px-1.5 py-0.2 bg-[#e9e9e7] text-[#5a5a57] rounded-full text-[10px]">
-                  {activePlan.tasks.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => onTabChange("calendar")}
-              className={`flex items-center space-x-1.5 px-3 py-2 text-xs font-medium rounded-md whitespace-nowrap transition-colors ${
-                currentTab === "calendar"
-                  ? "bg-[#efefed] text-[#37352f] shadow-xs"
-                  : "text-[#787774] hover:text-[#37352f] hover:bg-[#f7f6f3]"
-              }`}
-            >
-              <Calendar className="w-3.5 h-3.5 text-[#2b78a0]" />
-              <span>{t("tabCalendar")}</span>
-            </button>
-
-            <button
-              onClick={() => onTabChange("realtime")}
-              className={`flex items-center space-x-1.5 px-3 py-2 text-xs font-medium rounded-md whitespace-nowrap transition-colors ${
-                currentTab === "realtime"
-                  ? "bg-[#efefed] text-[#37352f] shadow-xs"
-                  : "text-[#787774] hover:text-[#37352f] hover:bg-[#f7f6f3]"
-              }`}
-            >
-              <BarChart3 className="w-3.5 h-3.5 text-[#cb912f]" />
-              <span>{t("tabRealtime")}</span>
-            </button>
-
-            <button
-              onClick={() => onTabChange("course")}
-              className={`flex items-center space-x-1.5 px-3 py-2 text-xs font-medium rounded-md whitespace-nowrap transition-colors ${
-                currentTab === "course" || currentTab === "materials"
-                  ? "bg-[#efefed] text-[#37352f] shadow-xs"
-                  : "text-[#787774] hover:text-[#37352f] hover:bg-[#f7f6f3]"
-              }`}
-            >
-              <GraduationCap className="w-3.5 h-3.5 text-[#2b78a0]" />
-              <span>{t("tabCourse")}</span>
-              {activePlan && (
-                <span className="ml-1 px-1.5 py-0.2 bg-[#e9e9e7] text-[#5a5a57] rounded-full text-[10px]">
-                  {(activePlan.topics?.length || 0) + (activePlan.materials?.length || 0)}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Quick Search */}
-          <div className="relative my-1 hidden sm:block">
-            <Search className="w-3.5 h-3.5 text-[#9b9a97] absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={t("searchPlaceholder")}
-              className="pl-8 pr-3 py-1 bg-[#f7f6f3] border border-[#e9e9e7] hover:border-[#dfdfde] focus:border-[#2b78a0] focus:bg-white rounded-md text-xs text-[#37352f] placeholder-[#9b9a97] focus:outline-none w-44 transition-all"
-            />
-          </div>
-        </div>
       )}
     </div>
   );

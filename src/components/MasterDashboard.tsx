@@ -36,12 +36,13 @@ import { playCompletionChime } from "../lib/audio";
 import { useI18n } from "../lib/i18n";
 import { TaskFocusTimerModal } from "./TaskFocusTimerModal";
 import { QuizModal } from "./QuizModal";
+import { MasterCalendarView } from "./MasterCalendarView";
 
 interface MasterDashboardProps {
   plans: ExamStudyPlan[];
   activePlan: ExamStudyPlan | null;
   onSelectPlan: (planId: string) => void;
-  onNavigateToTab: (tab: "dashboard" | "todo" | "calendar" | "realtime" | "course" | "add_subject", planId?: string) => void;
+  onNavigateToTab: (tab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "add_subject", planId?: string) => void;
   onUpdatePlan: (updatedPlan: ExamStudyPlan) => void;
   onDeletePlan?: (planId: string) => void;
   onAddNewSubject: () => void;
@@ -291,11 +292,11 @@ export function MasterDashboard({
               <LayoutDashboard className="w-3.5 h-3.5 text-[#2b78a0]" />
               <span className="font-medium">{t("workspace")}</span>
               <span>/</span>
-              <span className="text-[#37352f] font-semibold">{language === "zh" ? "备考总览主看板" : "Master Study Hub"}</span>
+              <span className="text-[#37352f] font-semibold">{language === "zh" ? "总览看板" : "Master Study Hub"}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#37352f] flex items-center space-x-2.5">
               <GraduationCap className="w-7 h-7 text-[#37352f]" />
-              <span>{language === "zh" ? "所有科目备考看板" : "Exam Subjects Command Board"}</span>
+              <span>{language === "zh" ? "科目看板" : "Exam Subjects Command Board"}</span>
             </h1>
             <p className="text-xs sm:text-sm text-[#787774] mt-1">
               {language === "zh"
@@ -310,7 +311,7 @@ export function MasterDashboard({
               className="flex items-center space-x-1.5 px-3.5 py-2 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-lg text-xs font-semibold shadow-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               <Plus className="w-4 h-4" />
-              <span>{language === "zh" ? "添加新考试科目" : "Add Exam Subject"}</span>
+              <span>{language === "zh" ? "新建科目" : "Add Exam Subject"}</span>
             </button>
           </div>
         </div>
@@ -328,7 +329,7 @@ export function MasterDashboard({
                 {workspaceMetrics.totalSubjects} <span className="text-xs font-normal text-[#787774]">{language === "zh" ? "门科目" : "Courses"}</span>
               </div>
               <span className="text-[11px] text-[#787774] block mt-0.5">
-                {workspaceMetrics.totalEstimatedHours} {language === "zh" ? "总规划备考学时" : "Planned Hours"}
+                {workspaceMetrics.totalEstimatedHours} {language === "zh" ? "总规划学时" : "Planned Hours"}
               </span>
             </div>
           </div>
@@ -336,7 +337,7 @@ export function MasterDashboard({
           {/* Card 2: Nearest Exam Countdown */}
           <div className="bg-[#fbf3db] border border-[#f5e0b7] rounded-xl p-4 flex flex-col justify-between space-y-2">
             <div className="flex items-center justify-between text-xs text-[#cb912f]">
-              <span className="font-semibold">{language === "zh" ? "最近大考倒计时" : "Nearest Exam"}</span>
+              <span className="font-semibold">{language === "zh" ? "最近大考" : "Nearest Exam"}</span>
               <Clock className="w-4 h-4 text-[#cb912f]" />
             </div>
             <div>
@@ -363,7 +364,7 @@ export function MasterDashboard({
           {/* Card 3: Today's Tasks */}
           <div className="bg-[#edf3ec] border border-[#d5e5d3] rounded-xl p-4 flex flex-col justify-between space-y-2">
             <div className="flex items-center justify-between text-xs text-[#448361]">
-              <span className="font-semibold">{language === "zh" ? "今日全科待办" : "Today's Tasks"}</span>
+              <span className="font-semibold">{language === "zh" ? "今日待办" : "Today's Tasks"}</span>
               <CheckSquare className="w-4 h-4 text-[#448361]" />
             </div>
             <div>
@@ -383,7 +384,7 @@ export function MasterDashboard({
           {/* Card 4: Global Progress */}
           <div className="bg-[#f0f4f8] border border-[#dce7f2] rounded-xl p-4 flex flex-col justify-between space-y-2">
             <div className="flex items-center justify-between text-xs text-[#2b78a0]">
-              <span className="font-semibold">{language === "zh" ? "全局总备考进度" : "Global Progress"}</span>
+              <span className="font-semibold">{language === "zh" ? "总体进度" : "Global Progress"}</span>
               <TrendingUp className="w-4 h-4 text-[#2b78a0]" />
             </div>
             <div>
@@ -409,7 +410,7 @@ export function MasterDashboard({
           <div className="flex items-center space-x-2">
             <Layers className="w-4 h-4 text-[#37352f]" />
             <h2 className="font-bold text-base text-[#37352f]">
-              {language === "zh" ? "各科目备考卡片看板" : "Enrolled Course Subject Boards"}
+              {language === "zh" ? "科目卡片" : "Enrolled Course Subject Boards"}
             </h2>
             <span className="text-xs px-2 py-0.5 rounded-full bg-[#efefed] text-[#787774] font-medium">
               {displayedPlans.length}
@@ -437,7 +438,7 @@ export function MasterDashboard({
                 onChange={(e) => setFilterSubject(e.target.value)}
                 className="px-2 py-1 text-xs bg-white border border-[#d3d2cf] rounded-md outline-none text-[#37352f]"
               >
-                <option value="all">{language === "zh" ? "全部学科类别" : "All Categories"}</option>
+                <option value="all">{language === "zh" ? "全部类别" : "All Categories"}</option>
                 {subjectCategories.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -452,9 +453,9 @@ export function MasterDashboard({
               onChange={(e) => setSortOption(e.target.value as any)}
               className="px-2 py-1 text-xs bg-white border border-[#d3d2cf] rounded-md outline-none text-[#37352f]"
             >
-              <option value="urgent">{language === "zh" ? "按考试倒计时排序" : "Sort by Exam Date"}</option>
-              <option value="progress">{language === "zh" ? "按复习进度排序" : "Sort by Progress"}</option>
-              <option value="name">{language === "zh" ? "按科目名称排序" : "Sort by Name"}</option>
+              <option value="urgent">{language === "zh" ? "按倒计时" : "Sort by Exam Date"}</option>
+              <option value="progress">{language === "zh" ? "按总进度" : "Sort by Progress"}</option>
+              <option value="name">{language === "zh" ? "按科目名" : "Sort by Name"}</option>
             </select>
           </div>
         </div>
@@ -596,13 +597,13 @@ export function MasterDashboard({
                     <button
                       onClick={() => {
                         onSelectPlan(plan.id);
-                        onNavigateToTab("calendar", plan.id);
+                        onNavigateToTab("course", plan.id);
                       }}
                       className="px-2.5 py-1 rounded bg-[#f7f6f3] hover:bg-[#efefed] text-[#37352f] font-medium transition-colors flex items-center space-x-1"
-                      title={language === "zh" ? "打开该科目复习日历" : "Open Calendar"}
+                      title={language === "zh" ? "考纲资料" : "Knowledge Base"}
                     >
-                      <Calendar className="w-3 h-3 text-[#787774]" />
-                      <span>{language === "zh" ? "日历" : "Calendar"}</span>
+                      <BookOpen className="w-3 h-3 text-[#787774]" />
+                      <span>{language === "zh" ? "资料" : "Docs"}</span>
                     </button>
 
                     <button
@@ -611,7 +612,7 @@ export function MasterDashboard({
                         onNavigateToTab("realtime", plan.id);
                       }}
                       className="p-1 rounded hover:bg-[#fbf3db] text-[#cb912f] transition-colors"
-                      title={language === "zh" ? "AI 动态重排" : "Adaptive Rebalance"}
+                      title={language === "zh" ? "智能重排" : "Adaptive Rebalance"}
                     >
                       <Zap className="w-3.5 h-3.5" />
                     </button>
@@ -619,7 +620,7 @@ export function MasterDashboard({
                     <button
                       onClick={() => downloadICSFile(plan)}
                       className="p-1 rounded hover:bg-[#edf3ec] text-[#448361] transition-colors"
-                      title={language === "zh" ? "导出 .ics 日历文件" : "Export .ics"}
+                      title={language === "zh" ? "导出日历" : "Export .ics"}
                     >
                       <Download className="w-3.5 h-3.5" />
                     </button>
@@ -650,7 +651,7 @@ export function MasterDashboard({
             </div>
             <div>
               <h4 className="font-bold text-sm text-[#37352f]">
-                {language === "zh" ? "录入新考试科目与大纲" : "Add Another Exam Subject"}
+                {language === "zh" ? "新建科目" : "Add Another Exam Subject"}
               </h4>
               <p className="text-xs text-[#787774] mt-1 max-w-[200px]">
                 {language === "zh" ? "支持上传 PPT、讲义、大纲与历年真题" : "Upload syllabus, lecture notes or past papers"}
@@ -661,14 +662,49 @@ export function MasterDashboard({
       </section>
 
       {/* ========================================================================= */}
-      {/* 3. TODAY'S CROSS-SUBJECT TASK SCHEDULE QUEUE                              */}
+      {/* 3. MASTER CALENDAR ACCESS ACTION BANNER                                   */}
+      {/* ========================================================================= */}
+      <section>
+        <div className="bg-[#f7f6f3] border border-[#e9e9e7] hover:border-[#b4b4b0] rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all shadow-2xs group">
+          <div className="flex items-center space-x-3.5 min-w-0">
+            <div className="w-10 h-10 rounded-lg bg-white border border-[#e9e9e7] flex items-center justify-center text-[#2b78a0] shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
+              <Calendar className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-[#37352f] flex items-center space-x-2">
+                <span>{language === "zh" ? "全科复习日历" : "Master Study Calendar"}</span>
+                <span className="text-[10px] font-normal px-2 py-0.5 rounded-full bg-white border border-[#e9e9e7] text-[#787774]">
+                  {language === "zh" ? `共 ${workspaceMetrics.totalTasks} 项任务 · 支持科目筛选` : `${workspaceMetrics.totalTasks} Tasks · Filterable`}
+                </span>
+              </h3>
+              <p className="text-xs text-[#787774] mt-0.5 truncate">
+                {language === "zh"
+                  ? "按月查看所有科目的排程任务与大考里程碑，支持按科目独立过滤与实时打卡。"
+                  : "View multi-course study schedules, filter by subject, and manage daily milestones."}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => onNavigateToTab("master_calendar")}
+            className="px-4 py-2 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-lg text-xs font-semibold flex items-center justify-center space-x-1.5 transition-all shadow-xs shrink-0 self-start sm:self-auto cursor-pointer"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>{language === "zh" ? "进入全科日历" : "Access Calendar"}</span>
+            <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
+          </button>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 4. TODAY'S CROSS-SUBJECT TASK SCHEDULE QUEUE                              */}
       {/* ========================================================================= */}
       <section className="bg-white border border-[#e9e9e7] rounded-xl p-5 sm:p-6 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#f0f0ee]">
           <div className="flex items-center space-x-2">
             <CheckSquare className="w-4 h-4 text-[#448361]" />
             <h2 className="font-bold text-base text-[#37352f]">
-              {language === "zh" ? "今日全学科联合备战日程" : "Cross-Subject Daily Schedule"}
+              {language === "zh" ? "今日日程" : "Cross-Subject Daily Schedule"}
             </h2>
             <span className="text-xs px-2 py-0.5 rounded bg-[#edf3ec] text-[#448361] font-semibold">
               {crossSubjectDailyTasks.filter((t) => t.task.status === "completed").length} / {crossSubjectDailyTasks.length} {language === "zh" ? "已完成" : "Done"}
@@ -821,7 +857,7 @@ export function MasterDashboard({
         <div className="flex items-center space-x-2">
           <Target className="w-4 h-4 text-[#2b78a0]" />
           <h3 className="font-bold text-sm text-[#37352f]">
-            {language === "zh" ? "全学科考试里程碑与倒计时路线图" : "Multi-Course Exam Milestones & Timeline"}
+            {language === "zh" ? "考试日程" : "Multi-Course Exam Milestones & Timeline"}
           </h3>
         </div>
 

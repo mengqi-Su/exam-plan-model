@@ -5,25 +5,38 @@ import { MasterDashboard } from "./components/MasterDashboard";
 import { CourseKnowledgeHub } from "./components/CourseKnowledgeHub";
 import { PlanPreferencesForm } from "./components/PlanPreferencesForm";
 import { DailyTodoList } from "./components/DailyTodoList";
-import { CalendarView } from "./components/CalendarView";
 import { RealTimeManager } from "./components/RealTimeManager";
 import { AddExamSubjectWizard } from "./components/AddExamSubjectWizard";
-import { ExamStudyPlan, StudyMaterial, SyllabusTopic } from "./types";
+import { MasterCalendarView } from "./components/MasterCalendarView";
+import { SettingsModal } from "./components/SettingsModal";
+import { ChevronLeft, LayoutDashboard, Calendar } from "lucide-react";
+import { ExamStudyPlan, StudyMaterial, SyllabusTopic, AppSettings, UserProfile } from "./types";
 import { 
   loadSavedPlans, 
   savePlans, 
   getActivePlanId, 
   setActivePlanId, 
-  DEFAULT_WEEK_SCHEDULE 
+  DEFAULT_WEEK_SCHEDULE,
+  loadAppSettings,
+  saveAppSettings,
+  loadUserProfile,
+  saveUserProfile,
+  SAMPLE_PLANS
 } from "./lib/storage";
 
 export default function App() {
   const [plans, setPlans] = useState<ExamStudyPlan[]>(() => loadSavedPlans());
   const [activePlanId, setActivePlanIdState] = useState<string>(() => getActivePlanId());
-  const [currentTab, setCurrentTab] = useState<"dashboard" | "todo" | "calendar" | "realtime" | "course" | "materials" | "add_subject">("dashboard");
+  const [currentTab, setCurrentTab] = useState<"dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject">("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   
+  // Settings & User Profile State
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => loadAppSettings());
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => loadUserProfile());
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "account" | "language" | "version">("general");
+
   // Sub-step when in "course" tab: "syllabus" vs "config"
   const [courseStep, setCourseStep] = useState<"syllabus" | "config">("syllabus");
 
@@ -47,6 +60,33 @@ export default function App() {
   useEffect(() => {
     savePlans(plans);
   }, [plans]);
+
+  // Sync settings to localStorage
+  const handleUpdateSettings = (newSettings: AppSettings) => {
+    setAppSettings(newSettings);
+    saveAppSettings(newSettings);
+  };
+
+  // Sync profile to localStorage
+  const handleUpdateUserProfile = (newProfile: UserProfile) => {
+    setUserProfile(newProfile);
+    saveUserProfile(newProfile);
+  };
+
+  // Open settings with target tab
+  const handleOpenSettings = (tab: "general" | "account" | "language" | "version" = "general") => {
+    setSettingsInitialTab(tab);
+    setIsSettingsOpen(true);
+  };
+
+  // Reset plans to sample
+  const handleResetPlans = () => {
+    setPlans(SAMPLE_PLANS);
+    if (SAMPLE_PLANS.length > 0) {
+      setActivePlanIdState(SAMPLE_PLANS[0].id);
+      setActivePlanId(SAMPLE_PLANS[0].id);
+    }
+  };
 
   // Current active plan
   const activePlan = React.useMemo(() => {
@@ -101,7 +141,7 @@ export default function App() {
   };
 
   // Navigation handler
-  const handleNavigateToTab = (tab: "dashboard" | "todo" | "calendar" | "realtime" | "course" | "add_subject", planId?: string) => {
+  const handleNavigateToTab = (tab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject", planId?: string) => {
     if (planId) {
       handleSelectPlan(planId);
     }
@@ -134,12 +174,14 @@ export default function App() {
         }}
         onNewPlan={handleNewPlan}
         currentTab={currentTab}
-        onTabChange={(tab) => {
-          handleNavigateToTab(tab);
+        onTabChange={(tab, planId) => {
+          handleNavigateToTab(tab, planId);
         }}
         onOpenRebalanceModal={() => {
           setCurrentTab("realtime");
         }}
+        userProfile={userProfile}
+        onOpenSettings={handleOpenSettings}
       />
 
       {/* Main Content Area (shifts when sidebar is open) */}
@@ -148,18 +190,22 @@ export default function App() {
           isSidebarOpen ? "md:ml-64" : "ml-0"
         }`}
       >
-        {/* Notion Header with Breadcrumbs, Cover Banner, Properties & Tab Switcher */}
-        <NotionPageHeader
-          activePlan={activePlan}
-          currentTab={currentTab}
-          onTabChange={(tab) => {
-            handleNavigateToTab(tab as any);
-          }}
-          onOpenRebalanceModal={() => setCurrentTab("realtime")}
-          onNewPlan={handleNewPlan}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-        />
+        {/* Notion Header with Breadcrumbs, Cover Banner, Properties & Tab Switcher (Course Pages Only) */}
+        {currentTab !== "dashboard" && currentTab !== "master_calendar" && currentTab !== "add_subject" && (
+          <NotionPageHeader
+            activePlan={activePlan}
+            currentTab={currentTab}
+            onTabChange={(tab) => {
+              handleNavigateToTab(tab as any);
+            }}
+            onOpenRebalanceModal={() => setCurrentTab("realtime")}
+            onNewPlan={handleNewPlan}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            userProfile={userProfile}
+            onOpenSettings={handleOpenSettings}
+          />
+        )}
 
         {/* Tab Views */}
         <main className="flex-1 pb-16">
@@ -175,6 +221,45 @@ export default function App() {
             />
           )}
 
+          {currentTab === "master_calendar" && (
+            <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6 animate-fadeIn">
+              {/* Master Calendar Component */}
+              <MasterCalendarView
+                plans={plans}
+                onToggleTaskStatus={(planId, taskId) => {
+                  const targetPlan = plans.find((p) => p.id === planId);
+                  if (!targetPlan) return;
+                  const updatedTasks = targetPlan.tasks.map((t) =>
+                    t.id === taskId
+                      ? {
+                          ...t,
+                          status: (t.status === "completed" ? "pending" : "completed") as any,
+                          completedAt: t.status === "completed" ? undefined : new Date().toISOString(),
+                        }
+                      : t
+                  );
+                  handleUpdatePlan({ ...targetPlan, tasks: updatedTasks });
+                }}
+                onStartFocusTimer={(task, planId) => {
+                  const targetPlan = plans.find((p) => p.id === planId);
+                  if (targetPlan) {
+                    handleSelectPlan(planId);
+                    setCurrentTab("todo");
+                  }
+                }}
+                onStartQuiz={(task, planId) => {
+                  const targetPlan = plans.find((p) => p.id === planId);
+                  if (targetPlan) {
+                    handleSelectPlan(planId);
+                    setCurrentTab("todo");
+                  }
+                }}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+              />
+            </div>
+          )}
+
           {currentTab === "todo" && activePlan && (
             <DailyTodoList
               plan={activePlan}
@@ -182,17 +267,6 @@ export default function App() {
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
               searchQuery={searchQuery}
-            />
-          )}
-
-          {currentTab === "calendar" && activePlan && (
-            <CalendarView
-              plan={activePlan}
-              onSelectDate={setSelectedDate}
-              onGoToDailyView={(dateStr) => {
-                setSelectedDate(dateStr);
-                setCurrentTab("todo");
-              }}
             />
           )}
 
@@ -251,6 +325,20 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* Global Configuration, Login Profile, Language & Version Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        initialTab={settingsInitialTab}
+        settings={appSettings}
+        onUpdateSettings={handleUpdateSettings}
+        userProfile={userProfile}
+        onUpdateUserProfile={handleUpdateUserProfile}
+        plans={plans}
+        onImportPlans={(importedPlans) => setPlans(importedPlans)}
+        onResetPlans={handleResetPlans}
+      />
     </div>
   );
 }
