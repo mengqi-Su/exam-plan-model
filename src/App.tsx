@@ -9,6 +9,7 @@ import { RealTimeManager } from "./components/RealTimeManager";
 import { AddExamSubjectWizard } from "./components/AddExamSubjectWizard";
 import { MasterCalendarView } from "./components/MasterCalendarView";
 import { SettingsModal } from "./components/SettingsModal";
+import { DeleteConfirmModal } from "./components/DeleteConfirmModal";
 import { ChevronLeft, LayoutDashboard, Calendar } from "lucide-react";
 import { ExamStudyPlan, StudyMaterial, SyllabusTopic, AppSettings, UserProfile } from "./types";
 import { 
@@ -23,6 +24,16 @@ import {
   saveUserProfile,
   SAMPLE_PLANS
 } from "./lib/storage";
+import {
+  auth,
+  savePlanToCloud,
+  deletePlanFromCloud,
+  saveUserProfileToCloud,
+  subscribeToUserPlans,
+  subscribeToUserProfile,
+  uploadLocalPlansToCloud
+} from "./lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
 export default function App() {
   const [plans, setPlans] = useState<ExamStudyPlan[]>(() => loadSavedPlans());
@@ -36,6 +47,60 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile>(() => loadUserProfile());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "account" | "language" | "version">("general");
+
+  // Firebase Auth & Cloud Sync Listener
+  useEffect(() => {
+    let unsubscribePlans: (() => void) | null = null;
+    let unsubscribeProfile: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // User logged in via Firebase
+        const updatedProfile: UserProfile = {
+          ...userProfile,
+          id: user.uid,
+          name: user.displayName || user.email?.split("@")[0] || "Scholar",
+          email: user.email || "",
+          avatar: user.photoURL || "🎓",
+          isLoggedIn: true,
+        };
+        setUserProfile(updatedProfile);
+        saveUserProfile(updatedProfile);
+
+        // Listen for profile changes from Firestore
+        unsubscribeProfile = subscribeToUserProfile(user.uid, (cloudProfile) => {
+          if (cloudProfile) {
+            setUserProfile((prev) => ({
+              ...prev,
+              ...cloudProfile,
+              isLoggedIn: true,
+            }));
+          }
+        });
+
+        // Listen for plans from Firestore
+        unsubscribePlans = subscribeToUserPlans(user.uid, (cloudPlans) => {
+          if (cloudPlans && cloudPlans.length > 0) {
+            setPlans(cloudPlans);
+            if (!activePlanId || !cloudPlans.some(p => p.id === activePlanId)) {
+              setActivePlanIdState(cloudPlans[0].id);
+              setActivePlanId(cloudPlans[0].id);
+            }
+          }
+        });
+      } else {
+        // User is logged out / offline guest
+        if (unsubscribePlans) unsubscribePlans();
+        if (unsubscribeProfile) unsubscribeProfile();
+      }
+    });
+
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribePlans) unsubscribePlans();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
+  }, []);
 
   // Sub-step when in "course" tab: "syllabus" vs "config"
   const [courseStep, setCourseStep] = useState<"syllabus" | "config">("syllabus");
@@ -56,6 +121,9 @@ export default function App() {
   // Rebalance modal state
   const [isRebalanceModalOpen, setIsRebalanceModalOpen] = useState(false);
 
+  // Deletion confirmation modal state
+  const [planToDelete, setPlanToDelete] = useState<ExamStudyPlan | null>(null);
+
   // Sync plans to localStorage
   useEffect(() => {
     savePlans(plans);
@@ -67,10 +135,15 @@ export default function App() {
     saveAppSettings(newSettings);
   };
 
-  // Sync profile to localStorage
+  // Sync profile to localStorage and cloud
   const handleUpdateUserProfile = (newProfile: UserProfile) => {
     setUserProfile(newProfile);
     saveUserProfile(newProfile);
+    if (auth.currentUser) {
+      saveUserProfileToCloud(auth.currentUser.uid, newProfile).catch((e) =>
+        console.error("Failed to save profile to cloud:", e)
+      );
+    }
   };
 
   // Open settings with target tab
@@ -116,18 +189,38 @@ export default function App() {
     setPlans((prev) =>
       prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p))
     );
+    if (auth.currentUser) {
+      savePlanToCloud(auth.currentUser.uid, updatedPlan).catch((e) =>
+        console.error("Failed to sync plan to cloud:", e)
+      );
+    }
   };
 
   // Delete plan
   const handleDeletePlan = (planId: string) => {
     setPlans((prev) => {
       const next = prev.filter((p) => p.id !== planId);
-      if (activePlanId === planId && next.length > 0) {
-        setActivePlanIdState(next[0].id);
-        setActivePlanId(next[0].id);
+      if (activePlanId === planId) {
+        if (next.length > 0) {
+          setActivePlanIdState(next[0].id);
+          setActivePlanId(next[0].id);
+          setExamName(next[0].examName);
+          setSubject(next[0].subject);
+          setCurrentTopics(next[0].topics || []);
+          setMaterialsSummary(next[0].materialsSummary || "");
+        } else {
+          setActivePlanIdState("");
+          setActivePlanId("");
+          setCurrentTab("dashboard");
+        }
       }
       return next;
     });
+    if (auth.currentUser) {
+      deletePlanFromCloud(auth.currentUser.uid, planId).catch((e) =>
+        console.error("Failed to delete plan from cloud:", e)
+      );
+    }
   };
 
   // Handle newly generated plan
@@ -138,6 +231,12 @@ export default function App() {
     setActivePlanId(newPlan.id);
     setCurrentTab("dashboard");
     setSelectedDate(newPlan.startDate || new Date().toISOString().split("T")[0]);
+
+    if (auth.currentUser) {
+      savePlanToCloud(auth.currentUser.uid, newPlan).catch((e) =>
+        console.error("Failed to save new plan to cloud:", e)
+      );
+    }
   };
 
   // Navigation handler
@@ -173,6 +272,8 @@ export default function App() {
           }
         }}
         onNewPlan={handleNewPlan}
+        onDeletePlan={handleDeletePlan}
+        onRequestDeletePlan={(p) => setPlanToDelete(p)}
         currentTab={currentTab}
         onTabChange={(tab, planId) => {
           handleNavigateToTab(tab, planId);
@@ -217,6 +318,7 @@ export default function App() {
               onNavigateToTab={handleNavigateToTab}
               onUpdatePlan={handleUpdatePlan}
               onDeletePlan={handleDeletePlan}
+              onRequestDeletePlan={(p) => setPlanToDelete(p)}
               onAddNewSubject={handleNewPlan}
             />
           )}
@@ -308,6 +410,8 @@ export default function App() {
                 materialsSummary={materialsSummary}
                 onMaterialsSummaryChange={setMaterialsSummary}
                 onUpdatePlan={handleUpdatePlan}
+                onDeleteCourse={() => activePlan && handleDeletePlan(activePlan.id)}
+                onRequestDeleteCourse={(p) => setPlanToDelete(p || activePlan)}
                 onProceedToPlanConfig={() => setCourseStep("config")}
                 onNavigateToTab={(tab) => setCurrentTab(tab as any)}
               />
@@ -325,6 +429,14 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* Course Deletion Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={!!planToDelete}
+        plan={planToDelete}
+        onClose={() => setPlanToDelete(null)}
+        onConfirm={(planId) => handleDeletePlan(planId)}
+      />
 
       {/* Global Configuration, Login Profile, Language & Version Modal */}
       <SettingsModal

@@ -260,8 +260,8 @@ export function RealTimeManager({
         </button>
       </div>
 
-      {/* Top Countdown Notion Callout Block */}
-      <div className="notion-callout p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-[#e9e9e7]">
+      {/* Top Countdown Banner */}
+      <div className="p-5 border-b border-[#e9e9e7] flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-start space-x-3">
           <span className="text-3xl">⏳</span>
           <div>
@@ -280,7 +280,7 @@ export function RealTimeManager({
         </div>
 
         {/* Live Countdown Ticker */}
-        <div className="flex items-center space-x-2 bg-white border border-[#e9e9e7] px-3.5 py-2 rounded-lg shadow-2xs">
+        <div className="flex items-center space-x-2 px-3.5 py-2 border border-[#e9e9e7] rounded-lg bg-[#fafaf9]">
           <div className="text-center px-1.5">
             <span className="text-xl font-bold font-mono text-[#37352f]">
               {String(countdown.days).padStart(2, "0")}
@@ -332,7 +332,7 @@ export function RealTimeManager({
           <button
             onClick={handleTriggerRebalance}
             disabled={isRebalancing}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#37352f] hover:bg-[#201f1c] text-white font-semibold text-xs rounded-md shadow-2xs transition-colors shrink-0"
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#37352f] hover:bg-[#201f1c] text-white font-semibold text-xs rounded-md transition-colors shrink-0 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRebalancing ? "animate-spin" : ""}`} />
             <span>{isRebalancing ? t("rebalancing") : t("autoReschedule")}</span>
@@ -340,10 +340,10 @@ export function RealTimeManager({
         </div>
       )}
 
-      {/* Notion Stat Cards Grid */}
+      {/* Notion Stat Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* Readiness Index */}
-        <div className="bg-white border border-[#e9e9e7] rounded-lg p-4 space-y-2 shadow-2xs">
+        <div className="border border-[#e9e9e7] rounded-lg p-4 space-y-2 bg-white">
           <div className="flex items-center justify-between text-[#787774] text-xs">
             <span className="font-medium">{t("readinessIndex")}</span>
             <Award className="w-4 h-4 text-[#448361]" />
@@ -361,7 +361,7 @@ export function RealTimeManager({
         </div>
 
         {/* Syllabus Completed */}
-        <div className="bg-white border border-[#e9e9e7] rounded-lg p-4 space-y-2 shadow-2xs">
+        <div className="border border-[#e9e9e7] rounded-lg p-4 space-y-2 bg-white">
           <div className="flex items-center justify-between text-[#787774] text-xs">
             <span className="font-medium">{t("syllabusCovered")}</span>
             <CheckCircle2 className="w-4 h-4 text-[#2b78a0]" />
@@ -381,7 +381,7 @@ export function RealTimeManager({
         </div>
 
         {/* Study Time Logged */}
-        <div className="bg-white border border-[#e9e9e7] rounded-lg p-4 space-y-2 shadow-2xs">
+        <div className="border border-[#e9e9e7] rounded-lg p-4 space-y-2 bg-white">
           <div className="flex items-center justify-between text-[#787774] text-xs">
             <span className="font-medium">{t("studyHoursLogged")}</span>
             <Clock className="w-4 h-4 text-[#9065b0]" />
@@ -402,7 +402,7 @@ export function RealTimeManager({
         </div>
 
         {/* Pace Status */}
-        <div className="bg-white border border-[#e9e9e7] rounded-lg p-4 space-y-2 shadow-2xs">
+        <div className="border border-[#e9e9e7] rounded-lg p-4 space-y-2 bg-white">
           <div className="flex items-center justify-between text-[#787774] text-xs">
             <span className="font-medium">{t("scheduleHealth")}</span>
             <TrendingUp className="w-4 h-4 text-[#cb912f]" />
@@ -424,8 +424,8 @@ export function RealTimeManager({
         </div>
       </div>
 
-      {/* Adaptive Rebalancing Action Card */}
-      <div className="bg-white border border-[#e9e9e7] rounded-lg p-5 shadow-2xs space-y-4">
+      {/* Adaptive Rebalancing Action Section */}
+      <div className="border-y border-[#e9e9e7] py-5 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start space-x-2.5">
             <Zap className="w-5 h-5 text-[#cb912f] shrink-0 mt-0.5" />
@@ -444,7 +444,7 @@ export function RealTimeManager({
           <button
             onClick={handleTriggerRebalance}
             disabled={isRebalancing}
-            className="flex items-center space-x-1.5 px-4 py-2 bg-[#efefed] hover:bg-[#e3e2e0] text-[#37352f] rounded-md text-xs font-semibold transition-colors shrink-0"
+            className="flex items-center space-x-1.5 px-4 py-2 bg-[#efefed] hover:bg-[#e3e2e0] text-[#37352f] rounded-md text-xs font-semibold transition-colors shrink-0 cursor-pointer"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#cb912f]" />
             <span>{isRebalancing ? t("rebalancing") : t("rebalanceTasks")}</span>

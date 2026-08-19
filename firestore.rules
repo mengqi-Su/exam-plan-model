@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny catch-all safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // User Profile Rules
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // PII protection: blanket listing of user profiles is strictly forbidden
+      allow create, update: if isOwner(userId) && isValidId(userId);
+      allow delete: if isOwner(userId);
+
+      // User Study Plans Subcollection
+      match /plans/{planId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(planId);
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

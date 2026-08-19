@@ -42,6 +42,8 @@ interface NotionSidebarProps {
   activePlan: ExamStudyPlan | null;
   onSelectPlan: (planId: string) => void;
   onNewPlan: () => void;
+  onDeletePlan?: (planId: string) => void;
+  onRequestDeletePlan?: (plan: ExamStudyPlan) => void;
   currentTab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject";
   onTabChange: (tab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "add_subject", planId?: string) => void;
   onOpenRebalanceModal: () => void;
@@ -56,6 +58,8 @@ export function NotionSidebar({
   activePlan,
   onSelectPlan,
   onNewPlan,
+  onDeletePlan,
+  onRequestDeletePlan,
   currentTab,
   onTabChange,
   onOpenRebalanceModal,
@@ -105,35 +109,23 @@ export function NotionSidebar({
         </button>
       </div>
 
-      {/* Global Views: Master Dashboard, Master Calendar & Add Subject */}
+      {/* Global Views: Master Dashboard & Add Subject */}
       <div className="px-2 py-3 space-y-1 border-b border-[#e9e9e7]">
         <button
           onClick={() => onTabChange("dashboard")}
-          className={`w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-left transition-colors ${
+          className={`w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-left transition-colors cursor-pointer ${
             currentTab === "dashboard"
               ? "bg-[#efefed] font-semibold text-[#37352f]"
               : "hover:bg-[#efefed] text-[#5a5a57]"
           }`}
         >
           <LayoutDashboard className="w-4 h-4 text-[#2b78a0]" />
-          <span className="flex-1 truncate">{language === "zh" ? "总览看板" : t("tabDashboard")}</span>
-        </button>
-
-        <button
-          onClick={() => onTabChange("master_calendar")}
-          className={`w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-left transition-colors ${
-            currentTab === "master_calendar"
-              ? "bg-[#efefed] font-semibold text-[#37352f]"
-              : "hover:bg-[#efefed] text-[#5a5a57]"
-          }`}
-        >
-          <Calendar className="w-4 h-4 text-[#2b78a0]" />
-          <span className="flex-1 truncate">{language === "zh" ? "全科日历" : "Master Calendar"}</span>
+          <span className="flex-1 truncate">{language === "zh" ? "科目看板" : t("tabDashboard")}</span>
         </button>
 
         <button
           onClick={onNewPlan}
-          className={`w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-left transition-colors ${
+          className={`w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-left transition-colors cursor-pointer ${
             currentTab === "add_subject"
               ? "bg-[#efefed] font-semibold text-[#37352f]"
               : "hover:bg-[#efefed] text-[#5a5a57]"
@@ -164,21 +156,42 @@ export function NotionSidebar({
           const isActivePlan = activePlan?.id === p.id && currentTab !== "dashboard" && currentTab !== "master_calendar" && currentTab !== "add_subject";
 
           return (
-            <button
+            <div
               key={p.id}
-              onClick={() => {
-                onSelectPlan(p.id);
-                onTabChange("course", p.id);
-              }}
-              className={`w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-left transition-colors cursor-pointer ${
+              className={`group flex items-center justify-between w-full rounded-md transition-colors ${
                 isActivePlan
                   ? "bg-[#efefed] font-semibold text-[#37352f]"
                   : "hover:bg-[#efefed] text-[#5a5a57]"
               }`}
             >
-              <GraduationCap className={`w-4 h-4 shrink-0 ${isActivePlan ? "text-[#2b78a0]" : "text-[#787774]"}`} />
-              <span className="flex-1 truncate text-xs">{p.examName}</span>
-            </button>
+              <button
+                onClick={() => {
+                  onSelectPlan(p.id);
+                  onTabChange("course", p.id);
+                }}
+                className="flex-1 flex items-center space-x-2 px-2.5 py-1.5 text-left truncate cursor-pointer min-w-0"
+              >
+                <GraduationCap className={`w-4 h-4 shrink-0 ${isActivePlan ? "text-[#2b78a0]" : "text-[#787774]"}`} />
+                <span className="flex-1 truncate text-xs">{p.examName}</span>
+              </button>
+
+              {(onRequestDeletePlan || onDeletePlan) && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onRequestDeletePlan) {
+                      onRequestDeletePlan(p);
+                    } else if (onDeletePlan) {
+                      onDeletePlan(p.id);
+                    }
+                  }}
+                  className="opacity-0 group-hover:opacity-100 p-1 mr-1 text-[#9b9a97] hover:text-[#d44c47] hover:bg-[#fdebec] rounded transition-all shrink-0 cursor-pointer"
+                  title={language === "zh" ? "删除此课程" : "Delete Course"}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           );
         })}
       </div>
@@ -192,8 +205,21 @@ export function NotionSidebar({
             className="w-full flex items-center justify-between p-2 rounded-lg bg-white border border-[#e9e9e7] hover:border-[#37352f] text-left transition-all shadow-2xs group"
           >
             <div className="flex items-center space-x-2.5 min-w-0">
-              <div className="w-6 h-6 rounded-md bg-[#37352f] text-white flex items-center justify-center text-xs shrink-0">
-                {userProfile.isLoggedIn ? (userProfile.avatar || "🎓") : "👤"}
+              <div className="w-6 h-6 rounded-md bg-[#37352f] text-white flex items-center justify-center text-xs shrink-0 overflow-hidden">
+                {userProfile.isLoggedIn ? (
+                  userProfile.avatar?.startsWith("http") ? (
+                    <img
+                      src={userProfile.avatar}
+                      alt={userProfile.name}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    userProfile.avatar || "🎓"
+                  )
+                ) : (
+                  "👤"
+                )}
               </div>
               <div className="min-w-0">
                 <div className="font-semibold text-xs text-[#37352f] truncate flex items-center space-x-1">

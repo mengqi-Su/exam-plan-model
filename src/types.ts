@@ -1,5 +1,36 @@
 export type MaterialCategory = 'course_syllabus' | 'exam_question' | 'study_material';
 
+export interface DaySchedulePreference {
+  dayOfWeek: number; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  dayName: string;
+  availableHours: number;
+  preferredTimeSlot: 'morning' | 'afternoon' | 'evening' | 'flexible';
+  enabled: boolean;
+}
+
+export interface SyllabusTopic {
+  id: string;
+  title: string;
+  category?: string;
+  description?: string;
+  weightPercentage: number;
+  difficulty: 'easy' | 'medium' | 'hard';
+  userKnowledgeLevel?: 'beginner' | 'intermediate' | 'advanced';
+  subtopics: string[];
+  estimatedHours: number;
+}
+
+export interface RagSourceCitation {
+  documentId?: string;
+  documentName: string;
+  documentType?: string;
+  sectionTitle?: string;
+  pageOrChapter?: string;
+  excerptSnippet: string;
+  keyConcepts?: string[];
+  relevanceReason?: string;
+}
+
 export interface StudyMaterial {
   id: string;
   name: string;
@@ -15,27 +46,7 @@ export interface StudyMaterial {
   questionCount?: number;
   summaryNotes?: string;
   keyTraps?: string[];
-}
-
-export interface SyllabusTopic {
-  id: string;
-  title: string;
-  category?: string;
-  description?: string;
-  weightPercentage?: number; // e.g. 20% of exam
-  difficulty: 'easy' | 'medium' | 'hard';
-  userKnowledgeLevel?: 'beginner' | 'intermediate' | 'advanced';
-  subtopics: string[];
-  estimatedHours: number;
-  isWeakTopic?: boolean;
-}
-
-export interface DaySchedulePreference {
-  dayOfWeek: number; // 0 = Sunday, 1 = Monday, ... 6 = Saturday
-  dayName: string;
-  availableHours: number;
-  preferredTimeSlot: 'morning' | 'afternoon' | 'evening' | 'flexible';
-  enabled: boolean;
+  chunksCount?: number;
 }
 
 export interface UserStudyPreferences {
@@ -52,6 +63,8 @@ export interface UserStudyPreferences {
   includeBufferDays: boolean;
   bufferDaysCount: number;
   weakTopicsFocus: string[];
+  userNeedFocusArea?: 'comprehensive' | 'heavy_calculation' | 'concepts_and_theory' | 'past_exam_drills' | 'rush_sprint' | 'weak_spot_remedy';
+  customPromptRequirement?: string;
   additionalNotes?: string;
 }
 
@@ -86,6 +99,11 @@ export interface StudyTask {
   actualMinutesSpent?: number;
   confidenceRating?: 1 | 2 | 3 | 4 | 5; // 1 = Struggled, 5 = Mastered
   completedAt?: string;
+  // RAG Enhanced Fields
+  ragSource?: RagSourceCitation;
+  groundedUserNeed?: string;
+  formulaOrRules?: string[];
+  practiceQuestionRef?: string;
 }
 
 export interface StudyPlanPhase {
@@ -99,6 +117,7 @@ export interface StudyPlanPhase {
 
 export interface ExamStudyPlan {
   id: string;
+  userId?: string;
   createdAt: string;
   updatedAt: string;
   examName: string;

@@ -129,7 +129,7 @@ export function AddExamSubjectWizard({
   // Document preview modal
   const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
 
-  // Step 3: Preferences
+  // Step 3: Preferences & RAG Needs
   const [studyPace, setStudyPace] = useState<UserStudyPreferences["studyPace"]>("deep_mastery");
   const [sessionLength, setSessionLength] = useState<number>(45);
   const [includePracticeExams, setIncludePracticeExams] = useState(true);
@@ -138,6 +138,8 @@ export function AddExamSubjectWizard({
   const [dailySchedules, setDailySchedules] = useState<DaySchedulePreference[]>(DEFAULT_WEEK_SCHEDULE);
   const [selectedWeakTopics, setSelectedWeakTopics] = useState<string[]>([]);
   const [additionalNotes, setAdditionalNotes] = useState("");
+  const [userNeedFocusArea, setUserNeedFocusArea] = useState("heavy_calculation");
+  const [customPromptRequirement, setCustomPromptRequirement] = useState("");
 
   // Final Generation state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -378,6 +380,8 @@ export function AddExamSubjectWizard({
       includeBufferDays,
       bufferDaysCount,
       weakTopicsFocus: selectedWeakTopics,
+      userNeedFocusArea,
+      customPromptRequirement,
       additionalNotes,
     };
 
@@ -394,6 +398,7 @@ export function AddExamSubjectWizard({
           body: JSON.stringify({
             topics,
             preferences,
+            materials: courseDocuments,
             materialsSummary: materialsSummaryText,
           }),
         });
@@ -1153,6 +1158,78 @@ export function AddExamSubjectWizard({
                   />
                   <span>{language === "zh" ? "预留考前缓冲与查漏日" : "Include Buffer Days"}</span>
                 </label>
+              </div>
+            </div>
+
+            {/* RAG Personalized User Need & Task Allocation Focus */}
+            <div className="pt-2 border-t border-[#e9e9e7] space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-[#37352f] flex items-center space-x-1.5">
+                  <BrainCircuit className="w-3.5 h-3.5 text-[#2b78a0]" />
+                  <span>{language === "zh" ? "AI RAG 资料检索与个性化任务分配偏好" : "AI RAG Task Allocation Priority"}</span>
+                </label>
+                <span className="text-[11px] text-[#448361] bg-[#edf3ec] px-2 py-0.5 rounded font-medium flex items-center space-x-1">
+                  <Zap className="w-3 h-3" />
+                  <span>{language === "zh" ? `RAG 引擎就绪 (${courseDocuments.length} 份资料)` : "RAG Ready"}</span>
+                </span>
+              </div>
+
+              {/* Focus Priority Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
+                {[
+                  {
+                    id: "heavy_calculation",
+                    titleZh: "📐 计算与大题攻坚",
+                    descZh: "深度检索公式推导与综合大题，分配强化推导学时",
+                  },
+                  {
+                    id: "concepts_and_theory",
+                    titleZh: "📖 核心概念与原理定义",
+                    descZh: "系统梳理定义、定理适用边界与名词解释",
+                  },
+                  {
+                    id: "past_exam_drills",
+                    titleZh: "📝 历年真题与经典题型",
+                    descZh: "优先匹配真题卷高频出题点，建立题型模型",
+                  },
+                  {
+                    id: "rush_sprint",
+                    titleZh: "⚡ 考前急救与高频考点",
+                    descZh: "压缩低频内容，全量聚焦历年高分重难点",
+                  },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setUserNeedFocusArea(item.id)}
+                    className={`p-2.5 rounded-lg text-left border transition-all ${
+                      userNeedFocusArea === item.id
+                        ? "bg-[#ebf5fb] border-[#2b78a0] text-[#37352f] shadow-2xs font-semibold"
+                        : "bg-white border-[#e9e9e7] hover:bg-[#fafaf9] text-[#787774]"
+                    }`}
+                  >
+                    <span className="text-xs block text-[#37352f] mb-0.5">{item.titleZh}</span>
+                    <span className="text-[10px] text-[#787774] block leading-snug font-normal">{item.descZh}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Student Directive Input */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-medium text-[#5a5a57] block">
+                  {language === "zh" ? "💬 自定义学生需求 / 特殊任务分配指示：" : "Custom Study Instructions:"}
+                </label>
+                <input
+                  type="text"
+                  value={customPromptRequirement}
+                  onChange={(e) => setCustomPromptRequirement(e.target.value)}
+                  placeholder={
+                    language === "zh"
+                      ? "例如：我数学基础稍弱，请把计算大题拆解为更小的时间块；重点复习前四章..."
+                      : "e.g., Focus extra time on dynamic programming; break calculations into smaller chunks..."
+                  }
+                  className="w-full px-3 py-2 text-xs rounded-md border border-[#d3d2cf] bg-white outline-none focus:border-[#2b78a0]"
+                />
               </div>
             </div>
 

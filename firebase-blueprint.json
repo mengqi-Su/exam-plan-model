@@ -1,0 +1,53 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information and study stats",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 150 },
+        "avatar": { "type": "string", "maxLength": 500 },
+        "institution": { "type": "string", "maxLength": 100 },
+        "major": { "type": "string", "maxLength": 100 },
+        "targetDegreeOrGoal": { "type": "string", "maxLength": 150 },
+        "bio": { "type": "string", "maxLength": 500 },
+        "membershipTier": { "type": "string", "maxLength": 50 },
+        "totalStudyMinutes": { "type": "number" },
+        "streakDays": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "email"]
+    },
+    "ExamStudyPlan": {
+      "title": "ExamStudyPlan",
+      "description": "Exam study plan and syllabus tasks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "examName": { "type": "string", "maxLength": 200 },
+        "subject": { "type": "string", "maxLength": 100 },
+        "examDate": { "type": "string", "maxLength": 50 },
+        "targetScore": { "type": "string", "maxLength": 50 },
+        "dailyCapacityHours": { "type": "number" },
+        "confidenceLevel": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "examName"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile and statistics"
+    },
+    "/users/{userId}/plans/{planId}": {
+      "schema": "ExamStudyPlan",
+      "description": "Exam study plans and tasks owned by the user"
+    }
+  }
+}

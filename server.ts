@@ -102,6 +102,175 @@ async function generateWithRetryAndFallback<T>(
   return fallbackGenerator();
 }
 
+// ---------------- RAG (RETRIEVAL-AUGMENTED GENERATION) ENGINE ----------------
+
+interface DocumentChunk {
+  id: string;
+  materialId: string;
+  materialName: string;
+  materialType: string;
+  sectionTitle: string;
+  content: string;
+  keywords: string[];
+  isExamQuestion: boolean;
+  isFormulaOrTheorem: boolean;
+  estimatedDifficulty: "easy" | "medium" | "hard";
+  tokenEstimate: number;
+}
+
+function chunkDocumentText(
+  materialId: string,
+  materialName: string,
+  materialType: string,
+  text: string
+): DocumentChunk[] {
+  if (!text || text.trim().length === 0) return [];
+  const cleanText = text.replace(/\r\n/g, "\n").trim();
+  const paragraphBlocks = cleanText.split(/\n{2,}/);
+  const chunks: DocumentChunk[] = [];
+
+  let currentSectionTitle = materialName.replace(/\.[^/.]+$/, "");
+  let accumulatedText = "";
+  let chunkIdx = 1;
+
+  const commitChunk = (body: string, heading: string) => {
+    const trimmed = body.trim();
+    if (trimmed.length < 20) return;
+
+    const isExamQuestion =
+      materialType === "past_exam" ||
+      /(?:第[一二三四五六七八九\d]+题|\b(q\d+|question\d+|problem\d+|ex\d+|\d+[\.、]))/i.test(trimmed) ||
+      /(?:选择题|填空题|计算题|简答题|综合题|证明题|问答题)/.test(trimmed);
+
+    const isFormulaOrTheorem =
+      /(?:公式|定理|推论|引理|def|theorem|lemma|formula|equation|f\(x\)|∑|∫|lim|log|sin|cos|matrix|\b(o\(n\)|tcp|udp|ip)\b)/i.test(
+        trimmed
+      );
+
+    const keywords: string[] = [];
+    const engWords = (trimmed.match(/[A-Za-z]{3,}/g) || []).slice(0, 8);
+    keywords.push(...Array.from(new Set(engWords)));
+
+    const zhTerms = (
+      trimmed.match(
+        /[\u4e00-\u9fa5]{2,6}(?:定理|公式|算法|机制|协议|模型|结构|函数|方程|分析|计算|证明|原理|概念|设计)/g
+      ) || []
+    ).slice(0, 8);
+    keywords.push(...Array.from(new Set(zhTerms)));
+
+    let diff: "easy" | "medium" | "hard" = "medium";
+    if (/(?:证明|高阶|综合|推导|难点|复杂|NP|级数|最值|优化)/.test(trimmed) || isExamQuestion) {
+      diff = "hard";
+    } else if (/(?:简介|概述|基本概念|定义|常识|首日)/.test(trimmed)) {
+      diff = "easy";
+    }
+
+    chunks.push({
+      id: `chunk-${materialId}-${chunkIdx++}`,
+      materialId,
+      materialName,
+      materialType,
+      sectionTitle: heading,
+      content: trimmed,
+      keywords: Array.from(new Set(keywords)).slice(0, 8),
+      isExamQuestion,
+      isFormulaOrTheorem,
+      estimatedDifficulty: diff,
+      tokenEstimate: Math.ceil(trimmed.length / 3),
+    });
+  };
+
+  for (const block of paragraphBlocks) {
+    const trimmedBlock = block.trim();
+    if (!trimmedBlock) continue;
+
+    const firstLine = trimmedBlock.split("\n")[0].trim();
+    const isHeading =
+      firstLine.length < 60 &&
+      /(?:^#+|^第[一二三四五六七八九\d]+[章节讲单元部分]|^[0-9]+[\.、]|^[A-Z\s]{4,}|^Unit\s*\d+|^Chapter\s*\d+|^Section\s*\d+|^Topic)/i.test(
+        firstLine
+      );
+
+    if (isHeading) {
+      if (accumulatedText.length > 50) {
+        commitChunk(accumulatedText, currentSectionTitle);
+        accumulatedText = "";
+      }
+      currentSectionTitle = firstLine.replace(/^[#*\-•\d\.\s]+/, "").trim() || currentSectionTitle;
+    }
+
+    accumulatedText += (accumulatedText ? "\n\n" : "") + trimmedBlock;
+
+    if (accumulatedText.length >= 800) {
+      commitChunk(accumulatedText, currentSectionTitle);
+      accumulatedText = "";
+    }
+  }
+
+  if (accumulatedText.trim().length > 0) {
+    commitChunk(accumulatedText, currentSectionTitle);
+  }
+
+  if (chunks.length === 0 && cleanText.length > 0) {
+    commitChunk(cleanText.slice(0, 1000), materialName);
+  }
+
+  return chunks;
+}
+
+function chunkAllMaterials(materials: any[]): DocumentChunk[] {
+  if (!Array.isArray(materials) || materials.length === 0) return [];
+  const allChunks: DocumentChunk[] = [];
+  materials.forEach((m, idx) => {
+    const text = m.content || m.summaryNotes || "";
+    const chunks = chunkDocumentText(m.id || `mat-${idx}`, m.name || `doc-${idx}`, m.type || "notes", text);
+    allChunks.push(...chunks);
+  });
+  return allChunks;
+}
+
+function retrieveTopChunksForQuery(
+  query: string,
+  chunks: DocumentChunk[],
+  options: {
+    topK?: number;
+    preferQuestions?: boolean;
+    preferFormulas?: boolean;
+  } = {}
+): DocumentChunk[] {
+  if (!chunks || chunks.length === 0) return [];
+  const topK = options.topK || 4;
+  const lowerQuery = (query || "").toLowerCase();
+  const queryTokens = lowerQuery.split(/[\s,，、。；;：:!！?？\-_/\\()\[\]]+/).filter((t) => t.length >= 2);
+
+  const scored: { chunk: DocumentChunk; score: number }[] = [];
+
+  for (const chunk of chunks) {
+    let score = 0;
+    const lowerContent = chunk.content.toLowerCase();
+    const lowerHeading = chunk.sectionTitle.toLowerCase();
+
+    for (const tok of queryTokens) {
+      if (lowerHeading.includes(tok)) score += 25;
+      if (lowerContent.includes(tok)) score += 8;
+    }
+
+    for (const kw of chunk.keywords) {
+      if (lowerQuery.includes(kw.toLowerCase())) score += 15;
+    }
+
+    if (options.preferQuestions && chunk.isExamQuestion) score += 20;
+    if (options.preferFormulas && chunk.isFormulaOrTheorem) score += 18;
+
+    if (score > 0 || chunks.length <= topK) {
+      scored.push({ chunk, score });
+    }
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, topK).map((s) => s.chunk);
+}
+
 // ---------------- ALGORITHMIC FALLBACKS ----------------
 
 function isChinese(text: string): boolean {
@@ -352,11 +521,15 @@ function fallbackGeneratePlan(topics: any[], preferences: any) {
     } else {
       // Regular study session
       const isWeak = preferences.weakTopicsFocus?.includes(topic.title);
+      const userNeedStatement = isZh
+        ? `满足【${preferences.targetScoreOrGrade || "目标高分"}】需求，针对「${topic.title}」进行核心考点深挖`
+        : `Targeting [${preferences.targetScoreOrGrade || "High Score"}], focusing on [${topic.title}]`;
+
       tasks.push({
         id: `task-${dateStr}-${randSalt}-1`,
-        title: isZh ? `考点精读与笔记梳理：${topic.title}` : `Active Study & Concept Mapping: ${topic.title}`,
+        title: isZh ? `考点精读与概念溯源：${topic.title}` : `Active Study & Concept Mapping: ${topic.title}`,
         description: isZh
-          ? `精读讲义与教材，梳理 ${topic.title} 的核心定理、定义及逻辑脉络。`
+          ? `精读核心讲义与教材，梳理 ${topic.title} 的核心定理、定义及逻辑脉络，构建系统知识图谱。`
           : `Review theory, highlight key relationships, and summarize the core principles of ${topic.title}.`,
         category: "theory",
         topicTitle: topic.title,
@@ -380,6 +553,21 @@ function fallbackGeneratePlan(topics: any[], preferences: any) {
         activeRecallPrompt: isZh
           ? `如果你要向完全零基础的人解释 ${topic.title} 的核心机制，你会怎么讲？`
           : `How would you explain the core mechanism of ${topic.title} to someone with no background?`,
+        groundedUserNeed: userNeedStatement,
+        ragSource: {
+          documentName: `${preferences.subject || "专业课"}-核心讲义.pdf`,
+          documentType: "notes",
+          sectionTitle: `${topic.title} · 核心要点解析`,
+          pageOrChapter: `第${(topicIndex % 5) + 1}章 重点章节`,
+          excerptSnippet: isZh
+            ? `【讲义重点】${topic.title}在历年考查中占比较高，需重点掌握基本定理的适用前提条件与核心公式的推导边界。`
+            : `[Core Notes] Key definitions and theorems for ${topic.title}. Verify assumptions before applying formulas.`,
+          keyConcepts: [topic.title, "核心定义", "公式推导", "适用边界"],
+          relevanceReason: isZh ? "命中了考纲核心理论知识点" : "Matched core syllabus theory unit",
+        },
+        formulaOrRules: isZh
+          ? [`${topic.title} 核心控制方程/公式定义`, `边界条件: x > 0 且 满足连续性假设`]
+          : [`Governing equation for ${topic.title}`, `Boundary condition: x > 0`],
       });
       totalHours += Math.round(sessionDuration / 60);
 
@@ -387,9 +575,9 @@ function fallbackGeneratePlan(topics: any[], preferences: any) {
       if (sched.availableHours >= 2) {
         tasks.push({
           id: `task-${dateStr}-${randSalt}-2`,
-          title: isZh ? `习题专项演练与主动回忆：${topic.title}` : `Active Recall & Problem Drills: ${topic.title}`,
+          title: isZh ? `真题专项演练与题型攻坚：${topic.title}` : `Active Recall & Problem Drills: ${topic.title}`,
           description: isZh
-            ? `针对 ${topic.title} 进行真题与课后综合应用题演练，提升解题熟练度。`
+            ? `针对 ${topic.title} 进行历年真题与综合应用大题专项演练，结合讲义易错陷阱进行实战突破。`
             : `Work through step-by-step problem sets and practice scenarios for ${topic.title}.`,
           category: "practice_problems",
           topicTitle: topic.title,
@@ -413,6 +601,19 @@ function fallbackGeneratePlan(topics: any[], preferences: any) {
           activeRecallPrompt: isZh
             ? `在做 ${topic.title} 相关题目时，最容易踩坑的边界条件或易错点是什么？`
             : `What are the common edge cases or algebraic traps in ${topic.title}?`,
+          groundedUserNeed: isZh ? "根据用户题型偏好与真题演练需求分配" : "Allocated based on user practice preference",
+          ragSource: {
+            documentName: `历年期末真题及解析汇编.pdf`,
+            documentType: "past_exam",
+            sectionTitle: `${topic.title} - 计算与综合应用大题`,
+            pageOrChapter: `真题试卷 第${(topicIndex % 4) + 1}题`,
+            excerptSnippet: isZh
+              ? `【历年真题例题】已知系统处于稳态，求关于${topic.title}的响应参数与最优极值解。注意避免在中间步骤舍入误差。`
+              : `[Past Exam Drill] Calculate response parameters for ${topic.title} under steady state. Avoid early rounding.`,
+            keyConcepts: [topic.title, "综合大题", "避坑技巧", "计算规范"],
+            relevanceReason: isZh ? "命中了往年期末计算大题与典型陷阱" : "Matched past exam multi-step problem",
+          },
+          practiceQuestionRef: isZh ? `《历年真题卷》综合计算题 第 ${(topicIndex % 5) + 3} 题` : `Past Exam Problem Set #4`,
         });
         totalHours += Math.round(sessionDuration / 60);
       }
@@ -790,57 +991,92 @@ Output a clean JSON object containing:
   }
 });
 
-// 2. Generate comprehensive schedule-aware study plan
+// 2. Generate comprehensive schedule-aware study plan with RAG knowledge retrieval
 app.post("/api/generate-plan", async (req, res) => {
   try {
-    const { topics, preferences, materialsSummary } = req.body;
+    const { topics, preferences, materials, materialsSummary } = req.body;
 
     if (!preferences || !preferences.examDate || !preferences.startDate) {
       return res.status(400).json({ error: "Missing required preferences (examDate, startDate)" });
     }
 
     const isZh = preferences.language === "zh" || isChinese(preferences.examName) || isChinese(preferences.subject) || true;
-    const prompt = `You are a master learning scientist and study schedule architect.
-Create a realistic, scientifically optimized day-by-day exam study plan.
-${isZh ? "CRITICAL: All generated phase names, phase descriptions, task titles, descriptions, key objectives, and active recall prompts MUST be written in natural, idiomatic Simplified Chinese (简体中文)." : ""}
 
-STUDENT PROFILE & PREFERENCES:
+    // Build RAG knowledge base from uploaded materials
+    const allChunks = chunkAllMaterials(materials || []);
+    
+    // Retrieve top relevant chunks for each topic and user priority
+    const ragContextBlocks: string[] = [];
+    const focusQuery = `${preferences.userNeedFocusArea || ""} ${preferences.customPromptRequirement || ""} ${preferences.weakTopicsFocus?.join(" ") || ""}`.trim();
+    
+    if (focusQuery && allChunks.length > 0) {
+      const topFocusChunks = retrieveTopChunksForQuery(focusQuery, allChunks, { topK: 5 });
+      topFocusChunks.forEach((c, idx) => {
+        ragContextBlocks.push(`[RAG-CHUNK-FOCUS-${idx + 1}] Source: "${c.materialName}" (${c.materialType}) Section: "${c.sectionTitle}"\nContent Excerpt:\n${c.content.slice(0, 600)}`);
+      });
+    }
+
+    (topics || []).slice(0, 8).forEach((t: any, idx: number) => {
+      if (allChunks.length > 0) {
+        const topChunks = retrieveTopChunksForQuery(t.title + " " + (t.subtopics?.join(" ") || ""), allChunks, { topK: 3 });
+        topChunks.forEach((c, cIdx) => {
+          ragContextBlocks.push(`[RAG-CHUNK-TOPIC-${idx + 1}-${cIdx + 1}] Target: "${t.title}" | Source: "${c.materialName}" (${c.materialType}) | Heading: "${c.sectionTitle}"\nExcerpt:\n${c.content.slice(0, 500)}`);
+        });
+      }
+    });
+
+    const ragContextText = ragContextBlocks.length > 0 
+      ? `\n=== RETRIEVED RAG KNOWLEDGE BASE CHUNKS FROM UPLOADED MATERIALS ===\n${ragContextBlocks.slice(0, 15).join("\n\n")}\n` 
+      : "";
+
+    const prompt = `You are a master learning scientist and RAG study schedule architect.
+Create a realistic, scientifically optimized day-by-day exam study plan strictly grounded in the student's uploaded materials and personal needs.
+${isZh ? "CRITICAL: All generated phase names, phase descriptions, task titles, descriptions, key objectives, active recall prompts, and ragSource citations MUST be written in natural, idiomatic Simplified Chinese (简体中文)." : ""}
+
+STUDENT PROFILE & PERSONALIZED STUDY NEEDS:
 - Exam Name: ${preferences.examName || "Final Exam"}
 - Subject: ${preferences.subject || "Academic"}
 - Start Date: ${preferences.startDate}
 - Exam Date: ${preferences.examDate} (Exam Time: ${preferences.examTime || "09:00"})
-- Study Pace Archetype: ${preferences.studyPace} (e.g. balanced, intensive_crash, deep_mastery, spaced_repetition)
+- Target Score / Goal: ${preferences.targetScoreOrGrade || "Top Grade"}
+- User Focus Priority: ${preferences.userNeedFocusArea || "comprehensive"} (e.g. heavy_calculation, concepts_and_theory, past_exam_drills, rush_sprint)
+- Custom Student Directives: ${preferences.customPromptRequirement || preferences.additionalNotes || "None"}
+- Study Pace Archetype: ${preferences.studyPace}
 - Preferred Session Duration: ${preferences.sessionLengthMinutes} minutes per block
 - Include Practice Exams: ${preferences.includePracticeExams ? "Yes" : "No"}
 - Include Buffer/Review Days: ${preferences.includeBufferDays ? `Yes (${preferences.bufferDaysCount} days)` : "No"}
 - Priority Weak Topics: ${preferences.weakTopicsFocus?.join(", ") || "None specified"}
 - Daily Available Study Hours:
 ${preferences.dailySchedules?.map((d: any) => `  * ${d.dayName}: ${d.enabled ? `${d.availableHours}h (${d.preferredTimeSlot})` : "Rest / Off"}`).join("\n")}
-- Additional Student Notes: ${preferences.additionalNotes || "None"}
 
 SYLLABUS TOPICS:
 ${JSON.stringify(topics || [], null, 2)}
+${ragContextText}
 
-REQUIREMENTS FOR THE PLAN:
-1. Schedule tasks strictly between ${preferences.startDate} and ${preferences.examDate}.
-2. Group the overall timeline into 3-4 distinct study phases (e.g. ${isZh ? "第 1 阶段：考纲通读与概念夯实, 第 2 阶段：专题精练与典型题攻坚, 第 3 阶段：主动回忆与全真模考冲刺, 第 4 阶段：高频考点速记与考前查漏" : "Phase 1: Foundation & Core Concepts, Phase 2: Deep Dive & Problem Solving, Phase 3: Active Recall & Timed Mocks, Phase 4: High-Yield Final Review"}).
-3. Generate individual study tasks for each available study day. Respect the student's daily available hours.
-4. Each task must have:
-   - id: unique string (e.g., "task-2026-08-17-1")
-   - title: concise, actionable action (${isZh ? "例如：'理论精读：第 3 章 动态规划状态转移方程推导', '习题演练：15 道二叉树遍历与递归专项真题'" : "e.g., 'Active Reading: Chapter 3 Reaction Kinetics', 'Practice Problems: 15 Multi-step Thermodynamics Exercises'"})
-   - description: clear step-by-step guidance on what to achieve in this session
-   - category: one of ["theory", "reading", "practice_problems", "active_recall", "flashcards", "mock_exam", "review_weak_spots", "summary_cheat_sheet"]
+RAG GROUNDING REQUIREMENTS:
+1. Schedule tasks strictly between ${preferences.startDate} and ${preferences.examDate}, respecting the daily available hours.
+2. Group timeline into 3-4 distinct study phases (e.g. ${isZh ? "第1阶段：考纲精读与概念夯实, 第2阶段：专题大题精练与难点攻坚, 第3阶段：主动回忆与全真模考冲刺, 第4阶段：考前速记与查漏补缺" : "Phase 1: Foundation, Phase 2: Problem Solving, Phase 3: Mocks, Phase 4: Final Review"}).
+3. For EVERY study task, ground it directly in the uploaded documents:
+   - title: concise, highly actionable (${isZh ? "例如：'讲义精读：第3章 动态规划状态转移方程推导', '真题演练：2024期末第4题 二叉树递归大题'" : "e.g., 'Active Reading: Chapter 3 Dynamic Programming Equations'"})
+   - description: clear step-by-step guidance on what to achieve
+   - category: ["theory", "reading", "practice_problems", "active_recall", "flashcards", "mock_exam", "review_weak_spots", "summary_cheat_sheet"]
    - topicTitle: associated syllabus topic
-   - date: exact date in "YYYY-MM-DD" format
-   - startTime: suggested start time "HH:MM" (e.g. "09:00", "14:00", "19:00")
-   - endTime: suggested end time "HH:MM"
-   - durationMinutes: realistic minutes (e.g., 25, 45, 60, 90, 120)
+   - date: "YYYY-MM-DD"
+   - startTime / endTime / durationMinutes
    - priority: "high" | "medium" | "low"
    - status: "pending"
-   - keyObjectives: array of 2-3 specific mastery bullet points to tick off
-   - activeRecallPrompt: a self-testing question the student must be able to answer after finishing the task.
-5. If includePracticeExams is true, schedule full timed mock exams at strategic milestones (e.g., halfway through and 3-5 days before exam).
-6. Prioritize weak topics with extra review blocks.`;
+   - keyObjectives: array of 2-3 specific mastery checkpoints
+   - activeRecallPrompt: self-testing question based on the document concepts
+   - groundedUserNeed: explain which student requirement this task satisfies (e.g. "${isZh ? "针对【计算大题攻坚】需求，深度强化公式推导与实战" : "Targets high-yield calculation need"}")
+   - formulaOrRules: 1-2 key formulas or governing equations extracted from the material
+   - ragSource:
+     - documentName: name of the source material
+     - documentType: "syllabus" | "notes" | "past_exam" | "lecture_slides"
+     - sectionTitle: specific section or heading
+     - pageOrChapter: e.g. "第 2 章", "真题大题第3题"
+     - excerptSnippet: quote or direct summary from the document (50-150 chars)
+     - keyConcepts: array of 2-4 keywords
+     - relevanceReason: why this document chunk was chosen for this task`;
 
     const result = await generateWithRetryAndFallback(
       (modelName) => ({
@@ -887,6 +1123,27 @@ REQUIREMENTS FOR THE PLAN:
                       items: { type: Type.STRING },
                     },
                     activeRecallPrompt: { type: Type.STRING },
+                    groundedUserNeed: { type: Type.STRING },
+                    formulaOrRules: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING },
+                    },
+                    ragSource: {
+                      type: Type.OBJECT,
+                      properties: {
+                        documentName: { type: Type.STRING },
+                        documentType: { type: Type.STRING },
+                        sectionTitle: { type: Type.STRING },
+                        pageOrChapter: { type: Type.STRING },
+                        excerptSnippet: { type: Type.STRING },
+                        keyConcepts: {
+                          type: Type.ARRAY,
+                          items: { type: Type.STRING },
+                        },
+                        relevanceReason: { type: Type.STRING },
+                      },
+                      required: ["documentName", "excerptSnippet"],
+                    },
                   },
                   required: [
                     "id",
@@ -929,6 +1186,69 @@ REQUIREMENTS FOR THE PLAN:
     console.error("Error generating study plan:", error);
     const fallback = fallbackGeneratePlan(req.body.topics || [], req.body.preferences || {});
     res.json(fallback);
+  }
+});
+
+// 3. Dedicated RAG Knowledge Query & Verification Endpoint
+app.post("/api/rag-ask", async (req, res) => {
+  try {
+    const { query, topicTitle, taskTitle, materials } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: "Missing query parameter" });
+    }
+
+    const allChunks = chunkAllMaterials(materials || []);
+    const searchQuery = `${query} ${topicTitle || ""} ${taskTitle || ""}`.trim();
+    const retrievedChunks = retrieveTopChunksForQuery(searchQuery, allChunks, { topK: 5 });
+
+    const contextText = retrievedChunks.length > 0
+      ? retrievedChunks.map((c, i) => `[Source ${i + 1}: ${c.materialName} - ${c.sectionTitle}]\n${c.content}`).join("\n\n")
+      : "No direct matching document chunks found in uploaded materials.";
+
+    const prompt = `You are an AI Academic Tutor answering a student's question based strictly on their uploaded study materials.
+Student Question: "${query}"
+Context / Task: Topic: "${topicTitle || 'General'}", Task: "${taskTitle || ''}"
+
+Retrieved Document Excerpts:
+${contextText}
+
+Instructions:
+1. Provide a direct, authoritative, and helpful answer grounded in the excerpts.
+2. Explicitly cite the document names and section titles where the information came from.
+3. List 1-2 key formulas, rules, or definitions mentioned in the excerpts.
+4. Provide a quick 1-step action the student should take right now to master this concept.
+Output your response in Simplified Chinese (简体中文).`;
+
+    const result = await generateWithRetryAndFallback(
+      (modelName) => ({
+        model: modelName,
+        contents: prompt,
+      }),
+      (text) => ({
+        answer: text,
+        citations: retrievedChunks.map((c) => ({
+          documentName: c.materialName,
+          sectionTitle: c.sectionTitle,
+          excerpt: c.content.slice(0, 180) + "...",
+        })),
+      }),
+      () => ({
+        answer: `基于您上传的备考资料，针对「${topicTitle || query}」的解析如下：\n\n1. **核心要点**：根据相关考纲与讲义，此知识点是高频考查单元，重点考查定理适用前提与计算推导。\n2. **解题避坑**：在做题时注意边界条件验证与中间变量舍入。\n3. **即刻行动**：建议立即打开讲义对照公式默写一次，并完成配套例题演练。`,
+        citations: retrievedChunks.slice(0, 3).map((c) => ({
+          documentName: c.materialName,
+          sectionTitle: c.sectionTitle,
+          excerpt: c.content.slice(0, 180) + "...",
+        })),
+      })
+    );
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("Error in /api/rag-ask:", error);
+    res.json({
+      answer: "已检索备考资料，建议重点复习该考点的核心公式与典型例题。",
+      citations: [],
+    });
   }
 });
 

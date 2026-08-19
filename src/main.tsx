@@ -4,6 +4,15 @@ import App from "./App.tsx";
 import { I18nProvider } from "./lib/i18n.tsx";
 import "./index.css";
 
+// Suppress benign Vite HMR WebSocket disconnect noise in sandboxed preview
+window.addEventListener("unhandledrejection", (event) => {
+  const reason = event.reason;
+  const msg = typeof reason === "string" ? reason : reason?.message || "";
+  if (msg.includes("WebSocket") || msg.includes("websocket")) {
+    event.preventDefault();
+  }
+});
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <I18nProvider>

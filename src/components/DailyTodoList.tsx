@@ -20,7 +20,9 @@ import {
   Table as TableIcon,
   List as ListIcon,
   Check,
-  Filter
+  Filter,
+  Zap,
+  FileText
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { ExamStudyPlan, StudyTask, TaskCategory } from "../types";
@@ -28,6 +30,7 @@ import { playCompletionChime } from "../lib/audio";
 import { generateGoogleCalendarUrl } from "../lib/calendarExport";
 import { TaskFocusTimerModal } from "./TaskFocusTimerModal";
 import { QuizModal } from "./QuizModal";
+import { RagKnowledgeModal } from "./RagKnowledgeModal";
 import { useI18n } from "../lib/i18n";
 
 interface DailyTodoListProps {
@@ -61,6 +64,7 @@ export function DailyTodoList({
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [activeTimerTask, setActiveTimerTask] = useState<StudyTask | null>(null);
   const [activeQuizTask, setActiveQuizTask] = useState<StudyTask | null>(null);
+  const [activeRagTask, setActiveRagTask] = useState<StudyTask | null>(null);
   const [expandedNotesId, setExpandedNotesId] = useState<string | null>(null);
   const [isAddingInline, setIsAddingInline] = useState(false);
 
@@ -464,10 +468,19 @@ export function DailyTodoList({
                       {/* Action Tools */}
                       <td className="py-2 px-3 text-right pr-4">
                         <div className="flex items-center justify-end space-x-1">
+                          {/* RAG Knowledge Grounding & Ask */}
+                          <button
+                            onClick={() => setActiveRagTask(task)}
+                            className="p-1 rounded hover:bg-[#ebf5fb] text-[#2b78a0] transition-colors"
+                            title={language === "zh" ? "RAG 资料溯源与问答" : "RAG Material Grounding & QA"}
+                          >
+                            <Zap className="w-3.5 h-3.5 fill-current" />
+                          </button>
+
                           {/* Focus Session */}
                           <button
                             onClick={() => setActiveTimerTask(task)}
-                            className="p-1 rounded hover:bg-[#efefed] text-[#2b78a0] transition-colors"
+                            className="p-1 rounded hover:bg-[#efefed] text-[#448361] transition-colors"
                             title={t("startFocusTimer")}
                           >
                             <Play className="w-3.5 h-3.5 fill-current" />
@@ -699,6 +712,20 @@ export function DailyTodoList({
                         </div>
                       </div>
                     )}
+                    {/* RAG Source Citation Preview if present */}
+                    {task.ragSource && (
+                      <div className="flex items-center space-x-1.5 text-[11px] text-[#2b78a0] bg-[#f0f7fa] px-2 py-1 rounded border border-[#e1eff5] mt-1.5 w-fit">
+                        <FileText className="w-3 h-3" />
+                        <span className="font-medium truncate max-w-[280px]">
+                          {task.ragSource.documentName} {task.ragSource.pageOrChapter ? `(${task.ragSource.pageOrChapter})` : ""}
+                        </span>
+                        {task.groundedUserNeed && (
+                          <span className="text-[#5a5a57] border-l border-[#cde2ee] pl-1.5 ml-1">
+                            {task.groundedUserNeed}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -706,8 +733,17 @@ export function DailyTodoList({
                   <span className="text-xs text-[#787774] font-mono">{task.durationMinutes} {language === "zh" ? "分钟" : "mins"}</span>
                   <div className="flex items-center space-x-1">
                     <button
+                      onClick={() => setActiveRagTask(task)}
+                      className="px-2 py-1 bg-[#ebf5fb] hover:bg-[#d8ecf7] border border-[#d0e5f2] rounded text-xs font-semibold text-[#2b78a0] flex items-center space-x-1"
+                      title={language === "zh" ? "RAG 资料溯源与问答" : "RAG Grounding"}
+                    >
+                      <Zap className="w-3 h-3 fill-current" />
+                      <span>{language === "zh" ? "RAG 资料" : "RAG"}</span>
+                    </button>
+
+                    <button
                       onClick={() => setActiveTimerTask(task)}
-                      className="px-2.5 py-1 bg-[#f7f6f3] hover:bg-[#efefed] border border-[#e9e9e7] rounded text-xs font-semibold text-[#2b78a0] flex items-center space-x-1"
+                      className="px-2.5 py-1 bg-[#f7f6f3] hover:bg-[#efefed] border border-[#e9e9e7] rounded text-xs font-semibold text-[#448361] flex items-center space-x-1"
                     >
                       <Play className="w-3 h-3 fill-current" />
                       <span>{t("focusSessionBtn")}</span>
@@ -761,6 +797,16 @@ export function DailyTodoList({
           onMasteryUpdated={(rating) => {
             handleUpdateConfidence(activeQuizTask.id, rating);
           }}
+        />
+      )}
+
+      {/* RAG Knowledge & Grounding Modal */}
+      {activeRagTask && (
+        <RagKnowledgeModal
+          task={activeRagTask}
+          plan={plan}
+          isOpen={!!activeRagTask}
+          onClose={() => setActiveRagTask(null)}
         />
       )}
     </div>

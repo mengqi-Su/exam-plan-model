@@ -213,10 +213,10 @@ export function PlanPreferencesForm({
         </div>
       </div>
 
-      {/* Main Settings Card */}
-      <div className="bg-white border border-[#e9e9e7] rounded-lg p-6 shadow-2xs space-y-6">
+      {/* Main Settings Direct Form */}
+      <div className="space-y-6">
         <div>
-          <h2 className="text-lg font-bold text-[#37352f]">
+          <h2 className="text-xl font-bold text-[#37352f]">
             {t("configureTimelineTitle")}
           </h2>
           <p className="text-xs text-[#787774] mt-0.5">
@@ -232,7 +232,7 @@ export function PlanPreferencesForm({
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
+            <div className="p-3.5 bg-white border border-[#e9e9e7] rounded-xl shadow-2xs">
               <label className="block text-xs font-medium text-[#37352f] mb-1">
                 {t("startDateLabel")}
               </label>
@@ -245,7 +245,7 @@ export function PlanPreferencesForm({
               />
             </div>
 
-            <div>
+            <div className="p-3.5 bg-white border border-[#e9e9e7] rounded-xl shadow-2xs">
               <label className="block text-xs font-medium text-[#37352f] mb-1">
                 {t("examDateLabel")}
               </label>
@@ -258,7 +258,7 @@ export function PlanPreferencesForm({
               />
             </div>
 
-            <div>
+            <div className="p-3.5 bg-white border border-[#e9e9e7] rounded-xl shadow-2xs">
               <label className="block text-xs font-medium text-[#37352f] mb-1">
                 {t("examTimeLabel")}
               </label>
@@ -272,7 +272,7 @@ export function PlanPreferencesForm({
             </div>
           </div>
 
-          <div className="p-2.5 bg-[#f7f6f3] border border-[#e9e9e7] rounded-md flex items-center justify-between text-xs text-[#5a5a57]">
+          <div className="p-3 bg-white border border-[#e9e9e7] rounded-xl flex items-center justify-between text-xs text-[#5a5a57] shadow-2xs">
             <span>
               {language === "zh" ? "备考窗口期: " : "Study Window: "}
               <strong className="text-[#37352f]">{daysDiff} {language === "zh" ? "天" : "Total Days"}</strong> ({Math.round(daysDiff / 7)} {language === "zh" ? "周" : "Weeks"})

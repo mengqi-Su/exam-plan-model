@@ -57,6 +57,8 @@ interface CourseKnowledgeHubProps {
   materialsSummary: string;
   onMaterialsSummaryChange: (summary: string) => void;
   onUpdatePlan?: (updatedPlan: ExamStudyPlan) => void;
+  onDeleteCourse?: () => void;
+  onRequestDeleteCourse?: (plan?: ExamStudyPlan | null) => void;
   onProceedToPlanConfig: () => void;
   onNavigateToTab?: (tab: "todo" | "calendar" | "realtime" | "course") => void;
 }
@@ -76,6 +78,8 @@ export function CourseKnowledgeHub({
   materialsSummary,
   onMaterialsSummaryChange,
   onUpdatePlan,
+  onDeleteCourse,
+  onRequestDeleteCourse,
   onProceedToPlanConfig,
   onNavigateToTab,
 }: CourseKnowledgeHubProps) {
@@ -97,36 +101,24 @@ export function CourseKnowledgeHub({
   const [pasteDocType, setPasteDocType] = useState<StudyMaterial["type"]>("notes");
   const [pasteDocContent, setPasteDocContent] = useState("");
 
-  // AI Extraction state
+  // Topic Blueprint state
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionSuccess, setExtractionSuccess] = useState(false);
-
-  // Modals state
-  const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
-  const [activeQuizMaterial, setActiveQuizMaterial] = useState<StudyMaterial | null>(null);
   const [isAddingTopic, setIsAddingTopic] = useState(false);
-
-  // New topic form
   const [newTopicTitle, setNewTopicTitle] = useState("");
   const [newTopicWeight, setNewTopicWeight] = useState(15);
   const [newTopicDifficulty, setNewTopicDifficulty] = useState<"easy" | "medium" | "hard">("medium");
   const [newTopicHours, setNewTopicHours] = useState(4);
   const [newTopicSubtopics, setNewTopicSubtopics] = useState("");
 
-  // Direct Plan Generation settings (Inline / Expandable)
-  const [showPlanSettings, setShowPlanSettings] = useState(false);
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
-  const [planGenerateError, setPlanGenerateError] = useState<string | null>(null);
-  const [planSuccessNotice, setPlanSuccessNotice] = useState(false);
-
-  // Schedule preferences state
+  // Direct Plan Generation Preferences
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
   const defaultExamDate = useMemo(() => {
     if (plan?.examDate) return plan.examDate;
     const d = new Date();
     d.setDate(d.getDate() + 21);
     return d.toISOString().split("T")[0];
-  }, [plan]);
+  }, [plan?.examDate]);
 
   const [startDate, setStartDate] = useState(plan?.startDate || todayStr);
   const [examDate, setExamDate] = useState(plan?.examDate || defaultExamDate);
@@ -136,113 +128,117 @@ export function CourseKnowledgeHub({
   const [sessionLength, setSessionLength] = useState<number>(plan?.preferences?.sessionLengthMinutes || 45);
   const [includePracticeExams, setIncludePracticeExams] = useState(plan?.preferences?.includePracticeExams ?? true);
   const [includeBufferDays, setIncludeBufferDays] = useState(plan?.preferences?.includeBufferDays ?? true);
-  const [bufferDaysCount, setBufferDaysCount] = useState(plan?.preferences?.bufferDaysCount || 2);
-  const [dailySchedules, setDailySchedules] = useState<DaySchedulePreference[]>(plan?.preferences?.dailySchedules || DEFAULT_WEEK_SCHEDULE);
+  const [bufferDaysCount, setBufferDaysCount] = useState(plan?.preferences?.bufferDaysCount ?? 2);
+  const [dailySchedules, setDailySchedules] = useState<DaySchedulePreference[]>(
+    plan?.preferences?.dailySchedules || DEFAULT_WEEK_SCHEDULE
+  );
   const [selectedWeakTopics, setSelectedWeakTopics] = useState<string[]>(
     plan?.preferences?.weakTopicsFocus || topics.filter(t => t.difficulty === "hard").map(t => t.title)
   );
 
-  // Materials list
-  const materials: StudyMaterial[] = plan?.materials || INITIAL_SAMPLE_DOCUMENTS;
+  // Settings visibility & generation state
+  const [showPlanSettings, setShowPlanSettings] = useState(false);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [planGenerateError, setPlanGenerateError] = useState<string | null>(null);
+  const [planSuccessNotice, setPlanSuccessNotice] = useState(false);
 
-  // Filtered documents
+  // Modals state
+  const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
+  const [activeQuizMaterial, setActiveQuizMaterial] = useState<StudyMaterial | null>(null);
+
+  // Materials collection (fallback to sample if empty and no plan)
+  const materials: StudyMaterial[] = useMemo(() => {
+    if (plan?.materials && plan.materials.length > 0) {
+      return plan.materials;
+    }
+    return [];
+  }, [plan?.materials]);
+
+  // Filtered materials
   const filteredMaterials = useMemo(() => {
-    return materials.filter((item) => {
-      const matchesSearch =
-        !searchQuery ||
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.summaryNotes && item.summaryNotes.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        item.content.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesType = filterType === "all" || item.type === filterType;
-      return matchesSearch && matchesType;
+    return materials.filter((m) => {
+      const matchType = filterType === "all" || m.type === filterType;
+      const matchQuery = !searchQuery || m.name.toLowerCase().includes(searchQuery.toLowerCase()) || m.content.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchType && matchQuery;
     });
-  }, [materials, searchQuery, filterType]);
+  }, [materials, filterType, searchQuery]);
 
-  // Statistics
-  const totalWeight = useMemo(() => topics.reduce((acc, t) => acc + (t.weightPercentage || 0), 0), [topics]);
-  const totalEstHours = useMemo(() => topics.reduce((acc, t) => acc + (t.estimatedHours || 0), 0), [topics]);
+  // Total topics estimated hours
+  const totalEstHours = useMemo(() => {
+    return topics.reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
+  }, [topics]);
+
+  // Days until exam calculation
   const daysUntilExam = useMemo(() => {
-    const s = new Date(startDate);
-    const e = new Date(examDate);
-    const diff = Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+    if (!examDate) return 0;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const [y, m, d] = examDate.split("-").map(Number);
+    const target = new Date(y, m - 1, d);
+    const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     return diff > 0 ? diff : 0;
-  }, [startDate, examDate]);
+  }, [examDate]);
 
-  // Sync updated materials back to active plan
+  // Helper to persist materials update into active plan
   const updatePlanMaterials = (newMaterials: StudyMaterial[]) => {
     if (plan && onUpdatePlan) {
       onUpdatePlan({
         ...plan,
         materials: newMaterials,
+        updatedAt: new Date().toISOString(),
       });
     }
   };
 
-  // Upload handler for knowledge base files
+  // Upload file parsing handler
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setIsParsingDoc(true);
-    setExtractError(null);
+    setParsingStatus(language === "zh" ? "正在读取并解析文档文本..." : "Reading and extracting document text...");
 
-    const fileArray = Array.from(files);
-    let combinedContent = syllabusContent ? syllabusContent + "\n\n" : "";
-    const processedNames: string[] = [];
     const newAttachedMaterials: StudyMaterial[] = [];
+    let combinedContent = syllabusContent ? syllabusContent + "\n\n" : "";
 
-    for (let i = 0; i < fileArray.length; i++) {
-      const file = fileArray[i];
-      setParsingStatus(
-        language === "zh"
-          ? `正在解析文档 (${i + 1}/${fileArray.length})：${file.name}...`
-          : `Parsing (${i + 1}/${fileArray.length}): ${file.name}...`
-      );
-
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
       try {
-        const parsed = await parseDocumentFile(file, language, (status) => setParsingStatus(status));
-        processedNames.push(file.name);
-        combinedContent += `\n\n=== 课程知识库文档: ${file.name} ===\n${parsed.text}\n`;
+        setParsingStatus(`${language === "zh" ? "解析中" : "Parsing"}: ${file.name} (${i + 1}/${files.length})`);
+        const parsed = await parseDocumentFile(file, language);
+        const text = parsed?.text || "";
+        
+        let inferredType: StudyMaterial["type"] = "notes";
+        const lowerName = file.name.toLowerCase();
+        if (lowerName.includes("syllabus") || lowerName.includes("大纲") || lowerName.includes("考纲")) {
+          inferredType = "syllabus";
+        } else if (lowerName.includes("slide") || lowerName.includes("ppt") || lowerName.includes("讲义") || lowerName.includes("课件")) {
+          inferredType = "lecture_slides";
+        } else if (lowerName.includes("exam") || lowerName.includes("test") || lowerName.includes("真题") || lowerName.includes("试卷") || lowerName.includes("期末")) {
+          inferredType = "past_exam";
+        } else if (lowerName.includes("outline") || lowerName.includes("chapter") || lowerName.includes("教材")) {
+          inferredType = "textbook_outline";
+        }
 
-        const isExamFile = file.name.includes("真题") || file.name.includes("试卷") || file.name.includes("Exam") || file.name.includes("Test");
-        const docCategory: StudyMaterial["categoryGroup"] = isExamFile
-          ? "exam_question"
-          : file.name.includes("大纲") || file.name.includes("Syllabus")
-          ? "course_syllabus"
-          : "study_material";
-
-        const docType: StudyMaterial["type"] = isExamFile
-          ? "past_exam"
-          : file.name.includes("PPT") || file.name.includes("课件") || file.name.includes("讲义")
-          ? "lecture_slides"
-          : file.name.includes("提纲") || file.name.includes("大纲")
-          ? "textbook_outline"
-          : "notes";
-
-        newAttachedMaterials.push({
-          id: `mat-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 4)}`,
+        const materialItem: StudyMaterial = {
+          id: `mat-${Date.now()}-${i}`,
           name: file.name,
-          type: docType,
-          categoryGroup: docCategory,
-          content: parsed.text,
+          type: inferredType,
+          categoryGroup: inferredType === "past_exam" ? "exam_question" : inferredType === "syllabus" ? "course_syllabus" : "study_material",
+          content: text,
           uploadedAt: new Date().toISOString(),
           sizeBytes: file.size,
-          summaryNotes: parsed.text.slice(0, 140) + "...",
+          summaryNotes: text.slice(0, 150) + "...",
           difficulty: "medium",
-          topicTag: topics[0]?.title || undefined,
-        });
+        };
 
-        if (!examName && (file.name.includes("大纲") || file.name.includes("syllabus") || i === 0)) {
-          onExamNameChange(file.name.replace(/\.[^/.]+$/, "").replace(/大纲|syllabus|期末|考试/i, "").trim() || file.name);
-        }
+        newAttachedMaterials.push(materialItem);
+        combinedContent += `=== ${file.name} ===\n${text}\n\n`;
       } catch (err: any) {
-        console.error("Document parsing error", err);
+        console.error("Failed to parse file:", file.name, err);
       }
     }
 
-    if (processedNames.length > 0) {
-      const newDocDisplayName = processedNames.length === 1 
-        ? processedNames[0] 
-        : `${processedNames.length} 份知识库资料 (${processedNames.slice(0, 2).join(", ")}${processedNames.length > 2 ? " 等" : ""})`;
-      
+    if (newAttachedMaterials.length > 0) {
+      const newDocDisplayName = files.length === 1 ? files[0].name : `${files.length} 个资料集合 (${files[0].name} 等)`;
       onSyllabusDocNameChange(newDocDisplayName);
       onSyllabusContentChange(combinedContent.trim());
       updatePlanMaterials([...newAttachedMaterials, ...materials]);
@@ -357,7 +353,6 @@ export function CourseKnowledgeHub({
       setTimeout(() => setExtractionSuccess(false), 4000);
     } catch (err: any) {
       console.error("Extraction error handled:", err);
-      // Even in catch, extract basic fallback so user is never blocked
       const fallback = fallbackExtractSyllabusClient([], examName || "期末考试", subject || "综合学科", language);
       onTopicsChange(fallback.topics);
       onMaterialsSummaryChange(fallback.summary);
@@ -410,7 +405,6 @@ export function CourseKnowledgeHub({
   // Generate / Regenerate Study Plan directly from Knowledge Base
   const handleGenerateStudyPlan = async () => {
     if (topics.length === 0) {
-      // If no topics yet, trigger extraction first
       await handleExtractTopics();
     }
 
@@ -546,48 +540,55 @@ export function CourseKnowledgeHub({
   const getDocTypeBadge = (type: StudyMaterial["type"]) => {
     switch (type) {
       case "syllabus":
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#e8f5e9] text-[#2e7d32]">考试大纲</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#edf3ec] text-[#448361] border border-[#d5e5d3]">考试大纲</span>;
       case "lecture_slides":
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#e3f2fd] text-[#1565c0]">讲义课件</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#f0f4f8] text-[#2b78a0] border border-[#dce7f2]">讲义课件</span>;
       case "past_exam":
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#fce4ec] text-[#c2185b]">历年真题</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#fbf3f2] text-[#d44c47] border border-[#f5d5d3]">历年真题</span>;
       case "textbook_outline":
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#fff3e0] text-[#e65100]">教材提纲</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#fbf3db] text-[#cb912f] border border-[#f6e3b5]">教材提纲</span>;
       default:
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#f3e5f5] text-[#7b1fa2]">笔记资料</span>;
+        return <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#f7f6f3] text-[#787774] border border-[#e9e9e7]">笔记资料</span>;
     }
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
-      {/* Top Header Card */}
-      <div className="bg-white border border-[#e9e9e7] rounded-xl p-6 shadow-xs">
+    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8 space-y-10 animate-fadeIn text-[#37352f]">
+      {/* ========================================================================= */}
+      {/* HEADER: Flat Notion Page Header                                           */}
+      {/* ========================================================================= */}
+      <div className="space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center space-x-2">
-              <GraduationCap className="w-6 h-6 text-[#2383e2]" />
-              <h1 className="text-xl font-semibold text-[#37352f] tracking-tight">
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2 text-xs text-[#787774] mb-1">
+              <GraduationCap className="w-3.5 h-3.5 text-[#2b78a0]" />
+              <span className="font-medium">{t("workspace")}</span>
+              <span>/</span>
+              <span className="text-[#37352f] font-semibold">{examName || (language === "zh" ? "课程详情" : "Course Hub")}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#37352f]">
                 {examName || (language === "zh" ? "课程知识库与智能规划" : "Course Knowledge Base & Plan")}
               </h1>
               {subject && (
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#efefed] text-[#5a5a57]">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f0f4f8] text-[#2b78a0] border border-[#dce7f2]">
                   {subject}
                 </span>
               )}
             </div>
-            <p className="text-xs text-[#787774] leading-relaxed">
+            <p className="text-xs sm:text-sm text-[#787774] leading-relaxed">
               {language === "zh"
                 ? "管理当前课程的讲义、大纲、笔记与真题，AI 将基于此知识库自动提炼考点权重并生成自适应复习计划。"
                 : "Manage your course syllabus, lecture slides, notes, and past exams. The AI builds a topic blueprint and generates an adaptive study plan."}
             </p>
           </div>
 
-          {/* Direct CTA: Generate / Sync Plan */}
-          <div className="flex items-center space-x-2">
+          {/* Action CTAs */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
               onClick={handleGenerateStudyPlan}
               disabled={isGeneratingPlan || isExtracting}
-              className="flex items-center space-x-2 px-4 py-2 bg-[#2383e2] hover:bg-[#1b6dc1] disabled:opacity-50 text-white rounded-lg text-xs font-medium shadow-xs transition-colors"
+              className="flex items-center space-x-2 px-3.5 py-2 bg-[#37352f] hover:bg-[#201f1d] disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
               {isGeneratingPlan ? (
                 <>
@@ -597,30 +598,45 @@ export function CourseKnowledgeHub({
               ) : (
                 <>
                   <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  <span>{language === "zh" ? "基于知识库生成/刷新复习规划" : "Generate Plan from Knowledge Base"}</span>
+                  <span>{language === "zh" ? "生成/刷新复习规划" : "Generate Plan"}</span>
                 </>
               )}
             </button>
             {onNavigateToTab && plan?.tasks && plan.tasks.length > 0 && (
               <button
                 onClick={() => onNavigateToTab("todo")}
-                className="flex items-center space-x-1.5 px-3 py-2 border border-[#d3d3d0] hover:bg-[#f7f6f3] text-[#37352f] rounded-lg text-xs font-medium transition-colors"
+                className="flex items-center space-x-1.5 px-3 py-2 border border-[#d3d2cf] hover:bg-[#f7f6f3] bg-white text-[#37352f] rounded-lg text-xs font-medium transition-colors cursor-pointer"
               >
                 <span>{language === "zh" ? "查看待办清单" : "View To-Dos"}</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ArrowRight className="w-3.5 h-3.5 text-[#787774]" />
+              </button>
+            )}
+            {(onRequestDeleteCourse || onDeleteCourse) && (
+              <button
+                onClick={() => {
+                  if (onRequestDeleteCourse) {
+                    onRequestDeleteCourse(plan);
+                  } else if (onDeleteCourse) {
+                    onDeleteCourse();
+                  }
+                }}
+                className="flex items-center space-x-1 px-2.5 py-2 border border-[#f5d5d3] bg-[#fbf3f2] hover:bg-[#f8e5e3] text-[#d44c47] rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                title={language === "zh" ? "删除此科目" : "Delete Course"}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         </div>
 
-        {/* 3-Step Knowledge Pipeline Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 pt-5 border-t border-[#f0f0ee]">
-          <div className="flex items-center space-x-3 p-2.5 rounded-lg bg-[#fbfbfa] border border-[#efefed]">
-            <div className="w-7 h-7 rounded-md bg-[#e3f2fd] text-[#1565c0] flex items-center justify-center font-semibold text-xs shrink-0">
+        {/* Flat 3-Step Flow Pills */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+          <div className="flex items-center space-x-3 p-3 rounded-xl bg-white border border-[#e9e9e7] shadow-2xs">
+            <div className="w-7 h-7 rounded-md bg-[#f0f4f8] text-[#2b78a0] flex items-center justify-center font-bold text-xs shrink-0">
               1
             </div>
             <div className="min-w-0">
-              <div className="text-xs font-medium text-[#37352f] flex items-center space-x-1">
+              <div className="text-xs font-semibold text-[#37352f] flex items-center space-x-1.5">
                 <span>{language === "zh" ? "课程知识库资料" : "Knowledge Base"}</span>
                 <span className="text-[10px] px-1.5 py-0.2 bg-[#efefed] rounded text-[#5a5a57]">
                   {materials.length} 份
@@ -632,12 +648,12 @@ export function CourseKnowledgeHub({
             </div>
           </div>
 
-          <div className="flex items-center space-x-3 p-2.5 rounded-lg bg-[#fbfbfa] border border-[#efefed]">
-            <div className="w-7 h-7 rounded-md bg-[#f3e5f5] text-[#7b1fa2] flex items-center justify-center font-semibold text-xs shrink-0">
+          <div className="flex items-center space-x-3 p-3 rounded-xl bg-white border border-[#e9e9e7] shadow-2xs">
+            <div className="w-7 h-7 rounded-md bg-[#fbf3db] text-[#cb912f] flex items-center justify-center font-bold text-xs shrink-0">
               2
             </div>
             <div className="min-w-0">
-              <div className="text-xs font-medium text-[#37352f] flex items-center space-x-1">
+              <div className="text-xs font-semibold text-[#37352f] flex items-center space-x-1.5">
                 <span>{language === "zh" ? "AI 考点图谱" : "Topic Blueprint"}</span>
                 <span className="text-[10px] px-1.5 py-0.2 bg-[#efefed] rounded text-[#5a5a57]">
                   {topics.length} 个考点
@@ -649,12 +665,12 @@ export function CourseKnowledgeHub({
             </div>
           </div>
 
-          <div className="flex items-center space-x-3 p-2.5 rounded-lg bg-[#fbfbfa] border border-[#efefed]">
-            <div className="w-7 h-7 rounded-md bg-[#e8f5e9] text-[#2e7d32] flex items-center justify-center font-semibold text-xs shrink-0">
+          <div className="flex items-center space-x-3 p-3 rounded-xl bg-white border border-[#e9e9e7] shadow-2xs">
+            <div className="w-7 h-7 rounded-md bg-[#edf3ec] text-[#448361] flex items-center justify-center font-bold text-xs shrink-0">
               3
             </div>
             <div className="min-w-0">
-              <div className="text-xs font-medium text-[#37352f] flex items-center space-x-1">
+              <div className="text-xs font-semibold text-[#37352f] flex items-center space-x-1.5">
                 <span>{language === "zh" ? "智能复习排程" : "Generated Plan"}</span>
                 <span className="text-[10px] px-1.5 py-0.2 bg-[#efefed] rounded text-[#5a5a57]">
                   {plan?.tasks?.length || 0} 项任务
@@ -668,86 +684,80 @@ export function CourseKnowledgeHub({
         </div>
       </div>
 
-      {/* Success / Error Alerts */}
+      {/* Alerts */}
       {planSuccessNotice && (
-        <div className="flex items-center space-x-2 p-3.5 bg-[#e8f5e9] border border-[#c8e6c9] text-[#2e7d32] rounded-lg text-xs font-medium animate-fadeIn">
+        <div className="flex items-center space-x-2 p-3.5 bg-[#edf3ec] border border-[#d5e5d3] text-[#448361] rounded-xl text-xs font-semibold animate-fadeIn shadow-2xs">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
           <span>{language === "zh" ? "已成功依据知识库资料生成/更新复习规划！任务已分配至每日待办与日历日程。" : "Successfully generated adaptive study plan from knowledge base!"}</span>
         </div>
       )}
 
       {extractionSuccess && (
-        <div className="flex items-center space-x-2 p-3.5 bg-[#e3f2fd] border border-[#bbdefb] text-[#1565c0] rounded-lg text-xs font-medium animate-fadeIn">
+        <div className="flex items-center space-x-2 p-3.5 bg-[#f0f4f8] border border-[#dce7f2] text-[#2b78a0] rounded-xl text-xs font-semibold animate-fadeIn shadow-2xs">
           <Sparkles className="w-4 h-4 shrink-0 text-amber-500" />
           <span>{language === "zh" ? "AI 考点架构已根据知识库资料更新完毕！" : "Topic blueprint successfully extracted from knowledge base!"}</span>
         </div>
       )}
 
       {extractError && (
-        <div className="flex items-center space-x-2 p-3 bg-[#fde8e8] border border-[#f8b4b4] text-[#9b1c1c] rounded-lg text-xs">
+        <div className="flex items-center space-x-2 p-3 bg-[#fbf3f2] border border-[#f5d5d3] text-[#d44c47] rounded-xl text-xs font-medium">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{extractError}</span>
         </div>
       )}
 
       {planGenerateError && (
-        <div className="flex items-center space-x-2 p-3 bg-[#fde8e8] border border-[#f8b4b4] text-[#9b1c1c] rounded-lg text-xs">
+        <div className="flex items-center space-x-2 p-3 bg-[#fbf3f2] border border-[#f5d5d3] text-[#d44c47] rounded-xl text-xs font-medium">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{planGenerateError}</span>
         </div>
       )}
 
       {/* ========================================================================= */}
-      {/* SECTION 1: 课程知识库资料 (Knowledge Base Documents) */}
+      {/* SECTION 1: 课程知识库资料 (Knowledge Base Documents) - FLAT DIRECT VIEW    */}
       {/* ========================================================================= */}
-      <section className="bg-white border border-[#e9e9e7] rounded-xl p-6 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#f0f0ee]">
-          <div className="space-y-0.5">
-            <div className="flex items-center space-x-2">
-              <FolderOpen className="w-4 h-4 text-[#2383e2]" />
-              <h2 className="text-base font-semibold text-[#37352f]">
-                {language === "zh" ? "1. 课程知识库资料" : "1. Course Knowledge Base"}
-              </h2>
-              <span className="text-xs text-[#787774]">
-                ({materials.length} {language === "zh" ? "份文档" : "documents"})
-              </span>
-            </div>
-            <p className="text-xs text-[#787774]">
-              {language === "zh"
-                ? "支持直接拖拽上传 PDF、Word、PPT 课件、期末真题及笔记，AI 会深度解析全部内容。"
-                : "Upload PDF, DOCX, PPT slides, past exams, or paste text notes. The AI analyzes the full text."}
-            </p>
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#e9e9e7]">
+          <div className="flex items-center space-x-2">
+            <FolderOpen className="w-4 h-4 text-[#2b78a0]" />
+            <h2 className="text-base font-bold text-[#37352f]">
+              {language === "zh" ? "1. 课程知识库资料" : "1. Course Knowledge Base"}
+            </h2>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-[#efefed] text-[#787774] font-medium">
+              {materials.length} {language === "zh" ? "份" : "docs"}
+            </span>
           </div>
 
           {/* Quick Actions */}
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowPasteBox(!showPasteBox)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#f7f6f3] hover:bg-[#efefed] text-[#37352f] rounded-lg text-xs font-medium transition-colors"
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-white border border-[#d3d2cf] hover:bg-[#f7f6f3] text-[#37352f] rounded-lg text-xs font-medium transition-colors cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5 text-[#787774]" />
               <span>{language === "zh" ? "粘贴文本笔记" : "Paste Notes"}</span>
             </button>
+
             <button
               onClick={handleLoadSampleKnowledgeBase}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#f7f6f3] hover:bg-[#efefed] text-[#37352f] rounded-lg text-xs font-medium transition-colors"
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-white border border-[#d3d2cf] hover:bg-[#f7f6f3] text-[#37352f] rounded-lg text-xs font-medium transition-colors cursor-pointer"
             >
-              <Zap className="w-3.5 h-3.5 text-amber-500" />
-              <span>{language === "zh" ? "加载示例资料库" : "Load Sample Docs"}</span>
+              <Zap className="w-3.5 h-3.5 text-[#cb912f]" />
+              <span>{language === "zh" ? "加载示例资料" : "Sample Docs"}</span>
             </button>
           </div>
         </div>
 
         {/* Collapsible Paste Textarea Box */}
         {showPasteBox && (
-          <div className="bg-[#fbfbfa] border border-[#e9e9e7] rounded-lg p-4 space-y-3 animate-fadeIn">
+          <div className="bg-white border border-[#e9e9e7] rounded-xl p-4 space-y-3 animate-fadeIn shadow-2xs">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-semibold text-[#37352f]">
                 {language === "zh" ? "快速录入文本或笔记资料" : "Add Text / Notes to Knowledge Base"}
               </h4>
               <button
                 onClick={() => setShowPasteBox(false)}
-                className="text-[#787774] hover:text-[#37352f]"
+                className="text-[#787774] hover:text-[#37352f] cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -758,12 +768,12 @@ export function CourseKnowledgeHub({
                 value={pasteDocTitle}
                 onChange={(e) => setPasteDocTitle(e.target.value)}
                 placeholder={language === "zh" ? "资料名称（如：第 1-3 周核心知识点笔记）" : "Document title..."}
-                className="px-3 py-1.5 bg-white border border-[#d3d3d0] rounded-md text-xs text-[#37352f] focus:outline-none focus:border-[#2383e2]"
+                className="px-3 py-1.5 bg-[#fafaf9] border border-[#d3d2cf] rounded-md text-xs text-[#37352f] focus:outline-none focus:bg-white focus:border-[#37352f]"
               />
               <select
                 value={pasteDocType}
                 onChange={(e) => setPasteDocType(e.target.value as any)}
-                className="px-3 py-1.5 bg-white border border-[#d3d3d0] rounded-md text-xs text-[#37352f] focus:outline-none focus:border-[#2383e2]"
+                className="px-3 py-1.5 bg-[#fafaf9] border border-[#d3d2cf] rounded-md text-xs text-[#37352f] focus:outline-none focus:bg-white cursor-pointer"
               >
                 <option value="notes">{language === "zh" ? "课堂笔记 (Notes)" : "Notes"}</option>
                 <option value="syllabus">{language === "zh" ? "考纲大纲 (Syllabus)" : "Syllabus"}</option>
@@ -776,19 +786,19 @@ export function CourseKnowledgeHub({
               onChange={(e) => setPasteDocContent(e.target.value)}
               rows={4}
               placeholder={language === "zh" ? "在此粘贴大纲内容、讲义提纲、考点公式或题目文本..." : "Paste syllabus, lecture notes or exam questions here..."}
-              className="w-full px-3 py-2 bg-white border border-[#d3d3d0] rounded-md text-xs text-[#37352f] focus:outline-none focus:border-[#2383e2]"
+              className="w-full px-3 py-2 bg-[#fafaf9] border border-[#d3d2cf] rounded-md text-xs text-[#37352f] focus:outline-none focus:bg-white focus:border-[#37352f]"
             />
             <div className="flex justify-end space-x-2">
               <button
                 onClick={() => setShowPasteBox(false)}
-                className="px-3 py-1.5 text-xs text-[#787774] hover:bg-[#efefed] rounded-md"
+                className="px-3 py-1.5 text-xs text-[#787774] hover:bg-[#efefed] rounded-md cursor-pointer"
               >
                 {language === "zh" ? "取消" : "Cancel"}
               </button>
               <button
                 onClick={handleAddPastedDoc}
                 disabled={!pasteDocContent.trim()}
-                className="px-4 py-1.5 bg-[#2383e2] hover:bg-[#1b6dc1] disabled:opacity-50 text-white text-xs font-medium rounded-md shadow-xs"
+                className="px-4 py-1.5 bg-[#37352f] hover:bg-[#201f1d] disabled:opacity-50 text-white text-xs font-semibold rounded-md shadow-xs cursor-pointer"
               >
                 {language === "zh" ? "保存至知识库" : "Add to Knowledge Base"}
               </button>
@@ -810,8 +820,8 @@ export function CourseKnowledgeHub({
           }}
           className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all ${
             isDragging
-              ? "border-[#2383e2] bg-[#f0f7ff]"
-              : "border-[#d3d3d0] bg-[#fafaf9] hover:bg-[#f5f5f4]"
+              ? "border-[#2b78a0] bg-[#f0f4f8]"
+              : "border-[#d3d2cf] bg-[#fafaf9] hover:bg-[#f7f6f3]"
           }`}
         >
           <input
@@ -822,11 +832,11 @@ export function CourseKnowledgeHub({
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           />
           <div className="flex flex-col items-center justify-center space-y-2">
-            <div className="w-10 h-10 rounded-full bg-[#efefed] flex items-center justify-center text-[#5a5a57]">
-              <Upload className="w-5 h-5 text-[#2383e2]" />
+            <div className="w-10 h-10 rounded-full bg-white border border-[#e9e9e7] flex items-center justify-center text-[#5a5a57] shadow-2xs">
+              <Upload className="w-5 h-5 text-[#2b78a0]" />
             </div>
             <div>
-              <p className="text-xs font-medium text-[#37352f]">
+              <p className="text-xs font-semibold text-[#37352f]">
                 {language === "zh" ? "点击或拖拽上传课程文件" : "Click or drag & drop files here"}
               </p>
               <p className="text-[11px] text-[#787774] mt-0.5">
@@ -836,7 +846,7 @@ export function CourseKnowledgeHub({
               </p>
             </div>
             {isParsingDoc && (
-              <div className="flex items-center space-x-2 px-3 py-1 bg-white border border-[#2383e2]/30 text-[#2383e2] rounded-full text-xs animate-pulse mt-2">
+              <div className="flex items-center space-x-2 px-3 py-1 bg-white border border-[#2b78a0]/30 text-[#2b78a0] rounded-full text-xs animate-pulse mt-2">
                 <RefreshCw className="w-3 h-3 animate-spin" />
                 <span>{parsingStatus || (language === "zh" ? "正在解析文档文本..." : "Parsing file...")}</span>
               </div>
@@ -844,12 +854,12 @@ export function CourseKnowledgeHub({
           </div>
         </div>
 
-        {/* Uploaded Documents List */}
+        {/* Uploaded Documents Grid sitting directly on page canvas */}
         {materials.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <span className="text-xs font-medium text-[#37352f]">
+                <span className="text-xs font-semibold text-[#37352f]">
                   {language === "zh" ? "知识库文件清单" : "Knowledge Base Files"}
                 </span>
                 <span className="text-[11px] px-1.5 py-0.2 bg-[#efefed] text-[#5a5a57] rounded-full">
@@ -861,32 +871,32 @@ export function CourseKnowledgeHub({
               <div className="flex items-center space-x-1 text-xs">
                 <button
                   onClick={() => setFilterType("all")}
-                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-                    filterType === "all" ? "bg-[#efefed] text-[#37352f]" : "text-[#787774] hover:bg-[#f7f6f3]"
+                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                    filterType === "all" ? "bg-[#37352f] text-white" : "text-[#787774] hover:bg-[#efefed]"
                   }`}
                 >
                   {language === "zh" ? "全部" : "All"}
                 </button>
                 <button
                   onClick={() => setFilterType("syllabus")}
-                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-                    filterType === "syllabus" ? "bg-[#efefed] text-[#37352f]" : "text-[#787774] hover:bg-[#f7f6f3]"
+                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                    filterType === "syllabus" ? "bg-[#37352f] text-white" : "text-[#787774] hover:bg-[#efefed]"
                   }`}
                 >
                   {language === "zh" ? "考纲" : "Syllabus"}
                 </button>
                 <button
                   onClick={() => setFilterType("lecture_slides")}
-                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-                    filterType === "lecture_slides" ? "bg-[#efefed] text-[#37352f]" : "text-[#787774] hover:bg-[#f7f6f3]"
+                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                    filterType === "lecture_slides" ? "bg-[#37352f] text-white" : "text-[#787774] hover:bg-[#efefed]"
                   }`}
                 >
                   {language === "zh" ? "讲义" : "Slides"}
                 </button>
                 <button
                   onClick={() => setFilterType("past_exam")}
-                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-                    filterType === "past_exam" ? "bg-[#efefed] text-[#37352f]" : "text-[#787774] hover:bg-[#f7f6f3]"
+                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                    filterType === "past_exam" ? "bg-[#37352f] text-white" : "text-[#787774] hover:bg-[#efefed]"
                   }`}
                 >
                   {language === "zh" ? "真题" : "Exams"}
@@ -898,15 +908,15 @@ export function CourseKnowledgeHub({
               {filteredMaterials.map((doc) => (
                 <div
                   key={doc.id}
-                  className="flex items-start justify-between p-3 bg-[#fbfbfa] border border-[#e9e9e7] hover:border-[#d3d3d0] rounded-lg transition-all"
+                  className="flex items-start justify-between p-3.5 bg-white border border-[#e9e9e7] hover:border-[#b4b4b0] rounded-xl transition-all shadow-2xs"
                 >
                   <div className="flex items-start space-x-3 min-w-0 flex-1">
-                    <div className="w-8 h-8 rounded-md bg-white border border-[#e9e9e7] flex items-center justify-center text-[#5a5a57] shrink-0 mt-0.5">
-                      <FileText className="w-4 h-4 text-[#2383e2]" />
+                    <div className="w-8 h-8 rounded-lg bg-[#f7f6f3] border border-[#e9e9e7] flex items-center justify-center text-[#5a5a57] shrink-0 mt-0.5">
+                      <FileText className="w-4 h-4 text-[#2b78a0]" />
                     </div>
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-center space-x-2">
-                        <p className="text-xs font-medium text-[#37352f] truncate">
+                        <p className="text-xs font-semibold text-[#37352f] truncate">
                           {doc.name}
                         </p>
                       </div>
@@ -915,7 +925,7 @@ export function CourseKnowledgeHub({
                         <span className="text-[#9b9a97]">
                           {(doc.sizeBytes ? `${Math.round(doc.sizeBytes / 1024)} KB` : "文本资料")}
                         </span>
-                        <span className="text-[#2e7d32] font-medium flex items-center space-x-0.5">
+                        <span className="text-[#448361] font-medium flex items-center space-x-0.5">
                           <Check className="w-3 h-3" />
                           <span>{language === "zh" ? "已解析" : "Ready"}</span>
                         </span>
@@ -933,21 +943,21 @@ export function CourseKnowledgeHub({
                     <button
                       onClick={() => setPreviewDoc(doc)}
                       title={language === "zh" ? "预览解析文本" : "Preview"}
-                      className="p-1 text-[#787774] hover:text-[#37352f] hover:bg-[#efefed] rounded"
+                      className="p-1 text-[#787774] hover:text-[#37352f] hover:bg-[#efefed] rounded cursor-pointer"
                     >
                       <Eye className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => setActiveQuizMaterial(doc)}
                       title={language === "zh" ? "针对该资料出题自测" : "Quiz"}
-                      className="p-1 text-[#787774] hover:text-[#2383e2] hover:bg-[#efefed] rounded"
+                      className="p-1 text-[#787774] hover:text-[#cb912f] hover:bg-[#fbf3db] rounded cursor-pointer"
                     >
-                      <FileQuestion className="w-3.5 h-3.5 text-[#2383e2]" />
+                      <FileQuestion className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => handleDeleteDoc(doc.id)}
                       title={language === "zh" ? "从知识库移除" : "Delete"}
-                      className="p-1 text-[#787774] hover:text-[#eb5757] hover:bg-[#efefed] rounded"
+                      className="p-1 text-[#787774] hover:text-[#d44c47] hover:bg-[#fbf3f2] rounded cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -960,49 +970,42 @@ export function CourseKnowledgeHub({
       </section>
 
       {/* ========================================================================= */}
-      {/* SECTION 2: AI 提炼的核心考点架构 (Extracted Topics Blueprint) */}
+      {/* SECTION 2: AI 提炼的核心考点架构 (Extracted Topics) - FLAT DIRECT VIEW    */}
       {/* ========================================================================= */}
-      <section className="bg-white border border-[#e9e9e7] rounded-xl p-6 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#f0f0ee]">
-          <div className="space-y-0.5">
-            <div className="flex items-center space-x-2">
-              <BrainCircuit className="w-4 h-4 text-[#9065b0]" />
-              <h2 className="text-base font-semibold text-[#37352f]">
-                {language === "zh" ? "2. AI 提炼的核心考点架构" : "2. Extracted Topic Blueprint"}
-              </h2>
-              <span className="text-xs text-[#787774]">
-                ({topics.length} {language === "zh" ? "个核心领域" : "topics"})
-              </span>
-            </div>
-            <p className="text-xs text-[#787774]">
-              {language === "zh"
-                ? "AI 会自动综合分析知识库中的所有大纲、讲义和真题，提炼出考点分值占比与难度梯度。"
-                : "The AI synthesizes all documents in the knowledge base, calculating topic exam weights and difficulty tiers."}
-            </p>
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#e9e9e7]">
+          <div className="flex items-center space-x-2">
+            <BrainCircuit className="w-4 h-4 text-[#2b78a0]" />
+            <h2 className="text-base font-bold text-[#37352f]">
+              {language === "zh" ? "2. AI 提炼的核心考点架构" : "2. Extracted Topic Blueprint"}
+            </h2>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-[#efefed] text-[#787774] font-medium">
+              {topics.length} {language === "zh" ? "个考点" : "topics"}
+            </span>
           </div>
 
           <div className="flex items-center space-x-2">
             <button
               onClick={handleExtractTopics}
               disabled={isExtracting}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#f3e5f5] hover:bg-[#e1bee7] text-[#7b1fa2] rounded-lg text-xs font-medium transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#d3d2cf] hover:bg-[#f7f6f3] text-[#37352f] rounded-lg text-xs font-semibold transition-colors cursor-pointer"
             >
               {isExtracting ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>{language === "zh" ? "正在提炼考点..." : "Extracting..."}</span>
+                  <span>{language === "zh" ? "提炼中..." : "Extracting..."}</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>{language === "zh" ? "从知识库重新提炼" : "Re-extract Topics"}</span>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>{language === "zh" ? "重新提炼考点" : "Re-extract"}</span>
                 </>
               )}
             </button>
 
             <button
               onClick={() => setIsAddingTopic(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#f7f6f3] hover:bg-[#efefed] text-[#37352f] rounded-lg text-xs font-medium transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>{language === "zh" ? "添加考点" : "Add Topic"}</span>
@@ -1012,12 +1015,12 @@ export function CourseKnowledgeHub({
 
         {/* Add Topic Inline Form */}
         {isAddingTopic && (
-          <div className="bg-[#fbfbfa] border border-[#e9e9e7] rounded-lg p-4 space-y-3 animate-fadeIn">
+          <div className="bg-white border border-[#e9e9e7] rounded-xl p-4 space-y-3 animate-fadeIn shadow-2xs">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-semibold text-[#37352f]">
                 {language === "zh" ? "添加自定义考点" : "Add Custom Topic"}
               </h4>
-              <button onClick={() => setIsAddingTopic(false)} className="text-[#787774] hover:text-[#37352f]">
+              <button onClick={() => setIsAddingTopic(false)} className="text-[#787774] hover:text-[#37352f] cursor-pointer">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -1027,7 +1030,7 @@ export function CourseKnowledgeHub({
                 value={newTopicTitle}
                 onChange={(e) => setNewTopicTitle(e.target.value)}
                 placeholder={language === "zh" ? "考点名称（如：红黑树平衡推导）" : "Topic title..."}
-                className="sm:col-span-2 px-3 py-1.5 bg-white border border-[#d3d3d0] rounded-md text-xs text-[#37352f]"
+                className="sm:col-span-2 px-3 py-1.5 bg-[#fafaf9] border border-[#d3d2cf] rounded-md text-xs text-[#37352f] focus:outline-none focus:bg-white"
               />
               <div className="flex items-center space-x-1">
                 <span className="text-[11px] text-[#787774] whitespace-nowrap">{language === "zh" ? "权重" : "Weight"}:</span>
@@ -1037,7 +1040,7 @@ export function CourseKnowledgeHub({
                   max={100}
                   value={newTopicWeight}
                   onChange={(e) => setNewTopicWeight(Number(e.target.value))}
-                  className="w-16 px-2 py-1.5 bg-white border border-[#d3d3d0] rounded-md text-xs text-[#37352f]"
+                  className="w-16 px-2 py-1.5 bg-[#fafaf9] border border-[#d3d2cf] rounded-md text-xs text-[#37352f] focus:outline-none focus:bg-white"
                 />
                 <span className="text-xs text-[#787774]">%</span>
               </div>
@@ -1049,7 +1052,7 @@ export function CourseKnowledgeHub({
                   max={50}
                   value={newTopicHours}
                   onChange={(e) => setNewTopicHours(Number(e.target.value))}
-                  className="w-16 px-2 py-1.5 bg-white border border-[#d3d3d0] rounded-md text-xs text-[#37352f]"
+                  className="w-16 px-2 py-1.5 bg-[#fafaf9] border border-[#d3d2cf] rounded-md text-xs text-[#37352f] focus:outline-none focus:bg-white"
                 />
                 <span className="text-xs text-[#787774]">{language === "zh" ? "小时" : "hrs"}</span>
               </div>
@@ -1059,16 +1062,16 @@ export function CourseKnowledgeHub({
               value={newTopicSubtopics}
               onChange={(e) => setNewTopicSubtopics(e.target.value)}
               placeholder={language === "zh" ? "子知识点列表，逗号分隔（如：插入旋转、删除调整、时间复杂度）" : "Subtopics (comma separated)..."}
-              className="w-full px-3 py-1.5 bg-white border border-[#d3d3d0] rounded-md text-xs text-[#37352f]"
+              className="w-full px-3 py-1.5 bg-[#fafaf9] border border-[#d3d2cf] rounded-md text-xs text-[#37352f] focus:outline-none focus:bg-white"
             />
             <div className="flex justify-end space-x-2">
-              <button onClick={() => setIsAddingTopic(false)} className="px-3 py-1 text-xs text-[#787774]">
+              <button onClick={() => setIsAddingTopic(false)} className="px-3 py-1 text-xs text-[#787774] cursor-pointer">
                 {language === "zh" ? "取消" : "Cancel"}
               </button>
               <button
                 onClick={handleAddCustomTopic}
                 disabled={!newTopicTitle.trim()}
-                className="px-4 py-1 bg-[#2383e2] text-white text-xs font-medium rounded-md shadow-xs"
+                className="px-4 py-1 bg-[#37352f] text-white text-xs font-semibold rounded-md shadow-xs cursor-pointer"
               >
                 {language === "zh" ? "确认添加" : "Add"}
               </button>
@@ -1076,15 +1079,15 @@ export function CourseKnowledgeHub({
           </div>
         )}
 
-        {/* Topics Cards */}
+        {/* Topics List sitting directly on page canvas */}
         {topics.length > 0 ? (
           <div className="space-y-2.5">
             {topics.map((topic, idx) => {
               const diffBadge = topic.difficulty === "hard"
-                ? "bg-[#fde8e8] text-[#9b1c1c]"
+                ? "bg-[#fbf3f2] text-[#d44c47] border border-[#f5d5d3]"
                 : topic.difficulty === "easy"
-                ? "bg-[#e8f5e9] text-[#2e7d32]"
-                : "bg-[#fff3e0] text-[#e65100]";
+                ? "bg-[#edf3ec] text-[#448361] border border-[#d5e5d3]"
+                : "bg-[#fbf3db] text-[#cb912f] border border-[#f6e3b5]";
               const diffText = topic.difficulty === "hard"
                 ? (language === "zh" ? "攻坚考点" : "Hard")
                 : topic.difficulty === "easy"
@@ -1094,21 +1097,21 @@ export function CourseKnowledgeHub({
               return (
                 <div
                   key={topic.id || `topic-${idx}`}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-[#fbfbfa] border border-[#e9e9e7] hover:border-[#d3d3d0] rounded-lg gap-3 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white border border-[#e9e9e7] hover:border-[#b4b4b0] rounded-xl gap-3 transition-all shadow-2xs"
                 >
                   <div className="space-y-1.5 flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold text-[#37352f]">
+                      <span className="text-xs font-bold text-[#37352f]">
                         {idx + 1}. {topic.title}
                       </span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${diffBadge}`}>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${diffBadge}`}>
                         {diffText}
                       </span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-[#e3f2fd] text-[#1565c0]">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-[#f0f4f8] text-[#2b78a0] border border-[#dce7f2]">
                         {language === "zh" ? "分值占比" : "Weight"}: {topic.weightPercentage || 20}%
                       </span>
                       <span className="text-[11px] text-[#787774] flex items-center space-x-1">
-                        <Clock className="w-3 h-3" />
+                        <Clock className="w-3 h-3 text-[#9b9a97]" />
                         <span>{topic.estimatedHours || 4} {language === "zh" ? "学时" : "hrs"}</span>
                       </span>
                     </div>
@@ -1119,7 +1122,7 @@ export function CourseKnowledgeHub({
                         {topic.subtopics.map((sub, sIdx) => (
                           <span
                             key={sIdx}
-                            className="px-2 py-0.5 rounded bg-white border border-[#e9e9e7] text-[11px] text-[#5a5a57]"
+                            className="px-2 py-0.5 rounded bg-[#f7f6f3] border border-[#e9e9e7] text-[11px] text-[#5a5a57]"
                           >
                             {sub}
                           </span>
@@ -1131,7 +1134,7 @@ export function CourseKnowledgeHub({
                   <div className="flex items-center space-x-2 shrink-0">
                     <button
                       onClick={() => handleDeleteTopic(topic.id)}
-                      className="p-1 text-[#787774] hover:text-[#eb5757] hover:bg-[#efefed] rounded"
+                      className="p-1.5 text-[#9b9a97] hover:text-[#d44c47] hover:bg-[#fbf3f2] rounded-lg transition-colors cursor-pointer"
                       title={language === "zh" ? "删除考点" : "Delete"}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -1142,17 +1145,17 @@ export function CourseKnowledgeHub({
             })}
           </div>
         ) : (
-          <div className="p-8 text-center bg-[#fafaf9] border border-dashed border-[#d3d3d0] rounded-xl space-y-3">
+          <div className="p-8 text-center bg-[#fafaf9] border border-dashed border-[#d3d2cf] rounded-xl space-y-3">
             <GraduationCap className="w-8 h-8 mx-auto text-[#787774]" />
             <p className="text-xs text-[#787774]">
               {language === "zh"
-                ? "暂未提炼考点。点击上方「从知识库重新提炼」按钮，AI 将立即解析并生成考点结构。"
-                : "No topics extracted yet. Click 'Re-extract Topics' above to parse from knowledge base."}
+                ? "暂未提炼考点。点击上方「重新提炼考点」按钮，AI 将立即解析并生成考点结构。"
+                : "No topics extracted yet. Click 'Re-extract' above to parse from knowledge base."}
             </p>
             <button
               onClick={handleExtractTopics}
               disabled={isExtracting}
-              className="px-4 py-2 bg-[#2383e2] text-white rounded-lg text-xs font-medium shadow-xs"
+              className="px-4 py-2 bg-[#37352f] text-white rounded-lg text-xs font-semibold shadow-xs cursor-pointer"
             >
               {language === "zh" ? "AI 智能提炼考点架构" : "Extract Topics with AI"}
             </button>
@@ -1161,38 +1164,31 @@ export function CourseKnowledgeHub({
       </section>
 
       {/* ========================================================================= */}
-      {/* SECTION 3: 基于知识库生成的复习规划 (Generated Plan & Action Roadmap) */}
+      {/* SECTION 3: 基于知识库生成的复习规划 (Generated Plan) - FLAT DIRECT VIEW    */}
       {/* ========================================================================= */}
-      <section className="bg-white border border-[#e9e9e7] rounded-xl p-6 shadow-xs space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#f0f0ee]">
-          <div className="space-y-0.5">
-            <div className="flex items-center space-x-2">
-              <Calendar className="w-4 h-4 text-[#2e7d32]" />
-              <h2 className="text-base font-semibold text-[#37352f]">
-                {language === "zh" ? "3. 基于知识库生成的个性化复习规划" : "3. AI Study Plan Generated from Knowledge Base"}
-              </h2>
-            </div>
-            <p className="text-xs text-[#787774]">
-              {language === "zh"
-                ? "依据知识库中提取的考点分值与难度，自动生成的阶段式复习路线与每日任务。"
-                : "Multi-phase study schedule and daily tasks generated based on knowledge base weights."}
-            </p>
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#e9e9e7]">
+          <div className="flex items-center space-x-2">
+            <Calendar className="w-4 h-4 text-[#448361]" />
+            <h2 className="text-base font-bold text-[#37352f]">
+              {language === "zh" ? "3. 个性化复习排程规划" : "3. AI Study Plan"}
+            </h2>
           </div>
 
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowPlanSettings(!showPlanSettings)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#f7f6f3] hover:bg-[#efefed] text-[#37352f] rounded-lg text-xs font-medium transition-colors"
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#d3d2cf] hover:bg-[#f7f6f3] text-[#37352f] rounded-lg text-xs font-semibold transition-colors cursor-pointer"
             >
-              <Sliders className="w-3.5 h-3.5 text-[#5a5a57]" />
-              <span>{language === "zh" ? "调整时间与作息参数" : "Schedule Settings"}</span>
+              <Sliders className="w-3.5 h-3.5 text-[#787774]" />
+              <span>{language === "zh" ? "调整作息参数" : "Preferences"}</span>
               {showPlanSettings ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
             </button>
 
             <button
               onClick={handleGenerateStudyPlan}
               disabled={isGeneratingPlan}
-              className="flex items-center space-x-1.5 px-4 py-1.5 bg-[#2383e2] hover:bg-[#1b6dc1] disabled:opacity-50 text-white rounded-lg text-xs font-medium shadow-xs transition-colors"
+              className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#37352f] hover:bg-[#201f1d] disabled:opacity-50 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
               {isGeneratingPlan ? (
                 <>
@@ -1211,7 +1207,7 @@ export function CourseKnowledgeHub({
 
         {/* Collapsible Settings Panel */}
         {showPlanSettings && (
-          <div className="bg-[#fbfbfa] border border-[#e9e9e7] rounded-xl p-4 space-y-4 animate-fadeIn">
+          <div className="bg-white border border-[#e9e9e7] rounded-xl p-5 space-y-4 animate-fadeIn shadow-2xs">
             <h4 className="text-xs font-semibold text-[#37352f]">
               {language === "zh" ? "备考时间节点与复习偏好设置" : "Timeline & Pace Preferences"}
             </h4>
@@ -1224,7 +1220,7 @@ export function CourseKnowledgeHub({
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-white border border-[#d3d3d0] rounded-md text-xs text-[#37352f]"
+                  className="w-full px-3 py-1.5 bg-[#fafaf9] border border-[#d3d2cf] rounded-md text-xs text-[#37352f]"
                 />
               </div>
 
@@ -1236,7 +1232,7 @@ export function CourseKnowledgeHub({
                   type="date"
                   value={examDate}
                   onChange={(e) => setExamDate(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-white border border-[#d3d3d0] rounded-md text-xs text-[#37352f]"
+                  className="w-full px-3 py-1.5 bg-[#fafaf9] border border-[#d3d2cf] rounded-md text-xs text-[#37352f]"
                 />
               </div>
 
@@ -1247,7 +1243,7 @@ export function CourseKnowledgeHub({
                 <select
                   value={targetScore}
                   onChange={(e) => setTargetScore(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-white border border-[#d3d3d0] rounded-md text-xs text-[#37352f]"
+                  className="w-full px-3 py-1.5 bg-[#fafaf9] border border-[#d3d2cf] rounded-md text-xs text-[#37352f] cursor-pointer"
                 >
                   <option value="A+ (95%+ / 卓越)">A+ (95%+ / 卓越)</option>
                   <option value="A (90%+ / 优秀)">A (90%+ / 优秀)</option>
@@ -1265,7 +1261,7 @@ export function CourseKnowledgeHub({
                 <select
                   value={studyPace}
                   onChange={(e) => setStudyPace(e.target.value as any)}
-                  className="w-full px-3 py-1.5 bg-white border border-[#d3d3d0] rounded-md text-xs text-[#37352f]"
+                  className="w-full px-3 py-1.5 bg-[#fafaf9] border border-[#d3d2cf] rounded-md text-xs text-[#37352f] cursor-pointer"
                 >
                   <option value="deep_mastery">{language === "zh" ? "深度精通模式 (概念推导 + 主动回忆)" : "Deep Mastery"}</option>
                   <option value="spaced_repetition">{language === "zh" ? "艾宾浩斯间隔复习 (高频循环回顾)" : "Spaced Repetition"}</option>
@@ -1281,7 +1277,7 @@ export function CourseKnowledgeHub({
                 <select
                   value={sessionLength}
                   onChange={(e) => setSessionLength(Number(e.target.value))}
-                  className="w-full px-3 py-1.5 bg-white border border-[#d3d3d0] rounded-md text-xs text-[#37352f]"
+                  className="w-full px-3 py-1.5 bg-[#fafaf9] border border-[#d3d2cf] rounded-md text-xs text-[#37352f] cursor-pointer"
                 >
                   <option value={30}>30 {language === "zh" ? "分钟 (微习惯)" : "mins"}</option>
                   <option value={45}>45 {language === "zh" ? "分钟 (标准番茄钟)" : "mins"}</option>
@@ -1295,7 +1291,7 @@ export function CourseKnowledgeHub({
               <button
                 onClick={handleGenerateStudyPlan}
                 disabled={isGeneratingPlan}
-                className="px-4 py-1.5 bg-[#2383e2] text-white rounded-md text-xs font-medium shadow-xs"
+                className="px-4 py-1.5 bg-[#37352f] text-white rounded-lg text-xs font-semibold shadow-xs cursor-pointer"
               >
                 {language === "zh" ? "应用偏好并重新规划" : "Apply & Regenerate"}
               </button>
@@ -1303,40 +1299,40 @@ export function CourseKnowledgeHub({
           </div>
         )}
 
-        {/* Plan Highlights & Phase Roadmap */}
+        {/* Plan Highlights 4-Stats Grid sitting directly on page canvas */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="p-3 bg-[#fbfbfa] border border-[#e9e9e7] rounded-lg">
+          <div className="p-4 bg-white border border-[#e9e9e7] rounded-xl shadow-2xs">
             <span className="text-[11px] text-[#787774] block">{language === "zh" ? "备考窗口" : "Study Window"}</span>
-            <span className="text-sm font-semibold text-[#37352f] mt-0.5 block">
-              {daysUntilExam} {language === "zh" ? "天" : "days"}
+            <span className="text-xl font-bold text-[#37352f] mt-0.5 block">
+              {daysUntilExam} <span className="text-xs font-normal text-[#787774]">{language === "zh" ? "天" : "days"}</span>
             </span>
           </div>
 
-          <div className="p-3 bg-[#fbfbfa] border border-[#e9e9e7] rounded-lg">
+          <div className="p-4 bg-white border border-[#e9e9e7] rounded-xl shadow-2xs">
             <span className="text-[11px] text-[#787774] block">{language === "zh" ? "总规划学时" : "Planned Hours"}</span>
-            <span className="text-sm font-semibold text-[#37352f] mt-0.5 block">
-              {plan?.totalPlannedHours || totalEstHours || 35} {language === "zh" ? "小时" : "hrs"}
+            <span className="text-xl font-bold text-[#37352f] mt-0.5 block">
+              {plan?.totalPlannedHours || totalEstHours || 35} <span className="text-xs font-normal text-[#787774]">{language === "zh" ? "小时" : "hrs"}</span>
             </span>
           </div>
 
-          <div className="p-3 bg-[#fbfbfa] border border-[#e9e9e7] rounded-lg">
+          <div className="p-4 bg-white border border-[#e9e9e7] rounded-xl shadow-2xs">
             <span className="text-[11px] text-[#787774] block">{language === "zh" ? "总生成任务" : "Total Tasks"}</span>
-            <span className="text-sm font-semibold text-[#37352f] mt-0.5 block">
-              {plan?.tasks?.length || 0} {language === "zh" ? "项" : "tasks"}
+            <span className="text-xl font-bold text-[#37352f] mt-0.5 block">
+              {plan?.tasks?.length || 0} <span className="text-xs font-normal text-[#787774]">{language === "zh" ? "项" : "tasks"}</span>
             </span>
           </div>
 
-          <div className="p-3 bg-[#fbfbfa] border border-[#e9e9e7] rounded-lg">
+          <div className="p-4 bg-white border border-[#e9e9e7] rounded-xl shadow-2xs">
             <span className="text-[11px] text-[#787774] block">{language === "zh" ? "目标等级" : "Target Score"}</span>
-            <span className="text-sm font-semibold text-[#2383e2] mt-0.5 block truncate">
-              {targetScore}
+            <span className="text-xl font-bold text-[#2b78a0] mt-0.5 block truncate">
+              {targetScore.split(" ")[0]}
             </span>
           </div>
         </div>
 
         {/* Phase Roadmap Visualizer */}
         {plan?.phases && plan.phases.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-3 pt-2">
             <h4 className="text-xs font-semibold text-[#37352f]">
               {language === "zh" ? "备考阶段推进路线" : "Preparation Roadmap"}
             </h4>
@@ -1344,13 +1340,13 @@ export function CourseKnowledgeHub({
               {plan.phases.map((phase, pIdx) => (
                 <div
                   key={phase.id || `phase-${pIdx}`}
-                  className="p-3.5 bg-[#fbfbfa] border border-[#e9e9e7] rounded-lg space-y-1.5"
+                  className="p-4 bg-white border border-[#e9e9e7] rounded-xl space-y-1.5 shadow-2xs"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-[#37352f]">
+                    <span className="text-xs font-bold text-[#37352f]">
                       Phase {pIdx + 1}: {phase.name}
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.2 bg-[#efefed] text-[#5a5a57] rounded">
+                    <span className="text-[10px] px-1.5 py-0.2 bg-[#efefed] text-[#5a5a57] rounded font-medium">
                       {phase.startDate?.slice(5)} ~ {phase.endDate?.slice(5)}
                     </span>
                   </div>
@@ -1368,12 +1364,12 @@ export function CourseKnowledgeHub({
           <div className="space-y-2.5 pt-2">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-semibold text-[#37352f]">
-                {language === "zh" ? "已生成的近期备考任务预览" : "Upcoming Tasks Preview"}
+                {language === "zh" ? "近期备考任务预览" : "Upcoming Tasks Preview"}
               </h4>
               {onNavigateToTab && (
                 <button
                   onClick={() => onNavigateToTab("todo")}
-                  className="text-xs font-medium text-[#2383e2] hover:underline flex items-center space-x-1"
+                  className="text-xs font-semibold text-[#2b78a0] hover:text-[#1e5876] flex items-center space-x-1 cursor-pointer"
                 >
                   <span>{language === "zh" ? "前往每日待办查看全部" : "View all in Daily To-Do"}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -1385,17 +1381,17 @@ export function CourseKnowledgeHub({
               {plan.tasks.slice(0, 4).map((task) => (
                 <div
                   key={task.id}
-                  className="flex items-center justify-between p-2.5 bg-[#fafaf9] border border-[#e9e9e7] rounded-lg text-xs"
+                  className="flex items-center justify-between p-3 bg-white border border-[#e9e9e7] rounded-xl text-xs shadow-2xs"
                 >
                   <div className="flex items-center space-x-2.5 min-w-0 flex-1">
-                    <div className={`w-2 h-2 rounded-full shrink-0 ${task.status === "completed" ? "bg-[#2e7d32]" : "bg-[#2383e2]"}`} />
-                    <span className="text-[#37352f] font-medium truncate">{task.title}</span>
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${task.status === "completed" ? "bg-[#448361]" : "bg-[#2b78a0]"}`} />
+                    <span className="text-[#37352f] font-semibold truncate">{task.title}</span>
                     <span className="text-[11px] text-[#787774] shrink-0 flex items-center space-x-1">
                       <span>{task.date} · {task.durationMinutes} {language === "zh" ? "分钟" : "mins"}</span>
                     </span>
                   </div>
                   {task.topicTitle && (
-                    <span className="text-[10px] px-2 py-0.5 bg-[#efefed] text-[#5a5a57] rounded shrink-0 ml-2">
+                    <span className="text-[10px] px-2 py-0.5 bg-[#f7f6f3] border border-[#e9e9e7] text-[#5a5a57] rounded shrink-0 ml-2">
                       {task.topicTitle}
                     </span>
                   )}
@@ -1412,12 +1408,12 @@ export function CourseKnowledgeHub({
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-[#e9e9e7]">
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#f0f0ee]">
               <div className="flex items-center space-x-2">
-                <FileText className="w-4 h-4 text-[#2383e2]" />
-                <h3 className="text-sm font-semibold text-[#37352f] truncate">{previewDoc.name}</h3>
+                <FileText className="w-4 h-4 text-[#2b78a0]" />
+                <h3 className="text-sm font-bold text-[#37352f] truncate">{previewDoc.name}</h3>
               </div>
               <button
                 onClick={() => setPreviewDoc(null)}
-                className="p-1 text-[#787774] hover:text-[#37352f] hover:bg-[#efefed] rounded"
+                className="p-1 text-[#787774] hover:text-[#37352f] hover:bg-[#efefed] rounded cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1429,7 +1425,7 @@ export function CourseKnowledgeHub({
               <span className="text-[#787774]">{previewDoc.sizeBytes ? `${Math.round(previewDoc.sizeBytes / 1024)} KB` : ""}</span>
               <button
                 onClick={() => setPreviewDoc(null)}
-                className="px-4 py-1.5 bg-[#2383e2] text-white rounded-md text-xs font-medium"
+                className="px-4 py-1.5 bg-[#37352f] text-white rounded-md text-xs font-semibold cursor-pointer"
               >
                 {language === "zh" ? "关闭" : "Close"}
               </button>
