@@ -224,22 +224,21 @@ export function RealTimeManager({
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6">
       {/* Multi-Subject Bar & Add Exam Subject Button */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[#f7f6f3] rounded-xl border border-[#e9e9e7]">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[#fafafa] border border-[#111111] font-mono">
         <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1">
-          <span className="text-xs font-semibold text-[#787774] shrink-0">
-            {language === "zh" ? "当前备考科目：" : "Active Subject:"}
+          <span className="text-xs font-bold text-[#666666] uppercase shrink-0">
+            {language === "zh" ? "当前科目:" : "ACTIVE_COURSE:"}
           </span>
           {plans.map((p) => (
             <button
               key={p.id}
               onClick={() => onSelectPlan && onSelectPlan(p.id)}
-              className={`px-3 py-1 rounded-md text-xs font-medium transition-all shrink-0 flex items-center space-x-1.5 ${
+              className={`px-2.5 py-1 text-xs transition-all shrink-0 flex items-center space-x-1.5 cursor-pointer border ${
                 p.id === plan.id
-                  ? "bg-white text-[#37352f] shadow-xs border border-[#d3d2cf] font-bold"
-                  : "text-[#787774] hover:bg-[#efefed] hover:text-[#37352f]"
+                  ? "bg-[#111111] text-white border-[#111111] font-bold"
+                  : "bg-white text-[#666666] border-[#e5e5e5] hover:border-[#111111] hover:text-[#111111]"
               }`}
             >
-              <GraduationCap className="w-3.5 h-3.5 text-[#2b78a0]" />
               <span className="truncate max-w-[140px]">{p.examName}</span>
             </button>
           ))}
@@ -253,77 +252,74 @@ export function RealTimeManager({
               onNavigateToTab("add_subject");
             }
           }}
-          className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#37352f] hover:bg-[#201f1c] text-white font-semibold text-xs rounded-lg shadow-xs transition-colors shrink-0"
+          className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111111] hover:bg-[#333333] text-white font-mono font-bold text-xs transition-colors shrink-0 cursor-pointer"
         >
           <span className="text-sm font-bold leading-none">+</span>
-          <span>{language === "zh" ? "添加新考试科目" : "Add Exam Subject"}</span>
+          <span>{language === "zh" ? "新建科目" : "NEW SUBJECT"}</span>
         </button>
       </div>
 
       {/* Top Countdown Banner */}
-      <div className="p-5 border-b border-[#e9e9e7] flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-start space-x-3">
-          <span className="text-3xl">⏳</span>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h2 className="text-lg font-bold text-[#37352f]">
-                {plan.examName} {t("readinessControlCenter")}
-              </h2>
-              <span className="notion-tag-blue px-2 py-0.5 rounded text-[10px] font-semibold">
-                {t("realTimeTracking")}
-              </span>
-            </div>
-            <p className="text-xs text-[#787774] mt-0.5">
-              {t("propExamDate")}: <strong className="text-[#37352f]">{plan.examDate} {plan.examTime || "09:00"}</strong> ({plan.subject})
-            </p>
+      <div className="p-5 border border-[#111111] bg-white flex flex-col md:flex-row md:items-center justify-between gap-4 font-mono">
+        <div className="space-y-1">
+          <div className="flex items-center space-x-2">
+            <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">
+              [TRACKER]
+            </span>
+            <h2 className="text-base sm:text-lg font-bold uppercase tracking-tight text-[#111111]">
+              {plan.examName} // {t("readinessControlCenter")}
+            </h2>
           </div>
+          <p className="text-xs text-[#666666]">
+            {t("propExamDate")}: <strong className="text-[#111111]">{plan.examDate} {plan.examTime || "09:00"}</strong> ({plan.subject})
+          </p>
         </div>
 
         {/* Live Countdown Ticker */}
-        <div className="flex items-center space-x-2 px-3.5 py-2 border border-[#e9e9e7] rounded-lg bg-[#fafaf9]">
+        <div className="flex items-center space-x-2 px-3.5 py-2 border border-[#111111] bg-[#fafafa]">
           <div className="text-center px-1.5">
-            <span className="text-xl font-bold font-mono text-[#37352f]">
+            <span className="text-xl font-bold font-mono text-[#111111]">
               {String(countdown.days).padStart(2, "0")}
             </span>
-            <span className="text-[9px] text-[#787774] uppercase block">{t("countdownDays")}</span>
+            <span className="text-[9px] text-[#666666] uppercase block">{t("countdownDays")}</span>
           </div>
-          <span className="text-[#9b9a97] font-bold">:</span>
+          <span className="text-[#111111] font-bold">:</span>
 
           <div className="text-center px-1.5">
-            <span className="text-xl font-bold font-mono text-[#37352f]">
+            <span className="text-xl font-bold font-mono text-[#111111]">
               {String(countdown.hours).padStart(2, "0")}
             </span>
-            <span className="text-[9px] text-[#787774] uppercase block">{t("countdownHours")}</span>
+            <span className="text-[9px] text-[#666666] uppercase block">{t("countdownHours")}</span>
           </div>
-          <span className="text-[#9b9a97] font-bold">:</span>
+          <span className="text-[#111111] font-bold">:</span>
 
           <div className="text-center px-1.5">
-            <span className="text-xl font-bold font-mono text-[#37352f]">
+            <span className="text-xl font-bold font-mono text-[#111111]">
               {String(countdown.minutes).padStart(2, "0")}
             </span>
-            <span className="text-[9px] text-[#787774] uppercase block">{t("countdownMins")}</span>
+            <span className="text-[9px] text-[#666666] uppercase block">{t("countdownMins")}</span>
           </div>
-          <span className="text-[#9b9a97] font-bold">:</span>
+          <span className="text-[#111111] font-bold">:</span>
 
           <div className="text-center px-1.5">
-            <span className="text-xl font-bold font-mono text-[#37352f]">
+            <span className="text-xl font-bold font-mono text-[#111111]">
               {String(countdown.seconds).padStart(2, "0")}
             </span>
-            <span className="text-[9px] text-[#787774] uppercase block">{t("countdownSecs")}</span>
+            <span className="text-[9px] text-[#666666] uppercase block">{t("countdownSecs")}</span>
           </div>
         </div>
       </div>
 
       {/* Overdue Warning Callout */}
       {overdueTasks.length > 0 && (
-        <div className="p-4 bg-[#fbf3db] border border-[#f6e3b5] rounded-lg text-[#37352f] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+        <div className="p-4 bg-[#fafafa] border border-[#111111] text-[#111111] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono">
           <div className="flex items-start space-x-2.5">
-            <AlertTriangle className="w-4 h-4 text-[#cb912f] shrink-0 mt-0.5" />
+            <span className="font-bold text-[#d44c47] text-sm">[!]</span>
             <div>
-              <strong className="font-semibold block text-[#cb912f]">
-                {language === "zh" ? `${overdueTasks.length} 个往日未完成的复习任务` : `${overdueTasks.length} Unfinished Study Sessions from Past Days`}
+              <strong className="font-bold block uppercase">
+                {language === "zh" ? `${overdueTasks.length} 个往日未完成复习任务` : `${overdueTasks.length} OVERDUE SESSIONS`}
               </strong>
-              <span className="text-[#787774] text-[11px]">
+              <span className="text-[#666666] text-[11px]">
                 {language === "zh" ? "动态重排可自动将遗留任务智能平摊至未来空闲时间。" : "Adaptive Rebalance can automatically reschedule missed work evenly across future available hours."}
               </span>
             </div>
@@ -332,207 +328,193 @@ export function RealTimeManager({
           <button
             onClick={handleTriggerRebalance}
             disabled={isRebalancing}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#37352f] hover:bg-[#201f1c] text-white font-semibold text-xs rounded-md transition-colors shrink-0 cursor-pointer"
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111111] hover:bg-[#333333] text-white font-bold text-xs transition-colors shrink-0 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRebalancing ? "animate-spin" : ""}`} />
-            <span>{isRebalancing ? t("rebalancing") : t("autoReschedule")}</span>
+            <span>{isRebalancing ? t("rebalancing") : `[${t("autoReschedule")}]`}</span>
           </button>
         </div>
       )}
 
       {/* Notion Stat Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 font-mono">
         {/* Readiness Index */}
-        <div className="border border-[#e9e9e7] rounded-lg p-4 space-y-2 bg-white">
-          <div className="flex items-center justify-between text-[#787774] text-xs">
-            <span className="font-medium">{t("readinessIndex")}</span>
-            <Award className="w-4 h-4 text-[#448361]" />
+        <div className="border border-[#111111] p-4 space-y-2 bg-white">
+          <div className="flex items-center justify-between text-[#666666] text-xs">
+            <span className="font-bold uppercase tracking-wider">{t("readinessIndex")}</span>
+            <span className="text-[10px] text-[#111111] font-bold">[{language === "zh" ? "掌握度" : "MASTERY"}]</span>
           </div>
           <div className="flex items-baseline space-x-2">
-            <span className="text-2xl font-bold text-[#448361]">{readinessIndex}%</span>
-            <span className="text-[11px] text-[#787774]">{language === "zh" ? "预测掌握度" : "Projected Mastery"}</span>
+            <span className="text-2xl font-bold text-[#111111]">{readinessIndex}%</span>
+            <span className="text-[11px] text-[#666666]">{language === "zh" ? "预测掌握" : "Projected"}</span>
           </div>
-          <div className="w-full bg-[#efefed] h-1.5 rounded-full overflow-hidden">
+          <div className="w-full bg-[#e5e5e5] h-1.5 overflow-hidden">
             <div
-              className="bg-[#448361] h-full rounded-full transition-all duration-500"
+              className="bg-[#111111] h-full transition-all duration-500"
               style={{ width: `${readinessIndex}%` }}
             />
           </div>
         </div>
 
         {/* Syllabus Completed */}
-        <div className="border border-[#e9e9e7] rounded-lg p-4 space-y-2 bg-white">
-          <div className="flex items-center justify-between text-[#787774] text-xs">
-            <span className="font-medium">{t("syllabusCovered")}</span>
-            <CheckCircle2 className="w-4 h-4 text-[#2b78a0]" />
+        <div className="border border-[#111111] p-4 space-y-2 bg-white">
+          <div className="flex items-center justify-between text-[#666666] text-xs">
+            <span className="font-bold uppercase tracking-wider">{t("syllabusCovered")}</span>
+            <span className="text-[10px] text-[#111111] font-bold">[{language === "zh" ? "考纲" : "SYLLABUS"}]</span>
           </div>
           <div className="flex items-baseline space-x-2">
-            <span className="text-2xl font-bold text-[#2b78a0]">{syllabusCompletionRate}%</span>
-            <span className="text-[11px] text-[#787774]">
-              {completedTasks}/{totalTasks} {language === "zh" ? "项任务" : "tasks"}
+            <span className="text-2xl font-bold text-[#111111]">{syllabusCompletionRate}%</span>
+            <span className="text-[11px] text-[#666666]">
+              {completedTasks}/{totalTasks} {language === "zh" ? "项" : "done"}
             </span>
           </div>
-          <div className="w-full bg-[#efefed] h-1.5 rounded-full overflow-hidden">
+          <div className="w-full bg-[#e5e5e5] h-1.5 overflow-hidden">
             <div
-              className="bg-[#2b78a0] h-full rounded-full transition-all duration-500"
+              className="bg-[#111111] h-full transition-all duration-500"
               style={{ width: `${syllabusCompletionRate}%` }}
             />
           </div>
         </div>
 
         {/* Study Time Logged */}
-        <div className="border border-[#e9e9e7] rounded-lg p-4 space-y-2 bg-white">
-          <div className="flex items-center justify-between text-[#787774] text-xs">
-            <span className="font-medium">{t("studyHoursLogged")}</span>
-            <Clock className="w-4 h-4 text-[#9065b0]" />
+        <div className="border border-[#111111] p-4 space-y-2 bg-white">
+          <div className="flex items-center justify-between text-[#666666] text-xs">
+            <span className="font-bold uppercase tracking-wider">{t("studyHoursLogged")}</span>
+            <span className="text-[10px] text-[#111111] font-bold">[{language === "zh" ? "学时" : "HOURS"}]</span>
           </div>
           <div className="flex items-baseline space-x-2">
-            <span className="text-2xl font-bold text-[#9065b0]">
+            <span className="text-2xl font-bold text-[#111111]">
               {Math.round(totalCompletedMinutes / 60)}h
             </span>
-            <span className="text-[11px] text-[#787774]">
-              / {Math.round(totalPlannedMinutes / 60)}h {language === "zh" ? "规划" : "planned"}
+            <span className="text-[11px] text-[#666666]">
+              / {Math.round(totalPlannedMinutes / 60)}h {language === "zh" ? "总计" : "plan"}
             </span>
           </div>
-          <p className="text-[11px] text-[#787774]">
+          <p className="text-[11px] text-[#666666]">
             {totalPlannedMinutes - totalCompletedMinutes > 0
-              ? `${Math.round((totalPlannedMinutes - totalCompletedMinutes) / 60)}h ${language === "zh" ? "剩余" : "remaining"}`
-              : (language === "zh" ? "规划目标已达成" : "Planned target completed")}
+              ? `${Math.round((totalPlannedMinutes - totalCompletedMinutes) / 60)}h ${language === "zh" ? "剩余时长" : "remaining"}`
+              : (language === "zh" ? "已达成目标" : "Goal completed")}
           </p>
         </div>
 
         {/* Pace Status */}
-        <div className="border border-[#e9e9e7] rounded-lg p-4 space-y-2 bg-white">
-          <div className="flex items-center justify-between text-[#787774] text-xs">
-            <span className="font-medium">{t("scheduleHealth")}</span>
-            <TrendingUp className="w-4 h-4 text-[#cb912f]" />
+        <div className="border border-[#111111] p-4 space-y-2 bg-white">
+          <div className="flex items-center justify-between text-[#666666] text-xs">
+            <span className="font-bold uppercase tracking-wider">{t("scheduleHealth")}</span>
+            <span className="text-[10px] text-[#111111] font-bold">[{language === "zh" ? "状态" : "STATUS"}]</span>
           </div>
           <div className="flex items-baseline space-x-2">
-            <span
-              className={`text-lg font-bold ${
-                overdueTasks.length === 0 ? "text-[#448361]" : "text-[#cb912f]"
-              }`}
-            >
-              {overdueTasks.length === 0 ? (language === "zh" ? "进度良好" : "On Track") : (language === "zh" ? "建议动态重排" : "Rebalance Advised")}
+            <span className="text-base font-bold text-[#111111]">
+              {overdueTasks.length === 0 ? (language === "zh" ? "[进度健康]" : "[ON TRACK]") : (language === "zh" ? "[需重排]" : "[REBALANCE]")}
             </span>
           </div>
-          <p className="text-[11px] text-[#787774]">
+          <p className="text-[11px] text-[#666666]">
             {overdueTasks.length === 0
-              ? (language === "zh" ? "所有阶段任务跟进正常" : "All milestones up to date")
-              : `${overdueTasks.length} ${language === "zh" ? "个待补任务" : "pending past sessions"}`}
+              ? (language === "zh" ? "各模块跟进正常" : "All on schedule")
+              : `${overdueTasks.length} ${language === "zh" ? "个待补" : "pending"}`}
           </p>
         </div>
       </div>
 
       {/* Adaptive Rebalancing Action Section */}
-      <div className="border-y border-[#e9e9e7] py-5 space-y-4">
+      <div className="border border-[#111111] p-5 bg-white space-y-4 font-mono">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start space-x-2.5">
-            <Zap className="w-5 h-5 text-[#cb912f] shrink-0 mt-0.5" />
-            <div>
-              <h3 className="font-bold text-sm text-[#37352f]">
+          <div>
+            <div className="flex items-center space-x-2 mb-1">
+              <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">
+                [{language === "zh" ? "智能重排" : "ADAPTIVE AI"}]
+              </span>
+              <h3 className="font-bold text-sm uppercase text-[#111111]">
                 {language === "zh" ? "AI 实时动态智能重排" : "Real-Time Adaptive Plan Rescheduler"}
               </h3>
-              <p className="text-xs text-[#787774] mt-0.5 max-w-2xl">
-                {language === "zh" 
-                  ? "当您遇到突发情况、可用时间变更或某章节需要额外强化时，AI 将在数秒内实时重新排布剩余学习路线。" 
-                  : "If your weekly availability changes, an unexpected event occurs, or you need extra review time for difficult topics, the AI recalculates your remaining study roadmap in real-time."}
-              </p>
             </div>
+            <p className="text-xs text-[#666666] max-w-2xl">
+              {language === "zh" 
+                ? "当您遇到突发情况、可用时间变更或某章节需要额外强化时，AI 将在数秒内实时重新排布剩余学习路线。" 
+                : "If your weekly availability changes, an unexpected event occurs, or you need extra review time for difficult topics, the AI recalculates your remaining study roadmap in real-time."}
+            </p>
           </div>
 
           <button
             onClick={handleTriggerRebalance}
             disabled={isRebalancing}
-            className="flex items-center space-x-1.5 px-4 py-2 bg-[#efefed] hover:bg-[#e3e2e0] text-[#37352f] rounded-md text-xs font-semibold transition-colors shrink-0 cursor-pointer"
+            className="flex items-center space-x-1.5 px-4 py-2 bg-white hover:bg-[#111111] text-[#111111] hover:text-white border border-[#111111] text-xs font-bold transition-colors shrink-0 cursor-pointer"
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#cb912f]" />
-            <span>{isRebalancing ? t("rebalancing") : t("rebalanceTasks")}</span>
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{isRebalancing ? t("rebalancing") : `[${t("rebalanceTasks")}]`}</span>
           </button>
         </div>
 
         {rebalanceResultSummary && (
-          <div className="p-3 bg-[#edf3ec] border border-[#d5e5d3] text-[#448361] text-xs rounded-md flex items-start space-x-2">
-            <Check className="w-4 h-4 shrink-0 mt-0.5" />
+          <div className="p-3 bg-[#fafafa] border border-[#111111] text-[#111111] text-xs flex items-start space-x-2">
+            <span className="font-bold text-[#111111]">[✓]</span>
             <span>{rebalanceResultSummary}</span>
           </div>
         )}
 
         {rebalanceError && (
-          <div className="p-3 bg-[#fdebec] border border-[#f9d3d5] text-[#d44c47] text-xs rounded-md flex items-start space-x-2">
-            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div className="p-3 bg-[#fafafa] border border-[#111111] text-[#d44c47] text-xs flex items-start space-x-2">
+            <span className="font-bold">[!]</span>
             <span>{rebalanceError}</span>
           </div>
         )}
       </div>
 
       {/* Topic Mastery Progress Breakdown (Notion Database Table) */}
-      <div className="border border-[#e9e9e7] rounded-lg overflow-hidden bg-white shadow-xs">
-        <div className="px-4 py-3 bg-[#f7f6f3] border-b border-[#e9e9e7] flex items-center justify-between">
+      <div className="border border-[#111111] bg-white font-mono">
+        <div className="px-4 py-3 bg-[#fafafa] border-b border-[#111111] flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Target className="w-4 h-4 text-[#2b78a0]" />
-            <h3 className="font-semibold text-xs text-[#37352f]">
-              {language === "zh" ? "考点掌握度与信心评级" : "Syllabus Domain Mastery & Confidence"}
-            </h3>
+            <span className="text-xs font-bold uppercase tracking-wider text-[#111111]">
+              [DOMAIN_MASTERY_TRACKER]
+            </span>
           </div>
-          <span className="text-[11px] text-[#787774]">
-            {topicMastery.length} {language === "zh" ? "个考点追踪中" : "Topics Tracked"}
+          <span className="text-[11px] text-[#666666]">
+            {topicMastery.length} {language === "zh" ? "个考点追踪中" : "TOPICS"}
           </span>
         </div>
 
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-[#fbfbfa] border-b border-[#e9e9e7] text-[#787774] font-medium">
-              <th className="py-2.5 px-4 font-normal">{language === "zh" ? "考点知识点" : "Topic Name"}</th>
-              <th className="py-2.5 px-3 w-28 font-normal">{language === "zh" ? "考试权重" : "Weight"}</th>
-              <th className="py-2.5 px-3 w-28 font-normal">{language === "zh" ? "难度" : "Difficulty"}</th>
-              <th className="py-2.5 px-3 w-48 font-normal">{language === "zh" ? "完成度" : "Completion"}</th>
-              <th className="py-2.5 px-4 w-32 font-normal text-right">{language === "zh" ? "掌握评分" : "Mastery Score"}</th>
+            <tr className="bg-white border-b border-[#111111] text-[#666666]">
+              <th className="py-2.5 px-4 font-bold uppercase">{language === "zh" ? "考点知识点" : "TOPIC"}</th>
+              <th className="py-2.5 px-3 w-28 font-bold uppercase">{language === "zh" ? "权重" : "WEIGHT"}</th>
+              <th className="py-2.5 px-3 w-28 font-bold uppercase">{language === "zh" ? "难度" : "DIFF"}</th>
+              <th className="py-2.5 px-3 w-48 font-bold uppercase">{language === "zh" ? "完成度" : "PROGRESS"}</th>
+              <th className="py-2.5 px-4 w-32 font-bold uppercase text-right">{language === "zh" ? "掌握评分" : "SCORE"}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#e9e9e7]">
+          <tbody className="divide-y divide-[#e5e5e5]">
             {topicMastery.map((topic, i) => (
-              <tr key={topic.id || i} className="hover:bg-[#f7f6f3]/60 transition-colors">
+              <tr key={topic.id || i} className="hover:bg-[#fafafa] transition-colors">
                 <td className="py-3 px-4">
-                  <span className="font-medium text-[#37352f] block">{topic.title}</span>
-                  <span className="text-[11px] text-[#787774] block mt-0.5">
+                  <span className="font-bold text-[#111111] block">{topic.title}</span>
+                  <span className="text-[11px] text-[#666666] block mt-0.5">
                     {language === "zh" 
                       ? `已完成 ${topic.completedTasks} / ${topic.totalTasks} 个复习单元`
-                      : `${topic.completedTasks} of ${topic.totalTasks} study sessions completed`}
+                      : `${topic.completedTasks} of ${topic.totalTasks} sessions completed`}
                   </span>
                 </td>
 
                 <td className="py-3 px-3">
-                  <span className="notion-tag-gray px-2 py-0.5 rounded text-[11px] font-mono">
+                  <span className="px-2 py-0.5 border border-[#111111] text-[10px] font-bold">
                     {topic.weightPercentage}%
                   </span>
                 </td>
 
                 <td className="py-3 px-3">
-                  {topic.difficulty === "hard" ? (
-                    <span className="notion-tag-red px-2 py-0.5 rounded text-[10px] font-semibold flex items-center space-x-1 w-fit">
-                      <Flame className="w-3 h-3 text-[#eb5757]" />
-                      <span>{language === "zh" ? "高难" : "Hard"}</span>
-                    </span>
-                  ) : topic.difficulty === "easy" ? (
-                    <span className="notion-tag-green px-2 py-0.5 rounded text-[10px]">
-                      {language === "zh" ? "简单" : "Easy"}
-                    </span>
-                  ) : (
-                    <span className="notion-tag-yellow px-2 py-0.5 rounded text-[10px]">
-                      {language === "zh" ? "中等" : "Medium"}
-                    </span>
-                  )}
+                  <span className="text-[11px] font-bold uppercase">
+                    [{topic.difficulty}]
+                  </span>
                 </td>
 
                 <td className="py-3 px-3">
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-[#787774]">{topic.progressPercent}%</span>
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-[#666666]">{topic.progressPercent}%</span>
                     </div>
-                    <div className="w-full bg-[#efefed] h-1.5 rounded-full overflow-hidden">
+                    <div className="w-full bg-[#e5e5e5] h-1.5 overflow-hidden">
                       <div
-                        className="bg-[#448361] h-full rounded-full transition-all duration-300"
+                        className="bg-[#111111] h-full transition-all duration-300"
                         style={{ width: `${topic.progressPercent}%` }}
                       />
                     </div>
@@ -540,15 +522,8 @@ export function RealTimeManager({
                 </td>
 
                 <td className="py-3 px-4 text-right">
-                  <span className="font-bold text-[#cb912f] text-xs flex items-center justify-end space-x-1">
-                    {topic.avgRating ? (
-                      <>
-                        <span>{topic.avgRating.toFixed(1)} / 5.0</span>
-                        <Star className="w-3 h-3 fill-[#cb912f] text-[#cb912f]" />
-                      </>
-                    ) : (
-                      <span>{language === "zh" ? "待评" : "Pending"}</span>
-                    )}
+                  <span className="font-bold text-[#111111] text-xs">
+                    {topic.avgRating ? `${topic.avgRating.toFixed(1)} / 5.0` : (language === "zh" ? "待评" : "N/A")}
                   </span>
                 </td>
               </tr>

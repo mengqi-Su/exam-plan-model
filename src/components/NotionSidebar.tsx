@@ -83,85 +83,92 @@ export function NotionSidebar({
   }
 
   return (
-    <aside className="w-64 bg-[#f7f6f3] border-r border-[#e9e9e7] flex flex-col h-screen fixed top-0 left-0 z-40 select-none text-[13px] text-[#37352f]">
-      {/* Workspace Header */}
-      <div className="p-3.5 flex items-center justify-between border-b border-[#e9e9e7]">
+    <aside className="w-64 bg-[#f2f0ea] border-r border-[#111111] flex flex-col h-screen fixed top-0 left-0 z-40 select-none text-[13px] text-[#111111] font-sans">
+      {/* Workspace Editorial Masthead */}
+      <div className="p-3.5 flex items-center justify-between border-b border-[#111111] bg-[#faf9f6]">
         <div className="flex items-center space-x-2.5 min-w-0">
-          <div className="w-6 h-6 rounded bg-[#37352f] text-white flex items-center justify-center text-xs font-bold shrink-0">
+          <div className="w-6 h-6 bg-[#111111] text-white flex items-center justify-center text-[10px] font-mono font-bold shrink-0 tracking-tighter">
             EP
           </div>
           <div className="min-w-0">
-            <span className="font-semibold text-xs text-[#37352f] block truncate">
-              {t("appName")}
+            <span className="font-bold text-xs text-[#111111] tracking-tight font-sans block truncate">
+              EXAM PLAN AI
             </span>
-            <span className="text-[11px] text-[#787774] block truncate">
-              {t("appSubtitle")}
+            <span className="text-[10px] text-[#666666] font-mono block truncate">
+              // STUDY ENGINE
             </span>
           </div>
         </div>
 
         <button
           onClick={onToggle}
-          className="p-1 rounded hover:bg-[#efefed] text-[#787774] hover:text-[#37352f] transition-colors"
+          className="p-1 text-[#666666] hover:text-[#111111] hover:bg-[#e4e1d8] transition-colors border border-transparent hover:border-[#111111] cursor-pointer"
           title="Collapse Sidebar"
         >
           <PanelLeftClose className="w-4 h-4" />
         </button>
       </div>
 
-      {/* Global Views: Master Dashboard & Add Subject */}
-      <div className="px-2 py-3 space-y-1 border-b border-[#e9e9e7]">
+      {/* Primary Navigation */}
+      <div className="p-2 space-y-1 border-b border-[#dedad1]">
         <button
           onClick={() => onTabChange("dashboard")}
-          className={`w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-left transition-colors cursor-pointer ${
+          className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs ${
             currentTab === "dashboard"
-              ? "bg-[#efefed] font-semibold text-[#37352f]"
-              : "hover:bg-[#efefed] text-[#5a5a57]"
+              ? "bg-[#111111] text-white font-semibold"
+              : "hover:bg-[#e4e1d8] text-[#333333]"
           }`}
         >
-          <LayoutDashboard className="w-4 h-4 text-[#2b78a0]" />
-          <span className="flex-1 truncate">{language === "zh" ? "科目看板" : t("tabDashboard")}</span>
+          <span className="text-[10px] font-mono opacity-70">01</span>
+          <LayoutDashboard className="w-3.5 h-3.5" />
+          <span className="flex-1 truncate uppercase tracking-wider">{language === "zh" ? "科目看板" : "DASHBOARD"}</span>
+        </button>
+
+        <button
+          onClick={() => onTabChange("master_calendar")}
+          className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs ${
+            currentTab === "master_calendar"
+              ? "bg-[#111111] text-white font-semibold"
+              : "hover:bg-[#e4e1d8] text-[#333333]"
+          }`}
+        >
+          <span className="text-[10px] font-mono opacity-70">02</span>
+          <Calendar className="w-3.5 h-3.5" />
+          <span className="flex-1 truncate uppercase tracking-wider">{language === "zh" ? "全科日历" : "CALENDAR"}</span>
         </button>
 
         <button
           onClick={onNewPlan}
-          className={`w-full flex items-center space-x-2 px-2.5 py-1.5 rounded-md text-left transition-colors cursor-pointer ${
+          className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs border border-dashed border-[#111111]/30 hover:border-[#111111] ${
             currentTab === "add_subject"
-              ? "bg-[#efefed] font-semibold text-[#37352f]"
-              : "hover:bg-[#efefed] text-[#5a5a57]"
+              ? "bg-[#111111] text-white font-semibold"
+              : "hover:bg-[#e4e1d8] text-[#111111]"
           }`}
         >
-          <Plus className="w-4 h-4 text-[#448361]" />
-          <span className="flex-1 truncate">{language === "zh" ? "新建科目" : t("newPlan")}</span>
+          <Plus className="w-3.5 h-3.5" />
+          <span className="flex-1 truncate uppercase tracking-wider">{language === "zh" ? "新建科目" : "NEW SUBJECT"}</span>
         </button>
       </div>
 
       {/* Courses / Exam Plans Hierarchy Tree */}
-      <div className="flex-1 overflow-y-auto px-2 py-3 space-y-1">
-        <div className="flex items-center justify-between px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#9b9a97]">
-          <span className="flex items-center space-x-1.5">
-            <Layers className="w-3 h-3 text-[#9b9a97]" />
-            <span>{language === "zh" ? "备考科目" : t("examPlans")}</span>
+      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        <div className="flex items-center justify-between px-2 py-1.5 text-[10px] font-mono uppercase tracking-widest text-[#777777] border-b border-[#dedad1] mb-1">
+          <span className="flex items-center space-x-1">
+            <span>INDEX // {language === "zh" ? "备考科目" : "COURSES"}</span>
           </span>
-          <button
-            onClick={onNewPlan}
-            className="p-0.5 rounded hover:bg-[#e9e9e7] text-[#787774] hover:text-[#37352f]"
-            title={t("addNewPlan")}
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
+          <span className="text-[10px] font-mono">[{plans.length}]</span>
         </div>
 
-        {plans.map((p) => {
+        {plans.map((p, idx) => {
           const isActivePlan = activePlan?.id === p.id && currentTab !== "dashboard" && currentTab !== "master_calendar" && currentTab !== "add_subject";
 
           return (
             <div
               key={p.id}
-              className={`group flex items-center justify-between w-full rounded-md transition-colors ${
+              className={`group flex items-center justify-between w-full transition-all border ${
                 isActivePlan
-                  ? "bg-[#efefed] font-semibold text-[#37352f]"
-                  : "hover:bg-[#efefed] text-[#5a5a57]"
+                  ? "bg-white border-[#111111] font-semibold text-[#111111]"
+                  : "border-transparent hover:border-[#dedad1] hover:bg-[#e4e1d8] text-[#333333]"
               }`}
             >
               <button
@@ -169,10 +176,12 @@ export function NotionSidebar({
                   onSelectPlan(p.id);
                   onTabChange("course", p.id);
                 }}
-                className="flex-1 flex items-center space-x-2 px-2.5 py-1.5 text-left truncate cursor-pointer min-w-0"
+                className="flex-1 flex items-center space-x-2 px-2 py-1.5 text-left truncate cursor-pointer min-w-0"
               >
-                <GraduationCap className={`w-4 h-4 shrink-0 ${isActivePlan ? "text-[#2b78a0]" : "text-[#787774]"}`} />
-                <span className="flex-1 truncate text-xs">{p.examName}</span>
+                <span className="font-mono text-[10px] text-[#777777]">
+                  {String(idx + 1).padStart(2, "0")}
+                </span>
+                <span className="flex-1 truncate text-xs font-sans">{p.examName}</span>
               </button>
 
               {(onRequestDeletePlan || onDeletePlan) && (
@@ -185,7 +194,7 @@ export function NotionSidebar({
                       onDeletePlan(p.id);
                     }
                   }}
-                  className="opacity-0 group-hover:opacity-100 p-1 mr-1 text-[#9b9a97] hover:text-[#d44c47] hover:bg-[#fdebec] rounded transition-all shrink-0 cursor-pointer"
+                  className="opacity-0 group-hover:opacity-100 p-1 mr-1 text-[#777777] hover:text-[#d44c47] transition-all shrink-0 cursor-pointer"
                   title={language === "zh" ? "删除此课程" : "Delete Course"}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -197,93 +206,46 @@ export function NotionSidebar({
       </div>
 
       {/* Language Switcher, User Profile & Sidebar Footer Actions */}
-      <div className="p-3 border-t border-[#e9e9e7] space-y-1.5 text-xs bg-[#f7f6f3]">
+      <div className="p-2.5 border-t border-[#111111] space-y-1.5 text-xs bg-[#faf9f6]">
         {/* User Account / Login Profile */}
         {userProfile && onOpenSettings && (
           <button
             onClick={() => onOpenSettings("account")}
-            className="w-full flex items-center justify-between p-2 rounded-lg bg-white border border-[#e9e9e7] hover:border-[#37352f] text-left transition-all shadow-2xs group"
+            className="w-full flex items-center justify-between p-2 bg-white border border-[#dedad1] hover:border-[#111111] text-left transition-all group cursor-pointer"
           >
-            <div className="flex items-center space-x-2.5 min-w-0">
-              <div className="w-6 h-6 rounded-md bg-[#37352f] text-white flex items-center justify-center text-xs shrink-0 overflow-hidden">
-                {userProfile.isLoggedIn ? (
-                  userProfile.avatar?.startsWith("http") ? (
-                    <img
-                      src={userProfile.avatar}
-                      alt={userProfile.name}
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    userProfile.avatar || "🎓"
-                  )
-                ) : (
-                  "👤"
-                )}
+            <div className="flex items-center space-x-2 min-w-0">
+              <div className="w-5 h-5 bg-[#111111] text-white flex items-center justify-center text-[10px] shrink-0 font-mono">
+                {userProfile.isLoggedIn ? (userProfile.name[0] || "U").toUpperCase() : "G"}
               </div>
               <div className="min-w-0">
-                <div className="font-semibold text-xs text-[#37352f] truncate flex items-center space-x-1">
-                  <span>{userProfile.isLoggedIn ? userProfile.name : t("userLoginBtn")}</span>
-                  {userProfile.isLoggedIn && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#448361]" />
-                  )}
-                </div>
-                <div className="text-[10px] text-[#787774] truncate">
-                  {userProfile.isLoggedIn ? (userProfile.major || userProfile.email) : (language === "zh" ? "点击登录同步" : "Click to sign in")}
-                </div>
+                <span className="font-sans text-[11px] font-bold text-[#111111] block truncate">
+                  {userProfile.isLoggedIn ? userProfile.name : (language === "zh" ? "访客用户" : "Guest Scholar")}
+                </span>
               </div>
             </div>
-            <ChevronRight className="w-3.5 h-3.5 text-[#9b9a97] group-hover:text-[#37352f] transition-colors shrink-0" />
+            <span className="font-mono text-[9px] text-[#777777] group-hover:text-[#111111]">
+              [PROFILE]
+            </span>
           </button>
         )}
 
-        {/* Secondary entry buttons: Hidden when user is logged in to keep sidebar minimal & uncluttered */}
-        {!userProfile?.isLoggedIn && (
-          <>
-            {/* Configuration & Preferences */}
-            {onOpenSettings && (
-              <button
-                onClick={() => onOpenSettings("general")}
-                className="w-full flex items-center justify-between px-2 py-1.5 rounded text-[#5a5a57] hover:bg-[#efefed] hover:text-[#37352f] transition-colors"
-              >
-                <span className="flex items-center space-x-2">
-                  <Settings className="w-3.5 h-3.5 text-[#787774]" />
-                  <span>{t("settingsTitle")}</span>
-                </span>
-              </button>
-            )}
+        <div className="flex items-center space-x-1 pt-1 font-mono text-[11px]">
+          <button
+            onClick={() => onOpenSettings ? onOpenSettings("general") : null}
+            className="flex-1 flex items-center justify-center space-x-1 py-1.5 bg-white border border-[#dedad1] hover:border-[#111111] text-[#111111] transition-all cursor-pointer"
+          >
+            <Settings className="w-3 h-3" />
+            <span>CONFIG</span>
+          </button>
 
-            {/* Language selector toggle */}
-            <button
-              onClick={() => onOpenSettings ? onOpenSettings("language") : setLanguage(language === "zh" ? "en" : "zh")}
-              className="w-full flex items-center justify-between px-2 py-1.5 rounded text-[#5a5a57] hover:bg-[#efefed] hover:text-[#37352f] transition-colors"
-            >
-              <span className="flex items-center space-x-2">
-                <Languages className="w-3.5 h-3.5 text-[#787774]" />
-                <span>{language === "zh" ? "语言 / Language" : "Language / 语言"}</span>
-              </span>
-              <span className="font-semibold text-[11px] px-1.5 py-0.5 rounded bg-[#e9e9e7] text-[#37352f]">
-                {language === "zh" ? "中文" : "English"}
-              </span>
-            </button>
-
-            {/* Version Information & Diagnostics */}
-            {onOpenSettings && (
-              <button
-                onClick={() => onOpenSettings("version")}
-                className="w-full flex items-center justify-between px-2 py-1.5 rounded text-[#5a5a57] hover:bg-[#efefed] hover:text-[#37352f] transition-colors"
-              >
-                <span className="flex items-center space-x-2">
-                  <Info className="w-3.5 h-3.5 text-[#787774]" />
-                  <span>{language === "zh" ? "版本信息与诊断" : "Version & About"}</span>
-                </span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#e9e9e7] text-[#787774]">
-                  {APP_VERSION_DATA.version}
-                </span>
-              </button>
-            )}
-          </>
-        )}
+          <button
+            onClick={() => onOpenSettings ? onOpenSettings("language") : setLanguage(language === "zh" ? "en" : "zh")}
+            className="flex-1 flex items-center justify-center space-x-1 py-1.5 bg-white border border-[#dedad1] hover:border-[#111111] text-[#111111] transition-all cursor-pointer"
+          >
+            <Languages className="w-3 h-3" />
+            <span>{language === "zh" ? "ZH / EN" : "EN / ZH"}</span>
+          </button>
+        </div>
       </div>
     </aside>
   );

@@ -96,90 +96,89 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none">
       <div
-        className="bg-white rounded-xl shadow-xl border border-[#e9e9e7] w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden text-[#37352f]"
+        className="bg-white border border-[#111111] w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden text-[#111111] font-mono shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#e9e9e7] bg-[#fbfbfa]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#111111] bg-[#fafafa]">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#ebf5fb] text-[#2b78a0] flex items-center justify-center font-bold text-xs">
-              <Zap className="w-4 h-4" />
-            </div>
+            <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">
+              [{isZh ? "资料溯源问答" : "RAG-QA"}]
+            </span>
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="font-semibold text-sm text-[#37352f]">
-                  {isZh ? "AI 任务 RAG 资料溯源与精准问答" : "RAG Material Grounding & Knowledge QA"}
+                <h3 className="font-bold text-xs uppercase tracking-tight text-[#111111]">
+                  {isZh ? "AI 任务 RAG 资料溯源与精准问答" : "RAG MATERIAL GROUNDING & QA"}
                 </h3>
-                <span className="bg-[#edf3ec] text-[#448361] px-1.5 py-0.5 rounded text-[10px] font-semibold">
-                  RAG Grounded
+                <span className="border border-[#111111] bg-white text-[#111111] px-1 py-0.2 text-[9px] font-bold">
+                  {isZh ? "已溯源" : "GROUNDED"}
                 </span>
               </div>
-              <p className="text-[11px] text-[#787774] truncate max-w-md">
-                {task.title} • {task.topicTitle}
+              <p className="text-[10px] text-[#666666] truncate max-w-md mt-0.5">
+                {task.title} // {task.topicTitle}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-[#787774] hover:text-[#37352f] hover:bg-[#efefed] transition-colors"
+            className="p-1 text-[#111111] hover:bg-[#111111] hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content Scrollable */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs font-mono">
           {/* User Needs Grounding Pill */}
           {userNeed && (
-            <div className="p-3 bg-[#f7f6f3] border border-[#e9e9e7] rounded-lg space-y-1">
-              <div className="flex items-center space-x-1.5 text-[#787774] font-medium text-[11px]">
-                <GraduationCap className="w-3.5 h-3.5 text-[#2b78a0]" />
-                <span>{isZh ? "用户需求匹配定位" : "Matched User Learning Goal"}</span>
+            <div className="p-3 bg-[#fafafa] border border-[#111111] space-y-1">
+              <div className="flex items-center space-x-1.5 text-[#666666] font-bold text-[10px] uppercase">
+                <span>[{isZh ? "目标匹配" : "LEARNING GOAL MATCH"}]</span>
               </div>
-              <p className="text-[#37352f] font-medium leading-relaxed">{userNeed}</p>
+              <p className="text-[#111111] font-bold leading-relaxed">{userNeed}</p>
             </div>
           )}
 
           {/* Document Citation Card */}
-          <div className="p-3.5 bg-white border border-[#e9e9e7] rounded-lg shadow-2xs space-y-2.5">
+          <div className="p-3.5 bg-white border border-[#111111] space-y-2.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-1.5 text-[#2b78a0] font-semibold text-xs">
+              <div className="flex items-center space-x-1.5 font-bold text-xs text-[#111111]">
                 <FileText className="w-3.5 h-3.5" />
                 <span>{rag?.documentName || (isZh ? "关联备考资料" : "Grounded Material")}</span>
               </div>
               {rag?.pageOrChapter && (
-                <span className="text-[10px] font-medium text-[#787774] bg-[#f7f6f3] px-2 py-0.5 rounded">
+                <span className="text-[10px] font-bold border border-[#111111] px-1.5 py-0.2 bg-[#fafafa]">
                   {rag.pageOrChapter}
                 </span>
               )}
             </div>
 
             {rag?.sectionTitle && (
-              <div className="text-[11px] text-[#5a5a57] font-medium">
-                <span className="text-[#9b9a97]">{isZh ? "章节/考点：" : "Section: "}</span>
-                {rag.sectionTitle}
+              <div className="text-[11px] text-[#666666]">
+                <span>{isZh ? "章节/考点：" : "SECTION: "}</span>
+                <span className="text-[#111111] font-bold">{rag.sectionTitle}</span>
               </div>
             )}
 
             {rag?.excerptSnippet && (
-              <div className="p-2.5 bg-[#fbfbfa] border-l-2 border-[#2b78a0] rounded-r text-[11px] text-[#5a5a57] leading-relaxed italic">
+              <div className="p-2.5 bg-[#fafafa] border-l-2 border-[#111111] text-[11px] text-[#333333] leading-relaxed italic">
                 "{rag.excerptSnippet}"
               </div>
             )}
 
             {/* Formulas / Rules Extracted */}
             {formulas && formulas.length > 0 && (
-              <div className="pt-1.5 border-t border-[#f1f1ef] space-y-1">
-                <span className="text-[10px] font-semibold text-[#787774] uppercase tracking-wider block">
-                  {isZh ? "📐 提取的核心公式与解题准则" : "Key Formulas & Governing Rules"}
+              <div className="pt-1.5 border-t border-[#111111] space-y-1">
+                <span className="text-[10px] font-bold text-[#666666] uppercase tracking-wider block">
+                  {isZh ? "[核心公式与解题准则]" : "[KEY FORMULAS & RULES]"}
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {formulas.map((f, i) => (
                     <span
                       key={i}
-                      className="px-2 py-1 bg-[#fdf5ea] text-[#d9730d] border border-[#faece3] rounded font-mono text-[11px]"
+                      className="px-2 py-0.5 bg-white text-[#111111] border border-[#111111] font-bold text-[11px]"
                     >
                       {f}
                     </span>
@@ -190,17 +189,17 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
 
             {/* Quick Practice Reference */}
             {task.practiceQuestionRef && (
-              <div className="text-[11px] text-[#448361] flex items-center space-x-1">
-                <CheckCircle2 className="w-3 h-3 shrink-0" />
-                <span>{isZh ? `关联真题定位：${task.practiceQuestionRef}` : `Past Exam Ref: ${task.practiceQuestionRef}`}</span>
+              <div className="text-[11px] text-[#111111] font-bold flex items-center space-x-1">
+                <span>[{isZh ? "真题出处" : "PAST-EXAM-REF"}]</span>
+                <span>{task.practiceQuestionRef}</span>
               </div>
             )}
           </div>
 
           {/* Quick RAG Questions */}
           <div className="space-y-1.5">
-            <span className="text-[11px] font-medium text-[#787774]">
-              {isZh ? "💡 针对该任务向讲义提问：" : "Ask grounded questions about this task:"}
+            <span className="text-[10px] font-bold uppercase text-[#666666]">
+              {isZh ? "[快捷提问]：" : "[QUICK PROMPTS]:"}
             </span>
             <div className="flex flex-wrap gap-1.5">
               {[
@@ -212,9 +211,9 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
                   key={idx}
                   onClick={() => handleAskRAG(suggestion)}
                   disabled={isAsking}
-                  className="px-2.5 py-1 bg-[#f7f6f3] hover:bg-[#efefed] text-[#5a5a57] hover:text-[#37352f] rounded-full text-[11px] border border-[#e9e9e7] transition-colors text-left"
+                  className="px-2.5 py-1 bg-white hover:bg-[#111111] hover:text-white text-[#111111] text-[11px] border border-[#111111] transition-colors text-left cursor-pointer"
                 >
-                  {suggestion}
+                  [{suggestion}]
                 </button>
               ))}
             </div>
@@ -222,34 +221,34 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
 
           {/* Chat History */}
           {chatHistory.length > 0 && (
-            <div className="space-y-3 pt-2 border-t border-[#e9e9e7]">
+            <div className="space-y-3 pt-2 border-t border-[#111111]">
               {chatHistory.map((msg, i) => (
                 <div
                   key={i}
                   className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
                 >
                   <div
-                    className={`max-w-[88%] rounded-lg p-3 text-xs leading-relaxed ${
+                    className={`max-w-[90%] p-3 text-xs leading-relaxed border border-[#111111] ${
                       msg.sender === "user"
-                        ? "bg-[#37352f] text-white"
-                        : "bg-[#fbfbfa] text-[#37352f] border border-[#e9e9e7] space-y-2"
+                        ? "bg-[#111111] text-white"
+                        : "bg-[#fafafa] text-[#111111] space-y-2"
                     }`}
                   >
                     <div className="whitespace-pre-wrap">{msg.text}</div>
 
                     {msg.citations && msg.citations.length > 0 && (
-                      <div className="pt-2 border-t border-[#e9e9e7] space-y-1">
-                        <span className="text-[10px] font-semibold text-[#787774] uppercase tracking-wider block">
-                          {isZh ? "📄 讲义溯源引用" : "Citations"}
+                      <div className="pt-2 border-t border-[#111111] space-y-1">
+                        <span className="text-[10px] font-bold text-[#666666] uppercase block">
+                          {isZh ? "[讲义溯源引用]" : "[CITATIONS]"}
                         </span>
                         {msg.citations.map((c, cIdx) => (
                           <div
                             key={cIdx}
-                            className="p-1.5 bg-white border border-[#e9e9e7] rounded text-[10px] text-[#5a5a57]"
+                            className="p-1.5 bg-white border border-[#111111] text-[10px] text-[#111111]"
                           >
-                            <span className="font-semibold text-[#2b78a0]">{c.documentName}</span>
-                            {c.sectionTitle && <span className="text-[#9b9a97]"> • {c.sectionTitle}</span>}
-                            <p className="italic text-[#787774] mt-0.5">"{c.excerpt}"</p>
+                            <span className="font-bold">{c.documentName}</span>
+                            {c.sectionTitle && <span className="text-[#666666]"> // {c.sectionTitle}</span>}
+                            <p className="italic text-[#666666] mt-0.5">"{c.excerpt}"</p>
                           </div>
                         ))}
                       </div>
@@ -258,8 +257,8 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
                 </div>
               ))}
               {isAsking && (
-                <div className="flex items-center space-x-2 text-xs text-[#787774] p-2 bg-[#f7f6f3] rounded-lg max-w-[200px]">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#2b78a0]" />
+                <div className="flex items-center space-x-2 text-xs text-[#111111] p-2 bg-[#fafafa] border border-[#111111] max-w-[240px]">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#111111]" />
                   <span>{isZh ? "正在检索讲义切片并回答..." : "Searching materials..."}</span>
                 </div>
               )}
@@ -268,7 +267,7 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
         </div>
 
         {/* Input Bar */}
-        <div className="p-3 border-t border-[#e9e9e7] bg-white flex items-center space-x-2">
+        <div className="p-3 border-t border-[#111111] bg-[#fafafa] flex items-center space-x-2 font-mono">
           <input
             type="text"
             value={questionInput}
@@ -279,14 +278,14 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
                 ? `向上传的资料提问关于「${task.topicTitle}」...`
                 : `Ask grounded question about ${task.topicTitle}...`
             }
-            className="flex-1 bg-[#f7f6f3] border border-[#e9e9e7] rounded-lg px-3 py-2 text-xs text-[#37352f] placeholder-[#9b9a97] focus:outline-none focus:border-[#2b78a0]"
+            className="flex-1 bg-white border border-[#111111] px-3 py-2 text-xs text-[#111111] placeholder-[#999999] focus:outline-none"
           />
           <button
             onClick={() => handleAskRAG()}
             disabled={!questionInput.trim() || isAsking}
-            className="p-2 bg-[#37352f] hover:bg-[#201f1c] disabled:opacity-40 text-white rounded-lg transition-colors"
+            className="px-4 py-2 bg-[#111111] hover:bg-[#333333] disabled:opacity-40 text-white font-bold text-xs transition-colors cursor-pointer"
           >
-            <Send className="w-3.5 h-3.5" />
+            {isZh ? "[发送]" : "[SEND]"}
           </button>
         </div>
       </div>

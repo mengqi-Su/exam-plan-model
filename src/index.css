@@ -1,112 +1,171 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: 'Inter', 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Inter', 'Noto Sans SC', ui-monospace, monospace;
+}
+
 @layer base {
   :root {
-    --notion-bg: #ffffff;
-    --notion-sidebar: #f7f6f3;
-    --notion-hover: #efefed;
-    --notion-text: #37352f;
-    --notion-text-muted: #787774;
-    --notion-text-subtle: #9b9a97;
-    --notion-border: #e9e9e7;
-    --notion-border-strong: #dfdfde;
-    --notion-callout: #f7f6f5;
+    --blkswn-bg: #f8f7f4;
+    --blkswn-sidebar: #f2f0ea;
+    --blkswn-border: #111111;
+    --blkswn-border-light: #dedad1;
+    --blkswn-text: #111111;
+    --blkswn-text-muted: #555555;
+    --blkswn-text-subtle: #888888;
   }
 
-  html, body, button, input, select, textarea {
-    font-family: 'Google Sans', 'Plus Jakarta Sans', 'Noto Sans SC', 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    letter-spacing: -0.011em;
+  *, *::before, *::after {
+    font-family: 'Inter', 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  html, body, button, input, select, textarea, h1, h2, h3, h4, h5, h6, p, span, div {
+    font-family: 'Inter', 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    letter-spacing: -0.012em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    color: #37352f;
-    background-color: #ffffff;
+    color: #111111;
+    background-color: #f8f7f4;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
-  code, kbd, samp, pre {
-    font-family: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  .font-mono, code, kbd, samp, pre {
+    font-family: 'JetBrains Mono', 'Inter', 'Noto Sans SC', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    letter-spacing: -0.02em;
   }
 }
 
-/* Notion custom minimalist scrollbars */
+/* Tokyo Editorial Grid & Border Helpers */
+.editorial-border {
+  border-color: #111111;
+}
+
+.editorial-border-light {
+  border-color: #dedad1;
+}
+
+.editorial-tag {
+  font-family: 'JetBrains Mono', 'Inter', 'Noto Sans SC', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border: 1px solid #111111;
+  background-color: #ffffff;
+  color: #111111;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.2;
+}
+
+.editorial-tag-invert {
+  font-family: 'JetBrains Mono', 'Inter', 'Noto Sans SC', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border: 1px solid #111111;
+  background-color: #111111;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.2;
+}
+
+.editorial-tag-accent {
+  font-family: 'JetBrains Mono', 'Inter', 'Noto Sans SC', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border: 1px solid #111111;
+  background-color: #fef08a;
+  color: #111111;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.2;
+}
+
+/* Minimalist crisp scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #ffffff;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(55, 53, 47, 0.15);
-  border-radius: 4px;
+  background: #cccccc;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(55, 53, 47, 0.28);
+  background: #111111;
 }
 
-/* Notion Tag Pill Colors */
+/* Notion compat utility mappings with crisp editorial style */
 .notion-tag-gray {
-  background-color: #f1f1ef;
-  color: #5a5a57;
-  border: 1px solid #e3e2e0;
+  background-color: #f4f4f4;
+  color: #333333;
+  border: 1px solid #e5e5e5;
 }
 
 .notion-tag-brown {
-  background-color: #f4eeee;
-  color: #937264;
-  border: 1px solid #e8dedc;
+  background-color: #f5f0eb;
+  color: #5c4436;
+  border: 1px solid #e0d4ca;
 }
 
 .notion-tag-orange {
-  background-color: #faece3;
-  color: #d9730d;
-  border: 1px solid #f3d6c1;
+  background-color: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
 }
 
 .notion-tag-yellow {
-  background-color: #fbf3db;
-  color: #cb912f;
-  border: 1px solid #f6e3b5;
+  background-color: #fefce8;
+  color: #854d0e;
+  border: 1px solid #fef08a;
 }
 
 .notion-tag-green {
-  background-color: #edf3ec;
-  color: #448361;
-  border: 1px solid #d5e5d3;
+  background-color: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
 }
 
 .notion-tag-blue {
-  background-color: #e7f3f8;
-  color: #2b78a0;
-  border: 1px solid #c9e6f3;
+  background-color: #f8fafc;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
 }
 
 .notion-tag-purple {
-  background-color: #f4f0f7;
-  color: #9065b0;
-  border: 1px solid #e4daf0;
+  background-color: #faf5ff;
+  color: #581c87;
+  border: 1px solid #e9d5ff;
 }
 
 .notion-tag-pink {
-  background-color: #f9f0f5;
-  color: #c14c8a;
-  border: 1px solid #f2dae7;
+  background-color: #fdf2f8;
+  color: #9d174d;
+  border: 1px solid #fbcfe8;
 }
 
 .notion-tag-red {
-  background-color: #fdebec;
-  color: #d44c47;
-  border: 1px solid #f9d3d5;
+  background-color: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
 }
 
-/* Notion Callout Box */
 .notion-callout {
-  background-color: #f7f6f5;
-  border: 1px solid #e9e9e7;
-  border-radius: 8px;
+  background-color: #fafafa;
+  border: 1px solid #111111;
 }
+

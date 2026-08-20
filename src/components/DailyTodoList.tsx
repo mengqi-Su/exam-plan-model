@@ -42,14 +42,14 @@ interface DailyTodoListProps {
 }
 
 const CATEGORY_TAG_CLASS: Record<TaskCategory, string> = {
-  theory: "notion-tag-purple",
-  reading: "notion-tag-blue",
-  practice_problems: "notion-tag-green",
-  active_recall: "notion-tag-pink",
-  flashcards: "notion-tag-orange",
-  mock_exam: "notion-tag-red",
-  review_weak_spots: "notion-tag-yellow",
-  summary_cheat_sheet: "notion-tag-brown",
+  theory: "border border-[#111111] bg-white text-[#111111]",
+  reading: "border border-[#111111] bg-white text-[#111111]",
+  practice_problems: "border border-[#111111] bg-[#111111] text-white",
+  active_recall: "border border-[#111111] bg-white text-[#111111]",
+  flashcards: "border border-[#111111] bg-white text-[#111111]",
+  mock_exam: "border border-[#111111] bg-white text-[#111111] font-bold",
+  review_weak_spots: "border border-[#111111] bg-white text-[#111111]",
+  summary_cheat_sheet: "border border-[#111111] bg-white text-[#111111]",
 };
 
 export function DailyTodoList({
@@ -226,32 +226,32 @@ export function DailyTodoList({
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6">
-      {/* Notion Database Header Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#e9e9e7]">
+      {/* Editorial Header Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#111111]">
         {/* Date Navigator */}
         <div className="flex items-center space-x-2">
           <div className="flex items-center space-x-1">
             <button
               onClick={() => handleShiftDate(-1)}
-              className="p-1.5 rounded hover:bg-[#efefed] text-[#787774] hover:text-[#37352f] transition-colors"
+              className="p-1.5 border border-[#111111] hover:bg-[#ededed] text-[#111111] transition-colors cursor-pointer"
               title={t("previousDay")}
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className="w-3.5 h-3.5" />
             </button>
 
             <button
               onClick={handleJumpToToday}
-              className="px-2.5 py-1 text-xs font-semibold rounded hover:bg-[#efefed] text-[#37352f] transition-colors border border-[#e9e9e7]"
+              className="px-2.5 py-1 text-xs font-mono font-bold hover:bg-[#111111] hover:text-white text-[#111111] transition-colors border border-[#111111] cursor-pointer"
             >
-              {t("today")}
+              [{language === "zh" ? "今日" : "TODAY"}]
             </button>
 
             <button
               onClick={() => handleShiftDate(1)}
-              className="p-1.5 rounded hover:bg-[#efefed] text-[#787774] hover:text-[#37352f] transition-colors"
+              className="p-1.5 border border-[#111111] hover:bg-[#ededed] text-[#111111] transition-colors cursor-pointer"
               title={t("nextDay")}
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -260,7 +260,7 @@ export function DailyTodoList({
               type="date"
               value={selectedDate}
               onChange={(e) => onSelectDate(e.target.value)}
-              className="text-xs text-[#787774] hover:text-[#37352f] bg-transparent border border-[#e9e9e7] rounded px-2 py-1 focus:outline-none cursor-pointer"
+              className="text-xs font-mono text-[#111111] bg-white border border-[#111111] px-2 py-1 focus:outline-none cursor-pointer"
             />
           </div>
         </div>
@@ -268,23 +268,23 @@ export function DailyTodoList({
         {/* View Switcher & Category Filter & Progress */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Progress Mini Pill */}
-          <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-[#f7f6f3] border border-[#e9e9e7] rounded-md text-xs text-[#5a5a57]">
-            <span className="font-semibold text-[#37352f]">
-              {t("tasksCountDone", { done: completedCount, total: dayTasks.length, percent: completionPercent })}
+          <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-white border border-[#111111] text-xs font-mono text-[#111111]">
+            <span className="font-bold">
+              {completedCount}/{dayTasks.length} {language === "zh" ? "已完成" : "DONE"} ({completionPercent}%)
             </span>
-            <span className="text-[#9b9a97]">•</span>
-            <span className="text-[#2b78a0] font-medium">
-              {t("timeLoggedSummary", { completed: completedMins, planned: totalPlannedMins })}
+            <span className="text-[#888888]">•</span>
+            <span className="font-mono">
+              {completedMins}{language === "zh" ? "分钟" : "m"} / {totalPlannedMins}{language === "zh" ? "分钟" : "m"}
             </span>
           </div>
 
           {/* Filter dropdown */}
-          <div className="flex items-center space-x-1 text-xs text-[#787774] bg-[#f7f6f3] border border-[#e9e9e7] rounded-md px-2 py-1">
+          <div className="flex items-center space-x-1 text-xs font-mono text-[#111111] bg-white border border-[#111111] px-2 py-1">
             <Filter className="w-3 h-3" />
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="bg-transparent text-xs text-[#37352f] focus:outline-none cursor-pointer"
+              className="bg-transparent text-xs font-mono text-[#111111] focus:outline-none cursor-pointer"
             >
               <option value="all">{t("allCategories")}</option>
               <option value="practice_problems">{t("catPracticeProblems")}</option>
@@ -296,22 +296,22 @@ export function DailyTodoList({
           </div>
 
           {/* Table / List View Toggle */}
-          <div className="flex items-center border border-[#e9e9e7] rounded-md bg-[#f7f6f3] p-0.5">
+          <div className="flex items-center border border-[#111111] bg-white p-0.5">
             <button
               onClick={() => setViewStyle("table")}
-              className={`p-1 rounded text-xs flex items-center space-x-1 transition-colors ${
-                viewStyle === "table" ? "bg-white text-[#37352f] shadow-xs" : "text-[#787774] hover:text-[#37352f]"
+              className={`p-1 text-xs flex items-center space-x-1 transition-colors cursor-pointer ${
+                viewStyle === "table" ? "bg-[#111111] text-white" : "text-[#666666] hover:text-[#111111]"
               }`}
-              title="Table View"
+              title={language === "zh" ? "表格视图" : "Table View"}
             >
               <TableIcon className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setViewStyle("list")}
-              className={`p-1 rounded text-xs flex items-center space-x-1 transition-colors ${
-                viewStyle === "list" ? "bg-white text-[#37352f] shadow-xs" : "text-[#787774] hover:text-[#37352f]"
+              className={`p-1 text-xs flex items-center space-x-1 transition-colors cursor-pointer ${
+                viewStyle === "list" ? "bg-[#111111] text-white" : "text-[#666666] hover:text-[#111111]"
               }`}
-              title="List View"
+              title={language === "zh" ? "列表视图" : "List View"}
             >
               <ListIcon className="w-3.5 h-3.5" />
             </button>
@@ -320,38 +320,38 @@ export function DailyTodoList({
           {/* + New Button */}
           <button
             onClick={() => setIsAddingInline(true)}
-            className="flex items-center space-x-1 px-2.5 py-1 bg-[#37352f] hover:bg-[#201f1c] text-white rounded-md text-xs font-semibold transition-colors shadow-xs"
+            className="flex items-center space-x-1 px-3 py-1 bg-[#111111] hover:bg-[#333333] text-white text-xs font-mono font-bold transition-colors cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>{t("btnNewTask")}</span>
+            <span>[{language === "zh" ? "+ 新建任务" : "+ TASK"}]</span>
           </button>
         </div>
       </div>
 
-      {/* Notion Callout Box if no tasks or general daily guidance */}
+      {/* Callout Box if no tasks */}
       {filteredTasks.length === 0 ? (
-        <div className="notion-callout p-6 text-center space-y-2">
-          <BookOpen className="w-8 h-8 mx-auto text-[#787774]" />
-          <h3 className="font-semibold text-sm text-[#37352f]">
+        <div className="p-8 text-center space-y-2 border border-dashed border-[#111111]/40 bg-[#fafafa]">
+          <BookOpen className="w-7 h-7 mx-auto text-[#888888]" />
+          <h3 className="font-mono font-bold text-sm text-[#111111]">
             {t("noTasksToday", { date: formattedDate })}
           </h3>
-          <p className="text-xs text-[#787774] max-w-md mx-auto">
+          <p className="text-xs font-mono text-[#666666] max-w-md mx-auto">
             {t("noTasksTodayDesc")}
           </p>
           <button
             onClick={() => setIsAddingInline(true)}
-            className="mt-2 px-3 py-1.5 bg-[#efefed] hover:bg-[#e3e2e0] text-[#37352f] rounded-md text-xs font-medium transition-colors"
+            className="mt-2 px-3 py-1.5 bg-[#111111] hover:bg-[#333333] text-white text-xs font-mono font-bold transition-colors cursor-pointer"
           >
-            {t("btnAddTaskThisDate")}
+            [{language === "zh" ? "+ 为此日期添加任务" : "+ ADD TASK FOR THIS DATE"}]
           </button>
         </div>
       ) : viewStyle === "table" ? (
-        /* ================= Notion Database Table View ================= */
-        <div className="border border-[#e9e9e7] rounded-lg overflow-x-auto shadow-xs bg-white">
+        /* ================= Editorial Database Table View ================= */
+        <div className="border border-[#111111] overflow-x-auto bg-white">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-[#f7f6f3] border-b border-[#e9e9e7] text-[#787774] font-medium select-none">
-                <th className="py-2.5 px-3 w-10 text-center font-normal">{t("colDone")}</th>
+              <tr className="bg-[#fafafa] border-b border-[#111111] text-[#111111] font-mono font-bold uppercase text-[10px] tracking-wider select-none">
+                <th className="py-2.5 px-3 w-10 text-center">{t("colDone")}</th>
                 <th className="py-2.5 px-3 min-w-[240px]">{t("colTaskName")}</th>
                 <th className="py-2.5 px-3 w-36">{t("colCategory")}</th>
                 <th className="py-2.5 px-3 w-40">{t("colTopic")}</th>
@@ -361,26 +361,26 @@ export function DailyTodoList({
                 <th className="py-2.5 px-3 w-44 text-right pr-4">{t("colActions")}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#e9e9e7]">
+            <tbody className="divide-y divide-[#e5e5e5]">
               {filteredTasks.map((task) => {
                 const isCompleted = task.status === "completed";
-                const catClass = CATEGORY_TAG_CLASS[task.category] || "notion-tag-gray";
+                const catClass = CATEGORY_TAG_CLASS[task.category] || "border border-[#111111] bg-white text-[#111111]";
 
                 return (
                   <React.Fragment key={task.id}>
                     <tr
-                      className={`hover:bg-[#f7f6f3]/80 transition-colors group ${
-                        isCompleted ? "bg-[#fbfbfa] text-[#9b9a97]" : "text-[#37352f]"
+                      className={`hover:bg-[#f2f2f2] transition-colors group font-mono ${
+                        isCompleted ? "bg-[#fafafa] text-[#888888]" : "text-[#111111]"
                       }`}
                     >
                       {/* Checkbox */}
-                      <td className="py-2 px-3 text-center">
+                      <td className="py-2.5 px-3 text-center">
                         <button
                           onClick={() => handleToggleComplete(task.id)}
-                          className={`w-4 h-4 rounded-sm border flex items-center justify-center transition-colors ${
+                          className={`w-4 h-4 border border-[#111111] flex items-center justify-center transition-colors cursor-pointer ${
                             isCompleted
-                              ? "bg-[#448361] border-[#448361] text-white"
-                              : "border-[#dfdfde] hover:border-[#37352f] bg-white"
+                              ? "bg-[#111111] text-white"
+                              : "bg-white hover:bg-[#ededed]"
                           }`}
                         >
                           {isCompleted && <Check className="w-3 h-3 stroke-[3]" />}
@@ -392,14 +392,14 @@ export function DailyTodoList({
                         <div className="flex items-start space-x-2">
                           <div className="flex-1 min-w-0">
                             <span
-                              className={`font-medium block truncate ${
-                                isCompleted ? "line-through text-[#9b9a97]" : "text-[#37352f]"
+                              className={`font-bold block truncate text-xs ${
+                                isCompleted ? "line-through text-[#888888]" : "text-[#111111]"
                               }`}
                             >
                               {task.title}
                             </span>
                             {task.description && (
-                              <span className="text-[11px] text-[#787774] block truncate mt-0.5">
+                              <span className="text-[10px] text-[#666666] block truncate mt-0.5">
                                 {task.description}
                               </span>
                             )}
@@ -408,55 +408,55 @@ export function DailyTodoList({
                       </td>
 
                       {/* Category Tag */}
-                      <td className="py-2 px-3">
-                        <span className={`${catClass} px-2 py-0.5 rounded text-[11px] font-medium whitespace-nowrap`}>
-                          {getCategoryLabel(task.category)}
+                      <td className="py-2.5 px-3">
+                        <span className={`${catClass} px-1.5 py-0.5 text-[10px] font-bold uppercase whitespace-nowrap`}>
+                          [{getCategoryLabel(task.category)}]
                         </span>
                       </td>
 
                       {/* Topic */}
-                      <td className="py-2 px-3">
-                        <span className="text-[#5a5a57] text-[11px] truncate block max-w-[150px]">
+                      <td className="py-2.5 px-3">
+                        <span className="text-[#666666] text-[11px] truncate block max-w-[150px] font-mono">
                           {task.topicTitle}
                         </span>
                       </td>
 
                       {/* Duration */}
-                      <td className="py-2 px-3 text-[#787774]">
-                        <span className="flex items-center space-x-1 font-mono text-[11px]">
-                          <Clock className="w-3 h-3 text-[#9b9a97]" />
+                      <td className="py-2.5 px-3 text-[#111111]">
+                        <span className="flex items-center space-x-1 font-mono text-[11px] font-bold">
+                          <Clock className="w-3 h-3 text-[#666666]" />
                           <span>{task.durationMinutes}m</span>
                         </span>
                       </td>
 
                       {/* Priority */}
-                      <td className="py-2 px-3">
+                      <td className="py-2.5 px-3">
                         {task.priority === "high" ? (
-                          <span className="notion-tag-red px-1.5 py-0.5 rounded text-[10px] font-semibold">
-                            {t("priorityHigh")}
+                          <span className="border border-[#111111] bg-[#111111] text-white px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                            [{language === "zh" ? "高优" : "HIGH"}]
                           </span>
                         ) : task.priority === "low" ? (
-                          <span className="notion-tag-gray px-1.5 py-0.5 rounded text-[10px]">
-                            {t("priorityLow")}
+                          <span className="border border-[#e5e5e5] text-[#888888] px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                            [{language === "zh" ? "低优" : "LOW"}]
                           </span>
                         ) : (
-                          <span className="notion-tag-yellow px-1.5 py-0.5 rounded text-[10px]">
-                            {t("priorityMedium")}
+                          <span className="border border-[#111111] text-[#111111] bg-white px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                            [{language === "zh" ? "中优" : "MED"}]
                           </span>
                         )}
                       </td>
 
                       {/* Mastery Rating */}
-                      <td className="py-2 px-3">
-                        <div className="flex space-x-0.5">
+                      <td className="py-2.5 px-3">
+                        <div className="flex space-x-0.5 text-xs">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <button
                               key={star}
                               onClick={() => handleUpdateConfidence(task.id, star as any)}
-                              className={`p-0.5 transition-colors ${
+                              className={`p-0.5 transition-colors cursor-pointer ${
                                 (task.confidenceRating || 0) >= star
-                                  ? "text-[#cb912f]"
-                                  : "text-[#dfdfde] hover:text-[#9b9a97]"
+                                  ? "text-[#111111] font-bold"
+                                  : "text-[#cccccc] hover:text-[#111111]"
                               }`}
                             >
                               ★
@@ -466,46 +466,46 @@ export function DailyTodoList({
                       </td>
 
                       {/* Action Tools */}
-                      <td className="py-2 px-3 text-right pr-4">
+                      <td className="py-2.5 px-3 text-right pr-4 font-mono">
                         <div className="flex items-center justify-end space-x-1">
                           {/* RAG Knowledge Grounding & Ask */}
                           <button
                             onClick={() => setActiveRagTask(task)}
-                            className="p-1 rounded hover:bg-[#ebf5fb] text-[#2b78a0] transition-colors"
+                            className="p-1 hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] transition-colors cursor-pointer"
                             title={language === "zh" ? "RAG 资料溯源与问答" : "RAG Material Grounding & QA"}
                           >
-                            <Zap className="w-3.5 h-3.5 fill-current" />
+                            <Zap className="w-3 h-3" />
                           </button>
 
                           {/* Focus Session */}
                           <button
                             onClick={() => setActiveTimerTask(task)}
-                            className="p-1 rounded hover:bg-[#efefed] text-[#448361] transition-colors"
+                            className="p-1 hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] transition-colors cursor-pointer"
                             title={t("startFocusTimer")}
                           >
-                            <Play className="w-3.5 h-3.5 fill-current" />
+                            <Play className="w-3 h-3" />
                           </button>
 
                           {/* Active Recall Quiz */}
                           <button
                             onClick={() => setActiveQuizTask(task)}
-                            className="p-1 rounded hover:bg-[#efefed] text-[#9065b0] transition-colors"
+                            className="p-1 hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] transition-colors cursor-pointer"
                             title={t("generateQuiz")}
                           >
-                            <Sparkles className="w-3.5 h-3.5" />
+                            <Sparkles className="w-3 h-3" />
                           </button>
 
                           {/* Notes */}
                           <button
                             onClick={() => setExpandedNotesId(expandedNotesId === task.id ? null : task.id)}
-                            className={`p-1 rounded transition-colors ${
+                            className={`p-1 border border-[#111111] transition-colors cursor-pointer ${
                               task.notes
-                                ? "text-[#d9730d] bg-[#faece3]"
-                                : "text-[#787774] hover:bg-[#efefed]"
+                                ? "bg-[#111111] text-white"
+                                : "text-[#111111] hover:bg-[#111111] hover:text-white"
                             }`}
                             title={t("viewNotes")}
                           >
-                            <MessageSquare className="w-3.5 h-3.5" />
+                            <MessageSquare className="w-3 h-3" />
                           </button>
 
                           {/* Google Calendar Link */}
@@ -513,19 +513,19 @@ export function DailyTodoList({
                             href={generateGoogleCalendarUrl(task, plan)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1 rounded text-[#787774] hover:text-[#2b78a0] hover:bg-[#efefed] transition-colors"
+                            className="p-1 border border-[#111111] text-[#111111] hover:bg-[#111111] hover:text-white transition-colors cursor-pointer"
                             title={t("addToGCal")}
                           >
-                            <CalendarIcon className="w-3.5 h-3.5" />
+                            <CalendarIcon className="w-3 h-3" />
                           </a>
 
                           {/* Delete */}
                           <button
                             onClick={() => handleDeleteTask(task.id)}
-                            className="p-1 rounded text-[#787774] hover:text-[#d44c47] hover:bg-[#fdebec] transition-colors opacity-60 group-hover:opacity-100"
+                            className="p-1 border border-[#111111] text-[#111111] hover:bg-[#111111] hover:text-white transition-colors opacity-60 group-hover:opacity-100 cursor-pointer"
                             title={t("delete")}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-3 h-3" />
                           </button>
                         </div>
                       </td>
@@ -533,18 +533,18 @@ export function DailyTodoList({
 
                     {/* Inline Notes Expanded Row */}
                     {expandedNotesId === task.id && (
-                      <tr className="bg-[#fbfbfa]">
-                        <td colSpan={8} className="px-6 py-3 border-t border-b border-[#e9e9e7]">
-                          <div className="space-y-1.5 max-w-3xl">
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#787774]">
-                              {t("notesSectionTitle", { title: task.title })}
+                      <tr className="bg-[#fafafa]">
+                        <td colSpan={8} className="px-6 py-3 border-t border-b border-[#111111]">
+                          <div className="space-y-1.5 max-w-3xl font-mono">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#666666]">
+                              [{t("notesSectionTitle", { title: task.title })}]
                             </span>
                             <textarea
                               rows={2}
                               value={task.notes || ""}
                               onChange={(e) => handleSaveNotes(task.id, e.target.value)}
                               placeholder={t("notesPlaceholder")}
-                              className="w-full bg-white border border-[#e9e9e7] rounded-md p-2 text-xs text-[#37352f] placeholder-[#9b9a97] focus:outline-none focus:border-[#2b78a0]"
+                              className="w-full bg-white border border-[#111111] p-2 text-xs text-[#111111] placeholder-[#888888] focus:outline-none font-mono"
                             />
                           </div>
                         </td>
@@ -556,15 +556,15 @@ export function DailyTodoList({
 
               {/* Inline Add Row */}
               {isAddingInline ? (
-                <tr className="bg-[#f7f6f3]">
-                  <td className="py-2 px-3 text-center text-[#9b9a97]">+</td>
+                <tr className="bg-[#fafafa] font-mono">
+                  <td className="py-2 px-3 text-center text-[#111111] font-bold">+</td>
                   <td className="py-2 px-3">
                     <input
                       type="text"
                       value={newTitle}
                       onChange={(e) => setNewTitle(e.target.value)}
                       placeholder={t("inlineTaskTitlePlaceholder")}
-                      className="w-full bg-white border border-[#e9e9e7] rounded px-2 py-1 text-xs text-[#37352f] focus:outline-none focus:border-[#2b78a0]"
+                      className="w-full bg-white border border-[#111111] px-2 py-1 text-xs text-[#111111] focus:outline-none font-mono"
                       autoFocus
                     />
                   </td>
@@ -572,7 +572,7 @@ export function DailyTodoList({
                     <select
                       value={newCategory}
                       onChange={(e) => setNewCategory(e.target.value as any)}
-                      className="bg-white border border-[#e9e9e7] rounded px-1.5 py-1 text-xs text-[#37352f] focus:outline-none"
+                      className="bg-white border border-[#111111] px-1.5 py-1 text-xs text-[#111111] focus:outline-none font-mono font-bold"
                     >
                       <option value="practice_problems">{t("catPracticeProblems")}</option>
                       <option value="theory">{t("catTheory")}</option>
@@ -585,7 +585,7 @@ export function DailyTodoList({
                     <select
                       value={newTopic}
                       onChange={(e) => setNewTopic(e.target.value)}
-                      className="bg-white border border-[#e9e9e7] rounded px-1.5 py-1 text-xs text-[#37352f] focus:outline-none max-w-[130px]"
+                      className="bg-white border border-[#111111] px-1.5 py-1 text-xs text-[#111111] focus:outline-none max-w-[130px] font-mono font-bold"
                     >
                       {plan.topics.map((t) => (
                         <option key={t.id} value={t.title}>
@@ -602,14 +602,14 @@ export function DailyTodoList({
                       step={5}
                       value={newDuration}
                       onChange={(e) => setNewDuration(Number(e.target.value))}
-                      className="w-16 bg-white border border-[#e9e9e7] rounded px-1.5 py-1 text-xs text-[#37352f]"
+                      className="w-16 bg-white border border-[#111111] px-1.5 py-1 text-xs text-[#111111] font-mono font-bold"
                     />
                   </td>
                   <td className="py-2 px-3">
                     <select
                       value={newPriority}
                       onChange={(e) => setNewPriority(e.target.value as any)}
-                      className="bg-white border border-[#e9e9e7] rounded px-1.5 py-1 text-xs text-[#37352f]"
+                      className="bg-white border border-[#111111] px-1.5 py-1 text-xs text-[#111111] font-mono font-bold"
                     >
                       <option value="high">{t("priorityHigh")}</option>
                       <option value="medium">{t("priorityMedium")}</option>
@@ -617,32 +617,32 @@ export function DailyTodoList({
                     </select>
                   </td>
                   <td colSpan={2} className="py-2 px-3 text-right pr-4">
-                    <div className="flex items-center justify-end space-x-2">
+                    <div className="flex items-center justify-end space-x-2 font-mono">
                       <button
                         onClick={() => setIsAddingInline(false)}
-                        className="px-2 py-1 text-xs text-[#787774] hover:text-[#37352f]"
+                        className="px-2 py-1 text-xs text-[#666666] hover:text-[#111111] cursor-pointer"
                       >
-                        {t("cancel")}
+                        [{t("cancel")}]
                       </button>
                       <button
                         onClick={handleCreateTask}
                         disabled={!newTitle.trim()}
-                        className="px-3 py-1 bg-[#37352f] hover:bg-[#201f1c] disabled:opacity-50 text-white rounded text-xs font-semibold"
+                        className="px-3 py-1 bg-[#111111] hover:bg-[#333333] disabled:opacity-50 text-white text-xs font-bold font-mono cursor-pointer border border-[#111111]"
                       >
-                        {t("btnAddInlineTask")}
+                        [{t("btnAddInlineTask")}]
                       </button>
                     </div>
                   </td>
                 </tr>
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-2 px-4">
+                  <td colSpan={8} className="py-2 px-4 font-mono">
                     <button
                       onClick={() => setIsAddingInline(true)}
-                      className="flex items-center space-x-1.5 text-xs text-[#787774] hover:text-[#37352f] transition-colors py-1"
+                      className="flex items-center space-x-1.5 text-xs text-[#666666] hover:text-[#111111] transition-colors py-1 cursor-pointer font-bold"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>{t("btnNewTask")}</span>
+                      <span>[{t("btnNewTask")}]</span>
                     </button>
                   </td>
                 </tr>
@@ -651,26 +651,26 @@ export function DailyTodoList({
           </table>
         </div>
       ) : (
-        /* ================= Notion Database List View ================= */
-        <div className="space-y-2">
+        /* ================= Editorial Database List View ================= */
+        <div className="space-y-2 font-mono">
           {filteredTasks.map((task) => {
             const isCompleted = task.status === "completed";
-            const catClass = CATEGORY_TAG_CLASS[task.category] || "notion-tag-gray";
+            const catClass = CATEGORY_TAG_CLASS[task.category] || "border border-[#111111] bg-white text-[#111111]";
 
             return (
               <div
                 key={task.id}
-                className={`p-3.5 border rounded-lg bg-white transition-all shadow-2xs hover:border-[#dfdfde] flex items-start justify-between gap-3 ${
-                  isCompleted ? "border-[#e9e9e7] bg-[#fbfbfa]" : "border-[#e9e9e7]"
+                className={`p-3.5 border border-[#111111] bg-white transition-all flex items-start justify-between gap-3 ${
+                  isCompleted ? "bg-[#fafafa] text-[#888888]" : "text-[#111111]"
                 }`}
               >
                 <div className="flex items-start space-x-3 flex-1 min-w-0">
                   <button
                     onClick={() => handleToggleComplete(task.id)}
-                    className={`mt-0.5 w-4 h-4 rounded-sm border flex items-center justify-center transition-colors ${
+                    className={`mt-0.5 w-4 h-4 border border-[#111111] flex items-center justify-center transition-colors cursor-pointer ${
                       isCompleted
-                        ? "bg-[#448361] border-[#448361] text-white"
-                        : "border-[#dfdfde] hover:border-[#37352f] bg-white"
+                        ? "bg-[#111111] text-white"
+                        : "bg-white hover:bg-[#ededed]"
                     }`}
                   >
                     {isCompleted && <Check className="w-3 h-3 stroke-[3]" />}
@@ -678,49 +678,49 @@ export function DailyTodoList({
 
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className={`${catClass} px-2 py-0.5 rounded text-[10px] font-medium`}>
-                        {getCategoryLabel(task.category)}
+                      <span className={`${catClass} px-1.5 py-0.2 text-[10px] font-bold uppercase`}>
+                        [{getCategoryLabel(task.category)}]
                       </span>
-                      <span className="text-[11px] text-[#787774]">• {task.topicTitle}</span>
+                      <span className="text-[11px] text-[#666666] font-mono">• {task.topicTitle}</span>
                       {task.priority === "high" && (
-                        <span className="notion-tag-red px-1.5 py-0.2 rounded text-[10px] font-semibold">
-                          {t("priorityHigh")}
+                        <span className="border border-[#111111] bg-[#111111] text-white px-1.5 py-0.2 text-[10px] font-bold">
+                          [{language === "zh" ? "高优" : "HIGH"}]
                         </span>
                       )}
                     </div>
 
                     <h4
-                      className={`text-sm font-semibold ${
-                        isCompleted ? "line-through text-[#9b9a97]" : "text-[#37352f]"
+                      className={`text-xs font-bold ${
+                        isCompleted ? "line-through text-[#888888]" : "text-[#111111]"
                       }`}
                     >
                       {task.title}
                     </h4>
 
                     {task.description && (
-                      <p className="text-xs text-[#787774] leading-relaxed">
+                      <p className="text-xs text-[#666666] leading-relaxed">
                         {task.description}
                       </p>
                     )}
 
                     {task.activeRecallPrompt && (
-                      <div className="notion-callout p-2.5 text-xs text-[#37352f] flex items-start space-x-2 mt-2">
-                        <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                      <div className="p-2.5 bg-[#fafafa] border border-[#111111] text-xs text-[#111111] flex items-start space-x-2 mt-2">
+                        <Sparkles className="w-4 h-4 text-[#111111] shrink-0 mt-0.5" />
                         <div>
-                          <strong className="font-semibold text-[11px] block">{t("activeRecallPromptTitle")}</strong>
-                          <span className="text-[11px] text-[#5a5a57]">{task.activeRecallPrompt}</span>
+                          <strong className="font-bold text-[10px] uppercase block">[{t("activeRecallPromptTitle")}]</strong>
+                          <span className="text-[11px] text-[#333333]">{task.activeRecallPrompt}</span>
                         </div>
                       </div>
                     )}
                     {/* RAG Source Citation Preview if present */}
                     {task.ragSource && (
-                      <div className="flex items-center space-x-1.5 text-[11px] text-[#2b78a0] bg-[#f0f7fa] px-2 py-1 rounded border border-[#e1eff5] mt-1.5 w-fit">
+                      <div className="flex items-center space-x-1.5 text-[10px] text-[#111111] bg-[#fafafa] px-2 py-1 border border-[#111111] mt-1.5 w-fit font-mono">
                         <FileText className="w-3 h-3" />
-                        <span className="font-medium truncate max-w-[280px]">
-                          {task.ragSource.documentName} {task.ragSource.pageOrChapter ? `(${task.ragSource.pageOrChapter})` : ""}
+                        <span className="font-bold truncate max-w-[280px]">
+                          [{task.ragSource.documentName} {task.ragSource.pageOrChapter ? `(${task.ragSource.pageOrChapter})` : ""}]
                         </span>
                         {task.groundedUserNeed && (
-                          <span className="text-[#5a5a57] border-l border-[#cde2ee] pl-1.5 ml-1">
+                          <span className="text-[#666666] border-l border-[#111111] pl-1.5 ml-1">
                             {task.groundedUserNeed}
                           </span>
                         )}
@@ -729,29 +729,29 @@ export function DailyTodoList({
                   </div>
                 </div>
 
-                <div className="flex flex-col items-end space-y-2 shrink-0">
-                  <span className="text-xs text-[#787774] font-mono">{task.durationMinutes} {language === "zh" ? "分钟" : "mins"}</span>
+                <div className="flex flex-col items-end space-y-2 shrink-0 font-mono">
+                  <span className="text-xs text-[#666666] font-bold">{task.durationMinutes} {language === "zh" ? "分钟" : "MIN"}</span>
                   <div className="flex items-center space-x-1">
                     <button
                       onClick={() => setActiveRagTask(task)}
-                      className="px-2 py-1 bg-[#ebf5fb] hover:bg-[#d8ecf7] border border-[#d0e5f2] rounded text-xs font-semibold text-[#2b78a0] flex items-center space-x-1"
+                      className="px-2 py-1 bg-white hover:bg-[#111111] hover:text-white border border-[#111111] text-xs font-bold text-[#111111] flex items-center space-x-1 cursor-pointer transition-colors"
                       title={language === "zh" ? "RAG 资料溯源与问答" : "RAG Grounding"}
                     >
-                      <Zap className="w-3 h-3 fill-current" />
-                      <span>{language === "zh" ? "RAG 资料" : "RAG"}</span>
+                      <Zap className="w-3 h-3" />
+                      <span>[{language === "zh" ? "溯源" : "RAG"}]</span>
                     </button>
 
                     <button
                       onClick={() => setActiveTimerTask(task)}
-                      className="px-2.5 py-1 bg-[#f7f6f3] hover:bg-[#efefed] border border-[#e9e9e7] rounded text-xs font-semibold text-[#448361] flex items-center space-x-1"
+                      className="px-2.5 py-1 bg-[#111111] hover:bg-[#333333] text-white border border-[#111111] text-xs font-bold flex items-center space-x-1 cursor-pointer transition-colors"
                     >
-                      <Play className="w-3 h-3 fill-current" />
-                      <span>{t("focusSessionBtn")}</span>
+                      <Play className="w-3 h-3" />
+                      <span>[{language === "zh" ? "专注" : "FOCUS"}]</span>
                     </button>
 
                     <button
                       onClick={() => setActiveQuizTask(task)}
-                      className="p-1 rounded text-[#9065b0] hover:bg-[#f4f0f7] border border-[#e4daf0]"
+                      className="p-1 border border-[#111111] text-[#111111] hover:bg-[#111111] hover:text-white transition-colors cursor-pointer"
                       title={t("generateQuiz")}
                     >
                       <Sparkles className="w-3.5 h-3.5" />

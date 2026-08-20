@@ -258,7 +258,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-[#37352f] flex antialiased selection:bg-[#cce2ff] font-sans">
+    <div className="min-h-screen bg-[#f8f7f4] text-[#111111] flex antialiased selection:bg-[#111111] selection:text-white font-sans">
       {/* Notion Sidebar */}
       <NotionSidebar
         isOpen={isSidebarOpen}

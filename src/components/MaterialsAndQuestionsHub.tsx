@@ -261,23 +261,23 @@ export function MaterialsAndQuestionsHub({
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6">
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6 font-mono text-[#111111]">
       {/* Top Banner Callout */}
-      <div className="notion-callout p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-[#e9e9e7] bg-[#fbfbfa]">
+      <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-[#111111] bg-[#fafafa]">
         <div className="flex items-start space-x-3">
-          <div className="w-9 h-9 rounded-lg bg-[#2b78a0] text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <BookOpen className="w-5 h-5" />
-          </div>
+          <span className="px-2 py-1 bg-[#111111] text-white text-xs font-bold shrink-0">
+            [REPOSITORY]
+          </span>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-base font-bold text-[#37352f]">
+              <h2 className="text-sm font-bold uppercase tracking-tight text-[#111111]">
                 {language === "zh" ? "题库真题与课程学习资料库" : "Question Bank & Learning Materials Hub"}
               </h2>
-              <span className="notion-tag-purple px-2 py-0.5 rounded text-[10px] font-semibold">
-                {plan.examName}
+              <span className="border border-[#111111] bg-white px-2 py-0.5 text-[10px] font-bold">
+                [{plan.examName}]
               </span>
             </div>
-            <p className="text-xs text-[#787774] mt-0.5 max-w-2xl leading-relaxed">
+            <p className="text-xs text-[#666666] mt-1 max-w-2xl leading-relaxed">
               {language === "zh"
                 ? "集中管理课程的历年真题试卷、模拟题库、名师讲义及公式笔记。支持一键 AI 智能自测出题、考点陷阱提炼及自动安排进每日备考计划。"
                 : "Manage past exams, practice papers, lecture notes, and formula sheets. Directly trigger AI practice quizzes, trap analysis, and add study tasks to your schedule."}
@@ -289,10 +289,10 @@ export function MaterialsAndQuestionsHub({
           {onGoToCourseSyllabus && (
             <button
               onClick={onGoToCourseSyllabus}
-              className="px-3 py-1.5 bg-white hover:bg-[#efefed] text-[#37352f] border border-[#e9e9e7] rounded-md text-xs font-semibold transition-colors flex items-center space-x-1 shadow-2xs"
+              className="px-3 py-1.5 bg-white hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] text-xs font-bold transition-colors flex items-center space-x-1 cursor-pointer"
             >
-              <GraduationCap className="w-3.5 h-3.5 text-[#787774]" />
-              <span>{language === "zh" ? "查看课程考纲架构" : "Course Syllabus"}</span>
+              <GraduationCap className="w-3.5 h-3.5" />
+              <span>{language === "zh" ? "[查看课程考纲架构]" : "[COURSE SYLLABUS]"}</span>
             </button>
           )}
 
@@ -301,31 +301,31 @@ export function MaterialsAndQuestionsHub({
               setNewDocType(hubTab === "questions" ? "past_exam" : "notes");
               setIsAddModalOpen(true);
             }}
-            className="px-3 py-1.5 bg-[#37352f] hover:bg-[#201f1c] text-white rounded-md text-xs font-semibold transition-colors flex items-center space-x-1 shadow-2xs"
+            className="px-3 py-1.5 bg-[#111111] hover:bg-[#333333] text-white text-xs font-bold transition-colors flex items-center space-x-1 border border-[#111111] cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>{hubTab === "questions" ? (language === "zh" ? "上传真题试卷" : "Add Exam Paper") : (language === "zh" ? "上传课件笔记" : "Add Study Notes")}</span>
+            <span>{hubTab === "questions" ? (language === "zh" ? "[上传真题试卷]" : "[ADD EXAM PAPER]") : (language === "zh" ? "[上传课件笔记]" : "[ADD STUDY NOTES]")}</span>
           </button>
         </div>
       </div>
 
       {/* Main Hub Tabs (真题试卷库 vs 课程讲义与资料) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#e9e9e7] pb-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#111111] pb-1">
         <div className="flex items-center space-x-2">
           <button
             onClick={() => {
               setHubTab("questions");
               setFilterType("all");
             }}
-            className={`flex items-center space-x-2 px-3 py-2 text-xs font-bold rounded-t-md transition-colors border-b-2 ${
+            className={`flex items-center space-x-2 px-3 py-2 text-xs font-bold transition-colors border-b-2 cursor-pointer ${
               hubTab === "questions"
-                ? "border-[#2b78a0] text-[#2b78a0] bg-[#f7f6f3]"
-                : "border-transparent text-[#787774] hover:text-[#37352f] hover:bg-[#fbfbfa]"
+                ? "border-[#111111] text-white bg-[#111111]"
+                : "border-transparent text-[#666666] hover:text-[#111111] hover:bg-[#fafafa]"
             }`}
           >
             <FileQuestion className="w-4 h-4" />
             <span>
-              {language === "zh" ? "历年真题与试卷题库" : "Exam Papers & Question Bank"} ({questionPapers.length})
+              {language === "zh" ? "历年真题与试卷题库" : "EXAM PAPERS & BANK"} [{questionPapers.length}]
             </span>
           </button>
 
@@ -334,15 +334,15 @@ export function MaterialsAndQuestionsHub({
               setHubTab("notes");
               setFilterType("all");
             }}
-            className={`flex items-center space-x-2 px-3 py-2 text-xs font-bold rounded-t-md transition-colors border-b-2 ${
+            className={`flex items-center space-x-2 px-3 py-2 text-xs font-bold transition-colors border-b-2 cursor-pointer ${
               hubTab === "notes"
-                ? "border-[#2b78a0] text-[#2b78a0] bg-[#f7f6f3]"
-                : "border-transparent text-[#787774] hover:text-[#37352f] hover:bg-[#fbfbfa]"
+                ? "border-[#111111] text-white bg-[#111111]"
+                : "border-transparent text-[#666666] hover:text-[#111111] hover:bg-[#fafafa]"
             }`}
           >
             <FileText className="w-4 h-4" />
             <span>
-              {language === "zh" ? "课程讲义与学习资料" : "Lecture Slides & Study Notes"} ({studyNotes.length})
+              {language === "zh" ? "课程讲义与学习资料" : "LECTURE SLIDES & NOTES"} [{studyNotes.length}]
             </span>
           </button>
         </div>
@@ -350,25 +350,25 @@ export function MaterialsAndQuestionsHub({
         {/* Search & Filters */}
         <div className="flex items-center space-x-2">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#9b9a97]" />
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#999999]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={language === "zh" ? "按标题、考点或内容搜索..." : "Search papers or topics..."}
-              className="pl-8 pr-2.5 py-1 text-xs bg-[#fbfbfa] border border-[#e9e9e7] rounded-md text-[#37352f] placeholder-[#9b9a97] focus:outline-none focus:border-[#2b78a0] w-44 sm:w-56"
+              placeholder={language === "zh" ? "按标题、考点搜索..." : "SEARCH..."}
+              className="pl-8 pr-2.5 py-1 text-xs bg-[#fafafa] border border-[#111111] text-[#111111] placeholder-[#999999] focus:outline-none focus:bg-white w-44 sm:w-56 font-mono"
             />
           </div>
 
           <select
             value={filterDifficulty}
             onChange={(e) => setFilterDifficulty(e.target.value)}
-            className="text-xs bg-[#fbfbfa] text-[#37352f] border border-[#e9e9e7] rounded-md px-2 py-1 focus:outline-none"
+            className="text-xs bg-[#fafafa] text-[#111111] border border-[#111111] px-2 py-1 focus:outline-none font-bold"
           >
-            <option value="all">{language === "zh" ? "全部难度" : "All Difficulties"}</option>
-            <option value="easy">{language === "zh" ? "简单" : "Easy"}</option>
-            <option value="medium">{language === "zh" ? "中等" : "Medium"}</option>
-            <option value="hard">{language === "zh" ? "高难" : "Hard"}</option>
+            <option value="all">{language === "zh" ? "全部难度" : "ALL DIFFICULTIES"}</option>
+            <option value="easy">{language === "zh" ? "简单" : "EASY"}</option>
+            <option value="medium">{language === "zh" ? "中等" : "MEDIUM"}</option>
+            <option value="hard">{language === "zh" ? "高难" : "HARD"}</option>
           </select>
         </div>
       </div>
@@ -386,10 +386,10 @@ export function MaterialsAndQuestionsHub({
           handleFileUpload(e.dataTransfer.files);
         }}
         onClick={() => document.getElementById("quick-hub-file-upload")?.click()}
-        className={`border-2 border-dashed rounded-lg p-4 text-center transition-all cursor-pointer bg-white ${
+        className={`border border-dashed border-[#111111] p-4 text-center transition-all cursor-pointer ${
           isDragging
-            ? "border-[#2b78a0] bg-[#e7f3f8]/30"
-            : "border-[#e9e9e7] hover:border-[#dfdfde] hover:bg-[#fbfbfa]"
+            ? "bg-[#111111] text-white"
+            : "bg-[#fafafa] hover:bg-white text-[#111111]"
         }`}
       >
         <input
@@ -400,39 +400,39 @@ export function MaterialsAndQuestionsHub({
           onChange={(e) => handleFileUpload(e.target.files)}
           className="hidden"
         />
-        <div className="flex items-center justify-center space-x-2 text-[#787774]">
+        <div className="flex items-center justify-center space-x-2">
           {isUploadingDocs ? (
-            <div className="w-4 h-4 border-2 border-[#2b78a0] border-t-transparent rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-[#111111] border-t-transparent animate-spin" />
           ) : (
-            <Upload className="w-4 h-4 text-[#2b78a0]" />
+            <Upload className="w-4 h-4 text-[#111111]" />
           )}
-          <span className="text-xs font-semibold text-[#37352f]">
+          <span className="text-xs font-bold">
             {isUploadingDocs
               ? (uploadProgressText || (language === "zh" ? "正在智能解析文档..." : "Parsing document..."))
               : (hubTab === "questions"
-                ? (language === "zh" ? "点击或拖拽上传真题试卷 / 习题集（PDF, Word, TXT）" : "Click or drag to upload exam papers / tests (PDF, Word, TXT)")
-                : (language === "zh" ? "点击或拖拽上传讲义 / 课件 / 公式手册（PDF, Word, TXT）" : "Click or drag to upload lecture slides / notes / cheatsheets"))}
+                ? (language === "zh" ? "[点击或拖拽上传真题试卷 / 习题集 (PDF, Word, TXT)]" : "[UPLOAD EXAM PAPERS / TESTS (PDF, WORD, TXT)]")
+                : (language === "zh" ? "[点击或拖拽上传讲义 / 课件 / 公式手册 (PDF, Word, TXT)]" : "[UPLOAD LECTURE SLIDES / NOTES / CHEATSHEETS]"))}
           </span>
         </div>
       </div>
 
       {/* Items Grid & Cards */}
       {filteredItems.length === 0 ? (
-        <div className="bg-white border border-[#e9e9e7] rounded-lg p-10 text-center space-y-3">
-          <BookOpen className="w-8 h-8 mx-auto text-[#9b9a97] opacity-60" />
+        <div className="bg-white border border-[#111111] p-10 text-center space-y-3">
+          <BookOpen className="w-8 h-8 mx-auto text-[#111111] opacity-40" />
           <div>
-            <h3 className="text-xs font-bold text-[#37352f]">
-              {language === "zh" ? "暂无匹配的资料或试卷" : "No documents match the current filter"}
+            <h3 className="text-xs font-bold text-[#111111] uppercase">
+              {language === "zh" ? "暂无匹配的资料或试卷" : "NO MATCHING DOCUMENTS"}
             </h3>
-            <p className="text-[11px] text-[#787774] mt-0.5">
-              {language === "zh" ? "您可以直接上传文件，或一键导入范例真题与名师讲义。" : "You can upload documents or load our curated sample sets."}
+            <p className="text-[11px] text-[#666666] mt-1">
+              {language === "zh" ? "您可以直接上传文件，或一键导入范例真题与名师讲义。" : "You can upload documents or load curated sample sets."}
             </p>
           </div>
           <button
             onClick={handleLoadSampleDocuments}
-            className="px-3 py-1.5 bg-[#f7f6f3] hover:bg-[#efefed] text-[#37352f] border border-[#e9e9e7] rounded-md text-xs font-semibold transition-colors"
+            className="px-3 py-1.5 bg-white hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] text-xs font-bold transition-colors cursor-pointer"
           >
-            {language === "zh" ? "导入精选真题与讲义示例" : "Load Curated Sample Library"}
+            {language === "zh" ? "[导入精选真题与讲义示例]" : "[LOAD CURATED SAMPLE LIBRARY]"}
           </button>
         </div>
       ) : (
@@ -442,42 +442,34 @@ export function MaterialsAndQuestionsHub({
             return (
               <div
                 key={item.id}
-                className="bg-white border border-[#e9e9e7] hover:border-[#dfdfde] rounded-lg p-4 shadow-2xs flex flex-col justify-between space-y-3 transition-shadow"
+                className="bg-white border border-[#111111] p-4 flex flex-col justify-between space-y-3"
               >
                 <div className="space-y-2">
                   {/* Top Tags & Difficulty */}
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center space-x-1.5 truncate">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        isQuestion ? "notion-tag-purple" : "notion-tag-blue"
-                      }`}>
-                        {isQuestion ? (language === "zh" ? "真题试卷" : "Exam Paper") : (language === "zh" ? "学习讲义" : "Study Note")}
+                      <span className="border border-[#111111] bg-[#111111] text-white px-2 py-0.5 text-[9px] font-bold">
+                        {isQuestion ? (language === "zh" ? "真题试卷" : "EXAM") : (language === "zh" ? "学习讲义" : "NOTES")}
                       </span>
                       {item.yearOrTerm && (
-                        <span className="notion-tag-gray px-1.5 py-0.5 rounded text-[10px] text-[#787774]">
+                        <span className="border border-[#111111] bg-[#fafafa] px-1.5 py-0.5 text-[9px] font-bold text-[#111111]">
                           {item.yearOrTerm}
                         </span>
                       )}
                       {item.topicTag && (
-                        <span className="notion-tag-orange px-1.5 py-0.5 rounded text-[10px] truncate max-w-[130px]">
+                        <span className="border border-[#111111] bg-white px-1.5 py-0.5 text-[9px] font-bold text-[#111111] truncate max-w-[130px]">
                           {item.topicTag}
                         </span>
                       )}
                     </div>
 
                     <div className="flex items-center space-x-1 shrink-0">
-                      <span className={`px-1.5 py-0.5 rounded text-[9px] font-semibold ${
-                        item.difficulty === "hard"
-                          ? "text-[#d44c47] bg-[#fdebec]"
-                          : item.difficulty === "medium"
-                          ? "text-[#cb912f] bg-[#fbf3db]"
-                          : "text-[#448361] bg-[#edf3ec]"
-                      }`}>
-                        {item.difficulty === "hard" ? (language === "zh" ? "高难" : "Hard") : item.difficulty === "medium" ? (language === "zh" ? "中等" : "Medium") : (language === "zh" ? "基础" : "Easy")}
+                      <span className="border border-[#111111] bg-[#fafafa] px-1.5 py-0.5 text-[9px] font-bold">
+                        [{item.difficulty === "hard" ? (language === "zh" ? "高难" : "HARD") : item.difficulty === "medium" ? (language === "zh" ? "中等" : "MED") : (language === "zh" ? "基础" : "EASY")}]
                       </span>
                       <button
                         onClick={() => handleDeleteMaterial(item.id)}
-                        className="text-[#9b9a97] hover:text-[#d44c47] p-1 transition-colors"
+                        className="text-[#111111] hover:bg-[#111111] hover:text-white p-1 transition-colors cursor-pointer"
                         title="Delete document"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -487,22 +479,22 @@ export function MaterialsAndQuestionsHub({
 
                   {/* Title & Preview snippet */}
                   <div>
-                    <h4 className="text-xs font-bold text-[#37352f] line-clamp-1">
+                    <h4 className="text-xs font-bold text-[#111111] line-clamp-1 uppercase">
                       {item.name}
                     </h4>
-                    <p className="text-[11px] text-[#787774] mt-1 line-clamp-2 leading-relaxed">
+                    <p className="text-[11px] text-[#666666] mt-1 line-clamp-2 leading-relaxed font-mono">
                       {item.summaryNotes || item.content.slice(0, 140)}
                     </p>
                   </div>
 
                   {/* Key Traps / Highlights if available */}
                   {item.keyTraps && item.keyTraps.length > 0 && (
-                    <div className="p-2 bg-[#fbf3db]/50 border border-[#f5e0b7] rounded-md space-y-1">
-                      <span className="text-[10px] font-bold text-[#cb912f] flex items-center space-x-1">
-                        <AlertTriangle className="w-3 h-3 text-[#cb912f] shrink-0" />
-                        <span>{language === "zh" ? "历年高频易错考点 / 陷阱提醒：" : "Key Exam Traps:"}</span>
+                    <div className="p-2 bg-[#fafafa] border border-[#111111] space-y-1">
+                      <span className="text-[10px] font-bold text-[#111111] flex items-center space-x-1 uppercase">
+                        <AlertTriangle className="w-3 h-3 text-[#111111] shrink-0" />
+                        <span>{language === "zh" ? "[历年高频易错考点 / 陷阱提醒]:" : "[KEY EXAM TRAPS]:"}</span>
                       </span>
-                      <ul className="text-[10px] text-[#787774] list-disc list-inside space-y-0.5">
+                      <ul className="text-[10px] text-[#666666] list-disc list-inside space-y-0.5">
                         {item.keyTraps.slice(0, 2).map((trap, tIdx) => (
                           <li key={tIdx} className="line-clamp-1">{trap}</li>
                         ))}
@@ -512,31 +504,31 @@ export function MaterialsAndQuestionsHub({
                 </div>
 
                 {/* Bottom Actions Toolbar */}
-                <div className="pt-2.5 border-t border-[#e9e9e7] flex items-center justify-between gap-2 text-xs">
+                <div className="pt-2.5 border-t border-[#111111] flex items-center justify-between gap-2 text-xs">
                   <button
                     onClick={() => setPreviewDoc(item)}
-                    className="text-[#787774] hover:text-[#37352f] flex items-center space-x-1 transition-colors text-[11px] font-medium"
+                    className="text-[#111111] hover:underline flex items-center space-x-1 transition-colors text-[11px] font-bold cursor-pointer"
                   >
                     <Eye className="w-3.5 h-3.5" />
-                    <span>{language === "zh" ? "查看原文" : "Read Content"}</span>
+                    <span>{language === "zh" ? "[查看原文]" : "[READ CONTENT]"}</span>
                   </button>
 
                   <div className="flex items-center space-x-1.5">
                     <button
                       onClick={() => handleAddToDailySchedule(item)}
-                      className="px-2.5 py-1 bg-[#f7f6f3] hover:bg-[#efefed] text-[#37352f] border border-[#e9e9e7] rounded text-[11px] font-medium transition-colors flex items-center space-x-1"
+                      className="px-2.5 py-1 bg-white hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] text-[10px] font-bold transition-colors flex items-center space-x-1 cursor-pointer"
                       title="Add to daily study plan"
                     >
-                      <BookmarkPlus className="w-3 h-3 text-[#787774]" />
-                      <span>{language === "zh" ? "安排刷题" : "Add Task"}</span>
+                      <BookmarkPlus className="w-3 h-3" />
+                      <span>{language === "zh" ? "[安排刷题]" : "[ADD TASK]"}</span>
                     </button>
 
                     <button
                       onClick={() => setActiveQuizMaterial(item)}
-                      className="px-2.5 py-1 bg-[#37352f] hover:bg-[#201f1c] text-white rounded text-[11px] font-semibold transition-colors flex items-center space-x-1 shadow-2xs cursor-pointer"
+                      className="px-2.5 py-1 bg-[#111111] hover:bg-[#333333] text-white border border-[#111111] text-[10px] font-bold transition-colors flex items-center space-x-1 cursor-pointer"
                     >
-                      <Sparkles className="w-3 h-3 text-[#cb912f]" />
-                      <span>{language === "zh" ? "AI 智能自测" : "AI Quiz"}</span>
+                      <Sparkles className="w-3 h-3" />
+                      <span>{language === "zh" ? "[AI 智能自测]" : "[AI QUIZ]"}</span>
                     </button>
                   </div>
                 </div>
@@ -548,22 +540,22 @@ export function MaterialsAndQuestionsHub({
 
       {/* Add Document / Paper Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white border border-[#e9e9e7] rounded-xl shadow-xl w-full max-w-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#e9e9e7]">
+        <div className="fixed inset-0 z-50 bg-[#111111]/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-[#111111] w-full max-w-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto font-mono text-[#111111]">
+            <div className="flex items-center justify-between pb-3 border-b border-[#111111]">
               <div className="flex items-center space-x-2">
-                <div className="w-6 h-6 rounded bg-[#f7f6f3] flex items-center justify-center text-[#787774]">
-                  {hubTab === "questions" ? <FileQuestion className="w-4 h-4 text-[#2b78a0]" /> : <BookOpen className="w-4 h-4 text-[#2b78a0]" />}
-                </div>
-                <h3 className="font-bold text-sm text-[#37352f]">
+                <span className="px-2 py-0.5 bg-[#111111] text-white text-xs font-bold">
+                  {hubTab === "questions" ? "[EXAM]" : "[NOTES]"}
+                </span>
+                <h3 className="font-bold text-xs uppercase tracking-tight text-[#111111]">
                   {hubTab === "questions"
-                    ? (language === "zh" ? "录入历年真题 / 模拟测试卷" : "Add Past Exam / Mock Paper")
-                    : (language === "zh" ? "录入课程讲义 / 重点提纲" : "Add Lecture Notes / Outline")}
+                    ? (language === "zh" ? "录入历年真题 / 模拟测试卷" : "ADD PAST EXAM / MOCK PAPER")
+                    : (language === "zh" ? "录入课程讲义 / 重点提纲" : "ADD LECTURE NOTES / OUTLINE")}
                 </h3>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-[#9b9a97] hover:text-[#37352f] p-1"
+                className="text-[#111111] hover:bg-[#111111] hover:text-white p-1 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -571,8 +563,8 @@ export function MaterialsAndQuestionsHub({
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="block font-semibold text-[#37352f] mb-1">
-                  {language === "zh" ? "文档 / 试卷标题" : "Title"}
+                <label className="block font-bold uppercase text-[#111111] mb-1">
+                  {language === "zh" ? "文档 / 试卷标题" : "TITLE"}
                 </label>
                 <input
                   type="text"
@@ -583,19 +575,19 @@ export function MaterialsAndQuestionsHub({
                       ? (language === "zh" ? "例如：2025年 高级算法期末真题 (A卷)" : "e.g. 2025 Final Exam Paper A")
                       : (language === "zh" ? "例如：第 3 章 动态规划状态转移推导讲义" : "e.g. Chapter 3 Dynamic Programming Notes")
                   }
-                  className="w-full bg-[#fbfbfa] border border-[#e9e9e7] rounded px-3 py-2 text-xs focus:outline-none focus:border-[#2b78a0]"
+                  className="w-full bg-[#fafafa] border border-[#111111] px-3 py-2 text-xs focus:outline-none focus:bg-white font-mono"
                 />
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-semibold text-[#37352f] mb-1">
-                    {language === "zh" ? "资料类型" : "Type"}
+                  <label className="block font-bold uppercase text-[#111111] mb-1">
+                    {language === "zh" ? "资料类型" : "TYPE"}
                   </label>
                   <select
                     value={newDocType}
                     onChange={(e) => setNewDocType(e.target.value as any)}
-                    className="w-full bg-[#fbfbfa] border border-[#e9e9e7] rounded px-2.5 py-1.5 text-xs focus:outline-none"
+                    className="w-full bg-[#fafafa] border border-[#111111] px-2.5 py-1.5 text-xs focus:outline-none font-bold"
                   >
                     <option value="past_exam">{language === "zh" ? "历年真题 (Past Exam)" : "Past Exam"}</option>
                     <option value="notes">{language === "zh" ? "课堂笔记 (Notes)" : "Lecture Notes"}</option>
@@ -605,42 +597,42 @@ export function MaterialsAndQuestionsHub({
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-[#37352f] mb-1">
-                    {language === "zh" ? "考期 / 来源年份" : "Term / Source Year"}
+                  <label className="block font-bold uppercase text-[#111111] mb-1">
+                    {language === "zh" ? "考期 / 来源年份" : "TERM / YEAR"}
                   </label>
                   <input
                     type="text"
                     value={newDocYear}
                     onChange={(e) => setNewDocYear(e.target.value)}
                     placeholder={language === "zh" ? "例如：2025 秋季期末" : "e.g. 2025 Fall Final"}
-                    className="w-full bg-[#fbfbfa] border border-[#e9e9e7] rounded px-2.5 py-1.5 text-xs focus:outline-none"
+                    className="w-full bg-[#fafafa] border border-[#111111] px-2.5 py-1.5 text-xs focus:outline-none font-mono"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-[#37352f] mb-1">
-                    {language === "zh" ? "难度评估" : "Difficulty"}
+                  <label className="block font-bold uppercase text-[#111111] mb-1">
+                    {language === "zh" ? "难度评估" : "DIFFICULTY"}
                   </label>
                   <select
                     value={newDocDifficulty}
                     onChange={(e) => setNewDocDifficulty(e.target.value as any)}
-                    className="w-full bg-[#fbfbfa] border border-[#e9e9e7] rounded px-2.5 py-1.5 text-xs focus:outline-none"
+                    className="w-full bg-[#fafafa] border border-[#111111] px-2.5 py-1.5 text-xs focus:outline-none font-bold"
                   >
                     <option value="easy">{language === "zh" ? "简单" : "Easy"}</option>
                     <option value="medium">{language === "zh" ? "中等" : "Medium"}</option>
-                    <option value="hard">{language === "zh" ? "高难 🔥" : "Hard 🔥"}</option>
+                    <option value="hard">{language === "zh" ? "高难" : "Hard"}</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block font-semibold text-[#37352f] mb-1">
-                  {language === "zh" ? "归属考点标签" : "Topic Tag"}
+                <label className="block font-bold uppercase text-[#111111] mb-1">
+                  {language === "zh" ? "归属考点标签" : "TOPIC TAG"}
                 </label>
                 <select
                   value={newDocTopicTag}
                   onChange={(e) => setNewDocTopicTag(e.target.value)}
-                  className="w-full bg-[#fbfbfa] border border-[#e9e9e7] rounded px-2.5 py-1.5 text-xs focus:outline-none"
+                  className="w-full bg-[#fafafa] border border-[#111111] px-2.5 py-1.5 text-xs focus:outline-none font-bold"
                 >
                   <option value="">{language === "zh" ? "选择或不指定" : "Select Topic (Optional)"}</option>
                   {plan.topics?.map((topic) => (
@@ -653,12 +645,12 @@ export function MaterialsAndQuestionsHub({
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="font-semibold text-[#37352f]">
-                    {language === "zh" ? "试卷题目或讲义文本内容" : "Content Text"}
+                  <label className="font-bold uppercase text-[#111111]">
+                    {language === "zh" ? "试卷题目或讲义文本内容" : "CONTENT TEXT"}
                   </label>
-                  <label className="text-[11px] text-[#2b78a0] hover:underline cursor-pointer flex items-center space-x-1">
+                  <label className="text-[10px] text-[#111111] hover:underline cursor-pointer flex items-center space-x-1 font-bold">
                     <Upload className="w-3 h-3" />
-                    <span>{language === "zh" ? "从文件导入 (PDF/Word/TXT)" : "Import from file"}</span>
+                    <span>{language === "zh" ? "[从文件导入 (PDF/Word/TXT)]" : "[IMPORT FILE]"}</span>
                     <input
                       type="file"
                       accept=".txt,.md,.doc,.docx,.pdf,.rtf,image/*"
@@ -676,26 +668,26 @@ export function MaterialsAndQuestionsHub({
                       ? (language === "zh" ? "在此粘贴真题题目、选择题、问答证明大题及参考答案解析..." : "Paste exam questions, choices, step-by-step problem sets and solutions...")
                       : (language === "zh" ? "在此粘贴核心概念定理、公式推导、章节笔记..." : "Paste lecture theorems, formulas, and notes here...")
                   }
-                  className="w-full bg-[#fbfbfa] border border-[#e9e9e7] rounded p-3 text-xs focus:outline-none focus:border-[#2b78a0] font-mono resize-y"
+                  className="w-full bg-[#fafafa] border border-[#111111] p-3 text-xs focus:outline-none focus:bg-white font-mono resize-y"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end space-x-2 pt-3 border-t border-[#e9e9e7]">
+            <div className="flex items-center justify-end space-x-2 pt-3 border-t border-[#111111]">
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
-                className="px-3 py-1.5 bg-[#f7f6f3] hover:bg-[#efefed] text-[#37352f] rounded text-xs font-semibold transition-colors"
+                className="px-3 py-1.5 bg-white hover:bg-[#fafafa] text-[#111111] border border-[#111111] text-xs font-bold transition-colors cursor-pointer"
               >
-                {t("cancel")}
+                [{t("cancel")}]
               </button>
               <button
                 type="button"
                 onClick={handleSaveNewMaterial}
                 disabled={!newDocContent.trim()}
-                className="px-4 py-1.5 bg-[#37352f] hover:bg-[#201f1c] disabled:opacity-50 text-white rounded text-xs font-semibold transition-colors shadow-2xs"
+                className="px-4 py-1.5 bg-[#111111] hover:bg-[#333333] disabled:opacity-40 text-white text-xs font-bold transition-colors border border-[#111111] cursor-pointer"
               >
-                {language === "zh" ? "保存并添加到资料库" : "Save to Library"}
+                {language === "zh" ? "[保存并添加到资料库]" : "[SAVE TO LIBRARY]"}
               </button>
             </div>
           </div>
@@ -704,30 +696,32 @@ export function MaterialsAndQuestionsHub({
 
       {/* Preview Content Modal */}
       {previewDoc && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white border border-[#e9e9e7] rounded-xl shadow-xl w-full max-w-2xl p-6 space-y-4 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between pb-3 border-b border-[#e9e9e7]">
+        <div className="fixed inset-0 z-50 bg-[#111111]/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-[#111111] w-full max-w-2xl p-6 space-y-4 max-h-[90vh] flex flex-col font-mono text-[#111111]">
+            <div className="flex items-center justify-between pb-3 border-b border-[#111111]">
               <div className="flex items-center space-x-2 truncate">
-                <FileText className="w-4 h-4 text-[#2b78a0]" />
-                <h3 className="font-bold text-sm text-[#37352f] truncate">
+                <span className="px-1.5 py-0.5 bg-[#111111] text-white text-xs font-bold">
+                  [DOC]
+                </span>
+                <h3 className="font-bold text-xs uppercase text-[#111111] truncate">
                   {previewDoc.name}
                 </h3>
               </div>
               <button
                 onClick={() => setPreviewDoc(null)}
-                className="text-[#9b9a97] hover:text-[#37352f] p-1"
+                className="text-[#111111] hover:bg-[#111111] hover:text-white p-1 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto bg-[#fbfbfa] border border-[#e9e9e7] rounded-md p-4 text-xs font-mono whitespace-pre-wrap leading-relaxed text-[#37352f]">
+            <div className="flex-1 overflow-y-auto bg-[#fafafa] border border-[#111111] p-4 text-xs font-mono whitespace-pre-wrap leading-relaxed text-[#111111]">
               {previewDoc.content}
             </div>
 
-            <div className="flex items-center justify-between pt-3 border-t border-[#e9e9e7] text-xs">
-              <span className="text-[#787774]">
-                {previewDoc.sizeBytes ? `${Math.round(previewDoc.sizeBytes / 1024)} KB` : ""} •{" "}
+            <div className="flex items-center justify-between pt-3 border-t border-[#111111] text-xs">
+              <span className="text-[#666666] font-bold">
+                {previewDoc.sizeBytes ? `${Math.round(previewDoc.sizeBytes / 1024)} KB` : ""} //{" "}
                 {new Date(previewDoc.uploadedAt).toLocaleDateString()}
               </span>
 
@@ -738,9 +732,9 @@ export function MaterialsAndQuestionsHub({
                     setPreviewDoc(null);
                     handleAddToDailySchedule(target);
                   }}
-                  className="px-3 py-1.5 bg-[#f7f6f3] hover:bg-[#efefed] text-[#37352f] rounded font-semibold transition-colors"
+                  className="px-3 py-1.5 bg-white hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] font-bold transition-colors cursor-pointer text-xs"
                 >
-                  {language === "zh" ? "安排进备考待办" : "Add as Task"}
+                  {language === "zh" ? "[安排进备考待办]" : "[ADD AS TASK]"}
                 </button>
                 <button
                   onClick={() => {
@@ -748,9 +742,9 @@ export function MaterialsAndQuestionsHub({
                     setPreviewDoc(null);
                     setActiveQuizMaterial(target);
                   }}
-                  className="px-3.5 py-1.5 bg-[#37352f] hover:bg-[#201f1c] text-white rounded font-semibold transition-colors shadow-2xs"
+                  className="px-3.5 py-1.5 bg-[#111111] hover:bg-[#333333] text-white border border-[#111111] font-bold transition-colors cursor-pointer text-xs"
                 >
-                  {language === "zh" ? "根据本文档出题自测" : "Launch AI Quiz"}
+                  {language === "zh" ? "[根据本文档出题自测]" : "[LAUNCH AI QUIZ]"}
                 </button>
               </div>
             </div>

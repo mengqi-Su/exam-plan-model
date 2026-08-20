@@ -94,13 +94,15 @@ export function TaskFocusTimerModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-      <div className="bg-white border border-[#e9e9e7] rounded-xl w-full max-w-lg text-[#37352f] shadow-xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none">
+      <div className="bg-white border border-[#111111] w-full max-w-lg text-[#111111] font-mono shadow-2xl overflow-hidden flex flex-col">
         {/* Top Header */}
-        <div className="px-5 py-3.5 bg-[#f7f6f3] border-b border-[#e9e9e7] flex items-center justify-between">
+        <div className="px-5 py-3.5 bg-[#fafafa] border-b border-[#111111] flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <span className="w-2 h-2 rounded-full bg-[#448361]" />
-            <span className="text-xs font-semibold text-[#5a5a57]">
+            <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">
+              [{language === "zh" ? "专注计时" : "FOCUS-TIMER"}]
+            </span>
+            <span className="text-xs font-bold text-[#111111]">
               {t("focusModalTitle")}
             </span>
           </div>
@@ -108,64 +110,44 @@ export function TaskFocusTimerModal({
           <div className="flex items-center space-x-1">
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className="p-1 rounded hover:bg-[#efefed] text-[#787774] transition-colors"
+              className="p-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] transition-colors cursor-pointer text-xs"
               title={soundEnabled ? (language === "zh" ? "关闭提示音" : "Mute Bell") : (language === "zh" ? "开启提示音" : "Enable Sound")}
             >
-              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-[#9b9a97]" />}
+              {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5 text-[#999999]" />}
             </button>
             <button
               onClick={onClose}
-              className="p-1 rounded hover:bg-[#efefed] text-[#787774] transition-colors"
+              className="p-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] transition-colors cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
         {/* Center Clock Dial */}
-        <div className="p-6 text-center space-y-5 flex flex-col items-center">
+        <div className="p-6 text-center space-y-5 flex flex-col items-center font-mono">
           <div>
-            <span className="notion-tag-purple px-2 py-0.5 rounded text-[10px] font-semibold">
+            <span className="border border-[#111111] bg-[#fafafa] text-[#111111] px-2 py-0.5 text-[10px] font-bold">
               {task.topicTitle}
             </span>
-            <h3 className="text-base font-bold text-[#37352f] mt-1.5 max-w-sm mx-auto">
+            <h3 className="text-sm font-bold text-[#111111] mt-2 max-w-sm mx-auto">
               {task.title}
             </h3>
           </div>
 
-          {/* Circular Countdown Display */}
-          <div className="relative w-48 h-48 flex items-center justify-center">
-            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-              {/* Background circle */}
-              <circle
-                cx="50"
-                cy="50"
-                r="42"
-                stroke="currentColor"
-                strokeWidth="5"
-                className="text-[#efefed] fill-none"
+          {/* Countdown Display Box */}
+          <div className="relative w-48 h-48 border border-[#111111] bg-[#fafafa] flex flex-col items-center justify-center">
+            <span className="text-4xl font-bold tracking-widest text-[#111111]">
+              {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+            </span>
+            <span className="text-[10px] text-[#666666] font-bold mt-2 uppercase tracking-wider">
+              {isRunning ? `// ${t("deepFocusing")}` : timeLeft === 0 ? `// ${t("sessionComplete")}` : `// ${t("readyToStart")}`}
+            </span>
+            <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#e5e5e5]">
+              <div 
+                className="h-full bg-[#111111] transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
               />
-              {/* Progress circle */}
-              <circle
-                cx="50"
-                cy="50"
-                r="42"
-                stroke="currentColor"
-                strokeWidth="5"
-                strokeDasharray="264"
-                strokeDashoffset={264 - (264 * progressPercent) / 100}
-                strokeLinecap="round"
-                className="text-[#37352f] fill-none transition-all duration-500"
-              />
-            </svg>
-
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-bold font-mono text-[#37352f]">
-                {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-              </span>
-              <span className="text-[10px] text-[#787774] font-medium mt-0.5">
-                {isRunning ? t("deepFocusing") : timeLeft === 0 ? t("sessionComplete") : t("readyToStart")}
-              </span>
             </div>
           </div>
 
@@ -173,7 +155,7 @@ export function TaskFocusTimerModal({
           <div className="flex items-center space-x-3">
             <button
               onClick={handleResetTimer}
-              className="p-2 rounded-md bg-[#f7f6f3] hover:bg-[#efefed] text-[#787774] transition-colors border border-[#e9e9e7]"
+              className="p-2 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] transition-colors cursor-pointer text-xs"
               title={language === "zh" ? "重置倒计时" : "Reset Timer"}
             >
               <RotateCcw className="w-4 h-4" />
@@ -181,21 +163,21 @@ export function TaskFocusTimerModal({
 
             <button
               onClick={handleToggleTimer}
-              className={`px-6 py-2 rounded-md font-semibold text-xs transition-colors flex items-center space-x-1.5 shadow-xs ${
+              className={`px-6 py-2 border border-[#111111] font-bold text-xs transition-colors flex items-center space-x-2 cursor-pointer ${
                 isRunning
-                  ? "bg-[#d9730d] hover:bg-[#c26508] text-white"
-                  : "bg-[#37352f] hover:bg-[#201f1c] text-white"
+                  ? "bg-[#fafafa] text-[#111111] hover:bg-[#111111] hover:text-white"
+                  : "bg-[#111111] text-white hover:bg-[#333333]"
               }`}
             >
               {isRunning ? (
                 <>
                   <Pause className="w-3.5 h-3.5" />
-                  <span>{t("pauseTimer")}</span>
+                  <span>[{t("pauseTimer")}]</span>
                 </>
               ) : (
                 <>
                   <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>{t("startFocusTimer")}</span>
+                  <span>[{t("startFocusTimer")}]</span>
                 </>
               )}
             </button>
@@ -203,24 +185,21 @@ export function TaskFocusTimerModal({
 
           {/* Key Objectives Checklist */}
           {task.keyObjectives && task.keyObjectives.length > 0 && (
-            <div className="w-full bg-[#fbfbfa] border border-[#e9e9e7] rounded-lg p-3 text-left space-y-1.5">
-              <h4 className="text-[10px] font-bold uppercase tracking-wider text-[#787774]">
-                {t("objectivesForSession")}
+            <div className="w-full bg-[#fafafa] border border-[#111111] p-3 text-left space-y-1.5">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-[#666666]">
+                [{t("objectivesForSession")}]
               </h4>
               <div className="space-y-1">
                 {task.keyObjectives.map((obj, i) => (
                   <div
                     key={i}
                     onClick={() => toggleObjective(i)}
-                    className="flex items-start space-x-2 cursor-pointer text-xs p-1 rounded hover:bg-[#efefed] transition-colors"
+                    className="flex items-start space-x-2 cursor-pointer text-xs p-1 hover:bg-white border border-transparent hover:border-[#111111] transition-colors"
                   >
-                    <input
-                      type="checkbox"
-                      checked={!!checkedObjectives[i]}
-                      onChange={() => {}}
-                      className="rounded-sm border-[#dfdfde] text-[#37352f] focus:ring-0 mt-0.5"
-                    />
-                    <span className={checkedObjectives[i] ? "line-through text-[#9b9a97]" : "text-[#37352f]"}>
+                    <span className="font-bold text-[#111111]">
+                      {checkedObjectives[i] ? "[x]" : "[ ]"}
+                    </span>
+                    <span className={checkedObjectives[i] ? "line-through text-[#888888]" : "text-[#111111]"}>
                       {obj}
                     </span>
                   </div>
@@ -230,19 +209,19 @@ export function TaskFocusTimerModal({
           )}
 
           {/* Self-Rating & Completion Action */}
-          <div className="w-full pt-3 border-t border-[#e9e9e7] flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="w-full pt-3 border-t border-[#111111] flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center space-x-1.5 text-xs">
-              <span className="text-[#787774]">{t("selfMasteryRating")}</span>
-              <div className="flex space-x-0.5">
+              <span className="text-[#666666] font-bold">[{t("selfMasteryRating")}]:</span>
+              <div className="flex space-x-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
                     key={star}
                     onClick={() => setSelectedRating(star as any)}
-                    className={`p-0.5 text-xs font-bold transition-colors ${
-                      selectedRating >= star ? "text-[#cb912f]" : "text-[#dfdfde]"
+                    className={`px-1.5 py-0.2 border text-xs font-bold transition-colors cursor-pointer ${
+                      selectedRating >= star ? "border-[#111111] bg-[#111111] text-white" : "border-[#e5e5e5] text-[#999999]"
                     }`}
                   >
-                    ★
+                    {star}
                   </button>
                 ))}
               </div>
@@ -250,10 +229,9 @@ export function TaskFocusTimerModal({
 
             <button
               onClick={handleFinishAndSave}
-              className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-4 py-1.5 bg-[#448361] hover:bg-[#376b4f] text-white font-semibold text-xs rounded-md shadow-xs transition-colors"
+              className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-4 py-1.5 bg-[#111111] hover:bg-[#333333] text-white font-bold text-xs border border-[#111111] transition-colors cursor-pointer"
             >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>{t("markDoneAndLogTime")}</span>
+              <span>[{t("markDoneAndLogTime")}]</span>
             </button>
           </div>
         </div>

@@ -190,23 +190,20 @@ export function CourseSyllabusManager({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 space-y-6">
-      {/* Notion Callout Header: Course & Syllabus Setup */}
-      <div className="notion-callout p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-[#e9e9e7] bg-[#fbfbfa]">
+    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 space-y-6 font-mono text-[#111111]">
+      {/* Header Banner */}
+      <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-[#111111] bg-[#fafafa]">
         <div className="flex items-start space-x-3">
-          <div className="w-9 h-9 rounded-lg bg-[#37352f] text-white flex items-center justify-center shrink-0 shadow-2xs">
-            <GraduationCap className="w-5 h-5" />
-          </div>
+          <span className="px-2 py-1 bg-[#111111] text-white text-xs font-bold shrink-0">
+            [CURRICULUM]
+          </span>
           <div>
             <div className="flex items-center space-x-2">
-              <h2 className="text-base font-bold text-[#37352f]">
+              <h2 className="text-sm font-bold uppercase tracking-tight text-[#111111]">
                 {language === "zh" ? "新建 / 导入课程与考纲架构" : "Course Profile & Syllabus Architecture"}
               </h2>
-              <span className="notion-tag-blue px-2 py-0.5 rounded text-[10px] font-semibold">
-                {language === "zh" ? "课程架构" : "Curriculum Step"}
-              </span>
             </div>
-            <p className="text-xs text-[#787774] mt-0.5 max-w-xl leading-relaxed">
+            <p className="text-xs text-[#666666] mt-1 max-w-xl leading-relaxed">
               {language === "zh"
                 ? "输入课程基本信息并上传教学大纲或单元提纲。AI 将智能解析章节考点、分值权重及复习梯度。"
                 : "Enter course details and upload your syllabus outline. AI will extract domains, exam weightings, and recommended study hours."}
@@ -215,43 +212,41 @@ export function CourseSyllabusManager({
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 self-start md:self-auto">
-          <span className="text-[11px] text-[#787774] mr-1">
-            {language === "zh" ? "载入范例课程:" : "Sample Courses:"}
+          <span className="text-[10px] uppercase font-bold text-[#666666] mr-1">
+            {language === "zh" ? "[范例课程]:" : "[SAMPLES]:"}
           </span>
           {SAMPLE_MATERIALS.map((sample, i) => (
             <button
               key={i}
               id={`sample-course-btn-${i}`}
               onClick={() => handleLoadSampleCourse(sample)}
-              className="px-2.5 py-1 bg-white hover:bg-[#efefed] text-[#37352f] border border-[#e9e9e7] rounded-md text-xs font-medium transition-colors shadow-2xs"
+              className="px-2.5 py-1 bg-white hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] text-xs font-bold transition-colors cursor-pointer"
             >
-              {sample.subject}
+              [{sample.subject}]
             </button>
           ))}
         </div>
       </div>
 
       {/* Course Profile Form */}
-      <div className="bg-white border border-[#e9e9e7] rounded-lg p-5 shadow-2xs space-y-4">
+      <div className="bg-white border border-[#111111] p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[#787774] flex items-center space-x-1.5">
-            <Compass className="w-3.5 h-3.5 text-[#2b78a0]" />
-            <span>{language === "zh" ? "课程基本档案" : "Course Profile"}</span>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-1.5">
+            <span>[COURSE PROFILE]</span>
           </h3>
           {onGoToMaterialsAndQuestions && (
             <button
               onClick={onGoToMaterialsAndQuestions}
-              className="text-xs text-[#2b78a0] hover:text-[#1d526e] flex items-center space-x-1 font-medium transition-colors"
+              className="text-xs text-[#111111] hover:underline font-bold transition-colors cursor-pointer"
             >
-              <FolderOpen className="w-3.5 h-3.5" />
-              <span>{language === "zh" ? "前往该课程题库与资料库 →" : "View Question Bank & Materials →"}</span>
+              <span>{language === "zh" ? "[前往该课程题库与资料库 →]" : "[VIEW QUESTION BANK & MATERIALS →]"}</span>
             </button>
           )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-[#37352f] mb-1">
+            <label className="block text-xs font-bold text-[#111111] uppercase mb-1">
               {language === "zh" ? "课程 / 考试名称" : "Course / Exam Name"}
             </label>
             <input
@@ -260,11 +255,11 @@ export function CourseSyllabusManager({
               value={examName}
               onChange={(e) => onExamNameChange(e.target.value)}
               placeholder={language === "zh" ? "例如：CS 301 高级算法与数据结构期末考" : "e.g. CS 301 Advanced Algorithms Final"}
-              className="w-full bg-[#fbfbfa] border border-[#e9e9e7] rounded-md px-3 py-2 text-xs text-[#37352f] placeholder-[#9b9a97] focus:outline-none focus:border-[#2b78a0] focus:bg-white"
+              className="w-full bg-[#fafafa] border border-[#111111] px-3 py-2 text-xs text-[#111111] placeholder-[#999999] focus:outline-none focus:bg-white"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-[#37352f] mb-1">
+            <label className="block text-xs font-bold text-[#111111] uppercase mb-1">
               {language === "zh" ? "学科 / 专业方向" : "Subject / Major Discipline"}
             </label>
             <input
@@ -273,30 +268,28 @@ export function CourseSyllabusManager({
               value={subject}
               onChange={(e) => onSubjectChange(e.target.value)}
               placeholder={language === "zh" ? "例如：计算机科学、医学生物、法学理论" : "e.g. Computer Science, Medicine, Law"}
-              className="w-full bg-[#fbfbfa] border border-[#e9e9e7] rounded-md px-3 py-2 text-xs text-[#37352f] placeholder-[#9b9a97] focus:outline-none focus:border-[#2b78a0] focus:bg-white"
+              className="w-full bg-[#fafafa] border border-[#111111] px-3 py-2 text-xs text-[#111111] placeholder-[#999999] focus:outline-none focus:bg-white"
             />
           </div>
         </div>
       </div>
 
       {/* Course Syllabus Ingestion (Upload file or direct paste) */}
-      <div className="bg-white border border-[#e9e9e7] rounded-lg p-5 shadow-2xs space-y-4">
-        <div className="flex items-center justify-between pb-2 border-b border-[#e9e9e7]">
+      <div className="bg-white border border-[#111111] p-5 space-y-4">
+        <div className="flex items-center justify-between pb-2 border-b border-[#111111]">
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#787774] flex items-center space-x-1.5">
-              <FileText className="w-3.5 h-3.5 text-[#2b78a0]" />
-              <span>{language === "zh" ? "课程教学大纲与章节提纲" : "Course Syllabus Outline"}</span>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-1.5">
+              <span>[COURSE SYLLABUS OUTLINE]</span>
             </h3>
-            <p className="text-[11px] text-[#787774] mt-0.5">
+            <p className="text-[11px] text-[#666666] mt-0.5">
               {language === "zh"
                 ? "上传讲师发布的 Syllabus 文件（.pdf、.txt、.md）或直接粘贴章节考点清单。"
                 : "Upload instructor syllabus files or directly paste the chapters & learning objectives outline."}
             </p>
           </div>
           {syllabusDocName && (
-            <span className="notion-tag-gray px-2 py-0.5 rounded text-[11px] font-medium truncate max-w-xs flex items-center space-x-1">
-              <FileText className="w-3 h-3 text-[#787774]" />
-              <span>{syllabusDocName}</span>
+            <span className="border border-[#111111] bg-[#fafafa] px-2 py-0.5 text-[10px] font-bold truncate max-w-xs">
+              [{syllabusDocName}]
             </span>
           )}
         </div>
@@ -316,10 +309,10 @@ export function CourseSyllabusManager({
                 handleFileUpload(e.dataTransfer.files);
               }}
               onClick={() => document.getElementById("syllabus-file-input")?.click()}
-              className={`h-full min-h-[160px] border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer bg-white ${
+              className={`h-full min-h-[160px] border border-dashed border-[#111111] p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
                 isDragging
-                  ? "border-[#2b78a0] bg-[#e7f3f8]/30"
-                  : "border-[#e9e9e7] hover:border-[#dfdfde] hover:bg-[#fbfbfa]"
+                  ? "bg-[#111111] text-white"
+                  : "bg-[#fafafa] hover:bg-white text-[#111111]"
               }`}
             >
               <input
@@ -330,20 +323,20 @@ export function CourseSyllabusManager({
                 onChange={(e) => handleFileUpload(e.target.files)}
                 className="hidden"
               />
-              <div className="w-9 h-9 rounded-lg bg-[#f7f6f3] border border-[#e9e9e7] flex items-center justify-center text-[#787774] mb-2">
+              <div className="w-8 h-8 border border-[#111111] bg-white flex items-center justify-center text-[#111111] mb-2">
                 {isParsingDoc ? (
-                  <div className="w-4 h-4 border-2 border-[#2b78a0] border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-[#111111] border-t-transparent animate-spin" />
                 ) : (
                   <Upload className="w-4 h-4" />
                 )}
               </div>
-              <h4 className="font-semibold text-[#37352f] text-xs">
+              <h4 className="font-bold text-[#111111] text-xs">
                 {isParsingDoc
                   ? (parsingStatus || (language === "zh" ? "正在解析文档..." : "Parsing document..."))
-                  : (language === "zh" ? "上传或追加课程考纲文件（支持多选）" : "Upload or add course files (multi-select)")}
+                  : (language === "zh" ? "[上传课程考纲文件（多选）]" : "[UPLOAD SYLLABUS FILES]")}
               </h4>
-              <p className="text-[10px] text-[#787774] mt-0.5">
-                {language === "zh" ? "支持 PDF, Word (.docx), TXT, Markdown，可添加多份文件" : "Supports PDF, Word, TXT, Markdown (multiple files)"}
+              <p className="text-[10px] text-[#666666] mt-0.5">
+                {language === "zh" ? "支持 PDF, Word (.docx), TXT, Markdown" : "Supports PDF, Word, TXT, Markdown"}
               </p>
             </div>
           </div>
@@ -360,28 +353,27 @@ export function CourseSyllabusManager({
                   ? "在此粘贴课程考纲内容、章节目录、知识点分值要求或教学周历..."
                   : "Paste syllabus text, course unit outlines, chapter breakdown, or weekly lecture topics here..."
               }
-              className="w-full flex-1 bg-[#fbfbfa] border border-[#e9e9e7] rounded-md p-3 text-xs text-[#37352f] placeholder-[#9b9a97] focus:outline-none focus:border-[#2b78a0] font-mono resize-y"
+              className="w-full flex-1 bg-[#fafafa] border border-[#111111] p-3 text-xs text-[#111111] placeholder-[#999999] focus:outline-none focus:bg-white font-mono resize-y"
             />
           </div>
         </div>
 
         {/* AI Parse Button */}
-        <div className="pt-3 border-t border-[#e9e9e7] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="text-[11px] text-[#787774]">
+        <div className="pt-3 border-t border-[#111111] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="text-[11px] text-[#666666]">
             {syllabusContent ? (
               <span>
-                {language === "zh" ? "已就绪" : "Ready"}: {syllabusContent.length}{" "}
-                {language === "zh" ? "字符" : "characters"}
+                [{language === "zh" ? "已就绪" : "READY"}: {syllabusContent.length}{" "}
+                {language === "zh" ? "字符" : "CHARS"}]
               </span>
             ) : (
-              <span>{language === "zh" ? "等待输入考纲内容" : "Waiting for syllabus input"}</span>
+              <span>[{language === "zh" ? "等待输入考纲内容" : "WAITING FOR INPUT"}]</span>
             )}
           </div>
 
           {extractError && (
-            <div className="p-2 bg-[#fdebec] border border-[#f9d3d5] text-[#d44c47] text-xs rounded-md flex items-center space-x-1.5">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{extractError}</span>
+            <div className="p-2 border border-[#111111] bg-[#fafafa] text-[#111111] text-xs font-bold flex items-center space-x-1.5">
+              <span>[ERROR: {extractError}]</span>
             </div>
           )}
 
@@ -390,17 +382,17 @@ export function CourseSyllabusManager({
             type="button"
             onClick={handleExtractSyllabus}
             disabled={isExtracting || !syllabusContent.trim()}
-            className="flex items-center justify-center space-x-2 py-2 px-5 bg-[#37352f] hover:bg-[#201f1c] disabled:opacity-50 text-white font-semibold text-xs rounded-md shadow-xs transition-colors cursor-pointer"
+            className="flex items-center justify-center space-x-2 py-2 px-5 bg-[#111111] hover:bg-[#333333] disabled:opacity-40 text-white font-bold text-xs transition-colors cursor-pointer border border-[#111111]"
           >
             {isExtracting ? (
               <>
-                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>{language === "zh" ? "AI 正在智能解析考纲架构..." : "Analyzing Syllabus Architecture..."}</span>
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent animate-spin" />
+                <span>{language === "zh" ? "正在智能解析考纲架构..." : "ANALYZING ARCHITECTURE..."}</span>
               </>
             ) : (
               <>
-                <Sparkles className="w-3.5 h-3.5 text-[#cb912f]" />
-                <span>{language === "zh" ? "AI 智能结构化考纲知识点" : "AI Extract Structured Topics"}</span>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{language === "zh" ? "[AI 智能结构化考纲知识点]" : "[AI EXTRACT STRUCTURED TOPICS]"}</span>
               </>
             )}
           </button>
@@ -409,16 +401,15 @@ export function CourseSyllabusManager({
 
       {/* Structured Syllabus Topics Database Section */}
       {topics.length > 0 && (
-        <div className="bg-white border border-[#e9e9e7] rounded-lg overflow-hidden shadow-xs space-y-4 p-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#e9e9e7]">
+        <div className="bg-white border border-[#111111] space-y-4 p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#111111]">
             <div>
-              <div className="flex items-center space-x-1.5 text-xs font-semibold text-[#448361]">
-                <Check className="w-3.5 h-3.5" />
+              <div className="flex items-center space-x-1.5 text-xs font-bold text-[#111111]">
                 <span>
-                  {topics.length} {language === "zh" ? "个课程重点知识领域已结构化" : "Core Syllabus Domains Structured"}
+                  [{topics.length} {language === "zh" ? "个课程重点知识领域已结构化" : "DOMAINS STRUCTURED"}]
                 </span>
               </div>
-              <h3 className="text-sm font-bold text-[#37352f] mt-0.5">
+              <h3 className="text-xs font-bold uppercase text-[#111111] mt-0.5">
                 {language === "zh" ? "课程知识点大纲与学时规划表" : "Curriculum Domains & Study Allocation"}
               </h3>
             </div>
@@ -426,51 +417,51 @@ export function CourseSyllabusManager({
             <div className="flex items-center space-x-2">
               <button
                 onClick={handleAddManualTopic}
-                className="flex items-center space-x-1 px-2.5 py-1 bg-[#f7f6f3] hover:bg-[#efefed] text-[#37352f] border border-[#e9e9e7] rounded-md text-xs font-medium transition-colors"
+                className="flex items-center space-x-1 px-3 py-1.5 bg-white hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] text-xs font-bold transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>{t("addTopic")}</span>
+                <span>[{t("addTopic")}]</span>
               </button>
 
               <button
                 id="proceed-to-schedule-btn"
                 onClick={onProceedToPlanConfig}
-                className="flex items-center space-x-1.5 px-4 py-1.5 bg-[#448361] hover:bg-[#376b4f] text-white rounded-md text-xs font-semibold shadow-xs transition-colors"
+                className="flex items-center space-x-1.5 px-4 py-1.5 bg-[#111111] hover:bg-[#333333] text-white text-xs font-bold border border-[#111111] transition-colors cursor-pointer"
               >
-                <span>{language === "zh" ? "配置复习作息并生成计划 →" : "Proceed to Schedule Setup →"}</span>
+                <span>{language === "zh" ? "[配置复习作息并生成计划 →]" : "[PROCEED TO SCHEDULE SETUP →]"}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
           {/* Topics Table */}
-          <div className="border border-[#e9e9e7] rounded-lg overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="border border-[#111111] overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse font-mono">
               <thead>
-                <tr className="bg-[#f7f6f3] border-b border-[#e9e9e7] text-[#787774] font-medium">
-                  <th className="py-2 px-3">{t("tableTopicTitle")}</th>
-                  <th className="py-2 px-3 w-28">{t("tableWeight")}</th>
-                  <th className="py-2 px-3 w-28">{t("tableDifficulty")}</th>
-                  <th className="py-2 px-3 w-24">{t("tableEstHours")}</th>
-                  <th className="py-2 px-3 w-16 text-center">{t("tableAction")}</th>
+                <tr className="bg-[#fafafa] border-b border-[#111111] text-[#111111] font-bold uppercase">
+                  <th className="py-2.5 px-3">{t("tableTopicTitle")}</th>
+                  <th className="py-2.5 px-3 w-28">{t("tableWeight")}</th>
+                  <th className="py-2.5 px-3 w-28">{t("tableDifficulty")}</th>
+                  <th className="py-2.5 px-3 w-24">{t("tableEstHours")}</th>
+                  <th className="py-2.5 px-3 w-16 text-center">{t("tableAction")}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#e9e9e7]">
+              <tbody className="divide-y divide-[#111111]">
                 {topics.map((topic, idx) => (
-                  <tr key={topic.id || idx} className="hover:bg-[#f7f6f3]/60 transition-colors">
+                  <tr key={topic.id || idx} className="hover:bg-[#fafafa] transition-colors">
                     <td className="py-2.5 px-3">
                       <input
                         type="text"
                         value={topic.title}
                         onChange={(e) => handleUpdateTopic(idx, { title: e.target.value })}
-                        className="font-medium text-xs text-[#37352f] bg-transparent border-b border-transparent hover:border-[#dfdfde] focus:border-[#2b78a0] focus:outline-none w-full"
+                        className="font-bold text-xs text-[#111111] bg-transparent border-b border-transparent hover:border-[#111111] focus:border-[#111111] focus:outline-none w-full"
                       />
                       {topic.subtopics && topic.subtopics.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {topic.subtopics.map((sub, sIdx) => (
                             <span
                               key={sIdx}
-                              className="notion-tag-gray px-1.5 py-0.2 rounded text-[10px]"
+                              className="border border-[#111111] px-1 py-0.2 text-[9px] font-bold text-[#111111] bg-white"
                             >
                               {sub}
                             </span>
@@ -487,9 +478,9 @@ export function CourseSyllabusManager({
                           max={100}
                           value={topic.weightPercentage || 20}
                           onChange={(e) => handleUpdateTopic(idx, { weightPercentage: Number(e.target.value) })}
-                          className="w-12 bg-white border border-[#e9e9e7] rounded px-1.5 py-0.5 text-xs text-[#37352f]"
+                          className="w-12 bg-white border border-[#111111] px-1.5 py-0.5 text-xs text-[#111111] font-bold"
                         />
-                        <span className="text-[#787774]">%</span>
+                        <span className="text-[#111111] font-bold">%</span>
                       </div>
                     </td>
 
@@ -497,7 +488,7 @@ export function CourseSyllabusManager({
                       <select
                         value={topic.difficulty}
                         onChange={(e) => handleUpdateTopic(idx, { difficulty: e.target.value as any })}
-                        className="w-full bg-white border border-[#e9e9e7] rounded px-1.5 py-0.5 text-xs text-[#37352f]"
+                        className="w-full bg-white border border-[#111111] px-1.5 py-0.5 text-xs text-[#111111] font-bold"
                       >
                         <option value="easy">{language === "zh" ? "简单" : "Easy"}</option>
                         <option value="medium">{language === "zh" ? "中等" : "Medium"}</option>
@@ -513,16 +504,16 @@ export function CourseSyllabusManager({
                           max={100}
                           value={topic.estimatedHours || 4}
                           onChange={(e) => handleUpdateTopic(idx, { estimatedHours: Number(e.target.value) })}
-                          className="w-12 bg-white border border-[#e9e9e7] rounded px-1.5 py-0.5 text-xs text-[#37352f]"
+                          className="w-12 bg-white border border-[#111111] px-1.5 py-0.5 text-xs text-[#111111] font-bold"
                         />
-                        <span className="text-[#787774]">{language === "zh" ? "小时" : "h"}</span>
+                        <span className="text-[#111111] font-bold">{language === "zh" ? "小时" : "h"}</span>
                       </div>
                     </td>
 
                     <td className="py-2 px-3 text-center">
                       <button
                         onClick={() => handleDeleteTopic(idx)}
-                        className="text-[#9b9a97] hover:text-[#d44c47] p-1 transition-colors"
+                        className="text-[#111111] hover:bg-[#111111] hover:text-white p-1 transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

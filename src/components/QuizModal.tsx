@@ -108,55 +108,57 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-      <div className="bg-white border border-[#e9e9e7] rounded-xl w-full max-w-lg text-[#37352f] shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none">
+      <div className="bg-white border border-[#111111] w-full max-w-lg text-[#111111] font-mono shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="px-5 py-3.5 bg-[#f7f6f3] border-b border-[#e9e9e7] flex items-center justify-between">
+        <div className="px-5 py-3.5 bg-[#fafafa] border-b border-[#111111] flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Sparkles className="w-4 h-4 text-[#9065b0]" />
+            <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">
+              [QUIZ]
+            </span>
             <div>
-              <h3 className="font-semibold text-xs text-[#37352f]">{t("quizModalTitle")}</h3>
-              <p className="text-[10px] text-[#787774] truncate max-w-xs">{task.title}</p>
+              <h3 className="font-bold text-xs uppercase tracking-tight text-[#111111]">{t("quizModalTitle")}</h3>
+              <p className="text-[10px] text-[#666666] truncate max-w-xs mt-0.5">{task.title}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-[#787774] hover:text-[#37352f] p-1 rounded hover:bg-[#efefed] transition-colors"
+            className="text-[#111111] hover:bg-[#111111] hover:text-white p-1 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Body Content */}
-        <div className="p-5 overflow-y-auto flex-1 space-y-4">
+        <div className="p-5 overflow-y-auto flex-1 space-y-4 font-mono">
           {loading ? (
             <div className="py-10 text-center space-y-2">
-              <div className="w-6 h-6 border-2 border-[#e9e9e7] border-t-[#37352f] rounded-full animate-spin mx-auto" />
-              <p className="text-xs text-[#787774]">{t("generatingQuizQuestions")}</p>
+              <div className="w-5 h-5 border-2 border-[#111111] border-t-transparent animate-spin mx-auto" />
+              <p className="text-xs text-[#666666]">{t("generatingQuizQuestions")}</p>
             </div>
           ) : error ? (
-            <div className="py-6 text-center text-[#d44c47] text-xs">
-              <p>{error}</p>
+            <div className="py-6 text-center text-[#111111] text-xs space-y-2">
+              <p className="font-bold">[ERROR: {error}]</p>
               <button
                 onClick={onClose}
-                className="mt-3 px-3 py-1 bg-[#efefed] text-[#37352f] rounded text-xs"
+                className="mt-3 px-3 py-1 bg-[#111111] text-white text-xs font-bold cursor-pointer"
               >
-                {language === "zh" ? "关闭" : "Close"}
+                {language === "zh" ? "[关闭]" : "[CLOSE]"}
               </button>
             </div>
           ) : currentQ ? (
             <div className="space-y-4">
               {/* Question Progress Tracker */}
-              <div className="flex items-center justify-between text-xs text-[#787774]">
-                <span>{language === "zh" ? `第 ${currentIdx + 1} 题 / 共 ${questions.length} 题` : `Question ${currentIdx + 1} of ${questions.length}`}</span>
-                <span className="notion-tag-purple px-1.5 py-0.2 rounded text-[10px] font-medium">
+              <div className="flex items-center justify-between text-xs text-[#666666]">
+                <span>{language === "zh" ? `[题号 ${currentIdx + 1} / ${questions.length}]` : `[Q ${currentIdx + 1}/${questions.length}]`}</span>
+                <span className="border border-[#111111] bg-[#fafafa] text-[#111111] px-1.5 py-0.2 text-[10px] font-bold">
                   {currentQ.topicTitle}
                 </span>
               </div>
 
               {/* Question Text */}
-              <div className="bg-[#fbfbfa] border border-[#e9e9e7] rounded-lg p-3.5">
-                <p className="text-xs font-semibold text-[#37352f] leading-relaxed">
+              <div className="bg-[#fafafa] border border-[#111111] p-3.5">
+                <p className="text-xs font-bold text-[#111111] leading-relaxed">
                   {currentQ.question}
                 </p>
               </div>
@@ -167,14 +169,14 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
                   const isUserPick = selectedAnswers[currentIdx] === opt;
                   const isCorrect = opt === currentQ.correctAnswer;
                   
-                  let btnStyle = "bg-white border-[#e9e9e7] hover:bg-[#fbfbfa] text-[#37352f]";
+                  let btnStyle = "bg-white border-[#111111] hover:bg-[#fafafa] text-[#111111]";
                   if (isRevealed) {
                     if (isCorrect) {
-                      btnStyle = "bg-[#edf3ec] border-[#448361] text-[#448361] font-medium";
+                      btnStyle = "bg-[#111111] border-[#111111] text-white font-bold";
                     } else if (isUserPick) {
-                      btnStyle = "bg-[#fdebec] border-[#d44c47] text-[#d44c47] font-medium";
+                      btnStyle = "bg-[#fafafa] border-[#111111] text-[#111111] line-through font-bold";
                     } else {
-                      btnStyle = "bg-[#fbfbfa] border-[#e9e9e7] text-[#9b9a97] opacity-60";
+                      btnStyle = "bg-white border-[#e5e5e5] text-[#999999] opacity-40";
                     }
                   }
 
@@ -183,17 +185,17 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
                       key={oIdx}
                       onClick={() => handleSelectOption(opt)}
                       disabled={isRevealed}
-                      className={`w-full text-left p-3 rounded-md border text-xs transition-all flex items-start space-x-2.5 cursor-pointer ${btnStyle}`}
+                      className={`w-full text-left p-3 border text-xs transition-all flex items-start space-x-2.5 cursor-pointer ${btnStyle}`}
                     >
-                      <span className="w-4 h-4 rounded-sm border border-[#dfdfde] flex items-center justify-center text-[10px] font-semibold shrink-0 mt-0.5">
+                      <span className={`w-4 h-4 border flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${isRevealed && isCorrect ? 'border-white text-white' : 'border-[#111111]'}`}>
                         {String.fromCharCode(65 + oIdx)}
                       </span>
                       <span className="flex-1 leading-normal">{opt}</span>
                       {isRevealed && isCorrect && (
-                        <CheckCircle2 className="w-4 h-4 text-[#448361] shrink-0 mt-0.5" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider shrink-0 mt-0.5">[{language === "zh" ? "正确" : "CORRECT"}]</span>
                       )}
                       {isRevealed && isUserPick && !isCorrect && (
-                        <XCircle className="w-4 h-4 text-[#d44c47] shrink-0 mt-0.5" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider shrink-0 mt-0.5">[{language === "zh" ? "错误" : "INCORRECT"}]</span>
                       )}
                     </button>
                   );
@@ -202,12 +204,11 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
 
               {/* Explanation Box */}
               {isRevealed && (
-                <div className="p-3 bg-[#f7f6f3] border border-[#e9e9e7] rounded-md space-y-1 text-xs">
-                  <div className="flex items-center space-x-1 text-[#37352f] font-semibold text-[11px]">
-                    <HelpCircle className="w-3.5 h-3.5 text-[#2b78a0]" />
-                    <span>{t("explanationLabel")}</span>
+                <div className="p-3 bg-[#fafafa] border border-[#111111] space-y-1 text-xs">
+                  <div className="flex items-center space-x-1 text-[#111111] font-bold text-[11px] uppercase">
+                    <span>[{t("explanationLabel")}]</span>
                   </div>
-                  <p className="text-[#5a5a57] text-[11px] leading-relaxed">
+                  <p className="text-[#333333] text-[11px] leading-relaxed">
                     {currentQ.explanation}
                   </p>
                 </div>
@@ -218,15 +219,15 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
 
         {/* Footer Controls */}
         {!loading && !error && questions.length > 0 && (
-          <div className="px-5 py-3 bg-[#f7f6f3] border-t border-[#e9e9e7] flex items-center justify-between">
+          <div className="px-5 py-3 bg-[#fafafa] border-t border-[#111111] flex items-center justify-between font-mono">
             <button
               onClick={() => {
                 if (currentIdx > 0) setCurrentIdx(currentIdx - 1);
               }}
               disabled={currentIdx === 0}
-              className="px-2.5 py-1 text-xs text-[#787774] hover:text-[#37352f] disabled:opacity-40"
+              className="px-2.5 py-1 text-xs text-[#666666] hover:text-[#111111] disabled:opacity-30 cursor-pointer"
             >
-              {t("prevQuestion")}
+              [{t("prevQuestion")}]
             </button>
 
             {isRevealed && (
@@ -238,9 +239,9 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
                     setCurrentIdx(currentIdx + 1);
                   }
                 }}
-                className="flex items-center space-x-1 px-3 py-1.5 bg-[#37352f] hover:bg-[#201f1c] text-white rounded text-xs font-semibold shadow-2xs transition-colors"
+                className="flex items-center space-x-1 px-4 py-1.5 bg-[#111111] hover:bg-[#333333] text-white text-xs font-bold transition-colors cursor-pointer"
               >
-                <span>{isLastQ ? t("finishAndLogMastery") : t("nextQuestion")}</span>
+                <span>[{isLastQ ? t("finishAndLogMastery") : t("nextQuestion")}]</span>
                 <ArrowRight className="w-3 h-3" />
               </button>
             )}

@@ -194,46 +194,45 @@ export function PlanPreferencesForm({
     : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 space-y-6">
-      {/* Navigation Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-[#e9e9e7]">
+    <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 space-y-6 font-mono text-[#111111]">
+      {/* Navigation Top Bar */}
+      <div className="flex items-center justify-between pb-4 border-b border-[#111111]">
         <button
           onClick={onBackToMaterials}
-          className="flex items-center space-x-1 text-xs font-semibold text-[#787774] hover:text-[#37352f] transition-colors"
+          className="flex items-center space-x-1 text-xs font-bold text-[#111111] hover:underline transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>{t("backToMaterials")}</span>
+          <span>[{t("backToMaterials")}]</span>
         </button>
 
         <div className="flex items-center space-x-2 text-xs">
-          <span className="notion-tag-blue px-2 py-0.5 rounded text-[10px] font-semibold">
-            {t("step2Badge")}
+          <span className="border border-[#111111] bg-[#111111] text-white px-2 py-0.5 text-[10px] font-bold">
+            [{t("step2Badge")}]
           </span>
-          <span className="text-[#787774]">{t("scheduleAndPreferences")}</span>
+          <span className="text-[#666666] font-bold uppercase">{t("scheduleAndPreferences")}</span>
         </div>
       </div>
 
       {/* Main Settings Direct Form */}
       <div className="space-y-6">
         <div>
-          <h2 className="text-xl font-bold text-[#37352f]">
+          <h2 className="text-sm font-bold uppercase tracking-tight text-[#111111]">
             {t("configureTimelineTitle")}
           </h2>
-          <p className="text-xs text-[#787774] mt-0.5">
+          <p className="text-xs text-[#666666] mt-1">
             {t("configureTimelineSubtitle")}
           </p>
         </div>
 
         {/* Section 1: Timeline */}
-        <div className="space-y-3 pt-4 border-t border-[#e9e9e7]">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[#787774] flex items-center space-x-1.5">
-            <CalendarDays className="w-3.5 h-3.5 text-[#2b78a0]" />
-            <span>1. {t("sectionTimeline")}</span>
+        <div className="space-y-3 pt-4 border-t border-[#111111]">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-1.5">
+            <span>[1. {t("sectionTimeline")}]</span>
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="p-3.5 bg-white border border-[#e9e9e7] rounded-xl shadow-2xs">
-              <label className="block text-xs font-medium text-[#37352f] mb-1">
+            <div className="p-3.5 bg-white border border-[#111111]">
+              <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
                 {t("startDateLabel")}
               </label>
               <input
@@ -241,12 +240,12 @@ export function PlanPreferencesForm({
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full bg-[#fbfbfa] border border-[#e9e9e7] rounded-md px-2.5 py-1.5 text-xs text-[#37352f] focus:outline-none focus:border-[#2b78a0] focus:bg-white"
+                className="w-full bg-[#fafafa] border border-[#111111] px-2.5 py-1.5 text-xs text-[#111111] focus:outline-none focus:bg-white font-mono"
               />
             </div>
 
-            <div className="p-3.5 bg-white border border-[#e9e9e7] rounded-xl shadow-2xs">
-              <label className="block text-xs font-medium text-[#37352f] mb-1">
+            <div className="p-3.5 bg-white border border-[#111111]">
+              <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
                 {t("examDateLabel")}
               </label>
               <input
@@ -254,12 +253,12 @@ export function PlanPreferencesForm({
                 type="date"
                 value={examDate}
                 onChange={(e) => setExamDate(e.target.value)}
-                className="w-full bg-[#fbfbfa] border border-[#e9e9e7] rounded-md px-2.5 py-1.5 text-xs text-[#37352f] focus:outline-none focus:border-[#2b78a0] focus:bg-white"
+                className="w-full bg-[#fafafa] border border-[#111111] px-2.5 py-1.5 text-xs text-[#111111] focus:outline-none focus:bg-white font-mono"
               />
             </div>
 
-            <div className="p-3.5 bg-white border border-[#e9e9e7] rounded-xl shadow-2xs">
-              <label className="block text-xs font-medium text-[#37352f] mb-1">
+            <div className="p-3.5 bg-white border border-[#111111]">
+              <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
                 {t("examTimeLabel")}
               </label>
               <input
@@ -267,33 +266,32 @@ export function PlanPreferencesForm({
                 type="time"
                 value={examTime}
                 onChange={(e) => setExamTime(e.target.value)}
-                className="w-full bg-[#fbfbfa] border border-[#e9e9e7] rounded-md px-2.5 py-1.5 text-xs text-[#37352f] focus:outline-none focus:border-[#2b78a0] focus:bg-white"
+                className="w-full bg-[#fafafa] border border-[#111111] px-2.5 py-1.5 text-xs text-[#111111] focus:outline-none focus:bg-white font-mono"
               />
             </div>
           </div>
 
-          <div className="p-3 bg-white border border-[#e9e9e7] rounded-xl flex items-center justify-between text-xs text-[#5a5a57] shadow-2xs">
+          <div className="p-3 bg-[#fafafa] border border-[#111111] flex items-center justify-between text-xs text-[#111111]">
             <span>
-              {language === "zh" ? "备考窗口期: " : "Study Window: "}
-              <strong className="text-[#37352f]">{daysDiff} {language === "zh" ? "天" : "Total Days"}</strong> ({Math.round(daysDiff / 7)} {language === "zh" ? "周" : "Weeks"})
+              {language === "zh" ? "[备考窗口期]: " : "[STUDY WINDOW]: "}
+              <strong className="font-bold">{daysDiff} {language === "zh" ? "天" : "DAYS"}</strong> ({Math.round(daysDiff / 7)} {language === "zh" ? "周" : "WEEKS"})
             </span>
-            <span className="text-[#787774]">
-              {examName} • {subject}
+            <span className="text-[#666666] font-bold">
+              {examName} // {subject}
             </span>
           </div>
         </div>
 
         {/* Section 2: Weekly Available Study Hours */}
-        <div className="space-y-3 pt-4 border-t border-[#e9e9e7]">
+        <div className="space-y-3 pt-4 border-t border-[#111111]">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#787774] flex items-center space-x-1.5">
-              <Clock className="w-3.5 h-3.5 text-[#448361]" />
-              <span>2. {t("sectionWeeklyHours")}</span>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-1.5">
+              <span>[2. {t("sectionWeeklyHours")}]</span>
             </h3>
-            <span className="text-xs text-[#787774]">
-              {language === "zh" ? "每周总计投入: " : "Total commitment: "}
-              <strong className="text-[#37352f]">
-                {dailySchedules.reduce((acc, d) => acc + (d.enabled ? d.availableHours : 0), 0)} {language === "zh" ? "小时/周" : "hrs/week"}
+            <span className="text-xs text-[#666666]">
+              {language === "zh" ? "每周总计投入: " : "TOTAL COMMITMENT: "}
+              <strong className="text-[#111111] font-bold">
+                {dailySchedules.reduce((acc, d) => acc + (d.enabled ? d.availableHours : 0), 0)} {language === "zh" ? "小时/周" : "HRS/WEEK"}
               </strong>
             </span>
           </div>
@@ -302,28 +300,28 @@ export function PlanPreferencesForm({
             {dailySchedules.map((day, idx) => (
               <div
                 key={day.dayOfWeek}
-                className={`p-2.5 rounded-lg border text-xs transition-colors ${
+                className={`p-2.5 border text-xs transition-colors font-mono ${
                   day.enabled
-                    ? "bg-white border-[#e9e9e7] text-[#37352f]"
-                    : "bg-[#fbfbfa] border-[#e9e9e7] text-[#9b9a97] opacity-60"
+                    ? "bg-white border-[#111111] text-[#111111]"
+                    : "bg-[#fafafa] border-[#e5e5e5] text-[#999999] opacity-50"
                 }`}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-semibold text-xs">{dayNames[idx] || day.dayName.slice(0, 3)}</span>
+                  <span className="font-bold text-xs">{dayNames[idx] || day.dayName.slice(0, 3)}</span>
                   <input
                     type="checkbox"
                     checked={day.enabled}
                     onChange={(e) => handleUpdateSchedule(idx, { enabled: e.target.checked })}
-                    className="rounded-sm border-[#dfdfde] text-[#37352f] focus:ring-0 cursor-pointer"
+                    className="cursor-pointer"
                   />
                 </div>
 
                 {day.enabled ? (
                   <div className="space-y-1.5">
                     <div>
-                      <div className="flex items-center justify-between text-[10px] text-[#787774]">
-                        <span>{language === "zh" ? "时长:" : "Hours:"}</span>
-                        <span className="font-semibold text-[#37352f]">{day.availableHours}h</span>
+                      <div className="flex items-center justify-between text-[10px] text-[#666666]">
+                        <span>{language === "zh" ? "时长:" : "HRS:"}</span>
+                        <span className="font-bold text-[#111111]">{day.availableHours}h</span>
                       </div>
                       <input
                         type="range"
@@ -332,14 +330,14 @@ export function PlanPreferencesForm({
                         step="0.5"
                         value={day.availableHours}
                         onChange={(e) => handleUpdateSchedule(idx, { availableHours: Number(e.target.value) })}
-                        className="w-full h-1 bg-[#efefed] rounded-lg appearance-none cursor-pointer accent-[#37352f]"
+                        className="w-full h-1 bg-[#111111] appearance-none cursor-pointer accent-[#111111]"
                       />
                     </div>
 
                     <select
                       value={day.preferredTimeSlot}
                       onChange={(e) => handleUpdateSchedule(idx, { preferredTimeSlot: e.target.value as any })}
-                      className="w-full bg-[#f7f6f3] border border-[#e9e9e7] rounded px-1 py-0.5 text-[10px] text-[#37352f]"
+                      className="w-full bg-[#fafafa] border border-[#111111] px-1 py-0.5 text-[10px] text-[#111111] font-bold"
                     >
                       <option value="morning">{t("slotMorning")}</option>
                       <option value="afternoon">{t("slotAfternoon")}</option>
@@ -348,7 +346,7 @@ export function PlanPreferencesForm({
                     </select>
                   </div>
                 ) : (
-                  <div className="py-2 text-center text-[10px] text-[#9b9a97]">{t("restDay")}</div>
+                  <div className="py-2 text-center text-[10px] text-[#999999] font-bold">[{t("restDay")}]</div>
                 )}
               </div>
             ))}
@@ -356,10 +354,9 @@ export function PlanPreferencesForm({
         </div>
 
         {/* Section 3: Study Pace Archetype & Focus Duration */}
-        <div className="space-y-3 pt-4 border-t border-[#e9e9e7]">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[#787774] flex items-center space-x-1.5">
-            <BrainCircuit className="w-3.5 h-3.5 text-[#9065b0]" />
-            <span>3. {t("sectionPace")}</span>
+        <div className="space-y-3 pt-4 border-t border-[#111111]">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-1.5">
+            <span>[3. {t("sectionPace")}]</span>
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
@@ -369,65 +366,64 @@ export function PlanPreferencesForm({
                 title: t("paceDeepMastery"),
                 desc: t("paceDeepMasteryDesc"),
                 icon: ShieldCheck,
-                badge: language === "zh" ? "推荐" : "Recommended",
+                badge: language === "zh" ? "推荐" : "RECOMMENDED",
               },
               {
                 id: "spaced_repetition",
                 title: t("paceSpacedRepetition"),
                 desc: t("paceSpacedRepetitionDesc"),
                 icon: Target,
-                badge: language === "zh" ? "长期记忆" : "Long-term",
+                badge: language === "zh" ? "长期记忆" : "SPACED",
               },
               {
                 id: "balanced",
                 title: t("paceBalanced"),
                 desc: t("paceBalancedDesc"),
                 icon: Sliders,
-                badge: language === "zh" ? "稳健" : "Steady",
+                badge: language === "zh" ? "稳健" : "STEADY",
               },
               {
                 id: "intensive_crash",
                 title: t("paceIntensive"),
                 desc: t("paceIntensiveDesc"),
                 icon: Zap,
-                badge: language === "zh" ? "快速突破" : "Fast Track",
+                badge: language === "zh" ? "快速突破" : "FAST",
               },
             ].map((pace) => {
-              const Icon = pace.icon;
               const isSelected = studyPace === pace.id;
               return (
                 <div
                   key={pace.id}
                   onClick={() => setStudyPace(pace.id as any)}
-                  className={`p-3.5 rounded-lg border cursor-pointer transition-all ${
+                  className={`p-3.5 border cursor-pointer transition-all font-mono ${
                     isSelected
-                      ? "bg-[#fbfbfa] border-[#37352f] shadow-xs"
-                      : "bg-white border-[#e9e9e7] hover:border-[#dfdfde]"
+                      ? "bg-[#111111] text-white border-[#111111]"
+                      : "bg-white border-[#111111] hover:bg-[#fafafa] text-[#111111]"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
-                    <Icon className={`w-4 h-4 ${isSelected ? "text-[#37352f]" : "text-[#787774]"}`} />
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#f7f6f3] text-[#787774] font-medium">
+                    <span className="text-xs font-bold uppercase">[{pace.id.split('_')[0]}]</span>
+                    <span className={`text-[9px] px-1 py-0.2 border font-bold ${isSelected ? 'border-white text-white' : 'border-[#111111] text-[#111111]'}`}>
                       {pace.badge}
                     </span>
                   </div>
-                  <h4 className="font-semibold text-xs text-[#37352f]">{pace.title}</h4>
-                  <p className="text-[11px] text-[#787774] mt-0.5 leading-relaxed">{pace.desc}</p>
+                  <h4 className="font-bold text-xs uppercase">{pace.title}</h4>
+                  <p className={`text-[10px] mt-1 leading-relaxed ${isSelected ? 'text-[#cccccc]' : 'text-[#666666]'}`}>{pace.desc}</p>
                 </div>
               );
             })}
           </div>
 
           {/* Session Duration & Practice Exam Settings */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 font-mono">
             <div>
-              <label className="block text-xs font-medium text-[#37352f] mb-1">
+              <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
                 {t("focusSessionDurationLabel")}
               </label>
               <select
                 value={sessionLength}
                 onChange={(e) => setSessionLength(Number(e.target.value))}
-                className="w-full bg-[#fbfbfa] border border-[#e9e9e7] rounded-md px-2.5 py-1.5 text-xs text-[#37352f] focus:outline-none focus:border-[#2b78a0]"
+                className="w-full bg-[#fafafa] border border-[#111111] px-2.5 py-1.5 text-xs text-[#111111] focus:outline-none font-mono font-bold"
               >
                 <option value={25}>25 {language === "zh" ? "分钟 (番茄工作法)" : "Minutes (Pomodoro)"}</option>
                 <option value={45}>45 {language === "zh" ? "分钟 (标准复习单元)" : "Minutes (Standard Study Block)"}</option>
@@ -437,34 +433,34 @@ export function PlanPreferencesForm({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[#37352f] mb-1">
+              <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
                 {t("practiceExamsLabel")}
               </label>
-              <div className="flex items-center space-x-2 bg-[#fbfbfa] border border-[#e9e9e7] rounded-md px-2.5 py-1.5">
+              <div className="flex items-center space-x-2 bg-[#fafafa] border border-[#111111] px-2.5 py-1.5">
                 <input
                   type="checkbox"
                   id="include-mocks-checkbox"
                   checked={includePracticeExams}
                   onChange={(e) => setIncludePracticeExams(e.target.checked)}
-                  className="rounded-sm border-[#dfdfde] text-[#37352f] focus:ring-0 cursor-pointer"
+                  className="cursor-pointer"
                 />
-                <label htmlFor="include-mocks-checkbox" className="text-xs text-[#37352f] cursor-pointer">
+                <label htmlFor="include-mocks-checkbox" className="text-xs text-[#111111] font-bold cursor-pointer">
                   {t("scheduleMocksCheck")}
                 </label>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-[#37352f] mb-1">
+              <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
                 {t("bufferDaysLabel")}
               </label>
-              <div className="flex items-center space-x-1.5 bg-[#fbfbfa] border border-[#e9e9e7] rounded-md px-2.5 py-1.5">
+              <div className="flex items-center space-x-1.5 bg-[#fafafa] border border-[#111111] px-2.5 py-1.5">
                 <input
                   type="checkbox"
                   id="include-buffer-checkbox"
                   checked={includeBufferDays}
                   onChange={(e) => setIncludeBufferDays(e.target.checked)}
-                  className="rounded-sm border-[#dfdfde] text-[#37352f] focus:ring-0 cursor-pointer"
+                  className="cursor-pointer"
                 />
                 <input
                   type="number"
@@ -473,9 +469,9 @@ export function PlanPreferencesForm({
                   disabled={!includeBufferDays}
                   value={bufferDaysCount}
                   onChange={(e) => setBufferDaysCount(Number(e.target.value))}
-                  className="w-10 bg-white border border-[#e9e9e7] rounded px-1 text-xs text-[#37352f] disabled:opacity-50"
+                  className="w-10 bg-white border border-[#111111] px-1 text-xs text-[#111111] font-bold disabled:opacity-50"
                 />
-                <span className="text-[11px] text-[#787774]">{language === "zh" ? "天考前冲刺机动期" : "days before exam"}</span>
+                <span className="text-[10px] text-[#666666] font-bold uppercase">{language === "zh" ? "天考前冲刺机动期" : "days buffer"}</span>
               </div>
             </div>
           </div>
@@ -483,12 +479,11 @@ export function PlanPreferencesForm({
 
         {/* Section 4: Weak Spots */}
         {topics.length > 0 && (
-          <div className="space-y-2 pt-4 border-t border-[#e9e9e7]">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#787774] flex items-center space-x-1.5">
-              <Target className="w-3.5 h-3.5 text-[#d44c47]" />
-              <span>4. {t("sectionWeakTopics")}</span>
+          <div className="space-y-2 pt-4 border-t border-[#111111]">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-1.5">
+              <span>[4. {t("sectionWeakTopics")}]</span>
             </h3>
-            <p className="text-xs text-[#787774]">
+            <p className="text-xs text-[#666666]">
               {t("weakTopicsHint")}
             </p>
 
@@ -500,14 +495,14 @@ export function PlanPreferencesForm({
                     key={top.id}
                     type="button"
                     onClick={() => handleToggleWeakTopic(top.title)}
-                    className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors flex items-center space-x-1 ${
+                    className={`px-2.5 py-1 text-xs font-bold border transition-colors flex items-center space-x-1 cursor-pointer ${
                       isSelected
-                        ? "notion-tag-red border-[#f9d3d5]"
-                        : "bg-[#f7f6f3] border-[#e9e9e7] text-[#5a5a57] hover:border-[#dfdfde]"
+                        ? "bg-[#111111] text-white border-[#111111]"
+                        : "bg-white border-[#111111] text-[#111111] hover:bg-[#fafafa]"
                     }`}
                   >
-                    <span>{top.title}</span>
-                    {top.difficulty === "hard" && <Flame className="w-3 h-3 text-[#eb5757]" />}
+                    <span>[{top.title}]</span>
+                    {top.difficulty === "hard" && <span className="text-[9px] font-bold text-[#ff3333]">[{language === "zh" ? "难点" : "HARD"}]</span>}
                   </button>
                 );
               })}
@@ -516,11 +511,10 @@ export function PlanPreferencesForm({
         )}
 
         {/* Generate Action Button */}
-        <div className="pt-4 border-t border-[#e9e9e7]">
+        <div className="pt-4 border-t border-[#111111]">
           {generateError && (
-            <div className="p-3 mb-3 bg-[#fdebec] border border-[#f9d3d5] text-[#d44c47] text-xs rounded-md flex items-start space-x-1.5">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{generateError}</span>
+            <div className="p-3 mb-3 bg-[#fafafa] border border-[#111111] text-[#111111] text-xs font-bold flex items-start space-x-1.5">
+              <span>[ERROR: {generateError}]</span>
             </div>
           )}
 
@@ -529,17 +523,17 @@ export function PlanPreferencesForm({
             type="button"
             onClick={handleGeneratePlan}
             disabled={isGenerating}
-            className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-[#37352f] hover:bg-[#201f1c] disabled:opacity-50 text-white font-semibold text-sm rounded-md shadow-xs transition-colors cursor-pointer"
+            className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-[#111111] hover:bg-[#333333] disabled:opacity-40 text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-[#111111]"
           >
             {isGenerating ? (
               <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>{t("generatingPlanLoading")}</span>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent animate-spin" />
+                <span>[{t("generatingPlanLoading")}]</span>
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4 text-[#cb912f]" />
-                <span>{t("generatePlanBtn")}</span>
+                <Sparkles className="w-4 h-4" />
+                <span>[{t("generatePlanBtn")}]</span>
               </>
             )}
           </button>

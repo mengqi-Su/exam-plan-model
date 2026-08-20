@@ -473,36 +473,36 @@ export function AddExamSubjectWizard({
   }, [startDate, examDate]);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 selection:bg-[#cce2ff]">
+    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 font-mono text-[#111111] space-y-6">
       {/* Top Banner Navigation & Breadcrumbs */}
-      <div className="flex items-center justify-between pb-4 border-b border-[#e9e9e7] mb-6">
+      <div className="flex items-center justify-between pb-4 border-b border-[#111111]">
         <button
           onClick={onCancel}
-          className="flex items-center space-x-1.5 text-xs text-[#787774] hover:text-[#37352f] px-2.5 py-1 rounded hover:bg-[#efefed] transition-colors"
+          className="flex items-center space-x-1.5 text-xs text-[#111111] hover:underline font-bold transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>{language === "zh" ? "返回现有备考计划" : "Back to current plan"}</span>
+          <span>[{language === "zh" ? "返回现有备考计划" : "BACK TO CURRENT PLAN"}]</span>
         </button>
 
         <div className="flex items-center space-x-2 text-xs">
-          <span className="text-[#787774]">{language === "zh" ? "已有科目" : "Existing subjects"}:</span>
-          <span className="font-semibold text-[#37352f] bg-[#efefed] px-2 py-0.5 rounded">
-            {existingPlans.length} {language === "zh" ? "门" : "courses"}
+          <span className="text-[#666666] font-bold">[{language === "zh" ? "已有科目" : "EXISTING SUBJECTS"}]:</span>
+          <span className="font-bold text-[#111111] border border-[#111111] bg-white px-2 py-0.5">
+            {existingPlans.length} {language === "zh" ? "门" : "COURSES"}
           </span>
         </div>
       </div>
 
       {/* Main Header */}
-      <div className="mb-6">
-        <div className="inline-flex items-center space-x-2 px-2.5 py-1 rounded-full bg-[#f0f7f5] text-[#2b78a0] text-xs font-semibold mb-2">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>{language === "zh" ? "全新考试科目与智能备考规划" : "New Exam Subject & AI Study Optimization"}</span>
+      <div className="border-b border-[#111111] pb-4">
+        <div className="inline-flex items-center space-x-2 px-2 py-0.5 bg-[#111111] text-white text-[10px] font-bold uppercase mb-2">
+          <Sparkles className="w-3 h-3" />
+          <span>{language === "zh" ? "全新科目规划向导" : "NEW SUBJECT WIZARD"}</span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#37352f] flex items-center space-x-2">
-          <Plus className="w-6 h-6 text-[#37352f]" />
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#111111] flex items-center space-x-2 uppercase">
+          <Plus className="w-5 h-5 text-[#111111]" />
           <span>{language === "zh" ? "添加新考试科目" : "Add Exam Subject"}</span>
         </h1>
-        <p className="text-sm text-[#787774] mt-1">
+        <p className="text-xs text-[#666666] mt-1">
           {language === "zh"
             ? "为新学科输入考期与目标、上传考纲或选择预设模板，AI 将为您生成专属自适应复习日历与每日待办。"
             : "Set up a new subject, import syllabus topics, and let AI generate an adaptive day-by-day study roadmap."}
@@ -510,15 +510,15 @@ export function AddExamSubjectWizard({
       </div>
 
       {/* Step Indicators */}
-      <div className="grid grid-cols-3 gap-2 mb-8 text-xs font-medium border-b border-[#e9e9e7] pb-3">
+      <div className="grid grid-cols-3 gap-2 text-xs font-bold border-b border-[#111111] pb-3">
         <button
           onClick={() => setStep(1)}
-          className={`flex items-center space-x-2 py-1.5 px-3 rounded-md transition-colors ${
-            step === 1 ? "bg-[#37352f] text-white shadow-xs" : "text-[#787774] hover:bg-[#efefed]"
+          className={`flex items-center space-x-2 py-2 px-3 border transition-colors cursor-pointer ${
+            step === 1 ? "bg-[#111111] text-white border-[#111111]" : "text-[#666666] border-[#111111] bg-white hover:bg-[#111111] hover:text-white"
           }`}
         >
-          <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-bold">1</span>
-          <span className="truncate">{language === "zh" ? "科目与考试信息" : "1. Subject & Target"}</span>
+          <span className="text-[11px]">[01]</span>
+          <span className="truncate">{language === "zh" ? "科目与考试信息" : "SUBJECT"}</span>
         </button>
 
         <button
@@ -529,12 +529,12 @@ export function AddExamSubjectWizard({
             }
             setStep(2);
           }}
-          className={`flex items-center space-x-2 py-1.5 px-3 rounded-md transition-colors ${
-            step === 2 ? "bg-[#37352f] text-white shadow-xs" : "text-[#787774] hover:bg-[#efefed]"
+          className={`flex items-center space-x-2 py-2 px-3 border transition-colors cursor-pointer ${
+            step === 2 ? "bg-[#111111] text-white border-[#111111]" : "text-[#666666] border-[#111111] bg-white hover:bg-[#111111] hover:text-white"
           }`}
         >
-          <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-bold">2</span>
-          <span className="truncate">{language === "zh" ? "考纲与多文件资料" : "2. Syllabus & Documents"}</span>
+          <span className="text-[11px]">[02]</span>
+          <span className="truncate">{language === "zh" ? "考纲与多文件资料" : "SYLLABUS & DOCS"}</span>
         </button>
 
         <button
@@ -549,24 +549,24 @@ export function AddExamSubjectWizard({
             }
             setStep(3);
           }}
-          className={`flex items-center space-x-2 py-1.5 px-3 rounded-md transition-colors ${
-            step === 3 ? "bg-[#37352f] text-white shadow-xs" : "text-[#787774] hover:bg-[#efefed]"
+          className={`flex items-center space-x-2 py-2 px-3 border transition-colors cursor-pointer ${
+            step === 3 ? "bg-[#111111] text-white border-[#111111]" : "text-[#666666] border-[#111111] bg-white hover:bg-[#111111] hover:text-white"
           }`}
         >
-          <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-bold">3</span>
-          <span className="truncate">{language === "zh" ? "作息偏好与计划生成" : "3. Pacing & Generate"}</span>
+          <span className="text-[11px]">[03]</span>
+          <span className="truncate">{language === "zh" ? "作息偏好与计划生成" : "SCHEDULE & PLAN"}</span>
         </button>
       </div>
 
       {/* Error alert banner */}
       {generateError && (
-        <div className="mb-6 p-3 rounded-lg bg-[#fbf3f2] border border-[#f5d5d3] text-[#d44c47] text-xs flex items-center justify-between">
+        <div className="p-3 bg-[#fafafa] border border-[#111111] text-[#111111] text-xs flex items-center justify-between font-bold">
           <div className="flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{generateError}</span>
+            <AlertCircle className="w-4 h-4 shrink-0 text-[#111111]" />
+            <span>[ERROR: {generateError}]</span>
           </div>
-          <button onClick={() => setGenerateError(null)} className="text-xs hover:underline">
-            {language === "zh" ? "关闭" : "Dismiss"}
+          <button onClick={() => setGenerateError(null)} className="text-xs hover:underline cursor-pointer">
+            [{language === "zh" ? "关闭" : "DISMISS"}]
           </button>
         </div>
       )}
@@ -575,13 +575,13 @@ export function AddExamSubjectWizard({
       {step === 1 && (
         <div className="space-y-6">
           {/* Quick Subject Presets */}
-          <div className="bg-[#f7f6f3] p-4 rounded-xl border border-[#e9e9e7]">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-[#37352f] flex items-center space-x-1.5">
-                <BookmarkPlus className="w-4 h-4 text-[#2b78a0]" />
-                <span>{language === "zh" ? "快速载入经典科目模板" : "Quick Subject Presets"}</span>
+          <div className="bg-[#fafafa] p-4 border border-[#111111]">
+            <div className="flex items-center justify-between mb-3 border-b border-[#111111] pb-2">
+              <span className="text-xs font-bold text-[#111111] uppercase flex items-center space-x-1.5">
+                <BookmarkPlus className="w-4 h-4 text-[#111111]" />
+                <span>{language === "zh" ? "[快速载入经典科目模板]" : "[QUICK SUBJECT PRESETS]"}</span>
               </span>
-              <span className="text-[11px] text-[#787774]">
+              <span className="text-[11px] text-[#666666]">
                 {language === "zh" ? "一键预填科目、学科领域与核心考纲" : "Preload course details & topics"}
               </span>
             </div>
@@ -591,17 +591,17 @@ export function AddExamSubjectWizard({
                 <button
                   key={idx}
                   onClick={() => handleApplyTemplate(tmpl)}
-                  className="p-3 bg-white hover:bg-[#f0f7f5] border border-[#e9e9e7] hover:border-[#2b78a0] rounded-lg text-left transition-all group"
+                  className="p-3 bg-white hover:bg-[#111111] hover:text-white border border-[#111111] text-left transition-colors group cursor-pointer"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-xs text-[#37352f] group-hover:text-[#2b78a0]">
+                    <span className="font-bold text-xs">
                       {tmpl.name}
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#efefed] text-[#787774]">
-                      {tmpl.topics.length} {language === "zh" ? "个考点" : "topics"}
+                    <span className="text-[10px] px-1.5 py-0.2 border border-[#111111] bg-[#fafafa] text-[#111111] group-hover:bg-[#111111] group-hover:text-white group-hover:border-white font-bold">
+                      [{tmpl.topics.length} {language === "zh" ? "个考点" : "topics"}]
                     </span>
                   </div>
-                  <span className="text-[11px] text-[#787774] block mt-1">
+                  <span className="text-[11px] text-[#666666] group-hover:text-[#e5e5e5] block mt-1">
                     {tmpl.subject}
                   </span>
                 </button>
@@ -610,15 +610,15 @@ export function AddExamSubjectWizard({
           </div>
 
           {/* Form Fields */}
-          <div className="bg-white p-5 rounded-xl border border-[#e9e9e7] space-y-4">
-            <h3 className="text-sm font-bold text-[#37352f] flex items-center space-x-2 border-b border-[#e9e9e7] pb-2.5">
-              <GraduationCap className="w-4 h-4 text-[#2b78a0]" />
-              <span>{language === "zh" ? "考试基本信息" : "Course & Exam Details"}</span>
+          <div className="bg-white p-5 border border-[#111111] space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-2 border-b border-[#111111] pb-2.5">
+              <GraduationCap className="w-4 h-4 text-[#111111]" />
+              <span>[// {language === "zh" ? "考试基本信息" : "COURSE & EXAM DETAILS"}]</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-[#37352f] mb-1">
+                <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
                   {language === "zh" ? "考试科目 / 课程全称 *" : "Exam / Course Name *"}
                 </label>
                 <input
@@ -626,12 +626,12 @@ export function AddExamSubjectWizard({
                   value={examName}
                   onChange={(e) => setExamName(e.target.value)}
                   placeholder={language === "zh" ? "例如：微积分期末考试 / 考研数学" : "e.g. Calculus II Final Exam"}
-                  className="w-full px-3 py-2 text-xs rounded-md border border-[#d3d2cf] focus:border-[#2b78a0] focus:ring-1 focus:ring-[#2b78a0] outline-none"
+                  className="w-full px-3 py-2 text-xs bg-[#fafafa] border border-[#111111] focus:bg-white outline-none font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#37352f] mb-1">
+                <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
                   {language === "zh" ? "学科 / 专业领域" : "Subject Domain"}
                 </label>
                 <input
@@ -639,24 +639,24 @@ export function AddExamSubjectWizard({
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder={language === "zh" ? "例如：数学、计算机、外语、金融" : "e.g. Mathematics, Computer Science"}
-                  className="w-full px-3 py-2 text-xs rounded-md border border-[#d3d2cf] focus:border-[#2b78a0] focus:ring-1 focus:ring-[#2b78a0] outline-none"
+                  className="w-full px-3 py-2 text-xs bg-[#fafafa] border border-[#111111] focus:bg-white outline-none font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#37352f] mb-1">
+                <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
                   {language === "zh" ? "计划开始日期" : "Start Date"}
                 </label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-md border border-[#d3d2cf] focus:border-[#2b78a0] outline-none"
+                  className="w-full px-3 py-2 text-xs bg-[#fafafa] border border-[#111111] focus:bg-white outline-none font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#37352f] mb-1">
+                <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
                   {language === "zh" ? "目标考试日期与时间" : "Exam Date & Time"}
                 </label>
                 <div className="flex space-x-2">
@@ -664,19 +664,19 @@ export function AddExamSubjectWizard({
                     type="date"
                     value={examDate}
                     onChange={(e) => setExamDate(e.target.value)}
-                    className="w-2/3 px-3 py-2 text-xs rounded-md border border-[#d3d2cf] focus:border-[#2b78a0] outline-none"
+                    className="w-2/3 px-3 py-2 text-xs bg-[#fafafa] border border-[#111111] focus:bg-white outline-none font-mono"
                   />
                   <input
                     type="time"
                     value={examTime}
                     onChange={(e) => setExamTime(e.target.value)}
-                    className="w-1/3 px-3 py-2 text-xs rounded-md border border-[#d3d2cf] focus:border-[#2b78a0] outline-none"
+                    className="w-1/3 px-3 py-2 text-xs bg-[#fafafa] border border-[#111111] focus:bg-white outline-none font-mono"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#37352f] mb-1">
+                <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
                   {language === "zh" ? "目标期望成绩 / 评级" : "Target Score / Grade"}
                 </label>
                 <input
@@ -684,13 +684,13 @@ export function AddExamSubjectWizard({
                   value={targetScore}
                   onChange={(e) => setTargetScore(e.target.value)}
                   placeholder="例如：90+ / A+ / 稳过 85 分"
-                  className="w-full px-3 py-2 text-xs rounded-md border border-[#d3d2cf] focus:border-[#2b78a0] outline-none"
+                  className="w-full px-3 py-2 text-xs bg-[#fafafa] border border-[#111111] focus:bg-white outline-none font-mono"
                 />
               </div>
 
               <div className="flex items-center">
-                <div className="p-3 bg-[#f0f7f5] rounded-lg border border-[#d3e5df] text-xs text-[#2b78a0] w-full">
-                  <span className="font-semibold">{language === "zh" ? "备考周期计算：" : "Study Duration: "}</span>
+                <div className="p-3 bg-[#fafafa] border border-[#111111] text-xs text-[#111111] w-full font-bold">
+                  <span>{language === "zh" ? "备考周期计算：" : "Study Duration: "}</span>
                   <span>{daysDiff} {language === "zh" ? "天" : "days"} (约 {Math.ceil(daysDiff / 7)} {language === "zh" ? "周" : "weeks"})</span>
                 </div>
               </div>
@@ -698,7 +698,7 @@ export function AddExamSubjectWizard({
           </div>
 
           {/* Action to Step 2 */}
-          <div className="flex justify-end pt-4">
+          <div className="flex justify-end pt-2">
             <button
               onClick={() => {
                 if (!examName.trim()) {
@@ -707,9 +707,9 @@ export function AddExamSubjectWizard({
                 }
                 setStep(2);
               }}
-              className="flex items-center space-x-2 px-5 py-2.5 rounded-lg bg-[#37352f] text-white hover:bg-[#201f1d] font-semibold text-xs transition-colors"
+              className="flex items-center space-x-2 px-5 py-2.5 bg-[#111111] text-white hover:bg-[#333333] font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-[#111111]"
             >
-              <span>{language === "zh" ? "下一步：上传课程资料与考纲" : "Next: Course Documents & Syllabus"}</span>
+              <span>[{language === "zh" ? "下一步：上传课程资料与考纲" : "NEXT: COURSE DOCUMENTS & SYLLABUS"}]</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -720,14 +720,14 @@ export function AddExamSubjectWizard({
       {step === 2 && (
         <div className="space-y-6">
           {/* Multi-Document Upload & Management Card for this Course */}
-          <div className="bg-white p-5 rounded-xl border border-[#e9e9e7] space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#e9e9e7] pb-3 gap-2">
+          <div className="bg-white p-5 border border-[#111111] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#111111] pb-3 gap-2">
               <div>
-                <h3 className="text-sm font-bold text-[#37352f] flex items-center space-x-2">
-                  <BookOpen className="w-4 h-4 text-[#2b78a0]" />
-                  <span>{language === "zh" ? `「${examName || "当前课程"}」的备考资料与考纲` : `Course Materials for "${examName || "Course"}"`}</span>
+                <h3 className="text-xs font-bold uppercase text-[#111111] flex items-center space-x-2">
+                  <BookOpen className="w-4 h-4 text-[#111111]" />
+                  <span>{language === "zh" ? `[${examName || "当前课程"}] 备考资料与考纲` : `COURSE MATERIALS: ${examName || "COURSE"}`}</span>
                 </h3>
-                <p className="text-xs text-[#787774] mt-0.5">
+                <p className="text-xs text-[#666666] mt-0.5">
                   {language === "zh"
                     ? "可一次性批量上传或持续添加属于本门课程的大纲、讲义课件、模拟试卷等多个文件，AI 将联合深度解析。"
                     : "Upload multiple files (syllabus, lecture slides, mock exams) for this single course."}
@@ -737,22 +737,22 @@ export function AddExamSubjectWizard({
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setShowPasteForm(!showPasteForm)}
-                  className="flex items-center space-x-1 px-3 py-1.5 rounded-md border border-[#e9e9e7] hover:bg-[#efefed] text-xs text-[#37352f] transition-colors"
+                  className="flex items-center space-x-1 px-3 py-1 bg-white hover:bg-[#111111] hover:text-white border border-[#111111] text-xs font-bold transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>{language === "zh" ? "粘贴文本资料" : "Paste Text"}</span>
+                  <span>[{language === "zh" ? "粘贴文本资料" : "PASTE TEXT"}]</span>
                 </button>
               </div>
             </div>
 
             {/* Optional Manual Paste Form */}
             {showPasteForm && (
-              <div className="p-4 bg-[#fafaf9] rounded-lg border border-[#e9e9e7] space-y-3 animate-in fade-in duration-150">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[#37352f]">
-                    {language === "zh" ? "添加自定义文本 / 笔记到本课程" : "Add Text Notes to this Course"}
+              <div className="p-4 bg-[#fafafa] border border-[#111111] space-y-3">
+                <div className="flex items-center justify-between border-b border-[#111111] pb-2">
+                  <span className="text-xs font-bold uppercase text-[#111111]">
+                    [// {language === "zh" ? "添加自定义文本 / 笔记到本课程" : "ADD TEXT NOTES TO THIS COURSE"}]
                   </span>
-                  <button onClick={() => setShowPasteForm(false)} className="text-[#787774] hover:text-[#37352f]">
+                  <button onClick={() => setShowPasteForm(false)} className="text-[#111111] hover:bg-[#111111] hover:text-white p-1 cursor-pointer">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -762,12 +762,12 @@ export function AddExamSubjectWizard({
                     value={pasteDocTitle}
                     onChange={(e) => setPasteDocTitle(e.target.value)}
                     placeholder={language === "zh" ? "资料名称，例如：第3章核心公式速记" : "Document title..."}
-                    className="px-3 py-1.5 text-xs bg-white border border-[#d3d2cf] rounded-md outline-none"
+                    className="px-3 py-1.5 text-xs bg-white border border-[#111111] outline-none font-mono"
                   />
                   <select
                     value={pasteDocType}
                     onChange={(e) => setPasteDocType(e.target.value as any)}
-                    className="px-3 py-1.5 text-xs bg-white border border-[#d3d2cf] rounded-md outline-none"
+                    className="px-3 py-1.5 text-xs bg-white border border-[#111111] outline-none font-mono font-bold"
                   >
                     <option value="syllabus">{language === "zh" ? "课程教学大纲 (Syllabus)" : "Syllabus"}</option>
                     <option value="lecture_slides">{language === "zh" ? "课件讲义 (Lecture Slides)" : "Lecture Slides"}</option>
@@ -781,28 +781,28 @@ export function AddExamSubjectWizard({
                   value={pasteDocContent}
                   onChange={(e) => setPasteDocContent(e.target.value)}
                   placeholder={language === "zh" ? "直接粘贴大纲章节、知识要点或典型题目..." : "Paste outline, topics or problems..."}
-                  className="w-full px-3 py-2 text-xs bg-white border border-[#d3d2cf] rounded-md outline-none font-mono"
+                  className="w-full px-3 py-2 text-xs bg-white border border-[#111111] outline-none font-mono"
                 />
                 <div className="flex justify-end space-x-2">
                   <button
                     onClick={() => setShowPasteForm(false)}
-                    className="px-3 py-1 text-xs text-[#787774] hover:bg-[#efefed] rounded"
+                    className="px-3 py-1 text-xs border border-[#111111] bg-white hover:bg-[#111111] hover:text-white font-bold cursor-pointer transition-colors"
                   >
-                    {language === "zh" ? "取消" : "Cancel"}
+                    [{language === "zh" ? "取消" : "CANCEL"}]
                   </button>
                   <button
                     onClick={handleAddPastedDocument}
                     disabled={!pasteDocContent.trim()}
-                    className="px-3 py-1 text-xs bg-[#2b78a0] text-white rounded font-medium disabled:opacity-50"
+                    className="px-3 py-1 text-xs bg-[#111111] text-white border border-[#111111] font-bold disabled:opacity-40 hover:bg-[#333333] cursor-pointer transition-colors"
                   >
-                    {language === "zh" ? "加入本课程资料库" : "Add to Course"}
+                    [{language === "zh" ? "加入本课程资料库" : "ADD TO COURSE"}]
                   </button>
                 </div>
               </div>
             )}
 
             {/* Drag & Drop Multi-file Uploader */}
-            <label className="border-2 border-dashed border-[#e9e9e7] hover:border-[#2b78a0] bg-[#fafaf9] hover:bg-[#f0f7f5] rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-all text-center group">
+            <label className="border border-dashed border-[#111111] hover:bg-[#111111] hover:text-white bg-[#fafafa] p-6 flex flex-col items-center justify-center cursor-pointer transition-colors text-center group">
               <input
                 type="file"
                 multiple
@@ -810,19 +810,19 @@ export function AddExamSubjectWizard({
                 onChange={(e) => handleFileUpload(e.target.files)}
                 className="hidden"
               />
-              <div className="w-11 h-11 rounded-full bg-white shadow-xs border border-[#e9e9e7] flex items-center justify-center text-[#2b78a0] mb-2 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 bg-white border border-[#111111] text-[#111111] flex items-center justify-center mb-2">
                 {isParsingFiles ? (
-                  <div className="w-5 h-5 border-2 border-[#2b78a0] border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-[#111111] border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <Upload className="w-5 h-5" />
                 )}
               </div>
-              <span className="text-xs font-semibold text-[#37352f]">
+              <span className="text-xs font-bold uppercase">
                 {isParsingFiles
                   ? (parsingStatus || (language === "zh" ? "正在批量解析文件..." : "Parsing files..."))
                   : (language === "zh" ? "点击或拖拽上传多个课程文件（支持多选）" : "Click or drag multiple course files")}
               </span>
-              <span className="text-[11px] text-[#787774] mt-1">
+              <span className="text-[11px] text-[#666666] group-hover:text-[#e5e5e5] mt-1">
                 {language === "zh"
                   ? "支持 PDF、Word (.docx)、TXT、Markdown，单门课程可同时包含大纲、讲义、真题等多个文件"
                   : "Supports PDF, Word (.docx), TXT, Markdown. All files belong to this course."}
@@ -832,36 +832,36 @@ export function AddExamSubjectWizard({
             {/* List of uploaded course documents */}
             {courseDocuments.length > 0 && (
               <div className="space-y-2 pt-2">
-                <div className="flex items-center justify-between text-xs font-semibold text-[#37352f]">
+                <div className="flex items-center justify-between text-xs font-bold text-[#111111] border-b border-[#111111] pb-1.5">
                   <span className="flex items-center space-x-1.5">
-                    <Layers className="w-4 h-4 text-[#2b78a0]" />
-                    <span>{language === "zh" ? `本课程已包含 ${courseDocuments.length} 份文件资料：` : `Attached files for this course (${courseDocuments.length}):`}</span>
+                    <Layers className="w-4 h-4 text-[#111111]" />
+                    <span>{language === "zh" ? `[本课程已包含 ${courseDocuments.length} 份文件资料]` : `[ATTACHED FILES: ${courseDocuments.length}]`}</span>
                   </span>
-                  <span className="text-[11px] text-[#787774] font-normal">
+                  <span className="text-[11px] text-[#666666] font-normal">
                     {language === "zh" ? "可修改文档类型以指导 AI 专项分析" : "Change document role for tailored AI analysis"}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 gap-2">
-                  {courseDocuments.map((doc, idx) => (
+                  {courseDocuments.map((doc) => (
                     <div
                       key={doc.id}
-                      className="p-3 bg-[#fafaf9] hover:bg-[#f7f6f3] border border-[#e9e9e7] rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition-colors"
+                      className="p-3 bg-[#fafafa] border border-[#111111] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
                     >
                       <div className="flex items-center space-x-2.5 min-w-0 flex-1">
-                        <div className="w-7 h-7 rounded bg-white border border-[#e9e9e7] flex items-center justify-center text-xs shrink-0 text-[#787774]">
+                        <div className="w-6 h-6 bg-white border border-[#111111] flex items-center justify-center text-xs shrink-0 text-[#111111]">
                           <FileText className="w-3.5 h-3.5" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center space-x-2">
-                            <span className="font-semibold text-xs text-[#37352f] truncate">{doc.name}</span>
+                            <span className="font-bold text-xs text-[#111111] truncate">{doc.name}</span>
                             {doc.sizeBytes && (
-                              <span className="text-[10px] text-[#787774] shrink-0">
+                              <span className="text-[10px] text-[#666666] shrink-0">
                                 ({Math.round(doc.sizeBytes / 1024)} KB)
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] text-[#787774] block truncate">
+                          <span className="text-[10px] text-[#666666] block truncate font-mono">
                             {doc.content.slice(0, 80)}... ({doc.content.length} {language === "zh" ? "字" : "chars"})
                           </span>
                         </div>
@@ -871,7 +871,7 @@ export function AddExamSubjectWizard({
                         <select
                           value={doc.type}
                           onChange={(e) => handleUpdateDocument(doc.id, { type: e.target.value as any })}
-                          className="text-[11px] px-2 py-1 bg-white border border-[#d3d2cf] rounded text-[#37352f] outline-none font-medium"
+                          className="text-[11px] px-2 py-1 bg-white border border-[#111111] text-[#111111] outline-none font-bold font-mono"
                         >
                           <option value="syllabus">{language === "zh" ? "课程教学大纲" : "Syllabus"}</option>
                           <option value="lecture_slides">{language === "zh" ? "讲义课件/PPT" : "Lecture Slides"}</option>
@@ -882,7 +882,7 @@ export function AddExamSubjectWizard({
 
                         <button
                           onClick={() => setPreviewDoc(doc)}
-                          className="p-1.5 text-[#787774] hover:text-[#2b78a0] hover:bg-white rounded transition-colors"
+                          className="p-1 text-[#111111] hover:bg-[#111111] hover:text-white transition-colors cursor-pointer border border-[#111111] bg-white"
                           title={language === "zh" ? "预览文档内容" : "Preview Document Content"}
                         >
                           <Eye className="w-3.5 h-3.5" />
@@ -890,7 +890,7 @@ export function AddExamSubjectWizard({
 
                         <button
                           onClick={() => handleDeleteDocument(doc.id)}
-                          className="p-1.5 text-[#787774] hover:text-[#d44c47] hover:bg-white rounded transition-colors"
+                          className="p-1 text-[#111111] hover:bg-[#111111] hover:text-white transition-colors cursor-pointer border border-[#111111] bg-white"
                           title={language === "zh" ? "从本课程移除" : "Remove from course"}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -907,20 +907,20 @@ export function AddExamSubjectWizard({
               <button
                 onClick={handleExtractSyllabus}
                 disabled={isExtracting || courseDocuments.length === 0}
-                className="flex items-center space-x-2 px-4 py-2.5 rounded-lg bg-[#2b78a0] hover:bg-[#236384] disabled:opacity-50 text-white text-xs font-semibold transition-colors shadow-2xs"
+                className="flex items-center space-x-2 px-4 py-2.5 bg-[#111111] hover:bg-[#333333] disabled:opacity-40 text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer border border-[#111111]"
               >
                 {isExtracting ? (
                   <>
                     <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>{language === "zh" ? "AI 正在联合解析全部文件并提炼考纲架构..." : "Extracting topics from all documents..."}</span>
+                    <span>[{language === "zh" ? "AI 正在联合解析全部文件并提炼考纲架构..." : "EXTRACTING TOPICS FROM ALL DOCUMENTS..."}]</span>
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-3.5 h-3.5" />
                     <span>
-                      {language === "zh"
+                      [{language === "zh"
                         ? `AI 联合提炼考点与权重 (${courseDocuments.length} 份文件)`
-                        : `Extract Topics with AI (${courseDocuments.length} files)`}
+                        : `EXTRACT TOPICS WITH AI (${courseDocuments.length} FILES)`}]
                     </span>
                   </>
                 )}
@@ -929,45 +929,45 @@ export function AddExamSubjectWizard({
           </div>
 
           {/* Topics Table */}
-          <div className="bg-white p-5 rounded-xl border border-[#e9e9e7] space-y-4">
-            <div className="flex items-center justify-between border-b border-[#e9e9e7] pb-2.5">
+          <div className="bg-white p-5 border border-[#111111] space-y-4">
+            <div className="flex items-center justify-between border-b border-[#111111] pb-2.5">
               <div>
-                <h3 className="text-sm font-bold text-[#37352f]">
-                  {language === "zh" ? "结构化考点与分值架构" : "Structured Topic Breakdown"}
+                <h3 className="text-xs font-bold uppercase text-[#111111]">
+                  [// {language === "zh" ? "结构化考点与分值架构" : "STRUCTURED TOPIC BREAKDOWN"}]
                 </h3>
-                <span className="text-xs text-[#787774]">
+                <span className="text-xs text-[#666666]">
                   {language === "zh" ? `已生成 ${topics.length} 个核心知识模块` : `${topics.length} topics defined`}
                 </span>
               </div>
 
               <button
                 onClick={handleAddCustomTopic}
-                className="flex items-center space-x-1 px-3 py-1.5 rounded bg-[#efefed] hover:bg-[#e3e2e0] text-xs font-medium text-[#37352f] transition-colors"
+                className="flex items-center space-x-1 px-3 py-1 bg-white hover:bg-[#111111] hover:text-white text-xs font-bold text-[#111111] border border-[#111111] transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>{language === "zh" ? "添加考点" : "Add Topic"}</span>
+                <span>[{language === "zh" ? "添加考点" : "ADD TOPIC"}]</span>
               </button>
             </div>
 
             {topics.length === 0 ? (
-              <div className="text-center py-8 text-[#787774] text-xs">
-                <BookOpen className="w-8 h-8 mx-auto text-[#d3d2cf] mb-2" />
-                <p>{language === "zh" ? "暂无考点，请上传课程文件后点击「AI 联合提炼考点」或手动添加。" : "No topics yet. Upload course files and extract topics."}</p>
+              <div className="text-center py-8 text-[#666666] text-xs font-bold uppercase">
+                <BookOpen className="w-8 h-8 mx-auto text-[#111111] opacity-40 mb-2" />
+                <p>[{language === "zh" ? "暂无考点，请上传课程文件后点击「AI 联合提炼考点」或手动添加。" : "NO TOPICS YET. UPLOAD COURSE FILES AND EXTRACT TOPICS."}]</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {topics.map((t, idx) => (
-                  <div key={t.id} className="p-3.5 rounded-lg border border-[#e9e9e7] hover:border-[#d3d2cf] bg-[#fafaf9] space-y-2.5">
+                  <div key={t.id} className="p-3.5 border border-[#111111] bg-[#fafafa] space-y-2.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2 flex-1 min-w-0 mr-3">
-                        <span className="w-5 h-5 rounded-full bg-[#efefed] text-[#37352f] text-[10px] font-bold flex items-center justify-center shrink-0">
-                          {idx + 1}
+                        <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold shrink-0">
+                          [{idx + 1}]
                         </span>
                         <input
                           type="text"
                           value={t.title}
                           onChange={(e) => handleUpdateTopic(t.id, { title: e.target.value })}
-                          className="font-semibold text-xs text-[#37352f] bg-transparent border-b border-transparent hover:border-[#d3d2cf] focus:border-[#2b78a0] outline-none flex-1"
+                          className="font-bold text-xs text-[#111111] bg-transparent border-b border-transparent hover:border-[#111111] focus:border-[#111111] outline-none flex-1 font-mono"
                         />
                       </div>
 
@@ -975,45 +975,39 @@ export function AddExamSubjectWizard({
                         <select
                           value={t.difficulty}
                           onChange={(e) => handleUpdateTopic(t.id, { difficulty: e.target.value as any })}
-                          className={`text-[11px] font-semibold px-2 py-0.5 rounded border outline-none ${
-                            t.difficulty === "hard"
-                              ? "bg-[#fbf3f2] text-[#d44c47] border-[#f5d5d3]"
-                              : t.difficulty === "medium"
-                              ? "bg-[#faece3] text-[#cb912f] border-[#f7ddc9]"
-                              : "bg-[#edf3ec] text-[#448361] border-[#d5e5d3]"
-                          }`}
+                          className="text-[11px] font-bold px-2 py-0.5 border border-[#111111] bg-white text-[#111111] outline-none font-mono"
                         >
                           <option value="easy">{language === "zh" ? "基础 (Easy)" : "Easy"}</option>
                           <option value="medium">{language === "zh" ? "中等 (Medium)" : "Medium"}</option>
                           <option value="hard">{language === "zh" ? "难点 (Hard)" : "Hard"}</option>
                         </select>
 
-                        <div className="flex items-center space-x-1 text-xs text-[#787774]">
+                        <div className="flex items-center space-x-1 text-xs text-[#111111] font-bold">
                           <input
                             type="number"
                             value={t.estimatedHours}
                             onChange={(e) => handleUpdateTopic(t.id, { estimatedHours: Number(e.target.value) || 1 })}
-                            className="w-12 px-1 py-0.5 text-center text-xs bg-white border border-[#d3d2cf] rounded"
+                            className="w-12 px-1 py-0.5 text-center text-xs bg-white border border-[#111111] font-bold"
                           />
                           <span>{language === "zh" ? "学时" : "hrs"}</span>
                         </div>
 
                         <button
                           onClick={() => handleDeleteTopic(t.id)}
-                          className="p-1 text-[#787774] hover:text-[#d44c47] hover:bg-[#efefed] rounded transition-colors"
+                          className="p-1 text-[#111111] hover:bg-[#111111] hover:text-white transition-colors cursor-pointer border border-[#111111] bg-white"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
 
-                    <div className="text-[11px] text-[#787774]">
+                    <div className="text-[11px] text-[#666666]">
                       <input
                         type="text"
                         value={t.description || ""}
                         onChange={(e) => handleUpdateTopic(t.id, { description: e.target.value })}
                         placeholder={language === "zh" ? "考点概述与学习目标..." : "Topic summary..."}
-                        className="w-full bg-transparent border-b border-transparent hover:border-[#e9e9e7] focus:border-[#2b78a0] outline-none text-xs text-[#5a5a57]"
+                        className="w-full bg-transparent border-b border-transparent hover:border-[#111111] focus:border-[#111111] outline-none text-xs text-[#111111] font-mono"
                       />
                     </div>
                   </div>
@@ -1023,13 +1017,13 @@ export function AddExamSubjectWizard({
           </div>
 
           {/* Navigation Actions */}
-          <div className="flex items-center justify-between pt-4">
+          <div className="flex items-center justify-between pt-2">
             <button
               onClick={() => setStep(1)}
-              className="flex items-center space-x-1.5 px-4 py-2 rounded-lg border border-[#e9e9e7] hover:bg-[#efefed] text-xs font-semibold text-[#37352f]"
+              className="flex items-center space-x-1.5 px-4 py-2 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-xs font-bold text-[#111111] cursor-pointer transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>{language === "zh" ? "上一步" : "Back"}</span>
+              <span>[{language === "zh" ? "上一步" : "BACK"}]</span>
             </button>
 
             <button
@@ -1040,9 +1034,9 @@ export function AddExamSubjectWizard({
                 }
                 setStep(3);
               }}
-              className="flex items-center space-x-2 px-5 py-2.5 rounded-lg bg-[#37352f] text-white hover:bg-[#201f1d] font-semibold text-xs transition-colors"
+              className="flex items-center space-x-2 px-5 py-2.5 bg-[#111111] text-white hover:bg-[#333333] font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-[#111111]"
             >
-              <span>{language === "zh" ? "下一步：复习节奏与作息" : "Next: Pacing & Schedule"}</span>
+              <span>[{language === "zh" ? "下一步：复习节奏与作息" : "NEXT: PACING & SCHEDULE"}]</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -1052,27 +1046,27 @@ export function AddExamSubjectWizard({
       {/* ================= STEP 3: PACING & SCHEDULE PREFERENCES ================= */}
       {step === 3 && (
         <div className="space-y-6">
-          <div className="bg-white p-5 rounded-xl border border-[#e9e9e7] space-y-4">
-            <h3 className="text-sm font-bold text-[#37352f] flex items-center space-x-2 border-b border-[#e9e9e7] pb-2.5">
-              <Sliders className="w-4 h-4 text-[#2b78a0]" />
-              <span>{language === "zh" ? "复习节奏与智能算法设置" : "Study Pacing & Optimization Strategy"}</span>
+          <div className="bg-white p-5 border border-[#111111] space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-2 border-b border-[#111111] pb-2.5">
+              <Sliders className="w-4 h-4 text-[#111111]" />
+              <span>[// {language === "zh" ? "复习节奏与智能算法设置" : "STUDY PACING & OPTIMIZATION STRATEGY"}]</span>
             </h3>
 
             {/* Attached Documents Summary */}
-            <div className="p-3 bg-[#f7f6f3] rounded-lg border border-[#e9e9e7] flex items-center justify-between text-xs">
-              <span className="text-[#787774]">
-                {language === "zh" ? "已关联课程资料：" : "Linked Course Documents: "}
-                <span className="font-semibold text-[#37352f]">{courseDocuments.length} {language === "zh" ? "份文件" : "files"}</span>
+            <div className="p-3 bg-[#fafafa] border border-[#111111] flex items-center justify-between text-xs font-bold">
+              <span className="text-[#666666]">
+                [{language === "zh" ? "已关联课程资料" : "LINKED DOCS"}]:{" "}
+                <span className="text-[#111111]">{courseDocuments.length} {language === "zh" ? "份文件" : "files"}</span>
               </span>
-              <span className="text-[#787774]">
-                {language === "zh" ? "核心考点数：" : "Total Topics: "}
-                <span className="font-semibold text-[#37352f]">{topics.length} {language === "zh" ? "个" : "units"}</span>
+              <span className="text-[#666666]">
+                [{language === "zh" ? "核心考点数" : "TOTAL TOPICS"}]:{" "}
+                <span className="text-[#111111]">{topics.length} {language === "zh" ? "个" : "units"}</span>
               </span>
             </div>
 
             {/* Study Pacing Mode */}
             <div>
-              <label className="block text-xs font-semibold text-[#37352f] mb-2">
+              <label className="block text-xs font-bold uppercase text-[#111111] mb-2">
                 {language === "zh" ? "学习节奏模式 (Pacing Archetype)" : "Study Pacing Archetype"}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
@@ -1101,16 +1095,16 @@ export function AddExamSubjectWizard({
                   <button
                     key={p.id}
                     onClick={() => setStudyPace(p.id as any)}
-                    className={`p-3 rounded-lg text-left border transition-all ${
+                    className={`p-3 text-left border transition-colors cursor-pointer ${
                       studyPace === p.id
-                        ? "bg-[#f0f7f5] border-[#2b78a0] text-[#37352f] shadow-xs"
-                        : "bg-white border-[#e9e9e7] hover:bg-[#fafaf9] text-[#787774]"
+                        ? "bg-[#111111] text-white border-[#111111]"
+                        : "bg-white border-[#111111] hover:bg-[#fafafa] text-[#111111]"
                     }`}
                   >
-                    <span className="block font-semibold text-xs text-[#37352f] mb-1">
-                      {p.nameZh}
+                    <span className="block font-bold text-xs mb-1">
+                      [{p.nameZh}]
                     </span>
-                    <span className="text-[10px] block leading-snug">
+                    <span className={`text-[10px] block leading-snug ${studyPace === p.id ? "text-[#cccccc]" : "text-[#666666]"}`}>
                       {p.descZh}
                     </span>
                   </button>
@@ -1121,13 +1115,13 @@ export function AddExamSubjectWizard({
             {/* Session Length & Strategic Milestones */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
               <div>
-                <label className="block text-xs font-semibold text-[#37352f] mb-1">
+                <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
                   {language === "zh" ? "单次专注块时长" : "Session Duration"}
                 </label>
                 <select
                   value={sessionLength}
                   onChange={(e) => setSessionLength(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-xs rounded-md border border-[#d3d2cf] bg-white outline-none"
+                  className="w-full px-3 py-2 text-xs border border-[#111111] bg-white text-[#111111] font-bold outline-none font-mono"
                 >
                   <option value={25}>25 {language === "zh" ? "分钟 (标准番茄钟)" : "min (Pomodoro)"}</option>
                   <option value={45}>45 {language === "zh" ? "分钟 (高校标准课时)" : "min (Standard)"}</option>
@@ -1137,40 +1131,40 @@ export function AddExamSubjectWizard({
               </div>
 
               <div className="flex items-center">
-                <label className="flex items-center space-x-2 text-xs font-semibold text-[#37352f] cursor-pointer">
+                <label className="flex items-center space-x-2 text-xs font-bold text-[#111111] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={includePracticeExams}
                     onChange={(e) => setIncludePracticeExams(e.target.checked)}
-                    className="rounded text-[#2b78a0] focus:ring-0 w-4 h-4"
+                    className="accent-[#111111] w-4 h-4"
                   />
-                  <span>{language === "zh" ? "智能穿插全真阶段模考" : "Schedule Mock Exams"}</span>
+                  <span>[{language === "zh" ? "智能穿插全真阶段模考" : "SCHEDULE MOCK EXAMS"}]</span>
                 </label>
               </div>
 
               <div className="flex items-center">
-                <label className="flex items-center space-x-2 text-xs font-semibold text-[#37352f] cursor-pointer">
+                <label className="flex items-center space-x-2 text-xs font-bold text-[#111111] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={includeBufferDays}
                     onChange={(e) => setIncludeBufferDays(e.target.checked)}
-                    className="rounded text-[#2b78a0] focus:ring-0 w-4 h-4"
+                    className="accent-[#111111] w-4 h-4"
                   />
-                  <span>{language === "zh" ? "预留考前缓冲与查漏日" : "Include Buffer Days"}</span>
+                  <span>[{language === "zh" ? "预留考前缓冲与查漏日" : "INCLUDE BUFFER DAYS"}]</span>
                 </label>
               </div>
             </div>
 
             {/* RAG Personalized User Need & Task Allocation Focus */}
-            <div className="pt-2 border-t border-[#e9e9e7] space-y-3">
+            <div className="pt-2 border-t border-[#111111] space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-[#37352f] flex items-center space-x-1.5">
-                  <BrainCircuit className="w-3.5 h-3.5 text-[#2b78a0]" />
-                  <span>{language === "zh" ? "AI RAG 资料检索与个性化任务分配偏好" : "AI RAG Task Allocation Priority"}</span>
+                <label className="text-xs font-bold uppercase text-[#111111] flex items-center space-x-1.5">
+                  <BrainCircuit className="w-3.5 h-3.5 text-[#111111]" />
+                  <span>{language === "zh" ? "[AI RAG 资料检索与任务分配偏好]" : "[AI RAG TASK ALLOCATION PRIORITY]"}</span>
                 </label>
-                <span className="text-[11px] text-[#448361] bg-[#edf3ec] px-2 py-0.5 rounded font-medium flex items-center space-x-1">
+                <span className="text-[11px] text-white bg-[#111111] px-2 py-0.5 font-bold flex items-center space-x-1">
                   <Zap className="w-3 h-3" />
-                  <span>{language === "zh" ? `RAG 引擎就绪 (${courseDocuments.length} 份资料)` : "RAG Ready"}</span>
+                  <span>{language === "zh" ? `RAG 就绪 (${courseDocuments.length} 份)` : "RAG READY"}</span>
                 </span>
               </div>
 
@@ -1202,22 +1196,22 @@ export function AddExamSubjectWizard({
                     key={item.id}
                     type="button"
                     onClick={() => setUserNeedFocusArea(item.id)}
-                    className={`p-2.5 rounded-lg text-left border transition-all ${
+                    className={`p-2.5 text-left border transition-colors cursor-pointer ${
                       userNeedFocusArea === item.id
-                        ? "bg-[#ebf5fb] border-[#2b78a0] text-[#37352f] shadow-2xs font-semibold"
-                        : "bg-white border-[#e9e9e7] hover:bg-[#fafaf9] text-[#787774]"
+                        ? "bg-[#111111] text-white border-[#111111]"
+                        : "bg-white border-[#111111] hover:bg-[#fafafa] text-[#111111]"
                     }`}
                   >
-                    <span className="text-xs block text-[#37352f] mb-0.5">{item.titleZh}</span>
-                    <span className="text-[10px] text-[#787774] block leading-snug font-normal">{item.descZh}</span>
+                    <span className="text-xs block font-bold mb-0.5">{item.titleZh}</span>
+                    <span className={`text-[10px] block leading-snug ${userNeedFocusArea === item.id ? "text-[#cccccc]" : "text-[#666666]"}`}>{item.descZh}</span>
                   </button>
                 ))}
               </div>
 
               {/* Custom Student Directive Input */}
               <div className="space-y-1">
-                <label className="text-[11px] font-medium text-[#5a5a57] block">
-                  {language === "zh" ? "💬 自定义学生需求 / 特殊任务分配指示：" : "Custom Study Instructions:"}
+                <label className="text-[11px] font-bold text-[#111111] block uppercase">
+                  [// {language === "zh" ? "自定义学生需求 / 特殊任务分配指示" : "CUSTOM STUDY INSTRUCTIONS"}]
                 </label>
                 <input
                   type="text"
@@ -1228,16 +1222,16 @@ export function AddExamSubjectWizard({
                       ? "例如：我数学基础稍弱，请把计算大题拆解为更小的时间块；重点复习前四章..."
                       : "e.g., Focus extra time on dynamic programming; break calculations into smaller chunks..."
                   }
-                  className="w-full px-3 py-2 text-xs rounded-md border border-[#d3d2cf] bg-white outline-none focus:border-[#2b78a0]"
+                  className="w-full px-3 py-2 text-xs border border-[#111111] bg-[#fafafa] focus:bg-white outline-none font-mono"
                 />
               </div>
             </div>
 
             {/* Weak topics selection */}
             {topics.length > 0 && (
-              <div className="pt-2">
-                <label className="block text-xs font-semibold text-[#37352f] mb-1.5">
-                  {language === "zh" ? "指定重点攻坚或薄弱知识模块（AI 将分配额外巩固学时）：" : "Select Weak Topics for Extra Focus:"}
+              <div className="pt-2 border-t border-[#111111]">
+                <label className="block text-xs font-bold uppercase text-[#111111] mb-1.5">
+                  {language === "zh" ? "[指定重点攻坚或薄弱知识模块（AI 将分配额外巩固学时）]" : "[SELECT WEAK TOPICS FOR EXTRA FOCUS]:"}
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {topics.map((t) => {
@@ -1253,14 +1247,14 @@ export function AddExamSubjectWizard({
                             setSelectedWeakTopics([...selectedWeakTopics, t.title]);
                           }
                         }}
-                        className={`text-xs px-2.5 py-1 rounded-full border transition-all inline-flex items-center space-x-1 ${
+                        className={`text-xs px-2.5 py-1 border transition-colors inline-flex items-center space-x-1 cursor-pointer font-bold ${
                           isSelected
-                            ? "bg-[#fbf3f2] text-[#d44c47] border-[#f5d5d3] font-semibold"
-                            : "bg-white text-[#787774] border-[#e9e9e7] hover:bg-[#efefed]"
+                            ? "bg-[#111111] text-white border-[#111111]"
+                            : "bg-white text-[#111111] border-[#111111] hover:bg-[#fafafa]"
                         }`}
                       >
-                        {isSelected && <Zap className="w-3 h-3 text-[#d44c47] shrink-0" />}
-                        <span>{t.title}</span>
+                        {isSelected && <Zap className="w-3 h-3 text-white shrink-0" />}
+                        <span>[{t.title}]</span>
                       </button>
                     );
                   })}
@@ -1270,29 +1264,29 @@ export function AddExamSubjectWizard({
           </div>
 
           {/* Navigation Actions */}
-          <div className="flex items-center justify-between pt-4">
+          <div className="flex items-center justify-between pt-2">
             <button
               onClick={() => setStep(2)}
-              className="flex items-center space-x-1.5 px-4 py-2 rounded-lg border border-[#e9e9e7] hover:bg-[#efefed] text-xs font-semibold text-[#37352f]"
+              className="flex items-center space-x-1.5 px-4 py-2 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-xs font-bold text-[#111111] cursor-pointer transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>{language === "zh" ? "上一步" : "Back"}</span>
+              <span>[{language === "zh" ? "上一步" : "BACK"}]</span>
             </button>
 
             <button
               onClick={handleGenerateFinalPlan}
               disabled={isGenerating}
-              className="flex items-center space-x-2 px-6 py-3 rounded-lg bg-[#37352f] hover:bg-[#201f1d] disabled:opacity-50 text-white font-bold text-xs shadow-sm transition-all"
+              className="flex items-center space-x-2 px-6 py-3 bg-[#111111] hover:bg-[#333333] disabled:opacity-40 text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-[#111111]"
             >
               {isGenerating ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>{language === "zh" ? "AI 正在生成全新科目完整备考日历..." : "Generating Full Subject Plan..."}</span>
+                  <span>[{language === "zh" ? "AI 正在生成全新科目完整备考日历..." : "GENERATING FULL SUBJECT PLAN..."}]</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4 text-amber-300" />
-                  <span>{language === "zh" ? "一键生成全新科目备考计划" : "Generate Subject Study Plan"}</span>
+                  <Sparkles className="w-4 h-4" />
+                  <span>[{language === "zh" ? "一键生成全新科目备考计划" : "GENERATE SUBJECT STUDY PLAN"}]</span>
                 </>
               )}
             </button>
@@ -1302,35 +1296,35 @@ export function AddExamSubjectWizard({
 
       {/* Document Text Preview Modal */}
       {previewDoc && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-[#e9e9e7]">
-            <div className="p-4 border-b border-[#e9e9e7] flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white max-w-2xl w-full max-h-[85vh] flex flex-col border border-[#111111] font-mono">
+            <div className="p-4 border-b border-[#111111] flex items-center justify-between bg-[#fafafa]">
               <div className="flex items-center space-x-2 min-w-0">
-                <FileText className="w-4 h-4 text-[#2b78a0]" />
-                <span className="font-bold text-sm text-[#37352f] truncate">{previewDoc.name}</span>
-                <span className="text-[11px] px-2 py-0.5 bg-[#efefed] text-[#787774] rounded font-medium">
-                  {previewDoc.type}
+                <FileText className="w-4 h-4 text-[#111111]" />
+                <span className="font-bold text-xs uppercase text-[#111111] truncate">{previewDoc.name}</span>
+                <span className="text-[10px] px-2 py-0.5 border border-[#111111] bg-white text-[#111111] font-bold">
+                  [{previewDoc.type}]
                 </span>
               </div>
               <button
                 onClick={() => setPreviewDoc(null)}
-                className="p-1 rounded-md text-[#787774] hover:text-[#37352f] hover:bg-[#efefed]"
+                className="p-1 text-[#111111] hover:bg-[#111111] hover:text-white cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-4 overflow-y-auto flex-1 font-mono text-xs text-[#37352f] bg-[#fafaf9] whitespace-pre-wrap leading-relaxed">
+            <div className="p-4 overflow-y-auto flex-1 font-mono text-xs text-[#111111] bg-white whitespace-pre-wrap leading-relaxed">
               {previewDoc.content || (language === "zh" ? "文档内容为空" : "Empty document content")}
             </div>
 
-            <div className="p-3 border-t border-[#e9e9e7] flex items-center justify-between text-xs text-[#787774]">
-              <span>{previewDoc.content.length} {language === "zh" ? "字符" : "characters"}</span>
+            <div className="p-3 border-t border-[#111111] flex items-center justify-between text-xs text-[#666666] bg-[#fafafa]">
+              <span className="font-bold">[{previewDoc.content.length} {language === "zh" ? "字符" : "CHARS"}]</span>
               <button
                 onClick={() => setPreviewDoc(null)}
-                className="px-4 py-1.5 rounded bg-[#37352f] text-white text-xs font-semibold"
+                className="px-4 py-1.5 bg-[#111111] text-white text-xs font-bold uppercase hover:bg-[#333333] border border-[#111111] cursor-pointer"
               >
-                {language === "zh" ? "关闭预览" : "Close"}
+                [{language === "zh" ? "关闭预览" : "CLOSE"}]
               </button>
             </div>
           </div>

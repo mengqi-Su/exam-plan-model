@@ -325,22 +325,22 @@ export function SettingsModal({
   const totalTasks = plans.reduce((acc, p) => acc + (p.tasks?.length || 0), 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
-      <div className="bg-white rounded-xl shadow-2xl border border-[#e9e9e7] w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden text-[#37352f]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none">
+      <div className="bg-white border border-[#111111] w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden text-[#111111] font-mono shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#e9e9e7] bg-[#f7f6f3]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#111111] bg-[#fafafa]">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#37352f] text-white flex items-center justify-center shadow-xs">
-              <Settings className="w-4 h-4" />
-            </div>
+            <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">
+              [SETTINGS]
+            </span>
             <div>
-              <h2 className="text-base font-semibold text-[#37352f] flex items-center space-x-2">
+              <h2 className="text-sm font-bold uppercase tracking-tight text-[#111111] flex items-center space-x-2">
                 <span>{t("settingsTitle")}</span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#e9e9e7] text-[#5a5a57]">
-                  {APP_VERSION_DATA.version}
+                <span className="text-[10px] px-1.5 py-0.2 border border-[#111111] bg-white text-[#111111]">
+                  v{APP_VERSION_DATA.version}
                 </span>
               </h2>
-              <p className="text-xs text-[#787774]">
+              <p className="text-[11px] text-[#666666]">
                 {language === "zh"
                   ? "管理备考偏好、学员账号、多语言与系统环境"
                   : "Manage preferences, student profiles, localization, and system state"}
@@ -349,7 +349,7 @@ export function SettingsModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md text-[#9b9a97] hover:text-[#37352f] hover:bg-[#efefed] transition-colors"
+            className="p-1 text-[#111111] hover:bg-[#111111] hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -357,9 +357,9 @@ export function SettingsModal({
 
         {/* Notification toast */}
         {notificationMsg && (
-          <div className="bg-[#448361] text-white text-xs px-4 py-2 flex items-center justify-between transition-all">
+          <div className="bg-[#111111] text-white text-xs px-4 py-2 flex items-center justify-between transition-all border-b border-[#111111]">
             <span className="flex items-center space-x-1.5">
-              <Check className="w-3.5 h-3.5" />
+              <span>[✓]</span>
               <span>{notificationMsg}</span>
             </span>
           </div>
@@ -368,72 +368,68 @@ export function SettingsModal({
         {/* Content Body: Sidebar tabs + panel */}
         <div className="flex flex-1 overflow-hidden">
           {/* Navigation Sidebar */}
-          <div className="w-52 bg-[#faf9f6] border-r border-[#e9e9e7] p-3 space-y-1 shrink-0 overflow-y-auto">
+          <div className="w-48 bg-[#fafafa] border-r border-[#111111] p-3 space-y-1 shrink-0 overflow-y-auto font-mono">
             <button
               onClick={() => setActiveTab("general")}
-              className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
+              className={`w-full flex items-center space-x-2 px-3 py-2 text-xs font-bold transition-colors text-left cursor-pointer border ${
                 activeTab === "general"
-                  ? "bg-[#37352f] text-white shadow-xs"
-                  : "text-[#5a5a57] hover:bg-[#efefed] hover:text-[#37352f]"
+                  ? "bg-[#111111] text-white border-[#111111]"
+                  : "bg-white text-[#666666] border-[#e5e5e5] hover:border-[#111111] hover:text-[#111111]"
               }`}
             >
-              <Settings className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{t("settingsTabGeneral")}</span>
             </button>
 
             <button
               onClick={() => setActiveTab("account")}
-              className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
+              className={`w-full flex items-center space-x-2 px-3 py-2 text-xs font-bold transition-colors text-left cursor-pointer border ${
                 activeTab === "account"
-                  ? "bg-[#37352f] text-white shadow-xs"
-                  : "text-[#5a5a57] hover:bg-[#efefed] hover:text-[#37352f]"
+                  ? "bg-[#111111] text-white border-[#111111]"
+                  : "bg-white text-[#666666] border-[#e5e5e5] hover:border-[#111111] hover:text-[#111111]"
               }`}
             >
-              <User className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{t("settingsTabAccount")}</span>
               {userProfile.isLoggedIn && (
-                <span className="w-2 h-2 rounded-full bg-[#448361] ml-auto shrink-0" />
+                <span className="w-1.5 h-1.5 bg-[#111111] ml-auto shrink-0" />
               )}
             </button>
 
             <button
               onClick={() => setActiveTab("language")}
-              className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
+              className={`w-full flex items-center space-x-2 px-3 py-2 text-xs font-bold transition-colors text-left cursor-pointer border ${
                 activeTab === "language"
-                  ? "bg-[#37352f] text-white shadow-xs"
-                  : "text-[#5a5a57] hover:bg-[#efefed] hover:text-[#37352f]"
+                  ? "bg-[#111111] text-white border-[#111111]"
+                  : "bg-white text-[#666666] border-[#e5e5e5] hover:border-[#111111] hover:text-[#111111]"
               }`}
             >
-              <Languages className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{t("settingsTabLanguage")}</span>
-              <span className="text-[10px] ml-auto font-mono px-1 rounded bg-[#e9e9e7] text-[#5a5a57]">
-                {language.toUpperCase()}
+              <span className="text-[10px] ml-auto">
+                [{language.toUpperCase()}]
               </span>
             </button>
 
             <button
               onClick={() => setActiveTab("version")}
-              className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors text-left ${
+              className={`w-full flex items-center space-x-2 px-3 py-2 text-xs font-bold transition-colors text-left cursor-pointer border ${
                 activeTab === "version"
-                  ? "bg-[#37352f] text-white shadow-xs"
-                  : "text-[#5a5a57] hover:bg-[#efefed] hover:text-[#37352f]"
+                  ? "bg-[#111111] text-white border-[#111111]"
+                  : "bg-white text-[#666666] border-[#e5e5e5] hover:border-[#111111] hover:text-[#111111]"
               }`}
             >
-              <Info className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{t("settingsTabVersion")}</span>
             </button>
           </div>
 
           {/* Tab Panel Content */}
-          <div className="flex-1 p-6 overflow-y-auto bg-white space-y-6">
+          <div className="flex-1 p-6 overflow-y-auto bg-white space-y-6 font-mono">
             {/* 1. GENERAL CONFIGURATION TAB */}
             {activeTab === "general" && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-sm font-semibold text-[#37352f] mb-1">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] mb-1">
                     {t("settingsTabGeneral")}
                   </h3>
-                  <p className="text-xs text-[#787774]">
+                  <p className="text-[11px] text-[#666666]">
                     {language === "zh"
                       ? "定制每日专注节奏、音效提醒与备考重排策略。"
                       : "Configure Pomodoro focus rhythms, audio notifications, and adaptive rebalance algorithms."}
@@ -441,16 +437,16 @@ export function SettingsModal({
                 </div>
 
                 {/* Focus Duration */}
-                <div className="p-4 rounded-lg border border-[#e9e9e7] bg-[#fbfbfa] space-y-3">
+                <div className="p-4 border border-[#111111] bg-white space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-[#2b78a0]" />
-                      <span className="text-xs font-medium text-[#37352f]">
+                      <Clock className="w-4 h-4 text-[#111111]" />
+                      <span className="text-xs font-bold uppercase text-[#111111]">
                         {t("settingsFocusDuration")}
                       </span>
                     </div>
-                    <span className="text-xs font-semibold text-[#2b78a0]">
-                      {settings.defaultFocusDuration} {language === "zh" ? "分钟 / 节" : "mins / session"}
+                    <span className="text-xs font-bold text-[#111111]">
+                      {settings.defaultFocusDuration} {language === "zh" ? "分钟 / 节" : "MINS / SESSION"}
                     </span>
                   </div>
                   <div className="grid grid-cols-4 gap-2">
@@ -462,16 +458,16 @@ export function SettingsModal({
                           onUpdateSettings(upd);
                           showToast(t("settingsSavedSuccess"));
                         }}
-                        className={`py-2 rounded-md text-xs font-medium border transition-all ${
+                        className={`py-2 text-xs font-bold border transition-all cursor-pointer ${
                           settings.defaultFocusDuration === mins
-                            ? "bg-[#37352f] text-white border-[#37352f] shadow-xs"
-                            : "bg-white text-[#5a5a57] border-[#e9e9e7] hover:border-[#37352f]"
+                            ? "bg-[#111111] text-white border-[#111111]"
+                            : "bg-white text-[#666666] border-[#111111] hover:bg-[#ededed] hover:text-[#111111]"
                         }`}
                       >
-                        {mins} {language === "zh" ? "分钟" : "min"}
-                        {mins === 25 && " (番茄)"}
-                        {mins === 45 && " (标准)"}
-                        {mins === 60 && " (深度)"}
+                        {mins}M
+                        {mins === 25 && " (POMO)"}
+                        {mins === 45 && " (STD)"}
+                        {mins === 60 && " (DEEP)"}
                       </button>
                     ))}
                   </div>
@@ -479,14 +475,14 @@ export function SettingsModal({
 
                 {/* Sound and Reminders */}
                 <div className="space-y-3">
-                  <div className="p-4 rounded-lg border border-[#e9e9e7] bg-[#fbfbfa] flex items-center justify-between">
+                  <div className="p-4 border border-[#111111] bg-white flex items-center justify-between">
                     <div className="flex items-start space-x-3">
-                      <Volume2 className="w-4 h-4 text-[#448361] mt-0.5" />
+                      <Volume2 className="w-4 h-4 text-[#111111] mt-0.5" />
                       <div>
-                        <div className="text-xs font-medium text-[#37352f]">
+                        <div className="text-xs font-bold uppercase text-[#111111]">
                           {t("settingsSoundAlerts")}
                         </div>
-                        <div className="text-[11px] text-[#787774]">
+                        <div className="text-[11px] text-[#666666]">
                           {t("settingsSoundAlertsDesc")}
                         </div>
                       </div>
@@ -499,18 +495,18 @@ export function SettingsModal({
                         onUpdateSettings(upd);
                         showToast(t("settingsSavedSuccess"));
                       }}
-                      className="w-4 h-4 accent-[#448361] rounded cursor-pointer"
+                      className="w-4 h-4 accent-[#111111] cursor-pointer"
                     />
                   </div>
 
-                  <div className="p-4 rounded-lg border border-[#e9e9e7] bg-[#fbfbfa] flex items-center justify-between">
+                  <div className="p-4 border border-[#111111] bg-white flex items-center justify-between">
                     <div className="flex items-start space-x-3">
-                      <Bell className="w-4 h-4 text-[#cb912f] mt-0.5" />
+                      <Bell className="w-4 h-4 text-[#111111] mt-0.5" />
                       <div>
-                        <div className="text-xs font-medium text-[#37352f]">
+                        <div className="text-xs font-bold uppercase text-[#111111]">
                           {t("settingsDailyReminders")}
                         </div>
-                        <div className="text-[11px] text-[#787774]">
+                        <div className="text-[11px] text-[#666666]">
                           {t("settingsDailyRemindersDesc")}
                         </div>
                       </div>
@@ -523,21 +519,21 @@ export function SettingsModal({
                         onUpdateSettings(upd);
                         showToast(t("settingsSavedSuccess"));
                       }}
-                      className="w-4 h-4 accent-[#448361] rounded cursor-pointer"
+                      className="w-4 h-4 accent-[#111111] cursor-pointer"
                     />
                   </div>
                 </div>
 
                 {/* Adaptive Rebalance Sensitivity */}
-                <div className="p-4 rounded-lg border border-[#e9e9e7] bg-[#fbfbfa] space-y-3">
+                <div className="p-4 border border-[#111111] bg-white space-y-3">
                   <div>
                     <div className="flex items-center space-x-2">
-                      <RotateCcw className="w-4 h-4 text-[#937264]" />
-                      <span className="text-xs font-medium text-[#37352f]">
+                      <RotateCcw className="w-4 h-4 text-[#111111]" />
+                      <span className="text-xs font-bold uppercase text-[#111111]">
                         {t("settingsRebalanceSens")}
                       </span>
                     </div>
-                    <p className="text-[11px] text-[#787774] mt-0.5">
+                    <p className="text-[11px] text-[#666666] mt-0.5">
                       {t("settingsRebalanceSensDesc")}
                     </p>
                   </div>
@@ -558,19 +554,25 @@ export function SettingsModal({
                           onUpdateSettings(upd);
                           showToast(t("settingsSavedSuccess"));
                         }}
-                        className={`p-2.5 rounded-lg text-left text-xs border transition-all ${
+                        className={`p-2.5 text-left text-xs border transition-all cursor-pointer ${
                           settings.rebalanceSensitivity === item.id
-                            ? "bg-white border-[#37352f] ring-1 ring-[#37352f] shadow-xs"
-                            : "bg-white border-[#e9e9e7] text-[#5a5a57] hover:border-[#dfdfde]"
+                            ? "bg-[#111111] text-white border-[#111111]"
+                            : "bg-white border-[#111111] text-[#666666] hover:bg-[#ededed] hover:text-[#111111]"
                         }`}
                       >
-                        <div className="font-medium text-[#37352f] flex items-center justify-between">
-                          <span>{item.id === "high" ? "🔥 高效紧凑" : item.id === "balanced" ? "⚖️ 智能均衡" : "🛡️ 稳健缓冲"}</span>
+                        <div className="font-bold flex items-center justify-between">
+                          <span>
+                            {item.id === "high" 
+                              ? (language === "zh" ? "[高敏感度]" : "[HIGH]") 
+                              : item.id === "balanced" 
+                              ? (language === "zh" ? "[标准平衡]" : "[BALANCED]") 
+                              : (language === "zh" ? "[保守平稳]" : "[BUFFERED]")}
+                          </span>
                           {settings.rebalanceSensitivity === item.id && (
-                            <Check className="w-3 h-3 text-[#448361]" />
+                            <span className="text-xs font-bold">[✓]</span>
                           )}
                         </div>
-                        <div className="text-[10px] text-[#787774] mt-1 line-clamp-2">
+                        <div className="text-[10px] opacity-80 mt-1 line-clamp-2">
                           {item.label}
                         </div>
                       </button>
@@ -579,25 +581,25 @@ export function SettingsModal({
                 </div>
 
                 {/* Data Backup & Workspace Reset */}
-                <div className="p-4 rounded-lg border border-[#e9e9e7] bg-[#fbfbfa] space-y-3">
+                <div className="p-4 border border-[#111111] bg-white space-y-3">
                   <div className="flex items-center space-x-2">
-                    <Database className="w-4 h-4 text-[#5a5a57]" />
-                    <span className="text-xs font-medium text-[#37352f]">
+                    <Database className="w-4 h-4 text-[#111111]" />
+                    <span className="text-xs font-bold uppercase text-[#111111]">
                       {t("settingsDataManage")}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2 pt-1">
                     <button
                       onClick={handleExportJson}
-                      className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md bg-white border border-[#e9e9e7] hover:bg-[#efefed] text-xs font-medium text-[#37352f] transition-colors"
+                      className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#111111] hover:bg-[#ededed] text-xs font-bold text-[#111111] transition-colors cursor-pointer"
                     >
-                      <Download className="w-3.5 h-3.5 text-[#2b78a0]" />
-                      <span>{t("settingsExportJson")}</span>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>[{t("settingsExportJson")}]</span>
                     </button>
 
-                    <label className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md bg-white border border-[#e9e9e7] hover:bg-[#efefed] text-xs font-medium text-[#37352f] transition-colors cursor-pointer">
-                      <Upload className="w-3.5 h-3.5 text-[#448361]" />
-                      <span>{t("settingsImportJson")}</span>
+                    <label className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#111111] hover:bg-[#ededed] text-xs font-bold text-[#111111] transition-colors cursor-pointer">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>[{t("settingsImportJson")}]</span>
                       <input
                         type="file"
                         accept=".json"
@@ -624,10 +626,10 @@ export function SettingsModal({
                             );
                           }
                         }}
-                        className="flex items-center space-x-1.5 px-3 py-1.5 rounded-md bg-white border border-[#e9e9e7] hover:bg-[#f4eeee] text-xs font-medium text-[#937264] transition-colors"
+                        className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#111111] hover:bg-[#ededed] text-xs font-bold text-[#111111] transition-colors cursor-pointer"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
-                        <span>{t("settingsResetSample")}</span>
+                        <span>[{t("settingsResetSample")}]</span>
                       </button>
                     )}
                   </div>
@@ -639,10 +641,10 @@ export function SettingsModal({
             {activeTab === "account" && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-sm font-semibold text-[#37352f] mb-1">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] mb-1">
                     {t("settingsTabAccount")}
                   </h3>
-                  <p className="text-xs text-[#787774]">
+                  <p className="text-[11px] text-[#666666]">
                     {language === "zh"
                       ? "管理学员身份、登录状态与跨科目学习档案。"
                       : "Manage student account credentials, profile details, and multi-course records."}
@@ -651,10 +653,10 @@ export function SettingsModal({
 
                 {/* Logged in User Card */}
                 {userProfile.isLoggedIn ? (
-                  <div className="p-5 rounded-xl border border-[#e9e9e7] bg-[#fbfbfa] space-y-4">
+                  <div className="p-5 border border-[#111111] bg-white space-y-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center space-x-3.5">
-                        <div className="w-12 h-12 rounded-xl bg-[#37352f] text-white flex items-center justify-center text-xl shadow-xs overflow-hidden">
+                        <div className="w-10 h-10 border border-[#111111] bg-[#111111] text-white flex items-center justify-center text-sm font-bold overflow-hidden">
                           {userProfile.avatar?.startsWith("http") ? (
                             <img 
                               src={userProfile.avatar} 
@@ -663,99 +665,95 @@ export function SettingsModal({
                               referrerPolicy="no-referrer"
                             />
                           ) : (
-                            userProfile.avatar || "🎓"
+                            userProfile.name?.charAt(0) || "U"
                           )}
                         </div>
                         <div>
                           <div className="flex items-center space-x-2">
-                            <span className="font-semibold text-sm text-[#37352f]">
+                            <span className="font-bold text-xs uppercase text-[#111111]">
                               {userProfile.name}
                             </span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#edf3ec] text-[#448361] border border-[#d2e3d0] flex items-center space-x-1">
-                              <ShieldCheck className="w-3 h-3" />
-                              <span>{userProfile.membershipTier || "Pro Student"}</span>
+                            <span className="px-1.5 py-0.2 text-[10px] font-bold bg-[#111111] text-white">
+                              {userProfile.membershipTier || "PRO"}
                             </span>
                           </div>
-                          <div className="text-xs text-[#787774] mt-0.5">
+                          <div className="text-[11px] text-[#666666] mt-0.5">
                             {userProfile.email}
                           </div>
-                          <div className="text-[11px] text-[#9b9a97] mt-0.5">
-                            {userProfile.institution || "Online Scholar"} · {userProfile.major || "Active"}
+                          <div className="text-[10px] text-[#999999] mt-0.5">
+                            {userProfile.institution || "Student"} // {userProfile.major || "Major"}
                           </div>
                         </div>
                       </div>
 
                       <button
                         onClick={handleLogout}
-                        className="flex items-center space-x-1 px-2.5 py-1.5 rounded-md border border-[#e9e9e7] hover:bg-[#f4eeee] text-xs text-[#937264] transition-colors"
+                        className="flex items-center space-x-1 px-2.5 py-1 bg-white border border-[#111111] hover:bg-[#ededed] text-xs font-bold text-[#111111] transition-colors cursor-pointer"
                       >
                         <LogOut className="w-3.5 h-3.5" />
-                        <span>{t("userLogout")}</span>
+                        <span>[{t("userLogout")}]</span>
                       </button>
                     </div>
 
                     {/* Cloud Sync Status Indicator */}
-                    <div className="p-3 rounded-lg bg-[#f0f7f9] border border-[#2b78a0]/20 flex items-center justify-between">
+                    <div className="p-3 bg-[#fafafa] border border-[#111111] flex items-center justify-between">
                       <div className="flex items-center space-x-2.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-[#448361] animate-pulse" />
                         <div>
-                          <div className="text-xs font-semibold text-[#2b78a0]">
-                            {language === "zh" ? "☁️ Firebase 云端数据库已实时连通" : "☁️ Firebase Firestore Cloud Synced"}
+                          <div className="text-xs font-bold uppercase text-[#111111]">
+                            [{language === "zh" ? "云端同步已激活" : "CLOUD SYNC ACTIVE"}]
                           </div>
-                          <div className="text-[11px] text-[#787774]">
-                            {language === "zh"
-                              ? `当前已为 UID: ${userProfile.id.slice(0, 10)}... 开启多设备实时云端同步`
-                              : `Real-time cloud database active for UID: ${userProfile.id.slice(0, 10)}...`}
+                          <div className="text-[10px] text-[#666666]">
+                            UID: {userProfile.id.slice(0, 12)}...
                           </div>
                         </div>
                       </div>
                       <button
                         onClick={handleSyncLocalToCloud}
                         disabled={isSyncingCloud}
-                        className="px-3 py-1.5 rounded bg-white hover:bg-[#2b78a0] hover:text-white border border-[#2b78a0]/30 text-xs font-medium text-[#2b78a0] transition-colors shadow-xs flex items-center space-x-1"
+                        className="px-3 py-1 bg-white hover:bg-[#111111] hover:text-white border border-[#111111] text-xs font-bold text-[#111111] transition-colors flex items-center space-x-1 cursor-pointer"
                       >
                         <Upload className="w-3 h-3" />
-                        <span>{isSyncingCloud ? (language === "zh" ? "正在同步..." : "Syncing...") : (language === "zh" ? "立即同步至云端" : "Sync to Cloud")}</span>
+                        <span>{isSyncingCloud ? (language === "zh" ? "同步中..." : "SYNCING...") : (language === "zh" ? "同步至云端" : "SYNC CLOUD")}</span>
                       </button>
                     </div>
 
                     {/* Quick Stats Grid */}
-                    <div className="grid grid-cols-3 gap-3 pt-2 border-t border-[#e9e9e7]">
-                      <div className="p-2.5 rounded-lg bg-white border border-[#e9e9e7]">
-                        <div className="text-[10px] text-[#787774]">
+                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#111111]">
+                      <div className="p-2.5 bg-white border border-[#111111]">
+                        <div className="text-[10px] text-[#666666] uppercase">
                           {t("userStudyStreak")}
                         </div>
-                        <div className="text-base font-bold text-[#cb912f] mt-0.5">
-                          🔥 {userProfile.studyStreakDays} {language === "zh" ? "天" : "days"}
+                        <div className="text-sm font-bold text-[#111111] mt-0.5">
+                          {userProfile.studyStreakDays} {language === "zh" ? "天" : "DAYS"}
                         </div>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-white border border-[#e9e9e7]">
-                        <div className="text-[10px] text-[#787774]">
+                      <div className="p-2.5 bg-white border border-[#111111]">
+                        <div className="text-[10px] text-[#666666] uppercase">
                           {t("userTotalStudyHours")}
                         </div>
-                        <div className="text-base font-bold text-[#2b78a0] mt-0.5">
-                          ⏱️ {(userProfile.totalStudyMinutes / 60).toFixed(1)} h
+                        <div className="text-sm font-bold text-[#111111] mt-0.5">
+                          {(userProfile.totalStudyMinutes / 60).toFixed(1)}h
                         </div>
                       </div>
-                      <div className="p-2.5 rounded-lg bg-white border border-[#e9e9e7]">
-                        <div className="text-[10px] text-[#787774]">
-                          {language === "zh" ? "已完成待办" : "Tasks Done"}
+                      <div className="p-2.5 bg-white border border-[#111111]">
+                        <div className="text-[10px] text-[#666666] uppercase">
+                          {language === "zh" ? "已完成" : "DONE"}
                         </div>
-                        <div className="text-base font-bold text-[#448361] mt-0.5">
-                          ✅ {totalCompletedTasks}/{totalTasks}
+                        <div className="text-sm font-bold text-[#111111] mt-0.5">
+                          {totalCompletedTasks}/{totalTasks}
                         </div>
                       </div>
                     </div>
 
                     {/* Edit Profile Form */}
                     {isEditing ? (
-                      <div className="p-4 rounded-lg bg-white border border-[#e9e9e7] space-y-3">
-                        <div className="font-semibold text-xs text-[#37352f]">
-                          {language === "zh" ? "编辑学员档案" : "Edit Profile Info"}
+                      <div className="p-4 bg-[#fafafa] border border-[#111111] space-y-3">
+                        <div className="font-bold text-xs uppercase text-[#111111]">
+                          {language === "zh" ? "编辑学员档案" : "EDIT PROFILE"}
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="text-[11px] text-[#787774] block mb-1">
+                            <label className="text-[10px] uppercase font-bold text-[#666666] block mb-1">
                               {t("userNameLabel")}
                             </label>
                             <input
@@ -764,11 +762,11 @@ export function SettingsModal({
                               onChange={(e) =>
                                 setEditingProfile({ ...editingProfile, name: e.target.value })
                               }
-                              className="w-full px-2.5 py-1.5 border border-[#e9e9e7] rounded text-xs text-[#37352f] focus:outline-none focus:border-[#2b78a0]"
+                              className="w-full px-2.5 py-1.5 border border-[#111111] text-xs text-[#111111] bg-white focus:outline-none"
                             />
                           </div>
                           <div>
-                            <label className="text-[11px] text-[#787774] block mb-1">
+                            <label className="text-[10px] uppercase font-bold text-[#666666] block mb-1">
                               {t("userInstitutionLabel")}
                             </label>
                             <input
@@ -777,11 +775,11 @@ export function SettingsModal({
                               onChange={(e) =>
                                 setEditingProfile({ ...editingProfile, institution: e.target.value })
                               }
-                              className="w-full px-2.5 py-1.5 border border-[#e9e9e7] rounded text-xs text-[#37352f] focus:outline-none focus:border-[#2b78a0]"
+                              className="w-full px-2.5 py-1.5 border border-[#111111] text-xs text-[#111111] bg-white focus:outline-none"
                             />
                           </div>
                           <div>
-                            <label className="text-[11px] text-[#787774] block mb-1">
+                            <label className="text-[10px] uppercase font-bold text-[#666666] block mb-1">
                               {t("userMajorLabel")}
                             </label>
                             <input
@@ -790,11 +788,11 @@ export function SettingsModal({
                               onChange={(e) =>
                                 setEditingProfile({ ...editingProfile, major: e.target.value })
                               }
-                              className="w-full px-2.5 py-1.5 border border-[#e9e9e7] rounded text-xs text-[#37352f] focus:outline-none focus:border-[#2b78a0]"
+                              className="w-full px-2.5 py-1.5 border border-[#111111] text-xs text-[#111111] bg-white focus:outline-none"
                             />
                           </div>
                           <div>
-                            <label className="text-[11px] text-[#787774] block mb-1">
+                            <label className="text-[10px] uppercase font-bold text-[#666666] block mb-1">
                               {t("userTargetGoalLabel")}
                             </label>
                             <input
@@ -806,7 +804,7 @@ export function SettingsModal({
                                   targetDegreeOrGoal: e.target.value,
                                 })
                               }
-                              className="w-full px-2.5 py-1.5 border border-[#e9e9e7] rounded text-xs text-[#37352f] focus:outline-none focus:border-[#2b78a0]"
+                              className="w-full px-2.5 py-1.5 border border-[#111111] text-xs text-[#111111] bg-white focus:outline-none"
                             />
                           </div>
                         </div>
@@ -814,15 +812,15 @@ export function SettingsModal({
                         <div className="flex justify-end space-x-2 pt-2">
                           <button
                             onClick={() => setIsEditing(false)}
-                            className="px-3 py-1 text-xs text-[#5a5a57] hover:bg-[#efefed] rounded"
+                            className="px-3 py-1 text-xs border border-[#111111] bg-white text-[#111111] hover:bg-[#ededed] font-bold cursor-pointer"
                           >
-                            {t("cancel")}
+                            [{t("cancel")}]
                           </button>
                           <button
                             onClick={handleSaveProfile}
-                            className="px-3 py-1 text-xs bg-[#37352f] text-white rounded font-medium shadow-xs"
+                            className="px-3 py-1 text-xs bg-[#111111] text-white border border-[#111111] font-bold cursor-pointer"
                           >
-                            {t("save")}
+                            [{t("save")}]
                           </button>
                         </div>
                       </div>
@@ -830,24 +828,24 @@ export function SettingsModal({
                       <div className="flex justify-end">
                         <button
                           onClick={() => setIsEditing(true)}
-                          className="text-xs text-[#2b78a0] hover:underline font-medium"
+                          className="text-xs text-[#111111] hover:underline font-bold"
                         >
-                          {language === "zh" ? "修改学员档案信息" : "Edit Profile Info"}
+                          [{language === "zh" ? "修改档案" : "EDIT PROFILE"}]
                         </button>
                       </div>
                     )}
                   </div>
                 ) : (
                   /* Login & Register Section with Real Google Sign-in */
-                  <div className="p-6 rounded-xl border border-[#e9e9e7] bg-[#fbfbfa] space-y-5">
+                  <div className="p-5 border border-[#111111] bg-white space-y-4">
                     <div>
                       <div className="flex items-center space-x-2">
-                        <LogIn className="w-5 h-5 text-[#2b78a0]" />
-                        <span className="font-bold text-sm text-[#37352f]">
+                        <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">[AUTH]</span>
+                        <span className="font-bold text-xs uppercase text-[#111111]">
                           {language === "zh" ? "登录账号开启云端备考同步" : "Sign In for Cloud Sync"}
                         </span>
                       </div>
-                      <p className="text-xs text-[#787774] mt-1">
+                      <p className="text-[11px] text-[#666666] mt-1">
                         {language === "zh"
                           ? "接入真实 Google 账号与 Firebase 云端数据库，多设备实时同步备考计划、复习进度与知识库。"
                           : "Connect your real Google Account via Firebase Firestore to sync your syllabus and tasks across all devices."}
@@ -859,40 +857,22 @@ export function SettingsModal({
                       type="button"
                       onClick={handleGoogleLogin}
                       disabled={isLoggingInWithGoogle}
-                      className="w-full py-3 px-4 bg-white hover:bg-[#f7f7f5] text-[#37352f] border border-[#d3d3d0] rounded-xl text-sm font-semibold shadow-xs flex items-center justify-center space-x-3 transition-all hover:shadow cursor-pointer disabled:opacity-50"
+                      className="w-full py-2.5 px-4 bg-white hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] text-xs font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
                     >
-                      <svg className="w-5 h-5" viewBox="0 0 24 24">
-                        <path
-                          fill="#4285F4"
-                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.35 24 12 24z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
-                        />
-                        <path
-                          fill="#EA4335"
-                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                        />
-                      </svg>
                       <span>
                         {isLoggingInWithGoogle
                           ? (language === "zh" ? "正在连接 Google 授权..." : "Signing in with Google...")
-                          : (language === "zh" ? "使用 Google 账号一键登录 (真实云端)" : "Continue with Google Account")}
+                          : (language === "zh" ? "[使用 Google 账号登录 (云端)]" : "[CONTINUE WITH GOOGLE]")}
                       </span>
                     </button>
 
                     {/* Popup Blocked Warning & Action */}
                     {isPopupBlocked && (
-                      <div className="p-3.5 bg-[#fbf3f2] border border-[#f5d5d3] rounded-lg text-xs space-y-2 text-[#d44c47] animate-fadeIn">
-                        <div className="font-semibold flex items-center space-x-1.5">
-                          <span>⚠️ {language === "zh" ? "浏览器拦截了弹出授权窗口" : "Popup blocked by browser"}</span>
+                      <div className="p-3 border border-[#111111] bg-[#fafafa] text-xs space-y-2 text-[#111111]">
+                        <div className="font-bold text-[#d44c47]">
+                          [!] {language === "zh" ? "浏览器拦截了弹出授权窗口" : "Popup blocked by browser"}
                         </div>
-                        <p className="text-[11px] leading-relaxed text-[#787774]">
+                        <p className="text-[11px] leading-relaxed text-[#666666]">
                           {language === "zh"
                             ? "当前应用在内嵌预览窗口中运行，浏览器安全策略拦截了 Google 弹窗。您可以点击下方在新标签页中打开应用完成登录，或者直接在下方使用邮箱免弹窗快速登录。"
                             : "The preview iframe prevented the Google popup from opening. You can open the app in a new tab or sign in with email below."}
@@ -900,24 +880,24 @@ export function SettingsModal({
                         <button
                           type="button"
                           onClick={() => window.open(window.location.href, "_blank")}
-                          className="w-full py-1.5 px-3 bg-[#d44c47] hover:bg-[#b83a36] text-white rounded font-medium text-xs shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+                          className="w-full py-1.5 px-3 bg-[#111111] text-white border border-[#111111] font-bold text-xs cursor-pointer"
                         >
-                          <span>{language === "zh" ? "在新标签页打开并登录 ↗" : "Open in New Tab & Sign In ↗"}</span>
+                          <span>{language === "zh" ? "[在新标签页打开并登录 ↗]" : "[OPEN IN NEW TAB & SIGN IN ↗]"}</span>
                         </button>
                       </div>
                     )}
 
                     <div className="relative flex py-1 items-center">
-                      <div className="flex-grow border-t border-[#e9e9e7]"></div>
-                      <span className="flex-shrink mx-3 text-[11px] text-[#9b9a97]">
-                        {language === "zh" ? "或使用邮箱快速登录" : "or continue with email"}
+                      <div className="flex-grow border-t border-[#111111]"></div>
+                      <span className="flex-shrink mx-3 text-[10px] font-bold text-[#666666] uppercase">
+                        {language === "zh" ? "或使用邮箱登录" : "OR EMAIL"}
                       </span>
-                      <div className="flex-grow border-t border-[#e9e9e7]"></div>
+                      <div className="flex-grow border-t border-[#111111]"></div>
                     </div>
 
                     <form onSubmit={handleCustomLogin} className="space-y-3">
                       <div>
-                        <label className="text-[11px] font-medium text-[#5a5a57] block mb-1">
+                        <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
                           {t("userEmailLabel")}
                         </label>
                         <input
@@ -925,13 +905,13 @@ export function SettingsModal({
                           required
                           value={loginEmail}
                           onChange={(e) => setLoginEmail(e.target.value)}
-                          placeholder="your.email@university.edu"
-                          className="w-full px-3 py-1.5 border border-[#e9e9e7] rounded-md text-xs text-[#37352f] focus:outline-none focus:border-[#2b78a0] bg-white"
+                          placeholder="user@domain.com"
+                          className="w-full px-3 py-1.5 border border-[#111111] text-xs text-[#111111] bg-white focus:outline-none"
                         />
                       </div>
                       <div>
-                        <label className="text-[11px] font-medium text-[#5a5a57] block mb-1">
-                          {language === "zh" ? "登录密码" : "Password"}
+                        <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
+                          {language === "zh" ? "登录密码" : "PASSWORD"}
                         </label>
                         <input
                           type="password"
@@ -939,17 +919,17 @@ export function SettingsModal({
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full px-3 py-1.5 border border-[#e9e9e7] rounded-md text-xs text-[#37352f] focus:outline-none focus:border-[#2b78a0] bg-white"
+                          className="w-full px-3 py-1.5 border border-[#111111] text-xs text-[#111111] bg-white focus:outline-none"
                         />
                       </div>
                       <button
                         type="submit"
                         disabled={isSubmittingEmail}
-                        className="w-full py-2 bg-[#37352f] hover:bg-[#201f1d] text-white rounded-md text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                        className="w-full py-2 bg-[#111111] hover:bg-[#333333] text-white border border-[#111111] text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
                       >
                         {isSubmittingEmail
-                          ? (language === "zh" ? "正在登录并同步云端..." : "Signing in & syncing...")
-                          : t("userLoginBtn")}
+                          ? (language === "zh" ? "正在登录..." : "SIGNING IN...")
+                          : `[${t("userLoginBtn")}]`}
                       </button>
                     </form>
                   </div>
@@ -957,9 +937,8 @@ export function SettingsModal({
 
                 {/* Quick Switch Demo Accounts */}
                 <div className="space-y-2">
-                  <div className="flex items-center space-x-1.5 text-xs font-semibold text-[#37352f]">
-                    <Sparkles className="w-3.5 h-3.5 text-[#cb912f]" />
-                    <span>{t("userQuickSwitch")}</span>
+                  <div className="flex items-center space-x-1.5 text-xs font-bold uppercase text-[#111111]">
+                    <span>[DEMO ACCOUNTS]</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {DEMO_ACCOUNTS.map((demo) => {
@@ -968,28 +947,25 @@ export function SettingsModal({
                         <button
                           key={demo.id}
                           onClick={() => handleQuickLogin(demo)}
-                          className={`p-3 rounded-lg border text-left transition-all ${
+                          className={`p-3 border text-left transition-all cursor-pointer ${
                             isCurrent
-                              ? "bg-[#f0f7f9] border-[#2b78a0] ring-1 ring-[#2b78a0]"
-                              : "bg-white border-[#e9e9e7] hover:border-[#dfdfde] hover:bg-[#fbfbfa]"
+                              ? "bg-[#111111] text-white border-[#111111]"
+                              : "bg-white border-[#111111] hover:bg-[#ededed]"
                           }`}
                         >
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-lg">{demo.avatar}</span>
+                            <span className="font-bold text-xs uppercase">{demo.name}</span>
                             {isCurrent && (
-                              <span className="text-[10px] font-semibold text-[#2b78a0] bg-white px-1.5 py-0.5 rounded border border-[#2b78a0]/30">
-                                {language === "zh" ? "当前登录" : "Active"}
+                              <span className="text-[9px] font-bold border border-white px-1">
+                                [ACTIVE]
                               </span>
                             )}
                           </div>
-                          <div className="font-semibold text-xs text-[#37352f] truncate">
-                            {demo.name}
-                          </div>
-                          <div className="text-[10px] text-[#787774] truncate mt-0.5">
+                          <div className="text-[10px] opacity-75 truncate">
                             {demo.major}
                           </div>
-                          <div className="text-[10px] text-[#cb912f] font-mono mt-1">
-                            🔥 {demo.studyStreakDays} {language === "zh" ? "天打卡" : "days"} · {(demo.totalStudyMinutes / 60).toFixed(0)}h
+                          <div className="text-[10px] opacity-75 font-mono mt-1">
+                            {demo.studyStreakDays}D STREAK // {(demo.totalStudyMinutes / 60).toFixed(0)}H
                           </div>
                         </button>
                       );
@@ -1003,10 +979,10 @@ export function SettingsModal({
             {activeTab === "language" && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-sm font-semibold text-[#37352f] mb-1">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] mb-1">
                     {t("settingsTabLanguage")}
                   </h3>
-                  <p className="text-xs text-[#787774]">
+                  <p className="text-[11px] text-[#666666]">
                     {language === "zh"
                       ? "选择界面显示语言，全量文字、考纲视图与操作提示将实时刷新生效。"
                       : "Select the interface display language. All syllabus views and tools will update instantly."}
@@ -1020,24 +996,20 @@ export function SettingsModal({
                       setLanguage("zh");
                       showToast("语言已切换为 简体中文");
                     }}
-                    className={`p-4 rounded-xl border text-left transition-all ${
+                    className={`p-4 border text-left transition-all cursor-pointer ${
                       language === "zh"
-                        ? "bg-[#f0f7f9] border-[#2b78a0] ring-1 ring-[#2b78a0] shadow-xs"
-                        : "bg-white border-[#e9e9e7] hover:border-[#dfdfde] hover:bg-[#fbfbfa]"
+                        ? "bg-[#111111] text-white border-[#111111]"
+                        : "bg-white border-[#111111] hover:bg-[#ededed] text-[#111111]"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <div className="text-2xl">🇨🇳</div>
-                      {language === "zh" && (
-                        <div className="w-5 h-5 rounded-full bg-[#2b78a0] text-white flex items-center justify-center">
-                          <Check className="w-3 h-3" />
-                        </div>
-                      )}
+                      <span className="font-bold text-sm">[ZH-CN]</span>
+                      {language === "zh" && <span className="font-bold text-xs">[ACTIVE]</span>}
                     </div>
-                    <div className="font-semibold text-sm text-[#37352f]">
-                      简体中文 (Simplified Chinese)
+                    <div className="font-bold text-xs uppercase">
+                      简体中文 (SIMPLIFIED CHINESE)
                     </div>
-                    <div className="text-xs text-[#787774] mt-1">
+                    <div className="text-[11px] opacity-80 mt-1">
                       完整中文化考纲知识点提取、艾宾浩斯复习节奏与自适应重排。
                     </div>
                   </button>
@@ -1047,37 +1019,33 @@ export function SettingsModal({
                       setLanguage("en");
                       showToast("Language changed to English (US)");
                     }}
-                    className={`p-4 rounded-xl border text-left transition-all ${
+                    className={`p-4 border text-left transition-all cursor-pointer ${
                       language === "en"
-                        ? "bg-[#f0f7f9] border-[#2b78a0] ring-1 ring-[#2b78a0] shadow-xs"
-                        : "bg-white border-[#e9e9e7] hover:border-[#dfdfde] hover:bg-[#fbfbfa]"
+                        ? "bg-[#111111] text-white border-[#111111]"
+                        : "bg-white border-[#111111] hover:bg-[#ededed] text-[#111111]"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <div className="text-2xl">🇺🇸</div>
-                      {language === "en" && (
-                        <div className="w-5 h-5 rounded-full bg-[#2b78a0] text-white flex items-center justify-center">
-                          <Check className="w-3 h-3" />
-                        </div>
-                      )}
+                      <span className="font-bold text-sm">[EN-US]</span>
+                      {language === "en" && <span className="font-bold text-xs">[ACTIVE]</span>}
                     </div>
-                    <div className="font-semibold text-sm text-[#37352f]">
-                      English (US)
+                    <div className="font-bold text-xs uppercase">
+                      ENGLISH (US)
                     </div>
-                    <div className="text-xs text-[#787774] mt-1">
+                    <div className="text-[11px] opacity-80 mt-1">
                       Full English syllabus breakdown, active recall drills, and calendar integration.
                     </div>
                   </button>
                 </div>
 
                 {/* Date & Week Preferences */}
-                <div className="p-4 rounded-lg border border-[#e9e9e7] bg-[#fbfbfa] space-y-4">
+                <div className="p-4 border border-[#111111] bg-white space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-xs font-medium text-[#37352f]">
+                      <div className="text-xs font-bold uppercase text-[#111111]">
                         {t("settingsDateFormat")}
                       </div>
-                      <div className="text-[11px] text-[#787774]">
+                      <div className="text-[11px] text-[#666666]">
                         {language === "zh" ? "日历与任务列表时间戳显示方式" : "Calendar and daily task timestamp style"}
                       </div>
                     </div>
@@ -1088,7 +1056,7 @@ export function SettingsModal({
                         onUpdateSettings(upd);
                         showToast(t("settingsSavedSuccess"));
                       }}
-                      className="px-3 py-1.5 bg-white border border-[#e9e9e7] rounded text-xs text-[#37352f] focus:outline-none focus:border-[#2b78a0]"
+                      className="px-3 py-1.5 bg-white border border-[#111111] text-xs font-mono text-[#111111] focus:outline-none"
                     >
                       <option value="YYYY-MM-DD">YYYY-MM-DD (2026-08-18)</option>
                       <option value="MM/DD/YYYY">MM/DD/YYYY (08/18/2026)</option>
@@ -1096,12 +1064,12 @@ export function SettingsModal({
                     </select>
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-[#e9e9e7]">
+                  <div className="flex items-center justify-between pt-3 border-t border-[#111111]">
                     <div>
-                      <div className="text-xs font-medium text-[#37352f]">
+                      <div className="text-xs font-bold uppercase text-[#111111]">
                         {t("settingsFirstDay")}
                       </div>
-                      <div className="text-[11px] text-[#787774]">
+                      <div className="text-[11px] text-[#666666]">
                         {language === "zh" ? "月视图与排程日历每周起始日" : "First day of week for review calendar"}
                       </div>
                     </div>
@@ -1112,10 +1080,10 @@ export function SettingsModal({
                         onUpdateSettings(upd);
                         showToast(t("settingsSavedSuccess"));
                       }}
-                      className="px-3 py-1.5 bg-white border border-[#e9e9e7] rounded text-xs text-[#37352f] focus:outline-none focus:border-[#2b78a0]"
+                      className="px-3 py-1.5 bg-white border border-[#111111] text-xs font-mono text-[#111111] focus:outline-none"
                     >
-                      <option value="monday">{language === "zh" ? "周一 (Monday)" : "Monday"}</option>
-                      <option value="sunday">{language === "zh" ? "周日 (Sunday)" : "Sunday"}</option>
+                      <option value="monday">{language === "zh" ? "周一 (MONDAY)" : "MONDAY"}</option>
+                      <option value="sunday">{language === "zh" ? "周日 (SUNDAY)" : "SUNDAY"}</option>
                     </select>
                   </div>
                 </div>
@@ -1126,112 +1094,96 @@ export function SettingsModal({
             {activeTab === "version" && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-sm font-semibold text-[#37352f] mb-1">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] mb-1">
                     {t("versionTitle")}
                   </h3>
-                  <p className="text-xs text-[#787774]">
+                  <p className="text-[11px] text-[#666666]">
                     {t("versionAppSubtitle")}
                   </p>
                 </div>
 
                 {/* Version Card */}
-                <div className="p-4 rounded-xl border border-[#e9e9e7] bg-gradient-to-br from-[#fbfbfa] to-[#f7f6f3] space-y-3">
+                <div className="p-4 border border-[#111111] bg-white space-y-3">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-[#37352f] text-white flex items-center justify-center text-xs font-bold">
-                        EP
+                    <div>
+                      <div className="text-xs font-bold uppercase text-[#111111]">
+                        EXAM PLAN AI // SYSTEM RELEASE
                       </div>
-                      <div>
-                        <div className="text-sm font-bold text-[#37352f]">
-                          Exam Plan AI (备考规划 AI)
-                        </div>
-                        <div className="text-xs text-[#787774]">
-                          {APP_VERSION_DATA.releaseName}
-                        </div>
+                      <div className="text-[11px] text-[#666666]">
+                        {APP_VERSION_DATA.releaseName}
                       </div>
                     </div>
-                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#37352f] text-white">
-                      {APP_VERSION_DATA.version}
+                    <span className="px-2 py-0.5 text-xs font-bold bg-[#111111] text-white">
+                      v{APP_VERSION_DATA.version}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-[#e9e9e7] text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-[#111111] text-xs font-mono">
                     <div>
-                      <span className="text-[#9b9a97] block text-[10px]">{t("versionBuildDate")}</span>
-                      <span className="font-mono text-[#37352f]">{APP_VERSION_DATA.buildDate}</span>
+                      <span className="text-[#666666] block text-[10px] uppercase">{t("versionBuildDate")}</span>
+                      <span className="text-[#111111] font-bold">{APP_VERSION_DATA.buildDate}</span>
                     </div>
                     <div>
-                      <span className="text-[#9b9a97] block text-[10px]">{t("versionBuildNumber")}</span>
-                      <span className="font-mono text-[#37352f]">{APP_VERSION_DATA.buildNumber}</span>
+                      <span className="text-[#666666] block text-[10px] uppercase">{t("versionBuildNumber")}</span>
+                      <span className="text-[#111111] font-bold">{APP_VERSION_DATA.buildNumber}</span>
                     </div>
                     <div>
-                      <span className="text-[#9b9a97] block text-[10px]">{t("versionEnv")}</span>
-                      <span className="text-[#37352f]">{APP_VERSION_DATA.environment}</span>
+                      <span className="text-[#666666] block text-[10px] uppercase">{t("versionEnv")}</span>
+                      <span className="text-[#111111] font-bold">{APP_VERSION_DATA.environment}</span>
                     </div>
                     <div>
-                      <span className="text-[#9b9a97] block text-[10px]">Active Subjects</span>
-                      <span className="font-semibold text-[#2b78a0]">{plans.length} Courses</span>
+                      <span className="text-[#666666] block text-[10px] uppercase">COURSES</span>
+                      <span className="font-bold text-[#111111]">{plans.length}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* System Health Diagnostics */}
-                <div className="p-4 rounded-lg border border-[#e9e9e7] bg-[#fbfbfa] space-y-3">
-                  <div className="text-xs font-semibold text-[#37352f] flex items-center space-x-1.5">
-                    <Cpu className="w-3.5 h-3.5 text-[#448361]" />
-                    <span>{t("versionDiagnostics")}</span>
+                <div className="p-4 border border-[#111111] bg-white space-y-3">
+                  <div className="text-xs font-bold uppercase text-[#111111]">
+                    [DIAGNOSTICS]
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <div className="p-2.5 rounded bg-white border border-[#e9e9e7] flex items-center justify-between text-xs">
-                      <span className="text-[#5a5a57]">{t("versionDiagStorage")}</span>
-                      <span className="font-semibold text-[#448361] flex items-center space-x-1">
-                        <span className="w-2 h-2 rounded-full bg-[#448361]" />
-                        <span>{t("versionDiagOk")}</span>
-                      </span>
+                    <div className="p-2.5 bg-white border border-[#111111] flex items-center justify-between text-xs">
+                      <span className="text-[#666666]">{t("versionDiagStorage")}</span>
+                      <span className="font-bold text-[#111111]">[OK]</span>
                     </div>
-                    <div className="p-2.5 rounded bg-white border border-[#e9e9e7] flex items-center justify-between text-xs">
-                      <span className="text-[#5a5a57]">{t("versionDiagAI")}</span>
-                      <span className="font-semibold text-[#448361] flex items-center space-x-1">
-                        <span className="w-2 h-2 rounded-full bg-[#448361]" />
-                        <span>{t("versionDiagOk")}</span>
-                      </span>
+                    <div className="p-2.5 bg-white border border-[#111111] flex items-center justify-between text-xs">
+                      <span className="text-[#666666]">{t("versionDiagAI")}</span>
+                      <span className="font-bold text-[#111111]">[OK]</span>
                     </div>
-                    <div className="p-2.5 rounded bg-white border border-[#e9e9e7] flex items-center justify-between text-xs">
-                      <span className="text-[#5a5a57]">{t("versionDiagSync")}</span>
-                      <span className="font-semibold text-[#448361] flex items-center space-x-1">
-                        <span className="w-2 h-2 rounded-full bg-[#448361]" />
-                        <span>{t("versionDiagOk")}</span>
-                      </span>
+                    <div className="p-2.5 bg-white border border-[#111111] flex items-center justify-between text-xs">
+                      <span className="text-[#666666]">{t("versionDiagSync")}</span>
+                      <span className="font-bold text-[#111111]">[OK]</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Changelog Timeline */}
                 <div className="space-y-3">
-                  <div className="text-xs font-semibold text-[#37352f] flex items-center space-x-1.5">
-                    <Layers className="w-3.5 h-3.5 text-[#2b78a0]" />
-                    <span>{t("versionChangelogTitle")}</span>
+                  <div className="text-xs font-bold uppercase text-[#111111]">
+                    [CHANGELOG]
                   </div>
                   <div className="space-y-3">
-                    {APP_VERSION_DATA.changelog.map((log, idx) => (
+                    {APP_VERSION_DATA.changelog.map((log) => (
                       <div
                         key={log.version}
-                        className="p-3.5 rounded-lg border border-[#e9e9e7] bg-white space-y-2 text-xs"
+                        className="p-3.5 border border-[#111111] bg-white space-y-2 text-xs"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
-                            <span className="font-bold font-mono px-2 py-0.5 rounded bg-[#37352f] text-white text-[11px]">
+                            <span className="font-bold px-1.5 py-0.2 bg-[#111111] text-white text-[10px]">
                               {log.version}
                             </span>
-                            <span className="font-semibold text-[#37352f]">
+                            <span className="font-bold text-[#111111]">
                               {log.title}
                             </span>
                           </div>
-                          <span className="text-[10px] text-[#9b9a97] font-mono">
+                          <span className="text-[10px] text-[#666666]">
                             {log.date}
                           </span>
                         </div>
-                        <ul className="space-y-1 pl-4 list-disc text-[11px] text-[#5a5a57]">
+                        <ul className="space-y-1 pl-4 list-disc text-[11px] text-[#666666]">
                           {log.highlights.map((h, i) => (
                             <li key={i}>{h}</li>
                           ))}
@@ -1246,17 +1198,17 @@ export function SettingsModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-[#e9e9e7] bg-[#f7f6f3] flex items-center justify-between text-xs text-[#787774]">
+        <div className="px-6 py-3 border-t border-[#111111] bg-[#fafafa] flex items-center justify-between text-xs text-[#666666] font-mono">
           <div className="flex items-center space-x-2">
-            <span>Exam Plan AI © 2026</span>
-            <span>·</span>
-            <span>All Data Stored Locally & Privately</span>
+            <span>EXAM PLAN AI © 2026</span>
+            <span>//</span>
+            <span>BLKSWN AESTHETIC</span>
           </div>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 rounded-md bg-[#37352f] hover:bg-[#201f1d] text-white font-medium shadow-xs transition-colors"
+            className="px-4 py-1.5 bg-[#111111] hover:bg-[#333333] text-white font-bold transition-colors cursor-pointer"
           >
-            {language === "zh" ? "完成并关闭" : "Done & Close"}
+            [{language === "zh" ? "完成并关闭" : "CLOSE"}]
           </button>
         </div>
       </div>
