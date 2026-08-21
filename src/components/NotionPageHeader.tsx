@@ -196,45 +196,29 @@ export function NotionPageHeader({
 
       {/* Single-Course Properties Header: Only shown on Course-specific tabs */}
       {currentTab !== "dashboard" && currentTab !== "master_calendar" && (
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-6 pb-4">
-          {/* Header Metadata Ribbon */}
-          <div className="flex flex-wrap items-center gap-2 mb-2 font-mono text-[10px]">
-            <span className="px-2 py-0.5 bg-[#111111] text-white uppercase font-bold tracking-wider">
-              {activePlan?.subject || "COURSE"}
-            </span>
-            <span className="px-2 py-0.5 border border-[#111111] text-[#111111]">
-              EXAM_DATE: {activePlan?.examDate || "2026-08-20"}
-            </span>
-            {daysRemaining !== null && (
-              <span className={`px-2 py-0.5 font-bold ${daysRemaining <= 3 ? "bg-[#fef08a] text-[#111111] border border-[#111111]" : "border border-[#111111] text-[#111111]"}`}>
-                {daysRemaining < 0 ? "EXAM COMPLETED" : daysRemaining === 0 ? "EXAM TODAY" : `T-${daysRemaining} DAYS`}
-              </span>
-            )}
-            <span className="px-2 py-0.5 border border-[#e5e5e5] text-[#666666]">
-              PACING: {(activePlan?.preferences?.studyPace || "spaced_repetition").toUpperCase().replace(/_/g, " ")}
-            </span>
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-4 pb-2">
+          {/* Notion Page Big Title */}
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#111111] font-sans">
+              {activePlan?.examName || t("untitledPlan")}
+            </h1>
           </div>
 
-          {/* Title */}
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#111111] mb-4">
-            {activePlan?.examName || t("untitledPlan")}
-          </h1>
-
           {/* Course Sub-View Navigation Segment */}
-          <div className="pt-2 border-t border-[#111111] flex items-center justify-between overflow-x-auto no-scrollbar font-mono text-xs">
+          <div className="pt-2 border-t border-[#111111] flex items-center justify-between overflow-x-auto no-scrollbar font-sans text-xs">
             <div className="flex items-center space-x-1">
               <button
                 onClick={() => onTabChange("todo")}
                 className={`flex items-center space-x-1.5 px-3 py-1.5 transition-all cursor-pointer border ${
                   currentTab === "todo"
                     ? "bg-[#111111] text-white border-[#111111] font-bold"
-                    : "border-transparent text-[#666666] hover:text-[#111111] hover:border-[#e5e5e5]"
+                    : "border-transparent text-[#666666] hover:text-[#111111] hover:border-[#dedad1]"
                 }`}
               >
-                <span>[01]</span>
+                <span className="font-mono text-[10px] opacity-70">01</span>
                 <span>{language === "zh" ? "每日待办" : "DAILY TO-DO"}</span>
                 {activePlan && (
-                  <span className={`ml-1 text-[10px] ${currentTab === "todo" ? "text-[#fef08a]" : "text-[#888888]"}`}>
+                  <span className={`ml-1 text-[10px] font-mono ${currentTab === "todo" ? "text-[#fef08a]" : "text-[#888888]"}`}>
                     ({activePlan.tasks.length})
                   </span>
                 )}
@@ -245,10 +229,10 @@ export function NotionPageHeader({
                 className={`flex items-center space-x-1.5 px-3 py-1.5 transition-all cursor-pointer border ${
                   currentTab === "realtime"
                     ? "bg-[#111111] text-white border-[#111111] font-bold"
-                    : "border-transparent text-[#666666] hover:text-[#111111] hover:border-[#e5e5e5]"
+                    : "border-transparent text-[#666666] hover:text-[#111111] hover:border-[#dedad1]"
                 }`}
               >
-                <span>[02]</span>
+                <span className="font-mono text-[10px] opacity-70">02</span>
                 <span>{language === "zh" ? "进度追踪" : "TRACKER"}</span>
               </button>
 
@@ -257,13 +241,13 @@ export function NotionPageHeader({
                 className={`flex items-center space-x-1.5 px-3 py-1.5 transition-all cursor-pointer border ${
                   currentTab === "course" || currentTab === "materials"
                     ? "bg-[#111111] text-white border-[#111111] font-bold"
-                    : "border-transparent text-[#666666] hover:text-[#111111] hover:border-[#e5e5e5]"
+                    : "border-transparent text-[#666666] hover:text-[#111111] hover:border-[#dedad1]"
                 }`}
               >
-                <span>[03]</span>
+                <span className="font-mono text-[10px] opacity-70">03</span>
                 <span>{language === "zh" ? "考纲资料" : "KNOWLEDGE"}</span>
                 {activePlan && (
-                  <span className={`ml-1 text-[10px] ${currentTab === "course" ? "text-[#fef08a]" : "text-[#888888]"}`}>
+                  <span className={`ml-1 text-[10px] font-mono ${currentTab === "course" ? "text-[#fef08a]" : "text-[#888888]"}`}>
                     ({(activePlan.topics?.length || 0) + (activePlan.materials?.length || 0)})
                   </span>
                 )}
@@ -277,8 +261,8 @@ export function NotionPageHeader({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="SEARCH_TASKS..."
-                className="pl-8 pr-3 py-1 bg-[#fafafa] border border-[#111111] focus:bg-white text-xs font-mono text-[#111111] placeholder-[#888888] focus:outline-none w-44 transition-all"
+                placeholder={language === "zh" ? "搜索任务考点..." : "SEARCH TASKS..."}
+                className="pl-8 pr-3 py-1 bg-white border border-[#dedad1] focus:border-[#111111] text-xs font-sans text-[#111111] placeholder-[#888888] focus:outline-none w-44 transition-all"
               />
             </div>
           </div>

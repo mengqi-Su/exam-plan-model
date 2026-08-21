@@ -36,6 +36,7 @@ import { DEFAULT_WEEK_SCHEDULE, SAMPLE_MATERIALS } from "../lib/storage";
 import { useI18n } from "../lib/i18n";
 import { parseDocumentFile } from "../lib/documentParser";
 import { fallbackExtractSyllabusClient, fallbackGeneratePlanClient } from "../lib/fallbackPlanner";
+import { RulerTimePicker } from "./RulerTimePicker";
 
 interface AddExamSubjectWizardProps {
   onPlanCreated: (newPlan: ExamStudyPlan) => void;
@@ -112,6 +113,13 @@ export function AddExamSubjectWizard({
   const [examDate, setExamDate] = useState(defaultExamDate);
   const [examTime, setExamTime] = useState("09:00");
 
+  const daysDiff = useMemo(() => {
+    const s = new Date(startDate);
+    const e = new Date(examDate);
+    const diff = Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : 1;
+  }, [startDate, examDate]);
+
   // Step 2: Multi-Document Repository for this single Course
   const [courseDocuments, setCourseDocuments] = useState<StudyMaterial[]>([]);
   const [pasteDocTitle, setPasteDocTitle] = useState("");
@@ -140,6 +148,77 @@ export function AddExamSubjectWizard({
   const [additionalNotes, setAdditionalNotes] = useState("");
   const [userNeedFocusArea, setUserNeedFocusArea] = useState("heavy_calculation");
   const [customPromptRequirement, setCustomPromptRequirement] = useState("");
+
+  // Helpers for Monday - Sunday customization
+  const orderedDayOfWeeks = [1, 2, 3, 4, 5, 6, 0]; // Mon, Tue, Wed, Thu, Fri, Sat, Sun
+
+  const dayMeta: Record<number, { zh: string; en: string; isWeekend: boolean }> = {
+    1: { zh: "周一", en: "Mon", isWeekend: false },
+    2: { zh: "周二", en: "Tue", isWeekend: false },
+    3: { zh: "周三", en: "Wed", isWeekend: false },
+    4: { zh: "周四", en: "Thu", isWeekend: false },
+    5: { zh: "周五", en: "Fri", isWeekend: false },
+    6: { zh: "周六", en: "Sat", isWeekend: true },
+    0: { zh: "周日", en: "Sun", isWeekend: true },
+  };
+
+  const weeklyTotalHours = useMemo(() => {
+    return dailySchedules.reduce((acc, curr) => (curr.enabled ? acc + curr.availableHours : acc), 0);
+  }, [dailySchedules]);
+
+  const totalPlannedStudyHours = useMemo(() => {
+    const start = new Date(startDate);
+    let total = 0;
+    for (let i = 0; i < daysDiff; i++) {
+      const cur = new Date(start.getTime() + i * 86400000);
+      const dayOfWeek = cur.getDay();
+      const sched = dailySchedules.find((s) => s.dayOfWeek === dayOfWeek);
+      if (sched && sched.enabled) {
+        total += sched.availableHours;
+      }
+    }
+    return Math.round(total * 10) / 10;
+  }, [startDate, daysDiff, dailySchedules]);
+
+  const handleUpdateDayHours = (dayOfWeek: number, hours: number) => {
+    const clamped = Math.max(0, Math.min(16, Math.round(hours * 10) / 10));
+    setDailySchedules((prev) =>
+      prev.map((d) => (d.dayOfWeek === dayOfWeek ? { ...d, availableHours: clamped, enabled: clamped > 0 } : d))
+    );
+  };
+
+  const handleToggleDayEnabled = (dayOfWeek: number) => {
+    setDailySchedules((prev) =>
+      prev.map((d) => {
+        if (d.dayOfWeek === dayOfWeek) {
+          const nextEnabled = !d.enabled;
+          return {
+            ...d,
+            enabled: nextEnabled,
+            availableHours: nextEnabled && d.availableHours === 0 ? 2.5 : d.availableHours,
+          };
+        }
+        return d;
+      })
+    );
+  };
+
+  const handleApplyWeeklyPreset = (type: "weekday_weekend" | "balanced_3h" | "intensive_5h" | "light_1_5h") => {
+    setDailySchedules((prev) =>
+      prev.map((d) => {
+        const isWeekend = d.dayOfWeek === 0 || d.dayOfWeek === 6;
+        if (type === "weekday_weekend") {
+          return { ...d, availableHours: isWeekend ? 5 : 2.5, enabled: true };
+        } else if (type === "balanced_3h") {
+          return { ...d, availableHours: 3, enabled: true };
+        } else if (type === "intensive_5h") {
+          return { ...d, availableHours: 5, enabled: true };
+        } else {
+          return { ...d, availableHours: isWeekend ? 2.5 : 1.5, enabled: true };
+        }
+      })
+    );
+  };
 
   // Final Generation state
   const [isGenerating, setIsGenerating] = useState(false);
@@ -465,13 +544,6 @@ export function AddExamSubjectWizard({
     }
   };
 
-  const daysDiff = useMemo(() => {
-    const s = new Date(startDate);
-    const e = new Date(examDate);
-    const diff = Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
-    return diff > 0 ? diff : 1;
-  }, [startDate, examDate]);
-
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 font-mono text-[#111111] space-y-6">
       {/* Top Banner Navigation & Breadcrumbs */}
@@ -494,10 +566,6 @@ export function AddExamSubjectWizard({
 
       {/* Main Header */}
       <div className="border-b border-[#111111] pb-4">
-        <div className="inline-flex items-center space-x-2 px-2 py-0.5 bg-[#111111] text-white text-[10px] font-bold uppercase mb-2">
-          <Sparkles className="w-3 h-3" />
-          <span>{language === "zh" ? "全新科目规划向导" : "NEW SUBJECT WIZARD"}</span>
-        </div>
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#111111] flex items-center space-x-2 uppercase">
           <Plus className="w-5 h-5 text-[#111111]" />
           <span>{language === "zh" ? "添加新考试科目" : "Add Exam Subject"}</span>
@@ -554,7 +622,7 @@ export function AddExamSubjectWizard({
           }`}
         >
           <span className="text-[11px]">[03]</span>
-          <span className="truncate">{language === "zh" ? "作息偏好与计划生成" : "SCHEDULE & PLAN"}</span>
+          <span className="truncate">{language === "zh" ? "时长与规划需求" : "TIME & REQUIREMENTS"}</span>
         </button>
       </div>
 
@@ -1043,250 +1111,90 @@ export function AddExamSubjectWizard({
         </div>
       )}
 
-      {/* ================= STEP 3: PACING & SCHEDULE PREFERENCES ================= */}
+      {/* ================= STEP 3: TWO CORE MODULES (DAILY STUDY TIME & PERSONAL STUDY REQUIREMENTS) ================= */}
       {step === 3 && (
-        <div className="space-y-6">
-          <div className="bg-white p-5 border border-[#111111] space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-2 border-b border-[#111111] pb-2.5">
-              <Sliders className="w-4 h-4 text-[#111111]" />
-              <span>[// {language === "zh" ? "复习节奏与智能算法设置" : "STUDY PACING & OPTIMIZATION STRATEGY"}]</span>
-            </h3>
+        <div className="space-y-4 font-sans">
+          <div className="bg-white p-5 border border-[#111111] space-y-5">
+            {/* Header & Overview Summary */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#111111] pb-3 font-mono">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-2">
+                <Sliders className="w-4 h-4 text-[#111111]" />
+                <span>[// {language === "zh" ? "学习时长与自身规划需求" : "TIME & STUDY REQUIREMENTS"}]</span>
+              </h3>
 
-            {/* Attached Documents Summary */}
-            <div className="p-3 bg-[#fafafa] border border-[#111111] flex items-center justify-between text-xs font-bold">
-              <span className="text-[#666666]">
-                [{language === "zh" ? "已关联课程资料" : "LINKED DOCS"}]:{" "}
-                <span className="text-[#111111]">{courseDocuments.length} {language === "zh" ? "份文件" : "files"}</span>
-              </span>
-              <span className="text-[#666666]">
-                [{language === "zh" ? "核心考点数" : "TOTAL TOPICS"}]:{" "}
-                <span className="text-[#111111]">{topics.length} {language === "zh" ? "个" : "units"}</span>
-              </span>
-            </div>
-
-            {/* Study Pacing Mode */}
-            <div>
-              <label className="block text-xs font-bold uppercase text-[#111111] mb-2">
-                {language === "zh" ? "学习节奏模式 (Pacing Archetype)" : "Study Pacing Archetype"}
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
-                {[
-                  {
-                    id: "deep_mastery",
-                    nameZh: "深度精通 (Deep Mastery)",
-                    descZh: "概念推导 + 典型题 + 艾宾浩斯主动回忆",
-                  },
-                  {
-                    id: "balanced",
-                    nameZh: "匀速稳健 (Balanced Steady)",
-                    descZh: "标准课时推进，兼顾理论与模拟习题",
-                  },
-                  {
-                    id: "intensive_crash",
-                    nameZh: "高强度冲刺 (Intensive Crash)",
-                    descZh: "聚焦高频必考真题与核心公式突击",
-                  },
-                  {
-                    id: "spaced_repetition",
-                    nameZh: "间隔重复记忆 (Spaced Drills)",
-                    descZh: "多轮次螺旋式检索，强化长效记忆",
-                  },
-                ].map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => setStudyPace(p.id as any)}
-                    className={`p-3 text-left border transition-colors cursor-pointer ${
-                      studyPace === p.id
-                        ? "bg-[#111111] text-white border-[#111111]"
-                        : "bg-white border-[#111111] hover:bg-[#fafafa] text-[#111111]"
-                    }`}
-                  >
-                    <span className="block font-bold text-xs mb-1">
-                      [{p.nameZh}]
-                    </span>
-                    <span className={`text-[10px] block leading-snug ${studyPace === p.id ? "text-[#cccccc]" : "text-[#666666]"}`}>
-                      {p.descZh}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Session Length & Strategic Milestones */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-              <div>
-                <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
-                  {language === "zh" ? "单次专注块时长" : "Session Duration"}
-                </label>
-                <select
-                  value={sessionLength}
-                  onChange={(e) => setSessionLength(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-xs border border-[#111111] bg-white text-[#111111] font-bold outline-none font-mono"
-                >
-                  <option value={25}>25 {language === "zh" ? "分钟 (标准番茄钟)" : "min (Pomodoro)"}</option>
-                  <option value={45}>45 {language === "zh" ? "分钟 (高校标准课时)" : "min (Standard)"}</option>
-                  <option value={60}>60 {language === "zh" ? "分钟 (深度攻坚)" : "min (Deep Work)"}</option>
-                  <option value={90}>90 {language === "zh" ? "分钟 (全真模考大块)" : "min (Mock Block)"}</option>
-                </select>
-              </div>
-
-              <div className="flex items-center">
-                <label className="flex items-center space-x-2 text-xs font-bold text-[#111111] cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includePracticeExams}
-                    onChange={(e) => setIncludePracticeExams(e.target.checked)}
-                    className="accent-[#111111] w-4 h-4"
-                  />
-                  <span>[{language === "zh" ? "智能穿插全真阶段模考" : "SCHEDULE MOCK EXAMS"}]</span>
-                </label>
-              </div>
-
-              <div className="flex items-center">
-                <label className="flex items-center space-x-2 text-xs font-bold text-[#111111] cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includeBufferDays}
-                    onChange={(e) => setIncludeBufferDays(e.target.checked)}
-                    className="accent-[#111111] w-4 h-4"
-                  />
-                  <span>[{language === "zh" ? "预留考前缓冲与查漏日" : "INCLUDE BUFFER DAYS"}]</span>
-                </label>
-              </div>
-            </div>
-
-            {/* RAG Personalized User Need & Task Allocation Focus */}
-            <div className="pt-2 border-t border-[#111111] space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase text-[#111111] flex items-center space-x-1.5">
-                  <BrainCircuit className="w-3.5 h-3.5 text-[#111111]" />
-                  <span>{language === "zh" ? "[AI RAG 资料检索与任务分配偏好]" : "[AI RAG TASK ALLOCATION PRIORITY]"}</span>
-                </label>
-                <span className="text-[11px] text-white bg-[#111111] px-2 py-0.5 font-bold flex items-center space-x-1">
-                  <Zap className="w-3 h-3" />
-                  <span>{language === "zh" ? `RAG 就绪 (${courseDocuments.length} 份)` : "RAG READY"}</span>
+              <div className="flex items-center space-x-3 text-xs text-[#666666] font-sans">
+                <span>
+                  {language === "zh" ? "备考周期" : "Span"}: <strong className="text-[#111111] font-mono">{daysDiff}</strong> {language === "zh" ? "天" : "days"}
+                </span>
+                <span>·</span>
+                <span>
+                  {language === "zh" ? "考点" : "Topics"}: <strong className="text-[#111111] font-mono">{topics.length}</strong>
+                </span>
+                <span>·</span>
+                <span>
+                  {language === "zh" ? "资料" : "Docs"}: <strong className="text-[#111111] font-mono">{courseDocuments.length}</strong>
                 </span>
               </div>
+            </div>
 
-              {/* Focus Priority Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
-                {[
-                  {
-                    id: "heavy_calculation",
-                    titleZh: "📐 计算与大题攻坚",
-                    descZh: "深度检索公式推导与综合大题，分配强化推导学时",
-                  },
-                  {
-                    id: "concepts_and_theory",
-                    titleZh: "📖 核心概念与原理定义",
-                    descZh: "系统梳理定义、定理适用边界与名词解释",
-                  },
-                  {
-                    id: "past_exam_drills",
-                    titleZh: "📝 历年真题与经典题型",
-                    descZh: "优先匹配真题卷高频出题点，建立题型模型",
-                  },
-                  {
-                    id: "rush_sprint",
-                    titleZh: "⚡ 考前急救与高频考点",
-                    descZh: "压缩低频内容，全量聚焦历年高分重难点",
-                  },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setUserNeedFocusArea(item.id)}
-                    className={`p-2.5 text-left border transition-colors cursor-pointer ${
-                      userNeedFocusArea === item.id
-                        ? "bg-[#111111] text-white border-[#111111]"
-                        : "bg-white border-[#111111] hover:bg-[#fafafa] text-[#111111]"
-                    }`}
-                  >
-                    <span className="text-xs block font-bold mb-0.5">{item.titleZh}</span>
-                    <span className={`text-[10px] block leading-snug ${userNeedFocusArea === item.id ? "text-[#cccccc]" : "text-[#666666]"}`}>{item.descZh}</span>
-                  </button>
-                ))}
-              </div>
+            {/* ================= MODULE 1: 周一到周日学习时间 (参考设计款时间标尺拨盘) ================= */}
+            <RulerTimePicker
+              language={language}
+              dailySchedules={dailySchedules}
+              onUpdateDayHours={handleUpdateDayHours}
+              onToggleDayEnabled={handleToggleDayEnabled}
+              onApplyPreset={handleApplyWeeklyPreset}
+              daysDiff={daysDiff}
+            />
 
-              {/* Custom Student Directive Input */}
+            {/* ================= MODULE 2: 自身规划上有什么需求 ================= */}
+            <div className="pt-4 border-t border-[#dedad1] space-y-3">
+              <label className="text-xs font-bold text-[#111111] uppercase tracking-wide flex items-center space-x-1.5">
+                <Target className="w-4 h-4 text-[#111111]" />
+                <span>{language === "zh" ? "2. 自身规划上有什么需求" : "2. Personal Planning & Study Requirements"}</span>
+              </label>
+
+              {/* Personal requirement textarea */}
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-[#111111] block uppercase">
-                  [// {language === "zh" ? "自定义学生需求 / 特殊任务分配指示" : "CUSTOM STUDY INSTRUCTIONS"}]
-                </label>
-                <input
-                  type="text"
+                <textarea
+                  rows={3}
                   value={customPromptRequirement}
                   onChange={(e) => setCustomPromptRequirement(e.target.value)}
                   placeholder={
                     language === "zh"
-                      ? "例如：我数学基础稍弱，请把计算大题拆解为更小的时间块；重点复习前四章..."
-                      : "e.g., Focus extra time on dynamic programming; break calculations into smaller chunks..."
+                      ? "在此输入您的自身复习规划需求（如：基础较弱，计算大题请拆细；重点复习前三章；优先安排真题易错考点；周末多安排综合演练等）..."
+                      : "Enter your personal study requirements or directives (e.g., focus heavily on dynamic programming; break down proofs into smaller steps; reserve weekends for past exam papers)..."
                   }
-                  className="w-full px-3 py-2 text-xs border border-[#111111] bg-[#fafafa] focus:bg-white outline-none font-mono"
+                  className="w-full p-3 text-xs border border-[#dedad1] focus:border-[#111111] bg-[#fafafa] focus:bg-white outline-none text-[#111111] leading-relaxed resize-none placeholder-[#888888]"
                 />
               </div>
             </div>
-
-            {/* Weak topics selection */}
-            {topics.length > 0 && (
-              <div className="pt-2 border-t border-[#111111]">
-                <label className="block text-xs font-bold uppercase text-[#111111] mb-1.5">
-                  {language === "zh" ? "[指定重点攻坚或薄弱知识模块（AI 将分配额外巩固学时）]" : "[SELECT WEAK TOPICS FOR EXTRA FOCUS]:"}
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {topics.map((t) => {
-                    const isSelected = selectedWeakTopics.includes(t.title);
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedWeakTopics(selectedWeakTopics.filter(item => item !== t.title));
-                          } else {
-                            setSelectedWeakTopics([...selectedWeakTopics, t.title]);
-                          }
-                        }}
-                        className={`text-xs px-2.5 py-1 border transition-colors inline-flex items-center space-x-1 cursor-pointer font-bold ${
-                          isSelected
-                            ? "bg-[#111111] text-white border-[#111111]"
-                            : "bg-white text-[#111111] border-[#111111] hover:bg-[#fafafa]"
-                        }`}
-                      >
-                        {isSelected && <Zap className="w-3 h-3 text-white shrink-0" />}
-                        <span>[{t.title}]</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Navigation Actions */}
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between pt-1">
             <button
               onClick={() => setStep(2)}
-              className="flex items-center space-x-1.5 px-4 py-2 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-xs font-bold text-[#111111] cursor-pointer transition-colors"
+              className="flex items-center space-x-1.5 px-4 py-2 border border-[#dedad1] hover:border-[#111111] bg-white text-xs font-semibold text-[#111111] cursor-pointer transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>[{language === "zh" ? "上一步" : "BACK"}]</span>
+              <span>{language === "zh" ? "上一步" : "Back"}</span>
             </button>
 
             <button
               onClick={handleGenerateFinalPlan}
               disabled={isGenerating}
-              className="flex items-center space-x-2 px-6 py-3 bg-[#111111] hover:bg-[#333333] disabled:opacity-40 text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-[#111111]"
+              className="flex items-center space-x-2 px-5 py-2.5 bg-[#111111] hover:bg-[#333333] disabled:opacity-40 text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-[#111111]"
             >
               {isGenerating ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>[{language === "zh" ? "AI 正在生成全新科目完整备考日历..." : "GENERATING FULL SUBJECT PLAN..."}]</span>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>{language === "zh" ? "正在生成备考日历..." : "GENERATING STUDY PLAN..."}</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>[{language === "zh" ? "一键生成全新科目备考计划" : "GENERATE SUBJECT STUDY PLAN"}]</span>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{language === "zh" ? "一键生成科目备考计划" : "GENERATE STUDY PLAN"}</span>
                 </>
               )}
             </button>

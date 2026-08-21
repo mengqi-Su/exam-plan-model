@@ -17,6 +17,7 @@ import { DaySchedulePreference, ExamStudyPlan, StudyMaterial, SyllabusTopic, Use
 import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
 import { useI18n } from "../lib/i18n";
 import { fallbackGeneratePlanClient } from "../lib/fallbackPlanner";
+import { RulerTimePicker } from "./RulerTimePicker";
 
 interface PlanPreferencesFormProps {
   examName: string;
@@ -76,6 +77,46 @@ export function PlanPreferencesForm({
   const handleUpdateSchedule = (dayIdx: number, patch: Partial<DaySchedulePreference>) => {
     setDailySchedules((prev) =>
       prev.map((d, i) => (i === dayIdx ? { ...d, ...patch } : d))
+    );
+  };
+
+  const handleUpdateDayHours = (dayOfWeek: number, hours: number) => {
+    const clamped = Math.max(0, Math.min(16, Math.round(hours * 10) / 10));
+    setDailySchedules((prev) =>
+      prev.map((d) => (d.dayOfWeek === dayOfWeek ? { ...d, availableHours: clamped, enabled: clamped > 0 } : d))
+    );
+  };
+
+  const handleToggleDayEnabled = (dayOfWeek: number) => {
+    setDailySchedules((prev) =>
+      prev.map((d) => {
+        if (d.dayOfWeek === dayOfWeek) {
+          const nextEnabled = !d.enabled;
+          return {
+            ...d,
+            enabled: nextEnabled,
+            availableHours: nextEnabled && d.availableHours === 0 ? 2.5 : d.availableHours,
+          };
+        }
+        return d;
+      })
+    );
+  };
+
+  const handleApplyWeeklyPreset = (type: "weekday_weekend" | "balanced_3h" | "intensive_5h" | "light_1_5h") => {
+    setDailySchedules((prev) =>
+      prev.map((d) => {
+        const isWeekend = d.dayOfWeek === 0 || d.dayOfWeek === 6;
+        if (type === "weekday_weekend") {
+          return { ...d, availableHours: isWeekend ? 5 : 2.5, enabled: true };
+        } else if (type === "balanced_3h") {
+          return { ...d, availableHours: 3, enabled: true };
+        } else if (type === "intensive_5h") {
+          return { ...d, availableHours: 5, enabled: true };
+        } else {
+          return { ...d, availableHours: isWeekend ? 2.5 : 1.5, enabled: true };
+        }
+      })
     );
   };
 
@@ -282,75 +323,16 @@ export function PlanPreferencesForm({
           </div>
         </div>
 
-        {/* Section 2: Weekly Available Study Hours */}
-        <div className="space-y-3 pt-4 border-t border-[#111111]">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-1.5">
-              <span>[2. {t("sectionWeeklyHours")}]</span>
-            </h3>
-            <span className="text-xs text-[#666666]">
-              {language === "zh" ? "每周总计投入: " : "TOTAL COMMITMENT: "}
-              <strong className="text-[#111111] font-bold">
-                {dailySchedules.reduce((acc, d) => acc + (d.enabled ? d.availableHours : 0), 0)} {language === "zh" ? "小时/周" : "HRS/WEEK"}
-              </strong>
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-7 gap-2">
-            {dailySchedules.map((day, idx) => (
-              <div
-                key={day.dayOfWeek}
-                className={`p-2.5 border text-xs transition-colors font-mono ${
-                  day.enabled
-                    ? "bg-white border-[#111111] text-[#111111]"
-                    : "bg-[#fafafa] border-[#e5e5e5] text-[#999999] opacity-50"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-bold text-xs">{dayNames[idx] || day.dayName.slice(0, 3)}</span>
-                  <input
-                    type="checkbox"
-                    checked={day.enabled}
-                    onChange={(e) => handleUpdateSchedule(idx, { enabled: e.target.checked })}
-                    className="cursor-pointer"
-                  />
-                </div>
-
-                {day.enabled ? (
-                  <div className="space-y-1.5">
-                    <div>
-                      <div className="flex items-center justify-between text-[10px] text-[#666666]">
-                        <span>{language === "zh" ? "时长:" : "HRS:"}</span>
-                        <span className="font-bold text-[#111111]">{day.availableHours}h</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="8"
-                        step="0.5"
-                        value={day.availableHours}
-                        onChange={(e) => handleUpdateSchedule(idx, { availableHours: Number(e.target.value) })}
-                        className="w-full h-1 bg-[#111111] appearance-none cursor-pointer accent-[#111111]"
-                      />
-                    </div>
-
-                    <select
-                      value={day.preferredTimeSlot}
-                      onChange={(e) => handleUpdateSchedule(idx, { preferredTimeSlot: e.target.value as any })}
-                      className="w-full bg-[#fafafa] border border-[#111111] px-1 py-0.5 text-[10px] text-[#111111] font-bold"
-                    >
-                      <option value="morning">{t("slotMorning")}</option>
-                      <option value="afternoon">{t("slotAfternoon")}</option>
-                      <option value="evening">{t("slotEvening")}</option>
-                      <option value="flexible">{t("slotFlexible")}</option>
-                    </select>
-                  </div>
-                ) : (
-                  <div className="py-2 text-center text-[10px] text-[#999999] font-bold">[{t("restDay")}]</div>
-                )}
-              </div>
-            ))}
-          </div>
+        {/* Section 2: Weekly Available Study Hours (Ruler Scale Dial) */}
+        <div className="pt-4 border-t border-[#111111]">
+          <RulerTimePicker
+            language={language}
+            dailySchedules={dailySchedules}
+            onUpdateDayHours={handleUpdateDayHours}
+            onToggleDayEnabled={handleToggleDayEnabled}
+            onApplyPreset={handleApplyWeeklyPreset}
+            daysDiff={daysDiff}
+          />
         </div>
 
         {/* Section 3: Study Pace Archetype & Focus Duration */}

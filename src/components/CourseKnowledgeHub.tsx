@@ -576,34 +576,8 @@ export function CourseKnowledgeHub({
           </div>
 
           {/* Action CTAs */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0 font-mono">
-            <button
-              onClick={handleGenerateStudyPlan}
-              disabled={isGeneratingPlan || isExtracting}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111111] hover:bg-[#333333] disabled:opacity-50 text-white border border-[#111111] text-xs font-bold transition-all cursor-pointer"
-            >
-              {isGeneratingPlan ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>[{language === "zh" ? "规划生成中..." : "GENERATING..."}]</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>[{language === "zh" ? "生成/刷新规划" : "GENERATE PLAN"}]</span>
-                </>
-              )}
-            </button>
-            {onNavigateToTab && plan?.tasks && plan.tasks.length > 0 && (
-              <button
-                onClick={() => onNavigateToTab("todo")}
-                className="flex items-center space-x-1 px-2.5 py-1.5 border border-[#111111] bg-white hover:bg-[#e4e1d8] text-[#111111] text-xs font-bold transition-colors cursor-pointer"
-              >
-                <span>[{language === "zh" ? "前往今日待办" : "TO-DOS"}]</span>
-                <ArrowRight className="w-3.5 h-3.5 text-[#111111]" />
-              </button>
-            )}
-            {(onRequestDeleteCourse || onDeleteCourse) && (
+          {(onRequestDeleteCourse || onDeleteCourse) && (
+            <div className="flex flex-wrap items-center gap-2 shrink-0 font-mono">
               <button
                 onClick={() => {
                   if (onRequestDeleteCourse) {
@@ -617,8 +591,8 @@ export function CourseKnowledgeHub({
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* 3-Step Flow Boxes */}
@@ -657,19 +631,20 @@ export function CourseKnowledgeHub({
             </div>
           </div>
 
-          <div className="flex items-center space-x-3 p-3 bg-white border border-[#111111]">
+          <div
+            onClick={() => onNavigateToTab && onNavigateToTab("realtime")}
+            className="flex items-center space-x-3 p-3 bg-white border border-[#111111] hover:bg-[#ededed] transition-colors cursor-pointer"
+          >
             <div className="w-7 h-7 bg-[#111111] text-white flex items-center justify-center font-bold text-xs shrink-0">
               3
             </div>
-            <div className="min-w-0">
-              <div className="text-xs font-bold text-[#111111] flex items-center space-x-1.5 uppercase">
-                <span>[{language === "zh" ? "智能复习排程" : "STUDY PLAN"}]</span>
-                <span className="text-[10px] px-1.5 py-0.2 border border-[#111111] bg-[#fafafa] text-[#111111]">
-                  {plan?.tasks?.length || 0} 项
-                </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-[#111111] flex items-center justify-between uppercase">
+                <span>[{language === "zh" ? "进度追踪与排程" : "02 TRACKER"}]</span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#111111]" />
               </div>
               <p className="text-[11px] text-[#666666] truncate font-bold">
-                {daysUntilExam > 0 ? (language === "zh" ? `倒计时 ${daysUntilExam} 天` : `${daysUntilExam} DAYS LEFT`) : (language === "zh" ? "自适应排程已就绪" : "READY")}
+                {daysUntilExam > 0 ? (language === "zh" ? `查看排程 · 倒计 ${daysUntilExam} 天` : `${daysUntilExam} DAYS LEFT · VIEW`) : (language === "zh" ? "前往 02 进度追踪查看" : "GO TO TRACKER")}
               </p>
             </div>
           </div>
@@ -1150,244 +1125,7 @@ export function CourseKnowledgeHub({
         )}
       </section>
 
-      {/* ========================================================================= */}
-      {/* SECTION 3: 基于知识库生成的复习规划 (Generated Plan)                       */}
-      {/* ========================================================================= */}
-      <section className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#111111]">
-          <div className="flex items-center space-x-2">
-            <Calendar className="w-4 h-4 text-[#111111]" />
-            <h2 className="text-sm font-bold uppercase text-[#111111]">
-              [3. {language === "zh" ? "个性化复习排程规划" : "AI STUDY PLAN"}]
-            </h2>
-          </div>
 
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setShowPlanSettings(!showPlanSettings)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#111111] hover:bg-[#ededed] text-[#111111] text-xs font-bold transition-colors cursor-pointer"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>[{language === "zh" ? "调整作息参数" : "PREFERENCES"}]</span>
-              {showPlanSettings ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
-
-            <button
-              onClick={handleGenerateStudyPlan}
-              disabled={isGeneratingPlan}
-              className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#111111] hover:bg-[#333333] disabled:opacity-50 text-white border border-[#111111] text-xs font-bold transition-colors cursor-pointer"
-            >
-              {isGeneratingPlan ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>[{language === "zh" ? "正在排程..." : "PLANNING..."}]</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>[{language === "zh" ? "重新生成复习计划" : "REGENERATE PLAN"}]</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Collapsible Settings Panel */}
-        {showPlanSettings && (
-          <div className="bg-white border border-[#111111] p-5 space-y-4 animate-fadeIn font-mono">
-            <h4 className="text-xs font-bold uppercase text-[#111111]">
-              [{language === "zh" ? "备考时间节点与复习偏好设置" : "TIMELINE & PACE PREFERENCES"}]
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-[#666666] mb-1">
-                  [{language === "zh" ? "计划开始日期" : "START DATE"}]
-                </label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-white border border-[#111111] text-xs text-[#111111] font-bold outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-[#666666] mb-1">
-                  [{language === "zh" ? "目标考试日期" : "EXAM DATE"}]
-                </label>
-                <input
-                  type="date"
-                  value={examDate}
-                  onChange={(e) => setExamDate(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-white border border-[#111111] text-xs text-[#111111] font-bold outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-[#666666] mb-1">
-                  [{language === "zh" ? "目标成绩" : "TARGET SCORE"}]
-                </label>
-                <select
-                  value={targetScore}
-                  onChange={(e) => setTargetScore(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-white border border-[#111111] text-xs text-[#111111] font-bold outline-none cursor-pointer"
-                >
-                  <option value="A+ (95%+ / 卓越)">A+ (95%+ / 卓越)</option>
-                  <option value="A (90%+ / 优秀)">A (90%+ / 优秀)</option>
-                  <option value="B (80%+ / 良好)">B (80%+ / 良好)</option>
-                  <option value="Pass (60%+ / 稳妥过关)">Pass (60%+ / 稳妥过关)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-[#666666] mb-1">
-                  [{language === "zh" ? "复习节奏模式" : "STUDY PACE MODE"}]
-                </label>
-                <select
-                  value={studyPace}
-                  onChange={(e) => setStudyPace(e.target.value as any)}
-                  className="w-full px-3 py-1.5 bg-white border border-[#111111] text-xs text-[#111111] font-bold outline-none cursor-pointer"
-                >
-                  <option value="deep_mastery">{language === "zh" ? "深度精通模式 (概念推导 + 主动回忆)" : "Deep Mastery"}</option>
-                  <option value="spaced_repetition">{language === "zh" ? "艾宾浩斯间隔复习 (高频循环回顾)" : "Spaced Repetition"}</option>
-                  <option value="cramming_intensive">{language === "zh" ? "考前冲刺强化 (高频考点速攻)" : "Cramming Intensive"}</option>
-                  <option value="steady_pace">{language === "zh" ? "匀速平稳推进" : "Steady Pace"}</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-[#666666] mb-1">
-                  [{language === "zh" ? "单次专注时长" : "SESSION DURATION"}]
-                </label>
-                <select
-                  value={sessionLength}
-                  onChange={(e) => setSessionLength(Number(e.target.value))}
-                  className="w-full px-3 py-1.5 bg-white border border-[#111111] text-xs text-[#111111] font-bold outline-none cursor-pointer"
-                >
-                  <option value={30}>30 {language === "zh" ? "分钟 (微习惯)" : "MINS"}</option>
-                  <option value={45}>45 {language === "zh" ? "分钟 (标准番茄钟)" : "MINS"}</option>
-                  <option value={60}>60 {language === "zh" ? "分钟 (深度专注)" : "MINS"}</option>
-                  <option value={90}>90 {language === "zh" ? "分钟 (仿真大题演练)" : "MINS"}</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={handleGenerateStudyPlan}
-                disabled={isGeneratingPlan}
-                className="px-4 py-1.5 bg-[#111111] text-white border border-[#111111] text-xs font-bold cursor-pointer"
-              >
-                [{language === "zh" ? "应用偏好并重新规划" : "APPLY & REGENERATE"}]
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Plan Highlights 4-Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono">
-          <div className="p-4 bg-white border border-[#111111]">
-            <span className="text-[11px] text-[#666666] font-bold block">[{language === "zh" ? "备考窗口" : "WINDOW"}]</span>
-            <span className="text-xl font-bold text-[#111111] mt-0.5 block">
-              {daysUntilExam} <span className="text-xs text-[#666666]">{language === "zh" ? "天" : "DAYS"}</span>
-            </span>
-          </div>
-
-          <div className="p-4 bg-white border border-[#111111]">
-            <span className="text-[11px] text-[#666666] font-bold block">[{language === "zh" ? "总规划学时" : "PLANNED HOURS"}]</span>
-            <span className="text-xl font-bold text-[#111111] mt-0.5 block">
-              {plan?.totalPlannedHours || totalEstHours || 35} <span className="text-xs text-[#666666]">{language === "zh" ? "小时" : "HRS"}</span>
-            </span>
-          </div>
-
-          <div className="p-4 bg-white border border-[#111111]">
-            <span className="text-[11px] text-[#666666] font-bold block">[{language === "zh" ? "总生成任务" : "TOTAL TASKS"}]</span>
-            <span className="text-xl font-bold text-[#111111] mt-0.5 block">
-              {plan?.tasks?.length || 0} <span className="text-xs text-[#666666]">{language === "zh" ? "项" : "TASKS"}</span>
-            </span>
-          </div>
-
-          <div className="p-4 bg-white border border-[#111111]">
-            <span className="text-[11px] text-[#666666] font-bold block">[{language === "zh" ? "目标等级" : "TARGET"}]</span>
-            <span className="text-xl font-bold text-[#111111] mt-0.5 block truncate">
-              {targetScore.split(" ")[0]}
-            </span>
-          </div>
-        </div>
-
-        {/* Phase Roadmap Visualizer */}
-        {plan?.phases && plan.phases.length > 0 && (
-          <div className="space-y-3 pt-2 font-mono">
-            <h4 className="text-xs font-bold uppercase text-[#111111]">
-              [{language === "zh" ? "备考阶段推进路线" : "PREPARATION ROADMAP"}]
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {plan.phases.map((phase, pIdx) => (
-                <div
-                  key={phase.id || `phase-${pIdx}`}
-                  className="p-4 bg-white border border-[#111111] space-y-1.5"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#111111]">
-                      {language === "zh" ? "阶段" : "PHASE"} {pIdx + 1}: {phase.name}
-                    </span>
-                    <span className="text-[10px] px-1.5 py-0.2 border border-[#111111] bg-white text-[#111111] font-bold">
-                      {phase.startDate?.slice(5)} ~ {phase.endDate?.slice(5)}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#666666] leading-relaxed">
-                    {phase.description || phase.focus}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Upcoming Tasks Preview linked to knowledge base */}
-        {plan?.tasks && plan.tasks.length > 0 && (
-          <div className="space-y-2.5 pt-2 font-mono">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold uppercase text-[#111111]">
-                [{language === "zh" ? "近期备考任务预览" : "UPCOMING TASKS PREVIEW"}]
-              </h4>
-              {onNavigateToTab && (
-                <button
-                  onClick={() => onNavigateToTab("todo")}
-                  className="text-xs font-bold text-[#111111] hover:underline flex items-center space-x-1 cursor-pointer"
-                >
-                  <span>[{language === "zh" ? "前往每日待办查看全部" : "VIEW ALL IN DAILY TO-DO"}]</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              {plan.tasks.slice(0, 4).map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between p-3 bg-white border border-[#111111] text-xs"
-                >
-                  <div className="flex items-center space-x-2.5 min-w-0 flex-1">
-                    <div className="w-2 h-2 bg-[#111111] shrink-0" />
-                    <span className="text-[#111111] font-bold truncate">{task.title}</span>
-                    <span className="text-[11px] text-[#666666] font-bold shrink-0 flex items-center space-x-1">
-                      <span>{task.date} · {task.durationMinutes} MIN</span>
-                    </span>
-                  </div>
-                  {task.topicTitle && (
-                    <span className="text-[10px] px-2 py-0.5 border border-[#111111] bg-white text-[#111111] font-bold shrink-0 ml-2">
-                      [{task.topicTitle}]
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </section>
 
       {/* Document Full Preview Modal */}
       {previewDoc && (
