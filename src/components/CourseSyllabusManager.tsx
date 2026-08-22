@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import { 
-  Upload, 
-  FileText, 
-  Sparkles, 
-  Trash2, 
-  Plus, 
-  BookOpen, 
-  Check, 
-  AlertCircle, 
+import {
+  Upload,
+  FileText,
+  Sparkles,
+  Trash2,
+  Plus,
+  BookOpen,
+  Check,
+  AlertCircle,
   ArrowRight,
   GraduationCap,
   Layers,
@@ -60,7 +60,6 @@ export function CourseSyllabusManager({
   const [extractError, setExtractError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Load curated sample course curriculum
   const handleLoadSampleCourse = (sample: (typeof SAMPLE_MATERIALS)[0]) => {
     onExamNameChange(sample.name.replace("大纲", "").replace("Syllabus", "").trim() || sample.name);
     onSubjectChange(sample.subject);
@@ -68,7 +67,6 @@ export function CourseSyllabusManager({
     onSyllabusContentChange(sample.text);
   };
 
-  // Handle syllabus files upload (multiple files supported: PDF, Word DOCX, TXT, MD, Images)
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setIsParsingDoc(true);
@@ -100,10 +98,10 @@ export function CourseSyllabusManager({
     }
 
     if (processedNames.length > 0) {
-      const newDocDisplayName = processedNames.length === 1 
-        ? processedNames[0] 
+      const newDocDisplayName = processedNames.length === 1
+        ? processedNames[0]
         : `${processedNames.length} 份课程资料 (${processedNames.slice(0, 2).join(", ")}${processedNames.length > 2 ? " 等" : ""})`;
-      
+
       onSyllabusDocNameChange(newDocDisplayName);
       onSyllabusContentChange(combinedContent.trim());
     }
@@ -112,7 +110,6 @@ export function CourseSyllabusManager({
     setParsingStatus("");
   };
 
-  // Trigger Gemini AI extraction of syllabus topics
   const handleExtractSyllabus = async () => {
     if (!syllabusContent.trim()) {
       setExtractError(language === "zh" ? "请先上传或粘贴课程大纲内容。" : "Please upload or paste your course syllabus content first.");
@@ -164,7 +161,6 @@ export function CourseSyllabusManager({
     }
   };
 
-  // Topic editing helpers
   const handleUpdateTopic = (index: number, updated: Partial<SyllabusTopic>) => {
     const next = [...topics];
     next[index] = { ...next[index], ...updated };
@@ -191,7 +187,7 @@ export function CourseSyllabusManager({
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 space-y-6 font-mono text-[#111111]">
-      {/* Header Banner */}
+
       <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-[#111111] bg-[#fafafa]">
         <div className="flex items-start space-x-3">
           <span className="px-2 py-1 bg-[#111111] text-white text-xs font-bold shrink-0">
@@ -228,7 +224,6 @@ export function CourseSyllabusManager({
         </div>
       </div>
 
-      {/* Course Profile Form */}
       <div className="bg-white border border-[#111111] p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-1.5">
@@ -274,7 +269,6 @@ export function CourseSyllabusManager({
         </div>
       </div>
 
-      {/* Course Syllabus Ingestion (Upload file or direct paste) */}
       <div className="bg-white border border-[#111111] p-5 space-y-4">
         <div className="flex items-center justify-between pb-2 border-b border-[#111111]">
           <div>
@@ -295,7 +289,7 @@ export function CourseSyllabusManager({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Left: Drag and Drop box */}
+
           <div className="lg:col-span-4">
             <div
               onDragOver={(e) => {
@@ -341,7 +335,6 @@ export function CourseSyllabusManager({
             </div>
           </div>
 
-          {/* Right: Direct Syllabus Textarea */}
           <div className="lg:col-span-8 flex flex-col space-y-2">
             <textarea
               id="syllabus-text-input"
@@ -358,7 +351,6 @@ export function CourseSyllabusManager({
           </div>
         </div>
 
-        {/* AI Parse Button */}
         <div className="pt-3 border-t border-[#111111] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="text-[11px] text-[#666666]">
             {syllabusContent ? (
@@ -399,7 +391,6 @@ export function CourseSyllabusManager({
         </div>
       </div>
 
-      {/* Structured Syllabus Topics Database Section */}
       {topics.length > 0 && (
         <div className="bg-white border border-[#111111] space-y-4 p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#111111]">
@@ -434,7 +425,6 @@ export function CourseSyllabusManager({
             </div>
           </div>
 
-          {/* Topics Table */}
           <div className="border border-[#111111] overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse font-mono">
               <thead>

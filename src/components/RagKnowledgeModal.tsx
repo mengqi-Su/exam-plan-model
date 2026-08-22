@@ -101,7 +101,7 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
         className="bg-white border border-[#111111] w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden text-[#111111] font-mono shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#111111] bg-[#fafafa]">
           <div className="flex items-center space-x-2.5">
             <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">
@@ -117,7 +117,7 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
                 </span>
               </div>
               <p className="text-[10px] text-[#666666] truncate max-w-md mt-0.5">
-                {task.title} // {task.topicTitle}
+                {task.title}
               </p>
             </div>
           </div>
@@ -129,9 +129,8 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
           </button>
         </div>
 
-        {/* Content Scrollable */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs font-mono">
-          {/* User Needs Grounding Pill */}
+
           {userNeed && (
             <div className="p-3 bg-[#fafafa] border border-[#111111] space-y-1">
               <div className="flex items-center space-x-1.5 text-[#666666] font-bold text-[10px] uppercase">
@@ -141,7 +140,6 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
             </div>
           )}
 
-          {/* Document Citation Card */}
           <div className="p-3.5 bg-white border border-[#111111] space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-1.5 font-bold text-xs text-[#111111]">
@@ -168,7 +166,6 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
               </div>
             )}
 
-            {/* Formulas / Rules Extracted */}
             {formulas && formulas.length > 0 && (
               <div className="pt-1.5 border-t border-[#111111] space-y-1">
                 <span className="text-[10px] font-bold text-[#666666] uppercase tracking-wider block">
@@ -187,7 +184,6 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
               </div>
             )}
 
-            {/* Quick Practice Reference */}
             {task.practiceQuestionRef && (
               <div className="text-[11px] text-[#111111] font-bold flex items-center space-x-1">
                 <span>[{isZh ? "真题出处" : "PAST-EXAM-REF"}]</span>
@@ -196,7 +192,6 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
             )}
           </div>
 
-          {/* Quick RAG Questions */}
           <div className="space-y-1.5">
             <span className="text-[10px] font-bold uppercase text-[#666666]">
               {isZh ? "[快捷提问]：" : "[QUICK PROMPTS]:"}
@@ -219,7 +214,6 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
             </div>
           </div>
 
-          {/* Chat History */}
           {chatHistory.length > 0 && (
             <div className="space-y-3 pt-2 border-t border-[#111111]">
               {chatHistory.map((msg, i) => (
@@ -247,7 +241,7 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
                             className="p-1.5 bg-white border border-[#111111] text-[10px] text-[#111111]"
                           >
                             <span className="font-bold">{c.documentName}</span>
-                            {c.sectionTitle && <span className="text-[#666666]"> // {c.sectionTitle}</span>}
+                            {c.sectionTitle && <span className="text-[#666666]"> - {c.sectionTitle}</span>}
                             <p className="italic text-[#666666] mt-0.5">"{c.excerpt}"</p>
                           </div>
                         ))}
@@ -266,7 +260,6 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
           )}
         </div>
 
-        {/* Input Bar */}
         <div className="p-3 border-t border-[#111111] bg-[#fafafa] flex items-center space-x-2 font-mono">
           <input
             type="text"

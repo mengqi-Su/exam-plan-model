@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import { 
-  Calendar, 
-  Clock, 
-  Sparkles, 
-  Sliders, 
-  Target, 
-  BrainCircuit, 
-  ShieldCheck, 
-  Zap, 
+import {
+  Calendar,
+  Clock,
+  Sparkles,
+  Sliders,
+  Target,
+  BrainCircuit,
+  ShieldCheck,
+  Zap,
   AlertCircle,
   ArrowLeft,
   CalendarDays,
@@ -40,8 +40,7 @@ export function PlanPreferencesForm({
 }: PlanPreferencesFormProps) {
   const { t, language } = useI18n();
   const todayStr = new Date().toISOString().split("T")[0];
-  
-  // Default exam date is 3 weeks from today
+
   const defaultExamDate = React.useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + 21);
@@ -65,7 +64,6 @@ export function PlanPreferencesForm({
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
-  // Calculate days difference
   const daysDiff = React.useMemo(() => {
     const s = new Date(startDate);
     const e = new Date(examDate);
@@ -73,7 +71,6 @@ export function PlanPreferencesForm({
     return diff > 0 ? diff : 0;
   }, [startDate, examDate]);
 
-  // Update schedule for specific day of week
   const handleUpdateSchedule = (dayIdx: number, patch: Partial<DaySchedulePreference>) => {
     setDailySchedules((prev) =>
       prev.map((d, i) => (i === dayIdx ? { ...d, ...patch } : d))
@@ -120,7 +117,6 @@ export function PlanPreferencesForm({
     );
   };
 
-  // Toggle weak topic
   const handleToggleWeakTopic = (topicTitle: string) => {
     if (selectedWeakTopics.includes(topicTitle)) {
       setSelectedWeakTopics(selectedWeakTopics.filter(t => t !== topicTitle));
@@ -129,7 +125,6 @@ export function PlanPreferencesForm({
     }
   };
 
-  // Generate Plan Handler
   const handleGeneratePlan = async () => {
     if (!examDate || !startDate) {
       setGenerateError(language === "zh" ? "请指定有效的开始日期和考试日期。" : "Please specify valid start and exam dates.");
@@ -236,7 +231,7 @@ export function PlanPreferencesForm({
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6 space-y-6 font-mono text-[#111111]">
-      {/* Navigation Top Bar */}
+
       <div className="flex items-center justify-between pb-4 border-b border-[#111111]">
         <button
           onClick={onBackToMaterials}
@@ -254,7 +249,6 @@ export function PlanPreferencesForm({
         </div>
       </div>
 
-      {/* Main Settings Direct Form */}
       <div className="space-y-6">
         <div>
           <h2 className="text-sm font-bold uppercase tracking-tight text-[#111111]">
@@ -265,7 +259,6 @@ export function PlanPreferencesForm({
           </p>
         </div>
 
-        {/* Section 1: Timeline */}
         <div className="space-y-3 pt-4 border-t border-[#111111]">
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-1.5">
             <span>[1. {t("sectionTimeline")}]</span>
@@ -318,12 +311,11 @@ export function PlanPreferencesForm({
               <strong className="font-bold">{daysDiff} {language === "zh" ? "天" : "DAYS"}</strong> ({Math.round(daysDiff / 7)} {language === "zh" ? "周" : "WEEKS"})
             </span>
             <span className="text-[#666666] font-bold">
-              {examName} // {subject}
+              {examName}
             </span>
           </div>
         </div>
 
-        {/* Section 2: Weekly Available Study Hours (Ruler Scale Dial) */}
         <div className="pt-4 border-t border-[#111111]">
           <RulerTimePicker
             language={language}
@@ -335,7 +327,6 @@ export function PlanPreferencesForm({
           />
         </div>
 
-        {/* Section 3: Study Pace Archetype & Focus Duration */}
         <div className="space-y-3 pt-4 border-t border-[#111111]">
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-1.5">
             <span>[3. {t("sectionPace")}]</span>
@@ -396,7 +387,6 @@ export function PlanPreferencesForm({
             })}
           </div>
 
-          {/* Session Duration & Practice Exam Settings */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 font-mono">
             <div>
               <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
@@ -459,7 +449,6 @@ export function PlanPreferencesForm({
           </div>
         </div>
 
-        {/* Section 4: Weak Spots */}
         {topics.length > 0 && (
           <div className="space-y-2 pt-4 border-t border-[#111111]">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-1.5">
@@ -492,7 +481,6 @@ export function PlanPreferencesForm({
           </div>
         )}
 
-        {/* Generate Action Button */}
         <div className="pt-4 border-t border-[#111111]">
           {generateError && (
             <div className="p-3 mb-3 bg-[#fafafa] border border-[#111111] text-[#111111] text-xs font-bold flex items-start space-x-1.5">

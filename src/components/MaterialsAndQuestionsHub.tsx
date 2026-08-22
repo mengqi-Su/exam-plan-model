@@ -1,23 +1,23 @@
 import React, { useState } from "react";
-import { 
-  FileText, 
-  Upload, 
-  Plus, 
-  Trash2, 
-  Sparkles, 
-  BookOpen, 
-  CheckCircle2, 
-  AlertCircle, 
-  HelpCircle, 
-  FileQuestion, 
-  Search, 
-  Filter, 
-  Layers, 
-  Tag, 
-  Calendar, 
-  Clock, 
-  Eye, 
-  X, 
+import {
+  FileText,
+  Upload,
+  Plus,
+  Trash2,
+  Sparkles,
+  BookOpen,
+  CheckCircle2,
+  AlertCircle,
+  HelpCircle,
+  FileQuestion,
+  Search,
+  Filter,
+  Layers,
+  Tag,
+  Calendar,
+  Clock,
+  Eye,
+  X,
   ExternalLink,
   Zap,
   BookmarkPlus,
@@ -45,15 +45,12 @@ export function MaterialsAndQuestionsHub({
 }: MaterialsAndQuestionsHubProps) {
   const { t, language } = useI18n();
 
-  // Active section tab: "questions" (真题试卷库) vs "notes" (讲义与资料)
   const [hubTab, setHubTab] = useState<"questions" | "notes">("questions");
 
-  // Filtering & search
   const [searchQuery, setSearchQuery] = useState("");
   const [filterDifficulty, setFilterDifficulty] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
 
-  // Upload/Input modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState("");
   const [newDocType, setNewDocType] = useState<StudyMaterial["type"]>("past_exam");
@@ -65,16 +62,12 @@ export function MaterialsAndQuestionsHub({
   const [isUploadingDocs, setIsUploadingDocs] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState<string>("");
 
-  // Viewing full document / paper modal
   const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
 
-  // Active Quiz Modal state for a specific test paper / material
   const [activeQuizMaterial, setActiveQuizMaterial] = useState<StudyMaterial | null>(null);
 
-  // Ensure materials array exists
   const materials: StudyMaterial[] = plan.materials || INITIAL_SAMPLE_DOCUMENTS;
 
-  // Filtered lists
   const questionPapers = materials.filter(
     (m) => m.categoryGroup === "exam_question" || m.type === "past_exam" || m.name.includes("真题") || m.name.includes("试卷") || m.name.includes("Exam") || m.name.includes("Quiz")
   );
@@ -96,7 +89,6 @@ export function MaterialsAndQuestionsHub({
     return matchesSearch && matchesDiff && matchesType;
   });
 
-  // Handle saving new material
   const handleSaveNewMaterial = () => {
     if (!newDocContent.trim()) return;
 
@@ -121,7 +113,6 @@ export function MaterialsAndQuestionsHub({
       materials: updatedMaterials,
     });
 
-    // Reset modal
     setNewDocTitle("");
     setNewDocContent("");
     setNewDocYear("");
@@ -129,7 +120,6 @@ export function MaterialsAndQuestionsHub({
     setIsAddModalOpen(false);
   };
 
-  // Handle file uploads directly with robust parsing
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
@@ -183,7 +173,6 @@ export function MaterialsAndQuestionsHub({
     setUploadProgressText("");
   };
 
-  // Handle parsing a file inside the Add Modal
   const handleModalFileSelect = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const file = files[0];
@@ -203,7 +192,6 @@ export function MaterialsAndQuestionsHub({
     }
   };
 
-  // Handle deleting a material
   const handleDeleteMaterial = (id: string) => {
     const updated = materials.filter((m) => m.id !== id);
     onUpdatePlan({
@@ -212,7 +200,6 @@ export function MaterialsAndQuestionsHub({
     });
   };
 
-  // Load sample documents if empty
   const handleLoadSampleDocuments = () => {
     onUpdatePlan({
       ...plan,
@@ -220,7 +207,6 @@ export function MaterialsAndQuestionsHub({
     });
   };
 
-  // Add document as a task directly to the daily schedule
   const handleAddToDailySchedule = (doc: StudyMaterial) => {
     const today = new Date().toISOString().split("T")[0];
     const isQuestion = doc.categoryGroup === "exam_question" || doc.type === "past_exam";
@@ -262,7 +248,7 @@ export function MaterialsAndQuestionsHub({
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6 font-mono text-[#111111]">
-      {/* Top Banner Callout */}
+
       <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-[#111111] bg-[#fafafa]">
         <div className="flex items-start space-x-3">
           <span className="px-2 py-1 bg-[#111111] text-white text-xs font-bold shrink-0">
@@ -309,7 +295,6 @@ export function MaterialsAndQuestionsHub({
         </div>
       </div>
 
-      {/* Main Hub Tabs (真题试卷库 vs 课程讲义与资料) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#111111] pb-1">
         <div className="flex items-center space-x-2">
           <button
@@ -347,7 +332,6 @@ export function MaterialsAndQuestionsHub({
           </button>
         </div>
 
-        {/* Search & Filters */}
         <div className="flex items-center space-x-2">
           <div className="relative">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#999999]" />
@@ -373,7 +357,6 @@ export function MaterialsAndQuestionsHub({
         </div>
       </div>
 
-      {/* Quick Upload Drop Area */}
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -416,7 +399,6 @@ export function MaterialsAndQuestionsHub({
         </div>
       </div>
 
-      {/* Items Grid & Cards */}
       {filteredItems.length === 0 ? (
         <div className="bg-white border border-[#111111] p-10 text-center space-y-3">
           <BookOpen className="w-8 h-8 mx-auto text-[#111111] opacity-40" />
@@ -445,7 +427,7 @@ export function MaterialsAndQuestionsHub({
                 className="bg-white border border-[#111111] p-4 flex flex-col justify-between space-y-3"
               >
                 <div className="space-y-2">
-                  {/* Top Tags & Difficulty */}
+
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center space-x-1.5 truncate">
                       <span className="border border-[#111111] bg-[#111111] text-white px-2 py-0.5 text-[9px] font-bold">
@@ -477,7 +459,6 @@ export function MaterialsAndQuestionsHub({
                     </div>
                   </div>
 
-                  {/* Title & Preview snippet */}
                   <div>
                     <h4 className="text-xs font-bold text-[#111111] line-clamp-1 uppercase">
                       {item.name}
@@ -487,7 +468,6 @@ export function MaterialsAndQuestionsHub({
                     </p>
                   </div>
 
-                  {/* Key Traps / Highlights if available */}
                   {item.keyTraps && item.keyTraps.length > 0 && (
                     <div className="p-2 bg-[#fafafa] border border-[#111111] space-y-1">
                       <span className="text-[10px] font-bold text-[#111111] flex items-center space-x-1 uppercase">
@@ -503,7 +483,6 @@ export function MaterialsAndQuestionsHub({
                   )}
                 </div>
 
-                {/* Bottom Actions Toolbar */}
                 <div className="pt-2.5 border-t border-[#111111] flex items-center justify-between gap-2 text-xs">
                   <button
                     onClick={() => setPreviewDoc(item)}
@@ -538,7 +517,6 @@ export function MaterialsAndQuestionsHub({
         </div>
       )}
 
-      {/* Add Document / Paper Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-[#111111]/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-[#111111] w-full max-w-xl p-6 space-y-4 max-h-[90vh] overflow-y-auto font-mono text-[#111111]">
@@ -694,7 +672,6 @@ export function MaterialsAndQuestionsHub({
         </div>
       )}
 
-      {/* Preview Content Modal */}
       {previewDoc && (
         <div className="fixed inset-0 z-50 bg-[#111111]/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-[#111111] w-full max-w-2xl p-6 space-y-4 max-h-[90vh] flex flex-col font-mono text-[#111111]">
@@ -721,7 +698,7 @@ export function MaterialsAndQuestionsHub({
 
             <div className="flex items-center justify-between pt-3 border-t border-[#111111] text-xs">
               <span className="text-[#666666] font-bold">
-                {previewDoc.sizeBytes ? `${Math.round(previewDoc.sizeBytes / 1024)} KB` : ""} //{" "}
+                {previewDoc.sizeBytes ? `${Math.round(previewDoc.sizeBytes / 1024)} KB` : ""}
                 {new Date(previewDoc.uploadedAt).toLocaleDateString()}
               </span>
 
@@ -752,7 +729,6 @@ export function MaterialsAndQuestionsHub({
         </div>
       )}
 
-      {/* Quiz Modal for Active Document */}
       {activeQuizMaterial && (
         <QuizModal
           task={{

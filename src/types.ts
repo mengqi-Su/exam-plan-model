@@ -1,7 +1,7 @@
 export type MaterialCategory = 'course_syllabus' | 'exam_question' | 'study_material';
 
 export interface DaySchedulePreference {
-  dayOfWeek: number; // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  dayOfWeek: number;
   dayName: string;
   availableHours: number;
   preferredTimeSlot: 'morning' | 'afternoon' | 'evening' | 'flexible';
@@ -52,13 +52,13 @@ export interface StudyMaterial {
 export interface UserStudyPreferences {
   examName: string;
   subject: string;
-  examDate: string; // YYYY-MM-DD
-  examTime?: string; // HH:MM
-  startDate: string; // YYYY-MM-DD
+  examDate: string;
+  examTime?: string;
+  startDate: string;
   targetScoreOrGrade?: string;
   dailySchedules: DaySchedulePreference[];
   studyPace: 'balanced' | 'intensive_crash' | 'deep_mastery' | 'spaced_repetition';
-  sessionLengthMinutes: number; // 25, 45, 60, 90
+  sessionLengthMinutes: number;
   includePracticeExams: boolean;
   includeBufferDays: boolean;
   bufferDaysCount: number;
@@ -68,7 +68,7 @@ export interface UserStudyPreferences {
   additionalNotes?: string;
 }
 
-export type TaskCategory = 
+export type TaskCategory =
   | 'theory'
   | 'reading'
   | 'practice_problems'
@@ -87,9 +87,9 @@ export interface StudyTask {
   category: TaskCategory;
   topicId?: string;
   topicTitle: string;
-  date: string; // YYYY-MM-DD
-  startTime?: string; // HH:MM
-  endTime?: string; // HH:MM
+  date: string;
+  startTime?: string;
+  endTime?: string;
   durationMinutes: number;
   priority: 'high' | 'medium' | 'low';
   status: TaskStatus;
@@ -97,9 +97,9 @@ export interface StudyTask {
   activeRecallPrompt?: string;
   notes?: string;
   actualMinutesSpent?: number;
-  confidenceRating?: 1 | 2 | 3 | 4 | 5; // 1 = Struggled, 5 = Mastered
+  confidenceRating?: 1 | 2 | 3 | 4 | 5;
   completedAt?: string;
-  // RAG Enhanced Fields
+
   ragSource?: RagSourceCitation;
   groundedUserNeed?: string;
   formulaOrRules?: string[];
@@ -172,7 +172,7 @@ export interface UserProfile {
 }
 
 export interface AppSettings {
-  defaultFocusDuration: number; // 25, 45, 60, 90 mins
+  defaultFocusDuration: number;
   enableSoundAlerts: boolean;
   enableDailyReminders: boolean;
   firstDayOfWeek: 'monday' | 'sunday';
@@ -196,4 +196,3 @@ export interface AppVersionInfo {
     highlights: string[];
   }[];
 }
-

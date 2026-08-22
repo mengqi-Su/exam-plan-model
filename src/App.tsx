@@ -12,11 +12,11 @@ import { SettingsModal } from "./components/SettingsModal";
 import { DeleteConfirmModal } from "./components/DeleteConfirmModal";
 import { ChevronLeft, LayoutDashboard, Calendar } from "lucide-react";
 import { ExamStudyPlan, StudyMaterial, SyllabusTopic, AppSettings, UserProfile } from "./types";
-import { 
-  loadSavedPlans, 
-  savePlans, 
-  getActivePlanId, 
-  setActivePlanId, 
+import {
+  loadSavedPlans,
+  savePlans,
+  getActivePlanId,
+  setActivePlanId,
   DEFAULT_WEEK_SCHEDULE,
   loadAppSettings,
   saveAppSettings,
@@ -41,21 +41,19 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<"dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject">("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // Settings & User Profile State
+
   const [appSettings, setAppSettings] = useState<AppSettings>(() => loadAppSettings());
   const [userProfile, setUserProfile] = useState<UserProfile>(() => loadUserProfile());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "account" | "language" | "version">("general");
 
-  // Firebase Auth & Cloud Sync Listener
   useEffect(() => {
     let unsubscribePlans: (() => void) | null = null;
     let unsubscribeProfile: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // User logged in via Firebase
+
         const updatedProfile: UserProfile = {
           ...userProfile,
           id: user.uid,
@@ -67,7 +65,6 @@ export default function App() {
         setUserProfile(updatedProfile);
         saveUserProfile(updatedProfile);
 
-        // Listen for profile changes from Firestore
         unsubscribeProfile = subscribeToUserProfile(user.uid, (cloudProfile) => {
           if (cloudProfile) {
             setUserProfile((prev) => ({
@@ -78,7 +75,6 @@ export default function App() {
           }
         });
 
-        // Listen for plans from Firestore
         unsubscribePlans = subscribeToUserPlans(user.uid, (cloudPlans) => {
           if (cloudPlans && cloudPlans.length > 0) {
             setPlans(cloudPlans);
@@ -89,7 +85,7 @@ export default function App() {
           }
         });
       } else {
-        // User is logged out / offline guest
+
         if (unsubscribePlans) unsubscribePlans();
         if (unsubscribeProfile) unsubscribeProfile();
       }
@@ -102,10 +98,8 @@ export default function App() {
     };
   }, []);
 
-  // Sub-step when in "course" tab: "syllabus" vs "config"
   const [courseStep, setCourseStep] = useState<"syllabus" | "config">("syllabus");
 
-  // Ingestion state for creating / editing syllabus & generating plan
   const [syllabusContent, setSyllabusContent] = useState<string>("");
   const [syllabusDocName, setSyllabusDocName] = useState<string>("");
   const [currentTopics, setCurrentTopics] = useState<SyllabusTopic[]>([]);
@@ -113,29 +107,23 @@ export default function App() {
   const [examName, setExamName] = useState<string>("CS 301：高级算法与数据结构期末考试");
   const [subject, setSubject] = useState<string>("计算机科学");
 
-  // Selected date for Daily To-Do list
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return new Date().toISOString().split("T")[0];
   });
 
-  // Rebalance modal state
   const [isRebalanceModalOpen, setIsRebalanceModalOpen] = useState(false);
 
-  // Deletion confirmation modal state
   const [planToDelete, setPlanToDelete] = useState<ExamStudyPlan | null>(null);
 
-  // Sync plans to localStorage
   useEffect(() => {
     savePlans(plans);
   }, [plans]);
 
-  // Sync settings to localStorage
   const handleUpdateSettings = (newSettings: AppSettings) => {
     setAppSettings(newSettings);
     saveAppSettings(newSettings);
   };
 
-  // Sync profile to localStorage and cloud
   const handleUpdateUserProfile = (newProfile: UserProfile) => {
     setUserProfile(newProfile);
     saveUserProfile(newProfile);
@@ -146,13 +134,11 @@ export default function App() {
     }
   };
 
-  // Open settings with target tab
   const handleOpenSettings = (tab: "general" | "account" | "language" | "version" = "general") => {
     setSettingsInitialTab(tab);
     setIsSettingsOpen(true);
   };
 
-  // Reset plans to sample
   const handleResetPlans = () => {
     setPlans(SAMPLE_PLANS);
     if (SAMPLE_PLANS.length > 0) {
@@ -161,12 +147,10 @@ export default function App() {
     }
   };
 
-  // Current active plan
   const activePlan = React.useMemo(() => {
     return plans.find((p) => p.id === activePlanId) || plans[0] || null;
   }, [plans, activePlanId]);
 
-  // Handle plan selection
   const handleSelectPlan = (planId: string) => {
     setActivePlanIdState(planId);
     setActivePlanId(planId);
@@ -179,12 +163,10 @@ export default function App() {
     }
   };
 
-  // Handle "+ New Plan / Add Exam Subject" -> Jump to dedicated Add Exam Subject page
   const handleNewPlan = () => {
     setCurrentTab("add_subject");
   };
 
-  // Update active plan or any plan
   const handleUpdatePlan = (updatedPlan: ExamStudyPlan) => {
     setPlans((prev) =>
       prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p))
@@ -196,7 +178,6 @@ export default function App() {
     }
   };
 
-  // Delete plan
   const handleDeletePlan = (planId: string) => {
     setPlans((prev) => {
       const next = prev.filter((p) => p.id !== planId);
@@ -223,7 +204,6 @@ export default function App() {
     }
   };
 
-  // Handle newly generated plan
   const handlePlanGenerated = (newPlan: ExamStudyPlan) => {
     const nextPlans = [newPlan, ...plans.filter((p) => p.id !== newPlan.id)];
     setPlans(nextPlans);
@@ -239,7 +219,6 @@ export default function App() {
     }
   };
 
-  // Navigation handler
   const handleNavigateToTab = (tab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject", planId?: string) => {
     if (planId) {
       handleSelectPlan(planId);
@@ -259,7 +238,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f8f7f4] text-[#111111] flex antialiased selection:bg-[#111111] selection:text-white font-sans">
-      {/* Notion Sidebar */}
+
       <NotionSidebar
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -268,7 +247,7 @@ export default function App() {
         onSelectPlan={(id) => {
           handleSelectPlan(id);
           if (currentTab === "dashboard") {
-            // Keep on dashboard or switch to course
+
           }
         }}
         onNewPlan={handleNewPlan}
@@ -285,13 +264,12 @@ export default function App() {
         onOpenSettings={handleOpenSettings}
       />
 
-      {/* Main Content Area (shifts when sidebar is open) */}
       <div
         className={`flex-1 flex flex-col min-w-0 transition-all duration-200 ${
           isSidebarOpen ? "md:ml-64" : "ml-0"
         }`}
       >
-        {/* Notion Header with Breadcrumbs, Cover Banner, Properties & Tab Switcher (Course Pages Only) */}
+
         {currentTab !== "dashboard" && currentTab !== "master_calendar" && currentTab !== "add_subject" && (
           <NotionPageHeader
             activePlan={activePlan}
@@ -308,7 +286,6 @@ export default function App() {
           />
         )}
 
-        {/* Tab Views */}
         <main className="flex-1 pb-16">
           {currentTab === "dashboard" && (
             <MasterDashboard
@@ -325,7 +302,7 @@ export default function App() {
 
           {currentTab === "master_calendar" && (
             <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6 animate-fadeIn">
-              {/* Master Calendar Component */}
+
               <MasterCalendarView
                 plans={plans}
                 onToggleTaskStatus={(planId, taskId) => {
@@ -430,7 +407,6 @@ export default function App() {
         </main>
       </div>
 
-      {/* Course Deletion Confirmation Modal */}
       <DeleteConfirmModal
         isOpen={!!planToDelete}
         plan={planToDelete}
@@ -438,7 +414,6 @@ export default function App() {
         onConfirm={(planId) => handleDeletePlan(planId)}
       />
 
-      {/* Global Configuration, Login Profile, Language & Version Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}

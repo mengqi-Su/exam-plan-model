@@ -1,20 +1,20 @@
 import React, { useState, useMemo } from "react";
-import { 
-  Plus, 
-  GraduationCap, 
-  BookOpen, 
-  Calendar, 
-  Clock, 
-  Sparkles, 
-  Sliders, 
-  Target, 
-  BrainCircuit, 
-  CheckCircle2, 
-  ArrowLeft, 
-  ArrowRight, 
-  Upload, 
-  FileText, 
-  Trash2, 
+import {
+  Plus,
+  GraduationCap,
+  BookOpen,
+  Calendar,
+  Clock,
+  Sparkles,
+  Sliders,
+  Target,
+  BrainCircuit,
+  CheckCircle2,
+  ArrowLeft,
+  ArrowRight,
+  Upload,
+  FileText,
+  Trash2,
   AlertCircle,
   HelpCircle,
   Zap,
@@ -25,12 +25,12 @@ import {
   Layers,
   Check
 } from "lucide-react";
-import { 
-  DaySchedulePreference, 
-  ExamStudyPlan, 
-  StudyMaterial, 
-  SyllabusTopic, 
-  UserStudyPreferences 
+import {
+  DaySchedulePreference,
+  ExamStudyPlan,
+  StudyMaterial,
+  SyllabusTopic,
+  UserStudyPreferences
 } from "../types";
 import { DEFAULT_WEEK_SCHEDULE, SAMPLE_MATERIALS } from "../lib/storage";
 import { useI18n } from "../lib/i18n";
@@ -94,15 +94,12 @@ export function AddExamSubjectWizard({
 }: AddExamSubjectWizardProps) {
   const { t, language } = useI18n();
 
-  // Wizard Step: 1 = Basic Info & Course, 2 = Syllabus & Multi-Documents, 3 = Pacing & Schedule Settings
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // Step 1: Basic Subject Info
   const [examName, setExamName] = useState("");
   const [subject, setSubject] = useState("");
   const [targetScore, setTargetScore] = useState("A (90%+ / 优秀)");
 
-  // Default exam date is 21 days from today
   const defaultExamDate = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + 21);
@@ -120,24 +117,20 @@ export function AddExamSubjectWizard({
     return diff > 0 ? diff : 1;
   }, [startDate, examDate]);
 
-  // Step 2: Multi-Document Repository for this single Course
   const [courseDocuments, setCourseDocuments] = useState<StudyMaterial[]>([]);
   const [pasteDocTitle, setPasteDocTitle] = useState("");
   const [pasteDocType, setPasteDocType] = useState<StudyMaterial["type"]>("notes");
   const [pasteDocContent, setPasteDocContent] = useState("");
   const [showPasteForm, setShowPasteForm] = useState(false);
 
-  // Topics & AI Extraction
   const [topics, setTopics] = useState<SyllabusTopic[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [isParsingFiles, setIsParsingFiles] = useState(false);
   const [parsingStatus, setParsingStatus] = useState("");
   const [extractError, setExtractError] = useState<string | null>(null);
 
-  // Document preview modal
   const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
 
-  // Step 3: Preferences & RAG Needs
   const [studyPace, setStudyPace] = useState<UserStudyPreferences["studyPace"]>("deep_mastery");
   const [sessionLength, setSessionLength] = useState<number>(45);
   const [includePracticeExams, setIncludePracticeExams] = useState(true);
@@ -149,8 +142,7 @@ export function AddExamSubjectWizard({
   const [userNeedFocusArea, setUserNeedFocusArea] = useState("heavy_calculation");
   const [customPromptRequirement, setCustomPromptRequirement] = useState("");
 
-  // Helpers for Monday - Sunday customization
-  const orderedDayOfWeeks = [1, 2, 3, 4, 5, 6, 0]; // Mon, Tue, Wed, Thu, Fri, Sat, Sun
+  const orderedDayOfWeeks = [1, 2, 3, 4, 5, 6, 0];
 
   const dayMeta: Record<number, { zh: string; en: string; isWeekend: boolean }> = {
     1: { zh: "周一", en: "Mon", isWeekend: false },
@@ -220,11 +212,9 @@ export function AddExamSubjectWizard({
     );
   };
 
-  // Final Generation state
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
-  // Apply Quick Template
   const handleApplyTemplate = (tmpl: typeof QUICK_SUBJECT_TEMPLATES[0]) => {
     setExamName(tmpl.name);
     setSubject(tmpl.subject);
@@ -232,7 +222,6 @@ export function AddExamSubjectWizard({
     setSelectedWeakTopics(tmpl.topics.filter(t => t.difficulty === "hard").map(t => t.title));
   };
 
-  // Helper to determine document type and category group from filename
   const inferDocumentType = (fileName: string): { type: StudyMaterial["type"]; categoryGroup: StudyMaterial["categoryGroup"] } => {
     const lower = fileName.toLowerCase();
     if (lower.includes("大纲") || lower.includes("syllabus") || lower.includes("curriculum") || lower.includes("考纲")) {
@@ -250,7 +239,6 @@ export function AddExamSubjectWizard({
     return { type: "notes", categoryGroup: "study_material" };
   };
 
-  // Handle uploading multiple files for THIS course
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setIsParsingFiles(true);
@@ -285,7 +273,6 @@ export function AddExamSubjectWizard({
 
         newDocs.push(newDoc);
 
-        // If examName is empty and this is the first file/syllabus, suggest course name
         if (!examName && (type === "syllabus" || i === 0)) {
           const suggested = file.name.replace(/\.[^/.]+$/, "").replace(/大纲|syllabus|期末|考试|试卷|讲义/i, "").trim();
           if (suggested) {
@@ -305,7 +292,6 @@ export function AddExamSubjectWizard({
     setParsingStatus("");
   };
 
-  // Handle manually adding pasted text as a document for this course
   const handleAddPastedDocument = () => {
     if (!pasteDocContent.trim()) return;
 
@@ -328,7 +314,6 @@ export function AddExamSubjectWizard({
     setShowPasteForm(false);
   };
 
-  // Update a document's classification or role in this course
   const handleUpdateDocument = (id: string, patch: Partial<StudyMaterial>) => {
     setCourseDocuments((prev) =>
       prev.map((doc) => {
@@ -349,12 +334,10 @@ export function AddExamSubjectWizard({
     );
   };
 
-  // Delete a document from this course
   const handleDeleteDocument = (id: string) => {
     setCourseDocuments((prev) => prev.filter((d) => d.id !== id));
   };
 
-  // AI Multi-Document Syllabus & Topic Extraction
   const handleExtractSyllabus = async () => {
     if (courseDocuments.length === 0) {
       setExtractError(language === "zh" ? "请先上传至少一份课程考纲、讲义或试卷文件。" : "Please upload at least one course document first.");
@@ -403,12 +386,10 @@ export function AddExamSubjectWizard({
     }
   };
 
-  // Update specific topic
   const handleUpdateTopic = (id: string, patch: Partial<SyllabusTopic>) => {
     setTopics((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
   };
 
-  // Add custom topic
   const handleAddCustomTopic = () => {
     const newTopic: SyllabusTopic = {
       id: `topic-custom-${Date.now()}`,
@@ -424,12 +405,10 @@ export function AddExamSubjectWizard({
     setTopics([...topics, newTopic]);
   };
 
-  // Delete topic
   const handleDeleteTopic = (id: string) => {
     setTopics((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Generate Plan Handler: attaches all course documents to newPlan.materials
   const handleGenerateFinalPlan = async () => {
     if (!examName.trim()) {
       setGenerateError(language === "zh" ? "请输入考试科目名称。" : "Please enter the exam name.");
@@ -546,7 +525,7 @@ export function AddExamSubjectWizard({
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 font-mono text-[#111111] space-y-6">
-      {/* Top Banner Navigation & Breadcrumbs */}
+
       <div className="flex items-center justify-between pb-4 border-b border-[#111111]">
         <button
           onClick={onCancel}
@@ -564,20 +543,13 @@ export function AddExamSubjectWizard({
         </div>
       </div>
 
-      {/* Main Header */}
-      <div className="border-b border-[#111111] pb-4">
+      <div className="border-b border-[#111111] pb-3">
         <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#111111] flex items-center space-x-2 uppercase">
           <Plus className="w-5 h-5 text-[#111111]" />
-          <span>{language === "zh" ? "添加新考试科目" : "Add Exam Subject"}</span>
+          <span>{language === "zh" ? "新建科目" : "NEW SUBJECT"}</span>
         </h1>
-        <p className="text-xs text-[#666666] mt-1">
-          {language === "zh"
-            ? "为新学科输入考期与目标、上传考纲或选择预设模板，AI 将为您生成专属自适应复习日历与每日待办。"
-            : "Set up a new subject, import syllabus topics, and let AI generate an adaptive day-by-day study roadmap."}
-        </p>
       </div>
 
-      {/* Step Indicators */}
       <div className="grid grid-cols-3 gap-2 text-xs font-bold border-b border-[#111111] pb-3">
         <button
           onClick={() => setStep(1)}
@@ -586,13 +558,13 @@ export function AddExamSubjectWizard({
           }`}
         >
           <span className="text-[11px]">[01]</span>
-          <span className="truncate">{language === "zh" ? "科目与考试信息" : "SUBJECT"}</span>
+          <span className="truncate">{language === "zh" ? "科目信息" : "SUBJECT"}</span>
         </button>
 
         <button
           onClick={() => {
             if (!examName.trim()) {
-              setGenerateError(language === "zh" ? "请先输入考试科目名称" : "Please enter exam name first");
+              setGenerateError(language === "zh" ? "请输入科目名称" : "Please enter exam name");
               return;
             }
             setStep(2);
@@ -602,7 +574,7 @@ export function AddExamSubjectWizard({
           }`}
         >
           <span className="text-[11px]">[02]</span>
-          <span className="truncate">{language === "zh" ? "考纲与多文件资料" : "SYLLABUS & DOCS"}</span>
+          <span className="truncate">{language === "zh" ? "考纲资料" : "SYLLABUS"}</span>
         </button>
 
         <button
@@ -626,7 +598,6 @@ export function AddExamSubjectWizard({
         </button>
       </div>
 
-      {/* Error alert banner */}
       {generateError && (
         <div className="p-3 bg-[#fafafa] border border-[#111111] text-[#111111] text-xs flex items-center justify-between font-bold">
           <div className="flex items-center space-x-2">
@@ -639,10 +610,9 @@ export function AddExamSubjectWizard({
         </div>
       )}
 
-      {/* ================= STEP 1: SUBJECT & EXAM INFO ================= */}
       {step === 1 && (
         <div className="space-y-6">
-          {/* Quick Subject Presets */}
+
           <div className="bg-[#fafafa] p-4 border border-[#111111]">
             <div className="flex items-center justify-between mb-3 border-b border-[#111111] pb-2">
               <span className="text-xs font-bold text-[#111111] uppercase flex items-center space-x-1.5">
@@ -677,7 +647,6 @@ export function AddExamSubjectWizard({
             </div>
           </div>
 
-          {/* Form Fields */}
           <div className="bg-white p-5 border border-[#111111] space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-2 border-b border-[#111111] pb-2.5">
               <GraduationCap className="w-4 h-4 text-[#111111]" />
@@ -765,7 +734,6 @@ export function AddExamSubjectWizard({
             </div>
           </div>
 
-          {/* Action to Step 2 */}
           <div className="flex justify-end pt-2">
             <button
               onClick={() => {
@@ -784,10 +752,9 @@ export function AddExamSubjectWizard({
         </div>
       )}
 
-      {/* ================= STEP 2: COURSE DOCUMENTS & TOPICS ================= */}
       {step === 2 && (
         <div className="space-y-6">
-          {/* Multi-Document Upload & Management Card for this Course */}
+
           <div className="bg-white p-5 border border-[#111111] space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#111111] pb-3 gap-2">
               <div>
@@ -813,7 +780,6 @@ export function AddExamSubjectWizard({
               </div>
             </div>
 
-            {/* Optional Manual Paste Form */}
             {showPasteForm && (
               <div className="p-4 bg-[#fafafa] border border-[#111111] space-y-3">
                 <div className="flex items-center justify-between border-b border-[#111111] pb-2">
@@ -869,7 +835,6 @@ export function AddExamSubjectWizard({
               </div>
             )}
 
-            {/* Drag & Drop Multi-file Uploader */}
             <label className="border border-dashed border-[#111111] hover:bg-[#111111] hover:text-white bg-[#fafafa] p-6 flex flex-col items-center justify-center cursor-pointer transition-colors text-center group">
               <input
                 type="file"
@@ -897,7 +862,6 @@ export function AddExamSubjectWizard({
               </span>
             </label>
 
-            {/* List of uploaded course documents */}
             {courseDocuments.length > 0 && (
               <div className="space-y-2 pt-2">
                 <div className="flex items-center justify-between text-xs font-bold text-[#111111] border-b border-[#111111] pb-1.5">
@@ -970,7 +934,6 @@ export function AddExamSubjectWizard({
               </div>
             )}
 
-            {/* AI Extraction Button */}
             <div className="flex justify-end pt-2">
               <button
                 onClick={handleExtractSyllabus}
@@ -996,7 +959,6 @@ export function AddExamSubjectWizard({
             </div>
           </div>
 
-          {/* Topics Table */}
           <div className="bg-white p-5 border border-[#111111] space-y-4">
             <div className="flex items-center justify-between border-b border-[#111111] pb-2.5">
               <div>
@@ -1084,7 +1046,6 @@ export function AddExamSubjectWizard({
             )}
           </div>
 
-          {/* Navigation Actions */}
           <div className="flex items-center justify-between pt-2">
             <button
               onClick={() => setStep(1)}
@@ -1111,11 +1072,10 @@ export function AddExamSubjectWizard({
         </div>
       )}
 
-      {/* ================= STEP 3: TWO CORE MODULES (DAILY STUDY TIME & PERSONAL STUDY REQUIREMENTS) ================= */}
       {step === 3 && (
         <div className="space-y-4 font-sans">
           <div className="bg-white p-5 border border-[#111111] space-y-5">
-            {/* Header & Overview Summary */}
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#111111] pb-3 font-mono">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-2">
                 <Sliders className="w-4 h-4 text-[#111111]" />
@@ -1137,7 +1097,6 @@ export function AddExamSubjectWizard({
               </div>
             </div>
 
-            {/* ================= MODULE 1: 周一到周日学习时间 (参考设计款时间标尺拨盘) ================= */}
             <RulerTimePicker
               language={language}
               dailySchedules={dailySchedules}
@@ -1147,14 +1106,12 @@ export function AddExamSubjectWizard({
               daysDiff={daysDiff}
             />
 
-            {/* ================= MODULE 2: 自身规划上有什么需求 ================= */}
             <div className="pt-4 border-t border-[#dedad1] space-y-3">
               <label className="text-xs font-bold text-[#111111] uppercase tracking-wide flex items-center space-x-1.5">
                 <Target className="w-4 h-4 text-[#111111]" />
                 <span>{language === "zh" ? "2. 自身规划上有什么需求" : "2. Personal Planning & Study Requirements"}</span>
               </label>
 
-              {/* Personal requirement textarea */}
               <div className="space-y-1">
                 <textarea
                   rows={3}
@@ -1171,7 +1128,6 @@ export function AddExamSubjectWizard({
             </div>
           </div>
 
-          {/* Navigation Actions */}
           <div className="flex items-center justify-between pt-1">
             <button
               onClick={() => setStep(2)}
@@ -1202,7 +1158,6 @@ export function AddExamSubjectWizard({
         </div>
       )}
 
-      {/* Document Text Preview Modal */}
       {previewDoc && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
           <div className="bg-white max-w-2xl w-full max-h-[85vh] flex flex-col border border-[#111111] font-mono">
@@ -1241,4 +1196,3 @@ export function AddExamSubjectWizard({
     </div>
   );
 }
-

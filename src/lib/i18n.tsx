@@ -4,7 +4,7 @@ export type Language = "zh" | "en";
 
 export const translations = {
   zh: {
-    // App & Navigation (2 or 4 characters)
+
     appName: "智能备考",
     appSubtitle: "智能规划助手",
     workspace: "工作区",
@@ -33,7 +33,6 @@ export const translations = {
     examToday: "今日考试",
     examPast: "已过考期",
 
-    // Configuration & Settings (2 or 4 characters)
     settingsTitle: "系统设置",
     settingsTabGeneral: "通用设置",
     settingsTabAccount: "账号管理",
@@ -57,7 +56,6 @@ export const translations = {
     settingsResetSample: "重置数据",
     settingsSavedSuccess: "保存成功",
 
-    // Auth & User Profile (2 or 4 characters)
     loginTitle: "用户登录",
     loginSubtitle: "登录以同步各科目备考进度、知识库与作息计划",
     userProfileTitle: "学员档案",
@@ -76,7 +74,6 @@ export const translations = {
     userCompletedExams: "通关科目",
     userQuickSwitch: "快捷切换",
 
-    // Version Information (2 or 4 characters)
     versionTitle: "版本信息",
     versionAppSubtitle: "基于智能考纲解析与自适应算法的备考引擎",
     versionRelease: "当前版本",
@@ -90,7 +87,6 @@ export const translations = {
     versionDiagOk: "运行正常",
     versionChangelogTitle: "更新日志",
 
-    // Tabs (strictly 2 or 4 characters)
     tabDashboard: "总览看板",
     tabTodo: "每日待办",
     tabCalendar: "复习日历",
@@ -105,7 +101,6 @@ export const translations = {
     subTabExams: "历年真题",
     subTabAllAssets: "全部文件",
 
-    // Header properties (2 or 4 characters)
     propSubject: "考试科目",
     propExamDate: "考试日期",
     propStudyPace: "复习节奏",
@@ -113,7 +108,6 @@ export const translations = {
     propTargetScore: "目标成绩",
     propWeakFocus: "重点攻坚",
 
-    // Materials Uploader (2 or 4 characters)
     step1Title: "导入考纲",
     uploadHeaderTitle: "导入考纲",
     step1Badge: "第 1 步 / 共 2 步",
@@ -165,7 +159,6 @@ export const translations = {
     tableColAction: "操作",
     tableAction: "操作",
 
-    // Plan Preferences Form (2 or 4 characters)
     step2Title: "作息偏好",
     configureTimelineTitle: "作息偏好",
     step2Badge: "第 2 步 / 共 2 步",
@@ -224,7 +217,6 @@ export const translations = {
     btnGeneratingPlan: "正在规划...",
     generatingPlanLoading: "正在规划...",
 
-    // Daily To-Do List (2 or 4 characters)
     tasksCountDone: "{done}/{total} 完成 ({percent}%)",
     timeLoggedSummary: "{completed}分 / 预计{planned}分",
     allCategories: "全部分类",
@@ -265,7 +257,6 @@ export const translations = {
     activeRecallPromptTitle: "考点提问：",
     focusSessionBtn: "专注",
 
-    // Focus Timer Modal (2 or 4 characters)
     timerHeader: "专注自习",
     focusModalTitle: "专注自习",
     timerTopic: "当前考点",
@@ -287,7 +278,6 @@ export const translations = {
     markDoneAndLogTime: "完成打卡",
     soundBell: "提示音",
 
-    // Quiz Modal (2 or 4 characters)
     quizTitle: "考点测验",
     quizModalTitle: "考点测验",
     quizGenerating: "正在出题...",
@@ -303,7 +293,6 @@ export const translations = {
     quizFinishBtn: "提交测验",
     finishAndLogMastery: "提交测验",
 
-    // Real-Time Command Center (2 or 4 characters)
     realtimeTitle: "进度追踪",
     readinessControlCenter: "进度追踪",
     realtimeBadge: "实时",
@@ -352,7 +341,6 @@ export const translations = {
     sessionsDoneCount: "已完成 {done} / {total} 节",
     scorePending: "待评",
 
-    // Calendar View (2 or 4 characters)
     monthSummary: "月度大盘",
     daysSun: "周日",
     daysMon: "周一",
@@ -368,7 +356,7 @@ export const translations = {
     phaseFocus: "主攻：{focus}",
   },
   en: {
-    // App & Navigation
+
     appName: "Exam Plan AI",
     appSubtitle: "Notion-Style Intelligent Exam Prep",
     workspace: "Workspace",
@@ -397,7 +385,6 @@ export const translations = {
     examToday: "Exam Today",
     examPast: "Exam Past",
 
-    // Configuration & Settings
     settingsTitle: "Configuration & Preferences",
     settingsTabGeneral: "General Preferences",
     settingsTabAccount: "Account & Profile",
@@ -421,7 +408,6 @@ export const translations = {
     settingsResetSample: "Reset to Official Sample Plans",
     settingsSavedSuccess: "Configuration auto-saved",
 
-    // Auth & User Profile
     loginTitle: "User Login & Profile Switcher",
     loginSubtitle: "Sign in to synchronize study milestones, knowledge bases, and calendars across sessions",
     userProfileTitle: "Active Student Profile",
@@ -440,7 +426,6 @@ export const translations = {
     userCompletedExams: "Exams Mastered",
     userQuickSwitch: "Quick Switch Demo Accounts",
 
-    // Version Information
     versionTitle: "Version Details & Changelog",
     versionAppSubtitle: "Intelligent Syllabus Parser & Adaptive Time-Series Study Engine",
     versionRelease: "Current Release",
@@ -454,7 +439,6 @@ export const translations = {
     versionDiagOk: "Operational & Healthy",
     versionChangelogTitle: "Changelog & Release Notes",
 
-    // Tabs
     tabDashboard: "Master Dashboard",
     tabTodo: "Daily To-Do List",
     tabCalendar: "Study Calendar",
@@ -469,7 +453,6 @@ export const translations = {
     subTabExams: "Past Exams & Mock Tests",
     subTabAllAssets: "All Knowledge Files",
 
-    // Header properties
     propSubject: "Subject",
     propExamDate: "Exam Date",
     propStudyPace: "Study Pace",
@@ -477,7 +460,6 @@ export const translations = {
     propTargetScore: "Target Score",
     propWeakFocus: "Weak Focus",
 
-    // Materials Uploader
     step1Title: "Upload Exam Study Materials & Syllabus",
     uploadHeaderTitle: "Upload Exam Study Materials & Syllabus",
     step1Badge: "Step 1 of 2",
@@ -529,7 +511,6 @@ export const translations = {
     tableColAction: "Action",
     tableAction: "Action",
 
-    // Plan Preferences Form
     step2Title: "Configure Study Timeline & Schedule",
     configureTimelineTitle: "Configure Study Timeline & Schedule",
     step2Badge: "Step 2 of 2",
@@ -588,7 +569,6 @@ export const translations = {
     btnGeneratingPlan: "Generating Personalized Exam Study Plan with AI...",
     generatingPlanLoading: "Generating Personalized Exam Study Plan with AI...",
 
-    // Daily To-Do List
     tasksCountDone: "{done}/{total} done ({percent}%)",
     timeLoggedSummary: "{completed}m / {planned}m",
     allCategories: "All Categories",
@@ -629,7 +609,6 @@ export const translations = {
     activeRecallPromptTitle: "Active Recall Check:",
     focusSessionBtn: "Focus",
 
-    // Focus Timer Modal
     timerHeader: "Focus Study Session",
     focusModalTitle: "Focus Study Session",
     timerTopic: "Topic",
@@ -651,7 +630,6 @@ export const translations = {
     markDoneAndLogTime: "Mark Done & Log Time",
     soundBell: "Sound Bell",
 
-    // Quiz Modal
     quizTitle: "Active Recall Checkpoint",
     quizModalTitle: "Active Recall Checkpoint",
     quizGenerating: "Generating recall questions with AI...",
@@ -667,7 +645,6 @@ export const translations = {
     quizFinishBtn: "Finish & Log Mastery",
     finishAndLogMastery: "Finish & Log Mastery",
 
-    // Real-Time Command Center
     realtimeTitle: "Readiness Command Center",
     readinessControlCenter: "Readiness Command Center",
     realtimeBadge: "Real-Time",
@@ -716,7 +693,6 @@ export const translations = {
     sessionsDoneCount: "{done} of {total} study sessions completed",
     scorePending: "Pending",
 
-    // Calendar View
     monthSummary: "Monthly Overview",
     daysSun: "Sun",
     daysMon: "Mon",
@@ -746,7 +722,7 @@ const I18nContext = createContext<I18nContextType | null>(null);
 const STORAGE_KEY_LANG = "exam_planner_language_preference";
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  // Default to Chinese as requested by user ("中文版本")
+
   const [language, setLanguageState] = useState<Language>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_LANG);
     return (saved === "en" || saved === "zh") ? saved : "zh";

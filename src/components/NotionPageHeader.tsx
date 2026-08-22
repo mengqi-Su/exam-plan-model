@@ -1,20 +1,20 @@
 import React from "react";
-import { 
-  Calendar, 
-  CheckCircle2, 
-  Clock, 
-  Download, 
-  ExternalLink, 
-  FileText, 
-  GraduationCap, 
-  MoreHorizontal, 
-  Plus, 
-  RefreshCw, 
-  Search, 
-  Share2, 
-  Sparkles, 
-  Star, 
-  Target, 
+import {
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Download,
+  ExternalLink,
+  FileText,
+  GraduationCap,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  Search,
+  Share2,
+  Sparkles,
+  Star,
+  Target,
   Zap,
   Layers,
   BarChart3,
@@ -91,7 +91,38 @@ export function NotionPageHeader({
     );
   }
 
-  // Calculate remaining days
+  const [countdown, setCountdown] = React.useState({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+  });
+
+  React.useEffect(() => {
+    if (!activePlan?.examDate) return;
+    const calculateCountdown = () => {
+      const targetStr = `${activePlan.examDate}T${activePlan.examTime || "09:00"}:00`;
+      const target = new Date(targetStr).getTime();
+      const now = new Date().getTime();
+      const diff = target - now;
+
+      if (diff > 0) {
+        setCountdown({
+          days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+          hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+          minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+          seconds: Math.floor((diff % (1000 * 60)) / 1000),
+        });
+      } else {
+        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      }
+    };
+
+    calculateCountdown();
+    const interval = setInterval(calculateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [activePlan?.examDate, activePlan?.examTime]);
+
   const daysRemaining = React.useMemo(() => {
     if (!activePlan?.examDate) return null;
     const now = new Date();
@@ -107,7 +138,7 @@ export function NotionPageHeader({
 
   return (
     <div className="w-full bg-[#faf9f6] border-b border-[#111111]">
-      {/* Top Editorial Breadcrumbs Bar */}
+
       <div className="h-11 px-4 sm:px-8 flex items-center justify-between border-b border-[#dedad1] text-xs font-sans text-[#666666]">
         {currentTab === "dashboard" ? (
           <div className="flex items-center space-x-2 truncate">
@@ -153,58 +184,57 @@ export function NotionPageHeader({
         )}
 
         <div className="flex items-center space-x-1 sm:space-x-2 font-mono">
-          {currentTab !== "dashboard" && currentTab !== "master_calendar" && activePlan && (
-            <button
-              onClick={onOpenRebalanceModal}
-              className="flex items-center space-x-1 px-2.5 py-1 text-[#111111] hover:bg-[#111111] hover:text-white rounded-none text-xs transition-colors border border-[#111111] cursor-pointer bg-white"
-              title="Dynamically adjust and rebalance study schedule"
-            >
-              <RefreshCw className="w-3 h-3" />
-              <span className="hidden sm:inline">[{language === "zh" ? "智能重排" : "REBALANCE"}]</span>
-            </button>
-          )}
-
-          <button
-            onClick={onNewPlan}
-            className="flex items-center space-x-1.5 px-3 py-1 text-white bg-[#111111] hover:bg-[#333333] rounded-none text-xs transition-colors font-medium cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{language === "zh" ? "新建科目" : "NEW"}</span>
-          </button>
-
-          {/* Language Switcher Button */}
-          <button
-            onClick={() => onOpenSettings ? onOpenSettings("language") : setLanguage(language === "zh" ? "en" : "zh")}
-            className="flex items-center space-x-1 px-2 py-1 text-[#111111] hover:bg-[#e4e1d8] rounded-none text-xs transition-colors border border-[#111111] cursor-pointer bg-white"
-            title="Adjust Language / 切换语言"
-          >
-            <span className="font-bold text-[11px]">{language === "zh" ? "ZH" : "EN"}</span>
-          </button>
-
-          {/* Settings & Configuration Button */}
-          {onOpenSettings && (
-            <button
-              onClick={() => onOpenSettings("general")}
-              className="p-1.5 text-[#111111] hover:bg-[#e4e1d8] rounded-none text-xs transition-colors border border-[#111111] cursor-pointer bg-white"
-              title={t("settingsTitle")}
-            >
-              <Settings className="w-3.5 h-3.5" />
-            </button>
-          )}
         </div>
       </div>
 
-      {/* Single-Course Properties Header: Only shown on Course-specific tabs */}
       {currentTab !== "dashboard" && currentTab !== "master_calendar" && (
         <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-4 pb-2">
-          {/* Notion Page Big Title */}
-          <div className="flex items-center justify-between gap-4 mb-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#111111] font-sans">
-              {activePlan?.examName || t("untitledPlan")}
-            </h1>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2 font-mono">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#111111] font-sans">
+                {activePlan?.examName || t("untitledPlan")}
+              </h1>
+              {activePlan?.examDate && (
+                <p className="text-xs text-[#666666] mt-0.5 font-mono">
+                  {language === "zh" ? "考试时间" : "EXAM"}: <strong className="text-[#111111]">{activePlan.examDate} {activePlan.examTime || "09:00"}</strong> ({activePlan.subject || (language === "zh" ? "学科" : "Course")})
+                </p>
+              )}
+            </div>
+
+            {activePlan?.examDate && (
+              <div className="flex items-center space-x-1.5 px-3 py-1.5 border border-[#111111] bg-white shrink-0 font-mono text-xs">
+                <div className="text-center px-1">
+                  <span className="text-base font-bold text-[#111111]">
+                    {String(countdown.days).padStart(2, "0")}
+                  </span>
+                  <span className="text-[9px] text-[#666666] uppercase block font-sans">{language === "zh" ? "天" : "d"}</span>
+                </div>
+                <span className="text-[#111111] font-bold">:</span>
+                <div className="text-center px-1">
+                  <span className="text-base font-bold text-[#111111]">
+                    {String(countdown.hours).padStart(2, "0")}
+                  </span>
+                  <span className="text-[9px] text-[#666666] uppercase block font-sans">{language === "zh" ? "时" : "h"}</span>
+                </div>
+                <span className="text-[#111111] font-bold">:</span>
+                <div className="text-center px-1">
+                  <span className="text-base font-bold text-[#111111]">
+                    {String(countdown.minutes).padStart(2, "0")}
+                  </span>
+                  <span className="text-[9px] text-[#666666] uppercase block font-sans">{language === "zh" ? "分" : "m"}</span>
+                </div>
+                <span className="text-[#111111] font-bold">:</span>
+                <div className="text-center px-1">
+                  <span className="text-base font-bold text-[#111111]">
+                    {String(countdown.seconds).padStart(2, "0")}
+                  </span>
+                  <span className="text-[9px] text-[#666666] uppercase block font-sans">{language === "zh" ? "秒" : "s"}</span>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Course Sub-View Navigation Segment */}
           <div className="pt-2 border-t border-[#111111] flex items-center justify-between overflow-x-auto no-scrollbar font-sans text-xs">
             <div className="flex items-center space-x-1">
               <button
@@ -254,7 +284,6 @@ export function NotionPageHeader({
               </button>
             </div>
 
-            {/* Quick Search */}
             <div className="relative my-0.5 hidden sm:block">
               <Search className="w-3.5 h-3.5 text-[#888888] absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input

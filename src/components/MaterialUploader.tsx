@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import { 
-  Upload, 
-  FileText, 
-  Sparkles, 
-  Trash2, 
-  Plus, 
-  BookOpen, 
-  Check, 
-  AlertCircle, 
+import {
+  Upload,
+  FileText,
+  Sparkles,
+  Trash2,
+  Plus,
+  BookOpen,
+  Check,
+  AlertCircle,
   ArrowRight,
   HelpCircle,
   Layers
@@ -52,7 +52,6 @@ export function MaterialUploader({
   const [extractError, setExtractError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  // Handle direct text paste
   const handleAddPastedMaterial = () => {
     if (!pasteText.trim()) return;
     const newMat: StudyMaterial = {
@@ -68,7 +67,6 @@ export function MaterialUploader({
     setMaterialTitle("");
   };
 
-  // Handle file uploads
   const handleFileUpload = (files: FileList | null) => {
     if (!files || files.length === 0) return;
 
@@ -90,7 +88,6 @@ export function MaterialUploader({
     });
   };
 
-  // Load preset sample
   const handleLoadSample = (sample: (typeof SAMPLE_MATERIALS)[0]) => {
     onExamNameChange(sample.name.replace("大纲", "").replace("Syllabus", "").trim() || sample.name);
     onSubjectChange(sample.subject);
@@ -105,7 +102,6 @@ export function MaterialUploader({
     onMaterialsChange([newMat]);
   };
 
-  // Trigger Gemini API extraction
   const handleExtractSyllabus = async () => {
     if (materials.length === 0 && !pasteText.trim()) {
       setExtractError(language === "zh" ? "请至少上传或粘贴一份备考资料或大纲。" : "Please upload or paste at least one study material document.");
@@ -181,7 +177,6 @@ export function MaterialUploader({
     }
   };
 
-  // Topic editing helpers
   const handleUpdateTopic = (index: number, updated: Partial<SyllabusTopic>) => {
     const next = [...topics];
     next[index] = { ...next[index], ...updated };
@@ -208,7 +203,7 @@ export function MaterialUploader({
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 space-y-6 font-mono text-[#111111]">
-      {/* Notion Callout Box Intro */}
+
       <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-[#111111] bg-[#fafafa]">
         <div className="flex items-start space-x-3">
           <span className="px-2 py-1 bg-[#111111] text-white text-xs font-bold shrink-0">
@@ -244,7 +239,6 @@ export function MaterialUploader({
         </div>
       </div>
 
-      {/* Basic Exam Title & Subject Inputs */}
       <div className="bg-white border border-[#111111] p-5 space-y-4">
         <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111]">
           [// {t("examTargetInfo")}]
@@ -279,11 +273,10 @@ export function MaterialUploader({
         </div>
       </div>
 
-      {/* Upload and Text Ingestion Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left Column: Drag/Drop & Text Input */}
+
         <div className="lg:col-span-7 space-y-4">
-          {/* Drag and Drop Zone */}
+
           <div
             onDragOver={(e) => {
               e.preventDefault();
@@ -321,7 +314,6 @@ export function MaterialUploader({
             </p>
           </div>
 
-          {/* Direct Text Paste Area */}
           <div className="bg-white border border-[#111111] p-4 space-y-2.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold uppercase text-[#111111]">
@@ -370,7 +362,6 @@ export function MaterialUploader({
           </div>
         </div>
 
-        {/* Right Column: Uploaded Documents List */}
         <div className="lg:col-span-5 flex flex-col">
           <div className="bg-white border border-[#111111] p-4 flex-1 flex flex-col justify-between">
             <div>
@@ -428,7 +419,6 @@ export function MaterialUploader({
               </div>
             </div>
 
-            {/* AI Extraction Trigger Button */}
             <div className="pt-3 border-t border-[#111111]">
               {extractError && (
                 <div className="p-2.5 mb-2.5 bg-[#fafafa] border border-[#111111] text-[#111111] text-xs flex items-start space-x-1.5 font-bold">
@@ -461,7 +451,6 @@ export function MaterialUploader({
         </div>
       </div>
 
-      {/* Extracted Syllabus Topics Section (Notion Database Table) */}
       {topics.length > 0 && (
         <div className="bg-white border border-[#111111] space-y-4 p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#111111]">
@@ -495,7 +484,6 @@ export function MaterialUploader({
             </div>
           </div>
 
-          {/* Topics Table */}
           <div className="border border-[#111111] overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse font-mono">
               <thead>

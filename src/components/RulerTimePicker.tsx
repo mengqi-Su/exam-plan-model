@@ -11,13 +11,12 @@ interface RulerTimePickerProps {
   daysDiff: number;
 }
 
-const STEP_PIXELS = 26; // pixels per 0.5 hour step
+const STEP_PIXELS = 26;
 const MIN_HOURS = 0;
 const MAX_HOURS = 12;
 const STEP_HOURS = 0.5;
 const TOTAL_STEPS = Math.round((MAX_HOURS - MIN_HOURS) / STEP_HOURS);
 
-// Ordered days: Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6, Sun=0
 const ORDERED_DAYS = [1, 2, 3, 4, 5, 6, 0];
 
 export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
@@ -30,11 +29,9 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
   const [selectedDay, setSelectedDay] = useState<number>(1);
   const [syncToAll, setSyncToAll] = useState<boolean>(false);
 
-  // Left Arc ref & Touch/Wheel tracking
   const arcContainerRef = useRef<HTMLDivElement>(null);
   const arcTouchStartYRef = useRef<number | null>(null);
 
-  // Right Ruler ref & drag
   const rulerContainerRef = useRef<HTMLDivElement>(null);
   const isRulerDraggingRef = useRef(false);
   const startXRef = useRef(0);
@@ -50,7 +47,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
     0: { indexStr: "07", zh: "周日", en: "Sunday", isWeekend: true },
   };
 
-  // Active schedule
   const currentSchedule = useMemo(() => {
     const sched = dailySchedules.find((s) => s.dayOfWeek === selectedDay);
     return (
@@ -66,7 +62,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
 
   const activeHours = currentSchedule.enabled ? currentSchedule.availableHours : 0;
 
-  // Stats calculation
   const weeklyTotalHours = useMemo(() => {
     return dailySchedules.reduce((acc, curr) => (curr.enabled ? acc + curr.availableHours : acc), 0);
   }, [dailySchedules]);
@@ -92,7 +87,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
     return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
   }, [activeHours]);
 
-  // Sync scroll position when active hours change
   useEffect(() => {
     if (rulerContainerRef.current && !isRulerDraggingRef.current) {
       const targetStep = activeHours / STEP_HOURS;
@@ -123,7 +117,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
     }
   };
 
-  // Ruler Mouse Drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!rulerContainerRef.current) return;
     isRulerDraggingRef.current = true;
@@ -155,7 +148,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
     }
   };
 
-  // Prevent page scrolling on Left Arc wheel & touch gestures
   useEffect(() => {
     const el = arcContainerRef.current;
     if (!el) return;
@@ -189,7 +181,7 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
       const currentY = e.touches[0].clientY;
       const diffY = arcTouchStartYRef.current - currentY;
       if (Math.abs(diffY) > 20) {
-        e.preventDefault(); // Prevent whole page scrolling!
+        e.preventDefault();
         if (diffY > 20) {
           setSelectedDay((prev) => {
             const idx = ORDERED_DAYS.indexOf(prev);
@@ -225,7 +217,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
     };
   }, []);
 
-  // Prevent page scrolling on Right Ruler touch & wheel gestures
   useEffect(() => {
     const rulerEl = rulerContainerRef.current;
     if (!rulerEl) return;
@@ -250,7 +241,7 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
 
     const onRulerTouchMove = (e: TouchEvent) => {
       if (!isRulerDraggingRef.current || e.touches.length === 0) return;
-      e.preventDefault(); // Stop entire page from swiping/scrolling!
+      e.preventDefault();
       const x = e.touches[0].pageX - rulerEl.offsetLeft;
       const walk = (x - startXRef.current) * 1.2;
       rulerEl.scrollLeft = startScrollLeftRef.current - walk;
@@ -287,13 +278,12 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
 
   const activeIndex = ORDERED_DAYS.indexOf(selectedDay);
 
-  // Precise mathematical circular arc geometry
   const ARC_RADIUS = 195;
   const ANGLE_STEP_DEG = 22;
 
   return (
     <div className="space-y-3">
-      {/* 1. Header with Stats & Sync */}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#eeebe4] pb-2.5">
         <span className="text-xs font-bold text-[#111111] uppercase tracking-wide">
           {language === "zh" ? "周一至周日学习时间规划" : "Weekly Study Cadence & Duration"}
@@ -310,10 +300,8 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
         </div>
       </div>
 
-      {/* 2. Unified Canvas Module */}
       <div className="relative rounded-2xl bg-[#faf9f6] border border-[#e8e6df] p-5 sm:p-7 overflow-hidden select-none">
-        
-        {/* Top Control Bar */}
+
         <div className="flex items-center justify-between pb-3.5 border-b border-[#eeebe3]">
           <div className="flex items-center space-x-2 font-mono text-xs text-[#888888]">
             <span className="font-bold text-[#111111] uppercase tracking-wider">
@@ -351,16 +339,14 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
           </div>
         </div>
 
-        {/* Main Body Grid: 5 : 7 Balanced Proportion */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 lg:gap-6 items-center pt-5">
-          
-          {/* ================= LEFT: TRUE CIRCULAR ARC DIAL (5 COLS) ================= */}
+
           <div
             ref={arcContainerRef}
             style={{ touchAction: "none", overscrollBehavior: "contain" }}
             className="md:col-span-5 relative h-56 sm:h-64 overflow-hidden flex items-center md:border-r border-[#eeebe3] md:pr-4 select-none cursor-grab active:cursor-grabbing"
           >
-            {/* SVG Real Circle Arc Guide */}
+
             <svg
               className="absolute left-0 top-0 w-full h-full pointer-events-none"
               viewBox="0 0 240 240"
@@ -375,20 +361,18 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
               />
             </svg>
 
-            {/* Render items dynamically on the true arc */}
             <div className="relative w-full h-full">
               {ORDERED_DAYS.map((dayNum, idx) => {
-                const diff = idx - activeIndex; // Distance from selected day (-3 .. +3)
+                const diff = idx - activeIndex;
                 const isSelected = diff === 0;
                 const meta = dayMeta[dayNum];
                 const sched = dailySchedules.find((s) => s.dayOfWeek === dayNum);
                 const hours = sched && sched.enabled ? sched.availableHours : 0;
                 const isRest = hours === 0;
 
-                // Math for true circular placement
                 const angleDeg = diff * ANGLE_STEP_DEG;
                 const angleRad = (angleDeg * Math.PI) / 180;
-                
+
                 const centerX = -40;
                 const centerY = 120;
                 const posX = centerX + ARC_RADIUS * Math.cos(angleRad);
@@ -411,7 +395,7 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                       isSelected ? "z-20 scale-100" : "z-10 scale-90 hover:opacity-75"
                     }`}
                   >
-                    {/* The Dot Tick on the Arc */}
+
                     <div
                       className={`rounded-full transition-all duration-200 ${
                         isSelected
@@ -420,7 +404,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                       }`}
                     />
 
-                    {/* Big Stylized Number (00, 01, 02...) */}
                     <span
                       style={{ transform: `rotate(${angleDeg * 0.65}deg)` }}
                       className={`font-black font-mono transition-all duration-300 italic select-none ${
@@ -432,7 +415,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                       {meta.indexStr}
                     </span>
 
-                    {/* Active Label & Description */}
                     {isSelected && (
                       <div className="flex flex-col justify-center pl-1 select-none animate-fadeIn">
                         <div className="flex items-center space-x-1.5">
@@ -458,16 +440,13 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
             </div>
           </div>
 
-          {/* ================= RIGHT: SEAMLESS RULER TIME DIAL (7 COLS) ================= */}
           <div className="md:col-span-7 flex flex-col items-center justify-center space-y-3.5 py-1">
-            
-            {/* Center Ruler Horizontal Scale */}
+
             <div className="relative w-full max-w-md h-20 flex items-center justify-center">
-              {/* Soft Fade Edges */}
+
               <div className="pointer-events-none absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-[#faf9f6] to-transparent z-20" />
               <div className="pointer-events-none absolute inset-y-0 right-0 w-14 bg-gradient-to-l from-[#faf9f6] to-transparent z-20" />
 
-              {/* Center Needle Cursor */}
               <div className="pointer-events-none absolute z-30 flex flex-col items-center justify-between w-11 h-20 bg-white rounded-xl border border-[#111111] shadow-sm py-1.5">
                 <span className="text-[11px] font-mono font-bold text-[#111111]">
                   {Math.floor(activeHours).toString().padStart(2, "0")}
@@ -478,7 +457,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                 </span>
               </div>
 
-              {/* Scrollable / Draggable Scale Track */}
               <div
                 ref={rulerContainerRef}
                 onScroll={handleRulerScroll}
@@ -505,7 +483,7 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                         style={{ width: `${STEP_PIXELS}px` }}
                         className="flex-shrink-0 h-full flex flex-col items-center justify-between py-1 group cursor-pointer"
                       >
-                        {/* Top Hour */}
+
                         <div className="h-3.5 flex items-center justify-center">
                           {isWholeHour ? (
                             <span
@@ -520,7 +498,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                           )}
                         </div>
 
-                        {/* Tick Mark */}
                         <div className="flex items-center justify-center h-7">
                           {isWholeHour ? (
                             <div
@@ -537,7 +514,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                           )}
                         </div>
 
-                        {/* Bottom Tag */}
                         <div className="h-3.5 flex items-center justify-center">
                           {isWholeHour ? (
                             <span
@@ -560,7 +536,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
               </div>
             </div>
 
-            {/* Time Typography (02:30 / 单日备考投入时长) */}
             <div className="text-center space-y-0.5">
               <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-[#111111] italic">
                 {activeHours > 0 ? formattedTime : "--:--"}
@@ -570,7 +545,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
               </div>
             </div>
 
-            {/* Monochrome Quick Adjustment Chips */}
             <div className="flex items-center justify-center gap-1.5 pt-1">
               {[1.5, 2.5, 3.5, 5.0].map((h) => (
                 <button
@@ -590,7 +564,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
           </div>
         </div>
 
-        {/* Bottom Quick Day Jump Bar (01 - 07) */}
         <div className="flex items-center justify-between pt-3.5 mt-3.5 border-t border-[#eeebe3] text-xs font-mono">
           <span className="text-[11px] text-[#999999]">
             {language === "zh" ? "快捷星期跳转" : "Quick Day Switch"}:

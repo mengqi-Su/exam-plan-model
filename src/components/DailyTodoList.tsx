@@ -1,19 +1,19 @@
 import React, { useState } from "react";
-import { 
-  CheckCircle2, 
-  Circle, 
-  Clock, 
-  Calendar as CalendarIcon, 
-  Play, 
-  Sparkles, 
-  Plus, 
-  Trash2, 
-  ExternalLink, 
-  ChevronLeft, 
-  ChevronRight, 
-  BookOpen, 
-  Flame, 
-  MessageSquare, 
+import {
+  CheckCircle2,
+  Circle,
+  Clock,
+  Calendar as CalendarIcon,
+  Play,
+  Sparkles,
+  Plus,
+  Trash2,
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  BookOpen,
+  Flame,
+  MessageSquare,
   Star,
   Layers,
   HelpCircle,
@@ -68,14 +68,12 @@ export function DailyTodoList({
   const [expandedNotesId, setExpandedNotesId] = useState<string | null>(null);
   const [isAddingInline, setIsAddingInline] = useState(false);
 
-  // New inline task state
   const [newTitle, setNewTitle] = useState("");
   const [newCategory, setNewCategory] = useState<TaskCategory>("practice_problems");
   const [newTopic, setNewTopic] = useState(plan.topics[0]?.title || (language === "zh" ? "核心考点" : "General Topic"));
   const [newDuration, setNewDuration] = useState(45);
   const [newPriority, setNewPriority] = useState<"high" | "medium" | "low">("medium");
 
-  // Get tasks for selected date
   const dayTasks = React.useMemo(() => {
     return (plan.tasks || []).filter((t) => t.date === selectedDate);
   }, [plan.tasks, selectedDate]);
@@ -83,7 +81,7 @@ export function DailyTodoList({
   const filteredTasks = React.useMemo(() => {
     return dayTasks.filter((t) => {
       const matchCat = filterCategory === "all" || t.category === filterCategory;
-      const matchSearch = !searchQuery || 
+      const matchSearch = !searchQuery ||
         t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         t.topicTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
         t.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -98,7 +96,6 @@ export function DailyTodoList({
     .reduce((acc, t) => acc + (t.actualMinutesSpent || t.durationMinutes), 0);
   const completionPercent = dayTasks.length > 0 ? Math.round((completedCount / dayTasks.length) * 100) : 0;
 
-  // Date navigation helpers
   const handleShiftDate = (days: number) => {
     const [y, m, d] = selectedDate.split("-").map(Number);
     const curr = new Date(y, m - 1, d);
@@ -112,7 +109,6 @@ export function DailyTodoList({
     onSelectDate(today);
   };
 
-  // Toggle completion
   const handleToggleComplete = (taskId: string) => {
     const nextTasks = plan.tasks.map((t) => {
       if (t.id === taskId) {
@@ -143,7 +139,6 @@ export function DailyTodoList({
     });
   };
 
-  // Update confidence rating
   const handleUpdateConfidence = (taskId: string, rating: 1 | 2 | 3 | 4 | 5) => {
     const nextTasks = plan.tasks.map((t) => {
       if (t.id === taskId) {
@@ -154,7 +149,6 @@ export function DailyTodoList({
     onUpdatePlan({ ...plan, tasks: nextTasks });
   };
 
-  // Save notes
   const handleSaveNotes = (taskId: string, notes: string) => {
     const nextTasks = plan.tasks.map((t) => {
       if (t.id === taskId) {
@@ -165,13 +159,11 @@ export function DailyTodoList({
     onUpdatePlan({ ...plan, tasks: nextTasks });
   };
 
-  // Delete task
   const handleDeleteTask = (taskId: string) => {
     const nextTasks = plan.tasks.filter((t) => t.id !== taskId);
     onUpdatePlan({ ...plan, tasks: nextTasks });
   };
 
-  // Add custom task inline
   const handleCreateTask = () => {
     if (!newTitle.trim()) return;
 
@@ -198,7 +190,6 @@ export function DailyTodoList({
     setIsAddingInline(false);
   };
 
-  // Human friendly date format
   const formattedDate = React.useMemo(() => {
     const [y, m, d] = selectedDate.split("-").map(Number);
     const dateObj = new Date(y, m - 1, d);
@@ -226,9 +217,9 @@ export function DailyTodoList({
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6">
-      {/* Editorial Header Controls */}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#111111]">
-        {/* Date Navigator */}
+
         <div className="flex items-center space-x-2">
           <div className="flex items-center space-x-1">
             <button
@@ -265,9 +256,8 @@ export function DailyTodoList({
           </div>
         </div>
 
-        {/* View Switcher & Category Filter & Progress */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Progress Mini Pill */}
+
           <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-white border border-[#111111] text-xs font-mono text-[#111111]">
             <span className="font-bold">
               {completedCount}/{dayTasks.length} {language === "zh" ? "已完成" : "DONE"} ({completionPercent}%)
@@ -278,7 +268,6 @@ export function DailyTodoList({
             </span>
           </div>
 
-          {/* Filter dropdown */}
           <div className="flex items-center space-x-1 text-xs font-mono text-[#111111] bg-white border border-[#111111] px-2 py-1">
             <Filter className="w-3 h-3" />
             <select
@@ -295,7 +284,6 @@ export function DailyTodoList({
             </select>
           </div>
 
-          {/* Table / List View Toggle */}
           <div className="flex items-center border border-[#111111] bg-white p-0.5">
             <button
               onClick={() => setViewStyle("table")}
@@ -317,7 +305,6 @@ export function DailyTodoList({
             </button>
           </div>
 
-          {/* + New Button */}
           <button
             onClick={() => setIsAddingInline(true)}
             className="flex items-center space-x-1 px-3 py-1 bg-[#111111] hover:bg-[#333333] text-white text-xs font-mono font-bold transition-colors cursor-pointer"
@@ -328,7 +315,6 @@ export function DailyTodoList({
         </div>
       </div>
 
-      {/* Callout Box if no tasks */}
       {filteredTasks.length === 0 ? (
         <div className="p-8 text-center space-y-2 border border-dashed border-[#111111]/40 bg-[#fafafa]">
           <BookOpen className="w-7 h-7 mx-auto text-[#888888]" />
@@ -346,7 +332,7 @@ export function DailyTodoList({
           </button>
         </div>
       ) : viewStyle === "table" ? (
-        /* ================= Editorial Database Table View ================= */
+
         <div className="border border-[#111111] overflow-x-auto bg-white">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
@@ -373,7 +359,7 @@ export function DailyTodoList({
                         isCompleted ? "bg-[#fafafa] text-[#888888]" : "text-[#111111]"
                       }`}
                     >
-                      {/* Checkbox */}
+
                       <td className="py-2.5 px-3 text-center">
                         <button
                           onClick={() => handleToggleComplete(task.id)}
@@ -387,7 +373,6 @@ export function DailyTodoList({
                         </button>
                       </td>
 
-                      {/* Title & Description */}
                       <td className="py-2.5 px-3">
                         <div className="flex items-start space-x-2">
                           <div className="flex-1 min-w-0">
@@ -407,21 +392,18 @@ export function DailyTodoList({
                         </div>
                       </td>
 
-                      {/* Category Tag */}
                       <td className="py-2.5 px-3">
                         <span className={`${catClass} px-1.5 py-0.5 text-[10px] font-bold uppercase whitespace-nowrap`}>
                           [{getCategoryLabel(task.category)}]
                         </span>
                       </td>
 
-                      {/* Topic */}
                       <td className="py-2.5 px-3">
                         <span className="text-[#666666] text-[11px] truncate block max-w-[150px] font-mono">
                           {task.topicTitle}
                         </span>
                       </td>
 
-                      {/* Duration */}
                       <td className="py-2.5 px-3 text-[#111111]">
                         <span className="flex items-center space-x-1 font-mono text-[11px] font-bold">
                           <Clock className="w-3 h-3 text-[#666666]" />
@@ -429,7 +411,6 @@ export function DailyTodoList({
                         </span>
                       </td>
 
-                      {/* Priority */}
                       <td className="py-2.5 px-3">
                         {task.priority === "high" ? (
                           <span className="border border-[#111111] bg-[#111111] text-white px-1.5 py-0.5 text-[10px] font-bold uppercase">
@@ -446,7 +427,6 @@ export function DailyTodoList({
                         )}
                       </td>
 
-                      {/* Mastery Rating */}
                       <td className="py-2.5 px-3">
                         <div className="flex space-x-0.5 text-xs">
                           {[1, 2, 3, 4, 5].map((star) => (
@@ -465,10 +445,9 @@ export function DailyTodoList({
                         </div>
                       </td>
 
-                      {/* Action Tools */}
                       <td className="py-2.5 px-3 text-right pr-4 font-mono">
                         <div className="flex items-center justify-end space-x-1">
-                          {/* RAG Knowledge Grounding & Ask */}
+
                           <button
                             onClick={() => setActiveRagTask(task)}
                             className="p-1 hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] transition-colors cursor-pointer"
@@ -477,7 +456,6 @@ export function DailyTodoList({
                             <Zap className="w-3 h-3" />
                           </button>
 
-                          {/* Focus Session */}
                           <button
                             onClick={() => setActiveTimerTask(task)}
                             className="p-1 hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] transition-colors cursor-pointer"
@@ -486,7 +464,6 @@ export function DailyTodoList({
                             <Play className="w-3 h-3" />
                           </button>
 
-                          {/* Active Recall Quiz */}
                           <button
                             onClick={() => setActiveQuizTask(task)}
                             className="p-1 hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] transition-colors cursor-pointer"
@@ -495,7 +472,6 @@ export function DailyTodoList({
                             <Sparkles className="w-3 h-3" />
                           </button>
 
-                          {/* Notes */}
                           <button
                             onClick={() => setExpandedNotesId(expandedNotesId === task.id ? null : task.id)}
                             className={`p-1 border border-[#111111] transition-colors cursor-pointer ${
@@ -508,7 +484,6 @@ export function DailyTodoList({
                             <MessageSquare className="w-3 h-3" />
                           </button>
 
-                          {/* Google Calendar Link */}
                           <a
                             href={generateGoogleCalendarUrl(task, plan)}
                             target="_blank"
@@ -519,7 +494,6 @@ export function DailyTodoList({
                             <CalendarIcon className="w-3 h-3" />
                           </a>
 
-                          {/* Delete */}
                           <button
                             onClick={() => handleDeleteTask(task.id)}
                             className="p-1 border border-[#111111] text-[#111111] hover:bg-[#111111] hover:text-white transition-colors opacity-60 group-hover:opacity-100 cursor-pointer"
@@ -531,7 +505,6 @@ export function DailyTodoList({
                       </td>
                     </tr>
 
-                    {/* Inline Notes Expanded Row */}
                     {expandedNotesId === task.id && (
                       <tr className="bg-[#fafafa]">
                         <td colSpan={8} className="px-6 py-3 border-t border-b border-[#111111]">
@@ -554,7 +527,6 @@ export function DailyTodoList({
                 );
               })}
 
-              {/* Inline Add Row */}
               {isAddingInline ? (
                 <tr className="bg-[#fafafa] font-mono">
                   <td className="py-2 px-3 text-center text-[#111111] font-bold">+</td>
@@ -651,7 +623,7 @@ export function DailyTodoList({
           </table>
         </div>
       ) : (
-        /* ================= Editorial Database List View ================= */
+
         <div className="space-y-2 font-mono">
           {filteredTasks.map((task) => {
             const isCompleted = task.status === "completed";
@@ -712,7 +684,7 @@ export function DailyTodoList({
                         </div>
                       </div>
                     )}
-                    {/* RAG Source Citation Preview if present */}
+
                     {task.ragSource && (
                       <div className="flex items-center space-x-1.5 text-[10px] text-[#111111] bg-[#fafafa] px-2 py-1 border border-[#111111] mt-1.5 w-fit font-mono">
                         <FileText className="w-3 h-3" />
@@ -764,7 +736,6 @@ export function DailyTodoList({
         </div>
       )}
 
-      {/* Focus Timer Modal */}
       {activeTimerTask && (
         <TaskFocusTimerModal
           task={activeTimerTask}
@@ -788,7 +759,6 @@ export function DailyTodoList({
         />
       )}
 
-      {/* Active Recall Quiz Modal */}
       {activeQuizTask && (
         <QuizModal
           task={activeQuizTask}
@@ -800,7 +770,6 @@ export function DailyTodoList({
         />
       )}
 
-      {/* RAG Knowledge & Grounding Modal */}
       {activeRagTask && (
         <RagKnowledgeModal
           task={activeRagTask}

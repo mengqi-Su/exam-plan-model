@@ -70,11 +70,9 @@ export function SettingsModal({
   const { t, language, setLanguage } = useI18n();
   const [activeTab, setActiveTab] = useState<"general" | "account" | "language" | "version">(initialTab);
 
-  // Local state for editing user profile
   const [editingProfile, setEditingProfile] = useState<UserProfile>({ ...userProfile });
   const [isEditing, setIsEditing] = useState(false);
 
-  // Login form state (if logged out or switching)
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginName, setLoginName] = useState("");
@@ -128,9 +126,9 @@ export function SettingsModal({
     if (!loginEmail.trim()) return;
     setIsSubmittingEmail(true);
     const name = loginName.trim() || loginEmail.split("@")[0] || "Student";
-    
+
     try {
-      // Attempt Firebase email sign in or auto-registration
+
       let user;
       try {
         user = await loginWithEmail(loginEmail.trim(), loginPassword || "StudyMaster123!");
@@ -157,7 +155,6 @@ export function SettingsModal({
       setEditingProfile(updated);
       onUpdateUserProfile(updated);
 
-      // Cloud profile sync
       await saveUserProfileToCloud(user.uid, updated);
       if (plans.length > 0) {
         await uploadLocalPlansToCloud(user.uid, plans);
@@ -165,7 +162,7 @@ export function SettingsModal({
 
       showToast(language === "zh" ? `已成功登录云端账号：${updated.name}！` : `Signed in as ${updated.name} with Cloud sync!`);
     } catch (err: any) {
-      // Graceful fallback to local guest session if offline
+
       const updated: UserProfile = {
         ...userProfile,
         id: `user-${Date.now()}`,
@@ -202,18 +199,16 @@ export function SettingsModal({
       };
       setEditingProfile(updated);
       onUpdateUserProfile(updated);
-      
-      // Save profile to cloud
+
       await saveUserProfileToCloud(user.uid, updated);
-      
-      // If user has local plans, auto-sync them to the cloud
+
       if (plans.length > 0) {
         await uploadLocalPlansToCloud(user.uid, plans);
       }
 
       showToast(
-        language === "zh" 
-          ? `Google 账号 ${user.displayName || user.email} 已成功登录并同步！` 
+        language === "zh"
+          ? `Google 账号 ${user.displayName || user.email} 已成功登录并同步！`
           : `Signed in as ${user.displayName || user.email} with Cloud Sync!`
       );
     } catch (err: any) {
@@ -274,7 +269,6 @@ export function SettingsModal({
     showToast(language === "zh" ? "已安全退出登录" : "Signed out successfully");
   };
 
-  // Export full JSON
   const handleExportJson = () => {
     const data = {
       exportDate: new Date().toISOString(),
@@ -295,7 +289,6 @@ export function SettingsModal({
     showToast(language === "zh" ? "备份数据已成功导出" : "Backup exported successfully");
   };
 
-  // Import JSON
   const handleImportJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -327,7 +320,7 @@ export function SettingsModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none">
       <div className="bg-white border border-[#111111] w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden text-[#111111] font-mono shadow-2xl">
-        {/* Header */}
+
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#111111] bg-[#fafafa]">
           <div className="flex items-center space-x-2.5">
             <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">
@@ -355,7 +348,6 @@ export function SettingsModal({
           </button>
         </div>
 
-        {/* Notification toast */}
         {notificationMsg && (
           <div className="bg-[#111111] text-white text-xs px-4 py-2 flex items-center justify-between transition-all border-b border-[#111111]">
             <span className="flex items-center space-x-1.5">
@@ -365,9 +357,8 @@ export function SettingsModal({
           </div>
         )}
 
-        {/* Content Body: Sidebar tabs + panel */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Navigation Sidebar */}
+
           <div className="w-48 bg-[#fafafa] border-r border-[#111111] p-3 space-y-1 shrink-0 overflow-y-auto font-mono">
             <button
               onClick={() => setActiveTab("general")}
@@ -420,9 +411,8 @@ export function SettingsModal({
             </button>
           </div>
 
-          {/* Tab Panel Content */}
           <div className="flex-1 p-6 overflow-y-auto bg-white space-y-6 font-mono">
-            {/* 1. GENERAL CONFIGURATION TAB */}
+
             {activeTab === "general" && (
               <div className="space-y-6">
                 <div>
@@ -436,7 +426,6 @@ export function SettingsModal({
                   </p>
                 </div>
 
-                {/* Focus Duration */}
                 <div className="p-4 border border-[#111111] bg-white space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
@@ -473,7 +462,6 @@ export function SettingsModal({
                   </div>
                 </div>
 
-                {/* Sound and Reminders */}
                 <div className="space-y-3">
                   <div className="p-4 border border-[#111111] bg-white flex items-center justify-between">
                     <div className="flex items-start space-x-3">
@@ -524,7 +512,6 @@ export function SettingsModal({
                   </div>
                 </div>
 
-                {/* Adaptive Rebalance Sensitivity */}
                 <div className="p-4 border border-[#111111] bg-white space-y-3">
                   <div>
                     <div className="flex items-center space-x-2">
@@ -562,10 +549,10 @@ export function SettingsModal({
                       >
                         <div className="font-bold flex items-center justify-between">
                           <span>
-                            {item.id === "high" 
-                              ? (language === "zh" ? "[高敏感度]" : "[HIGH]") 
-                              : item.id === "balanced" 
-                              ? (language === "zh" ? "[标准平衡]" : "[BALANCED]") 
+                            {item.id === "high"
+                              ? (language === "zh" ? "[高敏感度]" : "[HIGH]")
+                              : item.id === "balanced"
+                              ? (language === "zh" ? "[标准平衡]" : "[BALANCED]")
                               : (language === "zh" ? "[保守平稳]" : "[BUFFERED]")}
                           </span>
                           {settings.rebalanceSensitivity === item.id && (
@@ -580,7 +567,6 @@ export function SettingsModal({
                   </div>
                 </div>
 
-                {/* Data Backup & Workspace Reset */}
                 <div className="p-4 border border-[#111111] bg-white space-y-3">
                   <div className="flex items-center space-x-2">
                     <Database className="w-4 h-4 text-[#111111]" />
@@ -637,7 +623,6 @@ export function SettingsModal({
               </div>
             )}
 
-            {/* 2. USER AUTH & PROFILE TAB */}
             {activeTab === "account" && (
               <div className="space-y-6">
                 <div>
@@ -651,17 +636,16 @@ export function SettingsModal({
                   </p>
                 </div>
 
-                {/* Logged in User Card */}
                 {userProfile.isLoggedIn ? (
                   <div className="p-5 border border-[#111111] bg-white space-y-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center space-x-3.5">
                         <div className="w-10 h-10 border border-[#111111] bg-[#111111] text-white flex items-center justify-center text-sm font-bold overflow-hidden">
                           {userProfile.avatar?.startsWith("http") ? (
-                            <img 
-                              src={userProfile.avatar} 
-                              alt={userProfile.name} 
-                              className="w-full h-full object-cover" 
+                            <img
+                              src={userProfile.avatar}
+                              alt={userProfile.name}
+                              className="w-full h-full object-cover"
                               referrerPolicy="no-referrer"
                             />
                           ) : (
@@ -681,7 +665,7 @@ export function SettingsModal({
                             {userProfile.email}
                           </div>
                           <div className="text-[10px] text-[#999999] mt-0.5">
-                            {userProfile.institution || "Student"} // {userProfile.major || "Major"}
+                            {userProfile.institution || "Student"}
                           </div>
                         </div>
                       </div>
@@ -695,7 +679,6 @@ export function SettingsModal({
                       </button>
                     </div>
 
-                    {/* Cloud Sync Status Indicator */}
                     <div className="p-3 bg-[#fafafa] border border-[#111111] flex items-center justify-between">
                       <div className="flex items-center space-x-2.5">
                         <div>
@@ -717,7 +700,6 @@ export function SettingsModal({
                       </button>
                     </div>
 
-                    {/* Quick Stats Grid */}
                     <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#111111]">
                       <div className="p-2.5 bg-white border border-[#111111]">
                         <div className="text-[10px] text-[#666666] uppercase">
@@ -745,7 +727,6 @@ export function SettingsModal({
                       </div>
                     </div>
 
-                    {/* Edit Profile Form */}
                     {isEditing ? (
                       <div className="p-4 bg-[#fafafa] border border-[#111111] space-y-3">
                         <div className="font-bold text-xs uppercase text-[#111111]">
@@ -836,7 +817,7 @@ export function SettingsModal({
                     )}
                   </div>
                 ) : (
-                  /* Login & Register Section with Real Google Sign-in */
+
                   <div className="p-5 border border-[#111111] bg-white space-y-4">
                     <div>
                       <div className="flex items-center space-x-2">
@@ -852,7 +833,6 @@ export function SettingsModal({
                       </p>
                     </div>
 
-                    {/* Google OAuth Button */}
                     <button
                       type="button"
                       onClick={handleGoogleLogin}
@@ -866,7 +846,6 @@ export function SettingsModal({
                       </span>
                     </button>
 
-                    {/* Popup Blocked Warning & Action */}
                     {isPopupBlocked && (
                       <div className="p-3 border border-[#111111] bg-[#fafafa] text-xs space-y-2 text-[#111111]">
                         <div className="font-bold text-[#d44c47]">
@@ -935,7 +914,6 @@ export function SettingsModal({
                   </div>
                 )}
 
-                {/* Quick Switch Demo Accounts */}
                 <div className="space-y-2">
                   <div className="flex items-center space-x-1.5 text-xs font-bold uppercase text-[#111111]">
                     <span>[DEMO ACCOUNTS]</span>
@@ -975,7 +953,6 @@ export function SettingsModal({
               </div>
             )}
 
-            {/* 3. LANGUAGE & REGION TAB */}
             {activeTab === "language" && (
               <div className="space-y-6">
                 <div>
@@ -989,7 +966,6 @@ export function SettingsModal({
                   </p>
                 </div>
 
-                {/* Language Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     onClick={() => {
@@ -1038,7 +1014,6 @@ export function SettingsModal({
                   </button>
                 </div>
 
-                {/* Date & Week Preferences */}
                 <div className="p-4 border border-[#111111] bg-white space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1090,7 +1065,6 @@ export function SettingsModal({
               </div>
             )}
 
-            {/* 4. VERSION INFO & DIAGNOSTICS TAB */}
             {activeTab === "version" && (
               <div className="space-y-6">
                 <div>
@@ -1102,7 +1076,6 @@ export function SettingsModal({
                   </p>
                 </div>
 
-                {/* Version Card */}
                 <div className="p-4 border border-[#111111] bg-white space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1138,7 +1111,6 @@ export function SettingsModal({
                   </div>
                 </div>
 
-                {/* System Health Diagnostics */}
                 <div className="p-4 border border-[#111111] bg-white space-y-3">
                   <div className="text-xs font-bold uppercase text-[#111111]">
                     [DIAGNOSTICS]
@@ -1159,7 +1131,6 @@ export function SettingsModal({
                   </div>
                 </div>
 
-                {/* Changelog Timeline */}
                 <div className="space-y-3">
                   <div className="text-xs font-bold uppercase text-[#111111]">
                     [CHANGELOG]
@@ -1197,11 +1168,10 @@ export function SettingsModal({
           </div>
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-3 border-t border-[#111111] bg-[#fafafa] flex items-center justify-between text-xs text-[#666666] font-mono">
           <div className="flex items-center space-x-2">
             <span>EXAM PLAN AI © 2026</span>
-            <span>//</span>
+            <span>•</span>
             <span>BLKSWN AESTHETIC</span>
           </div>
           <button

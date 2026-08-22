@@ -1,6 +1,3 @@
-/**
- * Web Audio API synthesized sounds for focus timers and task completion.
- */
 let audioCtx: AudioContext | null = null;
 
 function getAudioContext(): AudioContext {
@@ -26,7 +23,6 @@ export function playCompletionChime() {
     osc1.type = "sine";
     osc2.type = "triangle";
 
-    // Pleasant high-arpeggio chime (C6 -> E6 -> G6 -> C7)
     osc1.frequency.setValueAtTime(1046.5, now);
     osc1.frequency.exponentialRampToValueAtTime(1318.51, now + 0.08);
     osc1.frequency.exponentialRampToValueAtTime(1567.98, now + 0.16);
@@ -47,9 +43,7 @@ export function playCompletionChime() {
     osc2.start(now);
     osc1.stop(now + 0.85);
     osc2.stop(now + 0.85);
-  } catch (e) {
-    // Graceful fallback
-  }
+  } catch (e) {}
 }
 
 export function playTimerFinishBell() {
@@ -57,7 +51,6 @@ export function playTimerFinishBell() {
     const ctx = getAudioContext();
     const now = ctx.currentTime;
 
-    // Tibetan-style singing bowl tone
     const fundamental = 440;
     const harmonics = [1, 2.76, 5.4, 8.93];
     const gains = [0.3, 0.15, 0.08, 0.03];
@@ -79,9 +72,7 @@ export function playTimerFinishBell() {
       osc.start(now);
       osc.stop(now + 2.6);
     });
-  } catch (e) {
-    // Graceful fallback
-  }
+  } catch (e) {}
 }
 
 export function playTickSound() {
@@ -103,7 +94,5 @@ export function playTickSound() {
 
     osc.start(now);
     osc.stop(now + 0.03);
-  } catch (e) {
-    // Graceful fallback
-  }
+  } catch (e) {}
 }

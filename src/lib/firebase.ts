@@ -1,29 +1,28 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { 
-  getAuth, 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  signOut, 
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
   User as FirebaseUser
 } from "firebase/auth";
-import { 
-  getFirestore, 
-  doc, 
-  setDoc, 
-  deleteDoc, 
-  collection, 
-  onSnapshot, 
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  deleteDoc,
+  collection,
+  onSnapshot,
   getDocFromServer,
   writeBatch
 } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
 import { ExamStudyPlan, UserProfile } from "../types";
 
-// Initialize Firebase App
 export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
@@ -78,7 +77,6 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Test Firestore Connection
 export async function testFirestoreConnection() {
   try {
     if (auth.currentUser) {
@@ -91,7 +89,6 @@ export async function testFirestoreConnection() {
   }
 }
 
-// Auth methods
 export async function loginWithGoogle(): Promise<FirebaseUser> {
   try {
     const result = await signInWithPopup(auth, googleProvider);
@@ -134,7 +131,6 @@ export async function logoutUser(): Promise<void> {
   }
 }
 
-// Cloud Study Plan Sync
 export async function savePlanToCloud(userId: string, plan: ExamStudyPlan): Promise<void> {
   const planPath = `users/${userId}/plans/${plan.id}`;
   try {
@@ -174,20 +170,19 @@ export async function saveUserProfileToCloud(userId: string, profile: UserProfil
   }
 }
 
-// Real-time Firestore Subscriptions
 export function subscribeToUserPlans(
-  userId: string, 
+  userId: string,
   onPlansChange: (plans: ExamStudyPlan[]) => void
 ): () => void {
   const plansCollectionPath = `users/${userId}/plans`;
   const plansCol = collection(db, "users", userId, "plans");
-  
+
   const unsubscribe = onSnapshot(plansCol, (snapshot) => {
     const plans: ExamStudyPlan[] = [];
     snapshot.forEach((docSnap) => {
       plans.push(docSnap.data() as ExamStudyPlan);
     });
-    // Sort plans by creation date or exam date
+
     plans.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     onPlansChange(plans);
   }, (error) => {
@@ -215,7 +210,6 @@ export function subscribeToUserProfile(
   return unsubscribe;
 }
 
-// Migrate local plans to cloud when logging in
 export async function uploadLocalPlansToCloud(userId: string, plans: ExamStudyPlan[]): Promise<void> {
   if (!plans.length) return;
   const batch = writeBatch(db);

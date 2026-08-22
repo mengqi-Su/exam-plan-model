@@ -39,7 +39,7 @@
   }
 }
 
-/* Tokyo Editorial Grid & Border Helpers */
+
 .editorial-border {
   border-color: #111111;
 }
@@ -91,7 +91,7 @@
   line-height: 1.2;
 }
 
-/* Minimalist crisp scrollbars */
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -109,7 +109,7 @@
   background: #111111;
 }
 
-/* Notion compat utility mappings with crisp editorial style */
+
 .notion-tag-gray {
   background-color: #f4f4f4;
   color: #333333;

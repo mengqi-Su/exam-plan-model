@@ -23,8 +23,7 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
 
   useEffect(() => {
     if (!isOpen || !task) return;
-    
-    // Fetch quiz questions from server
+
     const fetchQuiz = async () => {
       setLoading(true);
       setError(null);
@@ -110,7 +109,7 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none">
       <div className="bg-white border border-[#111111] w-full max-w-lg text-[#111111] font-mono shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        {/* Header */}
+
         <div className="px-5 py-3.5 bg-[#fafafa] border-b border-[#111111] flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">
@@ -129,7 +128,6 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
           </button>
         </div>
 
-        {/* Body Content */}
         <div className="p-5 overflow-y-auto flex-1 space-y-4 font-mono">
           {loading ? (
             <div className="py-10 text-center space-y-2">
@@ -148,7 +146,7 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
             </div>
           ) : currentQ ? (
             <div className="space-y-4">
-              {/* Question Progress Tracker */}
+
               <div className="flex items-center justify-between text-xs text-[#666666]">
                 <span>{language === "zh" ? `[题号 ${currentIdx + 1} / ${questions.length}]` : `[Q ${currentIdx + 1}/${questions.length}]`}</span>
                 <span className="border border-[#111111] bg-[#fafafa] text-[#111111] px-1.5 py-0.2 text-[10px] font-bold">
@@ -156,19 +154,17 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
                 </span>
               </div>
 
-              {/* Question Text */}
               <div className="bg-[#fafafa] border border-[#111111] p-3.5">
                 <p className="text-xs font-bold text-[#111111] leading-relaxed">
                   {currentQ.question}
                 </p>
               </div>
 
-              {/* Options */}
               <div className="space-y-2">
                 {currentQ.options?.map((opt, oIdx) => {
                   const isUserPick = selectedAnswers[currentIdx] === opt;
                   const isCorrect = opt === currentQ.correctAnswer;
-                  
+
                   let btnStyle = "bg-white border-[#111111] hover:bg-[#fafafa] text-[#111111]";
                   if (isRevealed) {
                     if (isCorrect) {
@@ -202,7 +198,6 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
                 })}
               </div>
 
-              {/* Explanation Box */}
               {isRevealed && (
                 <div className="p-3 bg-[#fafafa] border border-[#111111] space-y-1 text-xs">
                   <div className="flex items-center space-x-1 text-[#111111] font-bold text-[11px] uppercase">
@@ -217,7 +212,6 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
           ) : null}
         </div>
 
-        {/* Footer Controls */}
         {!loading && !error && questions.length > 0 && (
           <div className="px-5 py-3 bg-[#fafafa] border-t border-[#111111] flex items-center justify-between font-mono">
             <button

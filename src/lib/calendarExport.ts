@@ -1,33 +1,24 @@
 import { ExamStudyPlan, StudyTask } from "../types";
 
-/**
- * Formats a Date object or date/time string to iCalendar UTC format (YYYYMMDDTHHMMSSZ) or local format (YYYYMMDDTHHMMSS)
- */
 function formatDateToICS(dateStr: string, timeStr: string = "09:00"): string {
   const [year, month, day] = dateStr.split("-").map(Number);
   const [hours, minutes] = timeStr.split(":").map(Number);
-  
+
   const d = new Date(year, month - 1, day, hours, minutes, 0);
-  
+
   const pad = (n: number) => n.toString().padStart(2, "0");
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
 }
 
-/**
- * Calculates end time based on start time and duration minutes
- */
 function getEndTime(dateStr: string, startTimeStr: string = "09:00", durationMinutes: number = 60): string {
   const [year, month, day] = dateStr.split("-").map(Number);
   const [hours, minutes] = startTimeStr.split(":").map(Number);
-  
+
   const d = new Date(year, month - 1, day, hours, minutes + durationMinutes, 0);
   const pad = (n: number) => n.toString().padStart(2, "0");
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
 }
 
-/**
- * Generates standard RFC 5545 iCalendar (.ics) string for Google Calendar, Apple Calendar, Outlook, etc.
- */
 export function generateICSContent(plan: ExamStudyPlan, selectedTasks?: StudyTask[]): string {
   const tasksToExport = selectedTasks || plan.tasks;
   const now = new Date();
@@ -59,7 +50,6 @@ END:VALARM
 END:VEVENT`;
   });
 
-  // Also add the main Exam Day Event
   const examStartTime = plan.examTime || "09:00";
   const examDtStart = formatDateToICS(plan.examDate, examStartTime);
   const examDtEnd = getEndTime(plan.examDate, examStartTime, 180);
@@ -87,7 +77,7 @@ END:VEVENT`;
 
   return `BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Exam Plan AI//Intelligent Study Planner//EN
+PRODID:-
 CALSCALE:GREGORIAN
 METHOD:PUBLISH
 X-WR-CALNAME:${plan.examName} Study Schedule
@@ -98,9 +88,6 @@ ${events.join("\n")}
 END:VCALENDAR`;
 }
 
-/**
- * Triggers instant browser download of the .ics file
- */
 export function downloadICSFile(plan: ExamStudyPlan, selectedTasks?: StudyTask[]) {
   const icsData = generateICSContent(plan, selectedTasks);
   const blob = new Blob([icsData], { type: "text/calendar;charset=utf-8" });
@@ -114,18 +101,15 @@ export function downloadICSFile(plan: ExamStudyPlan, selectedTasks?: StudyTask[]
   URL.revokeObjectURL(url);
 }
 
-/**
- * Generates direct Google Calendar Web intent URL for an individual study task
- */
 export function generateGoogleCalendarUrl(task: StudyTask, plan: ExamStudyPlan): string {
   const startTime = task.startTime || "09:00";
   const dtStart = formatDateToICS(task.date, startTime);
   const dtEnd = getEndTime(task.date, startTime, task.durationMinutes);
-  
+
   const text = encodeURIComponent(`[Study] ${task.title}`);
   const details = encodeURIComponent(
     `Exam: ${plan.examName} (${plan.subject})\nTopic: ${task.topicTitle}\nDuration: ${task.durationMinutes} mins\n\nObjectives:\n${(task.keyObjectives || []).map(o => `• ${o}`).join('\n')}\n\nDescription:\n${task.description}`
   );
-  
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${dtStart}/${dtEnd}&details=${details}`;
+
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${dtStart}/${dtEnd}&details=${details}&location=Online%20Study`;
 }

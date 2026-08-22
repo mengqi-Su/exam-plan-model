@@ -34,11 +34,11 @@ export function DeleteConfirmModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none">
-      <div 
+      <div
         className="bg-white border border-[#111111] max-w-md w-full overflow-hidden text-[#111111] font-mono shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+
         <div className="p-4 flex items-center justify-between border-b border-[#111111] bg-[#fafafa]">
           <div className="flex items-center space-x-2.5">
             <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">
@@ -56,7 +56,6 @@ export function DeleteConfirmModal({
           </button>
         </div>
 
-        {/* Content & Plan Summary */}
         <div className="p-5 space-y-4 text-xs font-mono">
           <div className="p-3 bg-[#fafafa] border border-[#111111] space-y-2">
             <div className="font-bold text-sm text-[#111111] truncate flex items-center space-x-2">
@@ -80,7 +79,6 @@ export function DeleteConfirmModal({
           </div>
         </div>
 
-        {/* Actions Footer */}
         <div className="p-3 bg-[#fafafa] border-t border-[#111111] flex items-center justify-end space-x-2">
           <button
             type="button"

@@ -21,9 +21,6 @@ export interface RagRetrievalResult {
   matchReason: string;
 }
 
-/**
- * Intelligent client & server chunking for uploaded materials
- */
 export function chunkDocumentText(
   materialId: string,
   materialName: string,
@@ -35,8 +32,7 @@ export function chunkDocumentText(
   }
 
   const cleanText = text.replace(/\r\n/g, "\n").trim();
-  
-  // Split by structural markers (chapters, headers, question numbers, or double line breaks)
+
   const paragraphBlocks = cleanText.split(/\n{2,}/);
   const chunks: DocumentChunk[] = [];
 
@@ -59,7 +55,6 @@ export function chunkDocumentText(
         trimmed
       );
 
-    // Extract key terminology tokens (Chinese 2-4 char words or English words)
     const keywords: string[] = [];
     const engWords = (trimmed.match(/[A-Za-z]{3,}/g) || []).slice(0, 10);
     keywords.push(...Array.from(new Set(engWords)));
@@ -97,7 +92,6 @@ export function chunkDocumentText(
     const trimmedBlock = block.trim();
     if (!trimmedBlock) continue;
 
-    // Detect if this line is a heading
     const firstLine = trimmedBlock.split("\n")[0].trim();
     const isHeading =
       firstLine.length < 60 &&
@@ -115,7 +109,6 @@ export function chunkDocumentText(
 
     accumulatedText += (accumulatedText ? "\n\n" : "") + trimmedBlock;
 
-    // Split if chunk is too large (> 800 chars)
     if (accumulatedText.length >= 800) {
       commitChunk(accumulatedText, currentSectionTitle);
       accumulatedText = "";
@@ -126,7 +119,6 @@ export function chunkDocumentText(
     commitChunk(accumulatedText, currentSectionTitle);
   }
 
-  // If no structured chunks could be extracted, make at least one chunk
   if (chunks.length === 0 && cleanText.length > 0) {
     commitChunk(cleanText.slice(0, 1000), materialName);
   }
@@ -134,9 +126,6 @@ export function chunkDocumentText(
   return chunks;
 }
 
-/**
- * Retrieve top relevant chunks for a specific topic, task, or user requirement
- */
 export function retrieveRelevantChunks(
   query: string,
   chunks: DocumentChunk[],
@@ -163,7 +152,6 @@ export function retrieveRelevantChunks(
     const lowerContent = chunk.content.toLowerCase();
     const lowerHeading = chunk.sectionTitle.toLowerCase();
 
-    // 1. Heading exact/partial match
     for (const tok of queryTokens) {
       if (lowerHeading.includes(tok)) {
         score += 25;
@@ -177,7 +165,6 @@ export function retrieveRelevantChunks(
       }
     }
 
-    // 2. Chunks keyword intersection
     for (const kw of chunk.keywords) {
       const lowerKw = kw.toLowerCase();
       if (lowerQuery.includes(lowerKw)) {
@@ -188,7 +175,6 @@ export function retrieveRelevantChunks(
       }
     }
 
-    // 3. Modifiers based on options
     if (options.preferQuestions && chunk.isExamQuestion) {
       score += 20;
     }
@@ -199,7 +185,6 @@ export function retrieveRelevantChunks(
       score += 10;
     }
 
-    // Baseline minimum presence
     if (score > 0 || chunks.length <= topK) {
       let matchReason = "基于考点关键词精准匹配";
       if (chunk.isExamQuestion) matchReason = "命中了往年真题/习题考查题型";

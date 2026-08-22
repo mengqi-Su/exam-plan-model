@@ -16,7 +16,6 @@ const PORT = 3000;
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// Initialize Gemini Client Lazily
 let aiClient: GoogleGenAI | null = null;
 function getAI(): GoogleGenAI | null {
   if (!aiClient) {
@@ -40,12 +39,8 @@ function getAI(): GoogleGenAI | null {
   return aiClient;
 }
 
-// Helper for sleep/backoff
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * Resilient Gemini caller with exponential backoff and model cascade
- */
 async function generateWithRetryAndFallback<T>(
   buildParams: (modelName: string) => any,
   parseResult: (text: string) => T,
@@ -53,11 +48,10 @@ async function generateWithRetryAndFallback<T>(
 ): Promise<T> {
   const client = getAI();
   if (!client) {
-    // If no client / API key available, immediately use robust algorithmic fallback
+
     return fallbackGenerator();
   }
 
-  // Use recommended standard models with priority on gemini-3.7-flash and gemini-3.1-flash-lite
   const models = ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-flash-latest"];
 
   for (const model of models) {
@@ -74,7 +68,7 @@ async function generateWithRetryAndFallback<T>(
       } catch (err: any) {
         const status = err?.status || err?.code || err?.statusCode;
         const msg = String(err?.message || "");
-        
+
         const is503HighDemand =
           status === 503 ||
           msg.includes("503") ||
@@ -87,22 +81,18 @@ async function generateWithRetryAndFallback<T>(
           msg.includes("RESOURCE_EXHAUSTED");
 
         if (attempt === 1 && (is503HighDemand || isRateLimit)) {
-          // Quick backoff before retrying once on same model
+
           await sleep(400);
           continue;
         }
 
-        // If still failing after retry, log and cascade to next model
         break;
       }
     }
   }
 
-  // If all upstream AI models are temporarily unavailable, return algorithmic generation
   return fallbackGenerator();
 }
-
-// ---------------- RAG (RETRIEVAL-AUGMENTED GENERATION) ENGINE ----------------
 
 interface DocumentChunk {
   id: string;
@@ -271,8 +261,6 @@ function retrieveTopChunksForQuery(
   return scored.slice(0, topK).map((s) => s.chunk);
 }
 
-// ---------------- ALGORITHMIC FALLBACKS ----------------
-
 function isChinese(text: string): boolean {
   return /[\u4e00-\u9fa5]/.test(text || "");
 }
@@ -351,7 +339,7 @@ function fallbackGeneratePlan(topics: any[], preferences: any) {
   const startDate = new Date(preferences.startDate);
   const examDate = new Date(preferences.examDate);
   const daysTotal = Math.max(1, Math.ceil((examDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
-  
+
   const phase1End = new Date(startDate.getTime() + Math.floor(daysTotal * 0.35) * 86400000).toISOString().split("T")[0];
   const phase2End = new Date(startDate.getTime() + Math.floor(daysTotal * 0.70) * 86400000).toISOString().split("T")[0];
   const phase3End = new Date(startDate.getTime() + Math.floor(daysTotal * 0.90) * 86400000).toISOString().split("T")[0];
@@ -519,7 +507,7 @@ function fallbackGeneratePlan(topics: any[], preferences: any) {
       });
       totalHours += 1;
     } else {
-      // Regular study session
+
       const isWeak = preferences.weakTopicsFocus?.includes(topic.title);
       const userNeedStatement = isZh
         ? `满足【${preferences.targetScoreOrGrade || "目标高分"}】需求，针对「${topic.title}」进行核心考点深挖`
@@ -571,7 +559,6 @@ function fallbackGeneratePlan(topics: any[], preferences: any) {
       });
       totalHours += Math.round(sessionDuration / 60);
 
-      // Add a practice / active recall task if available hours >= 2
       if (sched.availableHours >= 2) {
         tasks.push({
           id: `task-${dateStr}-${randSalt}-2`,
@@ -631,7 +618,7 @@ function fallbackRebalancePlan(currentPlan: any, currentDate: string, reason: st
   const isZh = isChinese(currentPlan?.examName) || isChinese(currentPlan?.subject) || true;
   const today = currentDate || new Date().toISOString().split("T")[0];
   const examDate = currentPlan.examDate;
-  
+
   const completedTasks = currentPlan.tasks.filter((t: any) => t.status === "completed");
   const pendingTasks = currentPlan.tasks.filter((t: any) => t.status !== "completed");
 
@@ -751,9 +738,6 @@ function fallbackGenerateQuiz(topicTitle: string, taskTitle: string, lang: strin
   };
 }
 
-// ---------------- DOCUMENT PARSER ENGINE ----------------
-
-// Helper to parse any uploaded file (PDF, Word DOCX, TXT, MD, Images) into clean, human-readable text
 async function parseUploadedDocument(
   fileName: string,
   fileType: string,
@@ -765,7 +749,6 @@ async function parseUploadedDocument(
   const buffer = Buffer.from(cleanBase64, "base64");
   const ext = path.extname(fileName).toLowerCase();
 
-  // 1. Plain Text / Markdown / Code / JSON / CSV
   if (
     fileType.startsWith("text/") ||
     [".txt", ".md", ".markdown", ".json", ".csv", ".rtf"].includes(ext)
@@ -780,7 +763,6 @@ async function parseUploadedDocument(
     }
   }
 
-  // 2. Word DOCX
   if (ext === ".docx" || fileType.includes("wordprocessingml")) {
     try {
       const result = await mammoth.extractRawText({ buffer });
@@ -792,7 +774,6 @@ async function parseUploadedDocument(
     }
   }
 
-  // 3. PDF Parsing with pdf-parse (Fast local extraction)
   if (ext === ".pdf" || fileType === "application/pdf") {
     try {
       if (typeof pdfParse === "function") {
@@ -831,7 +812,6 @@ async function parseUploadedDocument(
     }
   }
 
-  // 4. Multimodal AI Extraction (For scanned PDFs, image-based slides, photos, or complex layout)
   try {
     const mime = fileType || (ext === ".pdf" ? "application/pdf" : ext === ".png" ? "image/png" : "image/jpeg");
     const prompt = isZh
@@ -871,14 +851,10 @@ async function parseUploadedDocument(
   }
 }
 
-// ---------------- API ENDPOINTS ----------------
-
-// API Routes
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// 0. Parse uploaded document (PDF, Word, TXT, Images) into clean text
 app.post("/api/parse-document", async (req, res) => {
   try {
     const { fileName, fileType, base64Data, language } = req.body;
@@ -906,7 +882,6 @@ app.post("/api/parse-document", async (req, res) => {
   }
 });
 
-// 1. Extract syllabus & topics from uploaded study materials
 app.post("/api/extract-syllabus", async (req, res) => {
   try {
     const { materials, examName, subject } = req.body;
@@ -984,14 +959,13 @@ Output a clean JSON object containing:
     res.json(result);
   } catch (error: any) {
     console.error("Error extracting syllabus:", error);
-    // Provide algorithmic response instead of hard 500 error
+
     const isZh = isChinese(req.body?.examName) || isChinese(req.body?.subject) || true;
     const fallback = fallbackExtractSyllabus(req.body.materials || [], req.body.examName, req.body.subject, isZh ? "zh" : "en");
     res.json(fallback);
   }
 });
 
-// 2. Generate comprehensive schedule-aware study plan with RAG knowledge retrieval
 app.post("/api/generate-plan", async (req, res) => {
   try {
     const { topics, preferences, materials, materialsSummary } = req.body;
@@ -1002,13 +976,11 @@ app.post("/api/generate-plan", async (req, res) => {
 
     const isZh = preferences.language === "zh" || isChinese(preferences.examName) || isChinese(preferences.subject) || true;
 
-    // Build RAG knowledge base from uploaded materials
     const allChunks = chunkAllMaterials(materials || []);
-    
-    // Retrieve top relevant chunks for each topic and user priority
+
     const ragContextBlocks: string[] = [];
     const focusQuery = `${preferences.userNeedFocusArea || ""} ${preferences.customPromptRequirement || ""} ${preferences.weakTopicsFocus?.join(" ") || ""}`.trim();
-    
+
     if (focusQuery && allChunks.length > 0) {
       const topFocusChunks = retrieveTopChunksForQuery(focusQuery, allChunks, { topK: 5 });
       topFocusChunks.forEach((c, idx) => {
@@ -1025,8 +997,8 @@ app.post("/api/generate-plan", async (req, res) => {
       }
     });
 
-    const ragContextText = ragContextBlocks.length > 0 
-      ? `\n=== RETRIEVED RAG KNOWLEDGE BASE CHUNKS FROM UPLOADED MATERIALS ===\n${ragContextBlocks.slice(0, 15).join("\n\n")}\n` 
+    const ragContextText = ragContextBlocks.length > 0
+      ? `\n=== RETRIEVED RAG KNOWLEDGE BASE CHUNKS FROM UPLOADED MATERIALS ===\n${ragContextBlocks.slice(0, 15).join("\n\n")}\n`
       : "";
 
     const prompt = `You are a master learning scientist and RAG study schedule architect.
@@ -1189,7 +1161,6 @@ RAG GROUNDING REQUIREMENTS:
   }
 });
 
-// 3. Dedicated RAG Knowledge Query & Verification Endpoint
 app.post("/api/rag-ask", async (req, res) => {
   try {
     const { query, topicTitle, taskTitle, materials } = req.body;
@@ -1252,7 +1223,6 @@ Output your response in Simplified Chinese (简体中文).`;
   }
 });
 
-// 3. Real-time Adaptive Plan Rebalancer
 app.post("/api/rebalance-plan", async (req, res) => {
   try {
     const { currentPlan, currentDate, reason } = req.body;
@@ -1352,7 +1322,6 @@ INSTRUCTIONS:
   }
 });
 
-// 4. Quick Active Recall Quiz generation for a specific task / topic
 app.post("/api/generate-quiz", async (req, res) => {
   try {
     const { topicTitle, taskTitle, keyObjectives, language } = req.body;
@@ -1410,7 +1379,6 @@ For each question, provide 4 multiple choice options, the exact correct answer, 
   }
 });
 
-// Vite Middleware for development & static file serving for production
 async function setupViteOrStatic() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -1427,9 +1395,8 @@ async function setupViteOrStatic() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Exam Plan AI Server running on http://localhost:${PORT}`);
+    console.log(`Exam Plan AI Server running on port ${PORT}`);
   });
 }
 
 setupViteOrStatic();
-

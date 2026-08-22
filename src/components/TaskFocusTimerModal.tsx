@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { 
-  X, 
-  Play, 
-  Pause, 
-  RotateCcw, 
-  CheckCircle2, 
-  Clock, 
-  Volume2, 
-  VolumeX, 
+import {
+  X,
+  Play,
+  Pause,
+  RotateCcw,
+  CheckCircle2,
+  Clock,
+  Volume2,
+  VolumeX,
   Star,
   Check
 } from "lucide-react";
@@ -36,7 +36,6 @@ export function TaskFocusTimerModal({
   const [checkedObjectives, setCheckedObjectives] = useState<Record<number, boolean>>({});
   const [selectedRating, setSelectedRating] = useState<1 | 2 | 3 | 4 | 5>(4);
 
-  // Reset when task changes
   useEffect(() => {
     if (task) {
       setTimeLeft((task.durationMinutes || 45) * 60);
@@ -45,7 +44,6 @@ export function TaskFocusTimerModal({
     }
   }, [task]);
 
-  // Timer Tick Loop
   useEffect(() => {
     let interval: any = null;
     if (isRunning && timeLeft > 0) {
@@ -96,7 +94,7 @@ export function TaskFocusTimerModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none">
       <div className="bg-white border border-[#111111] w-full max-w-lg text-[#111111] font-mono shadow-2xl overflow-hidden flex flex-col">
-        {/* Top Header */}
+
         <div className="px-5 py-3.5 bg-[#fafafa] border-b border-[#111111] flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">
@@ -124,7 +122,6 @@ export function TaskFocusTimerModal({
           </div>
         </div>
 
-        {/* Center Clock Dial */}
         <div className="p-6 text-center space-y-5 flex flex-col items-center font-mono">
           <div>
             <span className="border border-[#111111] bg-[#fafafa] text-[#111111] px-2 py-0.5 text-[10px] font-bold">
@@ -135,23 +132,21 @@ export function TaskFocusTimerModal({
             </h3>
           </div>
 
-          {/* Countdown Display Box */}
           <div className="relative w-48 h-48 border border-[#111111] bg-[#fafafa] flex flex-col items-center justify-center">
             <span className="text-4xl font-bold tracking-widest text-[#111111]">
               {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
             </span>
             <span className="text-[10px] text-[#666666] font-bold mt-2 uppercase tracking-wider">
-              {isRunning ? `// ${t("deepFocusing")}` : timeLeft === 0 ? `// ${t("sessionComplete")}` : `// ${t("readyToStart")}`}
+              {isRunning ? `[ ${t("deepFocusing")} ]` : timeLeft === 0 ? `[ ${t("sessionCompleted")} ]` : `[ ${t("readyToFocus")} ]`}
             </span>
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#e5e5e5]">
-              <div 
+              <div
                 className="h-full bg-[#111111] transition-all duration-300"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
           </div>
 
-          {/* Controls */}
           <div className="flex items-center space-x-3">
             <button
               onClick={handleResetTimer}
@@ -183,7 +178,6 @@ export function TaskFocusTimerModal({
             </button>
           </div>
 
-          {/* Key Objectives Checklist */}
           {task.keyObjectives && task.keyObjectives.length > 0 && (
             <div className="w-full bg-[#fafafa] border border-[#111111] p-3 text-left space-y-1.5">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-[#666666]">
@@ -208,7 +202,6 @@ export function TaskFocusTimerModal({
             </div>
           )}
 
-          {/* Self-Rating & Completion Action */}
           <div className="w-full pt-3 border-t border-[#111111] flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center space-x-1.5 text-xs">
               <span className="text-[#666666] font-bold">[{t("selfMasteryRating")}]:</span>

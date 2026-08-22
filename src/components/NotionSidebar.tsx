@@ -1,23 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { 
-  BookOpen, 
-  Calendar, 
-  CheckSquare, 
-  ChevronRight, 
+import {
+  BookOpen,
+  Calendar,
+  CheckSquare,
+  ChevronRight,
   ChevronDown,
-  FileText, 
-  Folder, 
-  GraduationCap, 
-  Plus, 
-  Search, 
-  Settings, 
-  Sparkles, 
-  Trash2, 
-  Zap, 
-  PanelLeftClose, 
-  PanelLeft, 
-  ExternalLink, 
-  Download, 
+  FileText,
+  Folder,
+  GraduationCap,
+  Plus,
+  Search,
+  Settings,
+  Sparkles,
+  Trash2,
+  Zap,
+  PanelLeftClose,
+  PanelLeft,
+  ExternalLink,
+  Download,
   RefreshCw,
   Star,
   Clock,
@@ -84,7 +84,7 @@ export function NotionSidebar({
 
   return (
     <aside className="w-64 bg-[#f2f0ea] border-r border-[#111111] flex flex-col h-screen fixed top-0 left-0 z-40 select-none text-[13px] text-[#111111] font-sans">
-      {/* Workspace Editorial Masthead */}
+
       <div className="p-3.5 flex items-center justify-between border-b border-[#111111] bg-[#faf9f6]">
         <div className="flex items-center space-x-2.5 min-w-0">
           <div className="w-6 h-6 bg-[#111111] text-white flex items-center justify-center text-[10px] font-mono font-bold shrink-0 tracking-tighter">
@@ -95,7 +95,7 @@ export function NotionSidebar({
               EXAM PLAN AI
             </span>
             <span className="text-[10px] text-[#666666] font-mono block truncate">
-              // STUDY ENGINE
+
             </span>
           </div>
         </div>
@@ -109,7 +109,6 @@ export function NotionSidebar({
         </button>
       </div>
 
-      {/* Primary Navigation */}
       <div className="p-2 space-y-1 border-b border-[#dedad1]">
         <button
           onClick={() => onTabChange("dashboard")}
@@ -150,7 +149,6 @@ export function NotionSidebar({
         </button>
       </div>
 
-      {/* Courses / Exam Plans Hierarchy Tree */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         <div className="flex items-center justify-between px-2 py-1.5 text-[10px] font-mono uppercase tracking-widest text-[#777777] border-b border-[#dedad1] mb-1">
           <span className="flex items-center space-x-1">
@@ -205,9 +203,8 @@ export function NotionSidebar({
         })}
       </div>
 
-      {/* Language Switcher, User Profile & Sidebar Footer Actions */}
       <div className="p-2.5 border-t border-[#111111] space-y-1.5 text-xs bg-[#faf9f6]">
-        {/* User Account / Login Profile */}
+
         {userProfile && onOpenSettings && (
           <button
             onClick={() => onOpenSettings("account")}

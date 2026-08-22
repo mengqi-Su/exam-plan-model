@@ -512,7 +512,7 @@ export function loadSavedPlans(): ExamStudyPlan[] {
       return [sample];
     }
     const parsed: ExamStudyPlan[] = JSON.parse(raw);
-    // If the sample plan has English titles or legacy English keys, replace it with the fresh Chinese plan
+
     if (Array.isArray(parsed) && parsed.length > 0) {
       const hasLegacySample = parsed.some(
         (p) => p.id === "sample-plan-cs301" && (p.examName.includes("Final") || p.examName === "CS 301: Advanced Algorithms Final" || (p.tasks && p.tasks[0]?.title.includes("Red-Black")))
@@ -565,7 +565,6 @@ export function saveUploadedMaterials(materials: StudyMaterial[]) {
   }
 }
 
-// User Profile & Authentication State
 const STORAGE_KEY_USER = "exam_planner_user_profile_v1";
 
 export const DEFAULT_USER_PROFILE = {
@@ -646,7 +645,6 @@ export function saveUserProfile(profile: UserProfile) {
   }
 }
 
-// App Settings & Configuration
 const STORAGE_KEY_SETTINGS = "exam_planner_app_settings_v1";
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -683,7 +681,6 @@ export function saveAppSettings(settings: AppSettings) {
 
 export const SAMPLE_PLANS: ExamStudyPlan[] = [getSamplePlan()];
 
-// Version & Changelog Information
 export const APP_VERSION_DATA = {
   version: "v2.5.0",
   releaseName: "Notion Modular Hub & Intelligent Orchestrator",
@@ -733,4 +730,3 @@ export const APP_VERSION_DATA = {
     },
   ],
 };
-

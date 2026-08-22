@@ -38,7 +38,6 @@ const CATEGORY_TAG_CLASS: Record<TaskCategory, string> = {
   summary_cheat_sheet: "border border-[#111111] bg-white text-[#111111]",
 };
 
-// Course badge color helper by index
 const COURSE_COLORS = [
   "border border-[#111111] bg-white text-[#111111]",
   "border border-[#111111] bg-[#fafafa] text-[#111111]",
@@ -58,29 +57,22 @@ export function MasterCalendarView({
 }: MasterCalendarViewProps) {
   const { t, language } = useI18n();
 
-  // Current viewed month date state
   const [currentMonthDate, setCurrentMonthDate] = useState<Date>(() => {
     return propSelectedDate ? new Date(propSelectedDate) : new Date();
   });
 
-  // Course filter: 'all' or planId
   const [courseFilter, setCourseFilter] = useState<string>("all");
 
-  // Status filter: 'all' | 'pending' | 'completed'
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "completed">("all");
 
-  // Search keyword inside calendar
   const [keyword, setKeyword] = useState<string>("");
 
-  // Selected date inside calendar
   const [activeDayDate, setActiveDayDate] = useState<string>(() => {
     return propSelectedDate || new Date().toISOString().split("T")[0];
   });
 
-  // Today string
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  // Map each plan to an assigned color class for easy visual distinction
   const planColorMap = useMemo(() => {
     const map = new Map<string, string>();
     plans.forEach((p, idx) => {
@@ -89,21 +81,19 @@ export function MasterCalendarView({
     return map;
   }, [plans]);
 
-  // Aggregate all tasks across plans with plan reference
   const allAggregatedTasks = useMemo(() => {
     const list: Array<{ task: StudyTask; plan: ExamStudyPlan }> = [];
     plans.forEach((plan) => {
-      // Filter by course
+
       if (courseFilter !== "all" && plan.id !== courseFilter) {
         return;
       }
 
       plan.tasks.forEach((task) => {
-        // Filter by status
+
         if (statusFilter === "pending" && task.status === "completed") return;
         if (statusFilter === "completed" && task.status !== "completed") return;
 
-        // Filter by keyword
         if (keyword.trim()) {
           const q = keyword.toLowerCase();
           const matches =
@@ -119,7 +109,6 @@ export function MasterCalendarView({
     return list;
   }, [plans, courseFilter, statusFilter, keyword]);
 
-  // Group tasks by date string 'YYYY-MM-DD'
   const tasksByDate = useMemo(() => {
     const map = new Map<string, Array<{ task: StudyTask; plan: ExamStudyPlan }>>();
     allAggregatedTasks.forEach((item) => {
@@ -132,7 +121,6 @@ export function MasterCalendarView({
     return map;
   }, [allAggregatedTasks]);
 
-  // Exam milestone dates by date string
   const examDatesByDate = useMemo(() => {
     const map = new Map<string, ExamStudyPlan[]>();
     plans.forEach((plan) => {
@@ -146,9 +134,8 @@ export function MasterCalendarView({
     return map;
   }, [plans, courseFilter]);
 
-  // Month navigation helpers
   const year = currentMonthDate.getFullYear();
-  const month = currentMonthDate.getMonth(); // 0-indexed
+  const month = currentMonthDate.getMonth();
 
   const handlePrevMonth = () => {
     setCurrentMonthDate(new Date(year, month - 1, 1));
@@ -166,13 +153,11 @@ export function MasterCalendarView({
     if (onSelectDate) onSelectDate(today);
   };
 
-  // Build calendar matrix (6 weeks x 7 days)
   const calendarDays = useMemo(() => {
     const firstDayOfMonth = new Date(year, month, 1);
-    const startDayOfWeek = firstDayOfMonth.getDay(); // 0 is Sunday
+    const startDayOfWeek = firstDayOfMonth.getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-    // Previous month filler
     const daysInPrevMonth = new Date(year, month, 0).getDate();
     const prevMonthFiller: Array<{ dateStr: string; dayNum: number; isCurrentMonth: boolean }> = [];
     for (let i = startDayOfWeek - 1; i >= 0; i--) {
@@ -182,11 +167,10 @@ export function MasterCalendarView({
       prevMonthFiller.push({ dateStr, dayNum, isCurrentMonth: false });
     }
 
-    // Current month days
     const currentMonthDays: Array<{ dateStr: string; dayNum: number; isCurrentMonth: boolean }> = [];
     for (let d = 1; d <= daysInMonth; d++) {
       const date = new Date(year, month, d);
-      // Format YYYY-MM-DD reliably with local date components
+
       const yStr = date.getFullYear();
       const mStr = String(date.getMonth() + 1).padStart(2, "0");
       const dStr = String(date.getDate()).padStart(2, "0");
@@ -194,7 +178,6 @@ export function MasterCalendarView({
       currentMonthDays.push({ dateStr, dayNum: d, isCurrentMonth: true });
     }
 
-    // Next month filler to complete matrix (up to 35 or 42 cells)
     const totalFilled = prevMonthFiller.length + currentMonthDays.length;
     const totalSlots = totalFilled > 35 ? 42 : 35;
     const nextMonthFiller: Array<{ dateStr: string; dayNum: number; isCurrentMonth: boolean }> = [];
@@ -207,7 +190,6 @@ export function MasterCalendarView({
     return [...prevMonthFiller, ...currentMonthDays, ...nextMonthFiller];
   }, [year, month]);
 
-  // Tasks for currently selected day in calendar side drawer/detail
   const activeDayTasks = useMemo(() => {
     return tasksByDate.get(activeDayDate) || [];
   }, [tasksByDate, activeDayDate]);
@@ -216,7 +198,7 @@ export function MasterCalendarView({
     return examDatesByDate.get(activeDayDate) || [];
   }, [examDatesByDate, activeDayDate]);
 
-  const weekHeaders = language === "zh" 
+  const weekHeaders = language === "zh"
     ? ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
     : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -226,10 +208,10 @@ export function MasterCalendarView({
 
   return (
     <div className="bg-white border border-[#111111] overflow-hidden">
-      {/* Header Bar: Navigation & Filters */}
+
       <div className="p-4 sm:p-5 border-b border-[#111111] space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          {/* Month Title & Prev/Next/Today */}
+
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-2">
               <CalendarIcon className="w-4 h-4 text-[#111111]" />
@@ -266,9 +248,8 @@ export function MasterCalendarView({
             </div>
           </div>
 
-          {/* Right Side: Course Filter & Status Filter & Search */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Course Filter Dropdown */}
+
             <div className="flex items-center space-x-1.5 bg-white border border-[#111111] px-2 py-1">
               <Layers className="w-3.5 h-3.5 text-[#111111]" />
               <select
@@ -287,7 +268,6 @@ export function MasterCalendarView({
               </select>
             </div>
 
-            {/* Status Filter */}
             <div className="flex items-center space-x-1.5 bg-white border border-[#111111] px-2 py-1">
               <Filter className="w-3.5 h-3.5 text-[#111111]" />
               <select
@@ -301,7 +281,6 @@ export function MasterCalendarView({
               </select>
             </div>
 
-            {/* Search Input */}
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-[#888888] absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
@@ -315,7 +294,6 @@ export function MasterCalendarView({
           </div>
         </div>
 
-        {/* Legend / Quick Stats */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-[10px] font-mono text-[#666666] border-t border-[#e5e5e5]">
           <div className="flex flex-wrap items-center gap-3">
             <span className="flex items-center space-x-1">
@@ -333,18 +311,17 @@ export function MasterCalendarView({
           </div>
 
           <div className="font-bold">
-            {language === "zh" 
+            {language === "zh"
               ? `本月共排定 ${allAggregatedTasks.length} 个任务`
               : `${allAggregatedTasks.length} TOTAL TASKS`}
           </div>
         </div>
       </div>
 
-      {/* Main Grid: Calendar Matrix & Detail Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-[#111111] font-mono">
-        {/* Left / Center: 7-Column Calendar Grid */}
+
         <div className="lg:col-span-8 p-3 sm:p-4 bg-white">
-          {/* Weekday Headers */}
+
           <div className="grid grid-cols-7 gap-1 text-center font-mono font-bold text-[10px] text-[#111111] mb-1.5 py-1 bg-[#fafafa] border border-[#111111]">
             {weekHeaders.map((w, idx) => (
               <div key={idx} className={idx === 0 || idx === 6 ? "text-[#666666]" : ""}>
@@ -353,7 +330,6 @@ export function MasterCalendarView({
             ))}
           </div>
 
-          {/* Calendar Cells */}
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map(({ dateStr, dayNum, isCurrentMonth }, idx) => {
               const dayTasks = tasksByDate.get(dateStr) || [];
@@ -379,7 +355,7 @@ export function MasterCalendarView({
                       : "border border-dashed border-[#111111]/30 bg-[#fafafa] opacity-40 hover:opacity-80 text-[#111111]"
                   }`}
                 >
-                  {/* Top: Day Number & Mini Indicators */}
+
                   <div className="flex items-center justify-between">
                     <span
                       className={`text-xs font-bold w-5 h-5 flex items-center justify-center ${
@@ -402,9 +378,8 @@ export function MasterCalendarView({
                     )}
                   </div>
 
-                  {/* Middle: Exam Tags & Task Chips */}
                   <div className="mt-1 space-y-1 flex-1 overflow-hidden">
-                    {/* Exam day banner */}
+
                     {dayExams.map((exam) => (
                       <div
                         key={`exam-${exam.id}`}
@@ -418,7 +393,6 @@ export function MasterCalendarView({
                       </div>
                     ))}
 
-                    {/* Study tasks (top 2 preview) */}
                     {dayTasks.slice(0, 2).map(({ task, plan }) => {
                       const isTaskDone = task.status === "completed";
 
@@ -448,7 +422,6 @@ export function MasterCalendarView({
                       );
                     })}
 
-                    {/* More count pill */}
                     {dayTasks.length > 2 && (
                       <div className={`text-[9px] font-bold pl-1 ${isSelected ? "text-white/80" : "text-[#666666]"}`}>
                         +{dayTasks.length - 2} {language === "zh" ? "项" : "MORE"}
@@ -461,10 +434,9 @@ export function MasterCalendarView({
           </div>
         </div>
 
-        {/* Right: Selected Date Task Detail Side-Panel */}
         <div className="lg:col-span-4 p-4 sm:p-5 bg-white flex flex-col justify-between space-y-4 font-mono">
           <div className="space-y-3">
-            {/* Header: Selected Date Info */}
+
             <div className="flex items-center justify-between pb-2 border-b border-[#111111]">
               <div>
                 <span className="text-[11px] font-bold text-[#666666] uppercase tracking-wider block">
@@ -485,7 +457,6 @@ export function MasterCalendarView({
               </span>
             </div>
 
-            {/* Exam Day Alert if any */}
             {activeDayExams.length > 0 && (
               <div className="p-3 bg-[#fafafa] border border-[#111111] space-y-1">
                 <div className="flex items-center space-x-1.5 text-xs font-bold text-[#111111] uppercase">
@@ -500,7 +471,6 @@ export function MasterCalendarView({
               </div>
             )}
 
-            {/* Tasks List */}
             {activeDayTasks.length === 0 ? (
               <div className="py-12 text-center space-y-2">
                 <CheckCircle2 className="w-8 h-8 text-[#111111] mx-auto opacity-40" />
@@ -524,7 +494,7 @@ export function MasterCalendarView({
                       }`}
                     >
                       <div className="flex items-start space-x-2">
-                        {/* Checkbox */}
+
                         <button
                           onClick={() => onToggleTaskStatus(plan.id, task.id)}
                           className="mt-0.5 text-[#111111] hover:text-[#000000] transition-colors shrink-0 cursor-pointer"
@@ -537,7 +507,7 @@ export function MasterCalendarView({
                         </button>
 
                         <div className="min-w-0 flex-1 space-y-1">
-                          {/* Tags row */}
+
                           <div className="flex flex-wrap items-center gap-1 font-bold">
                             <span className="border border-[#111111] bg-[#111111] text-white px-1.5 py-0.2 text-[9px] uppercase truncate max-w-[120px]">
                               [{plan.examName}]
@@ -551,7 +521,6 @@ export function MasterCalendarView({
                             </span>
                           </div>
 
-                          {/* Task title */}
                           <p
                             className={`text-xs font-bold leading-snug ${
                               isCompleted ? "line-through text-[#666666]" : "text-[#111111]"
@@ -568,7 +537,6 @@ export function MasterCalendarView({
                         </div>
                       </div>
 
-                      {/* Quick tool buttons */}
                       <div className="flex items-center justify-end space-x-1.5 pt-1 border-t border-[#111111]">
                         {task.activeRecallPrompt && (
                           <button
