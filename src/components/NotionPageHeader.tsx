@@ -28,6 +28,8 @@ import { ExamStudyPlan, UserProfile } from "../types";
 import { downloadICSFile } from "../lib/calendarExport";
 import { useI18n } from "../lib/i18n";
 import { APP_VERSION_DATA } from "../lib/storage";
+import { FlipCountdown } from "./FlipCountdown";
+import { getPaletteByString } from "../lib/themePalettes";
 
 interface NotionPageHeaderProps {
   activePlan: ExamStudyPlan | null;
@@ -188,58 +190,48 @@ export function NotionPageHeader({
       </div>
 
       {currentTab !== "dashboard" && currentTab !== "master_calendar" && (
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-4 pb-2">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-7 pb-5 space-y-6">
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2 font-mono">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#111111] font-sans">
-                {activePlan?.examName || t("untitledPlan")}
-              </h1>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5 font-mono">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2.5">
+                {activePlan && (
+                  <span
+                    className="w-3.5 h-3.5 border border-[#111111] shrink-0 inline-block"
+                    style={{ backgroundColor: getPaletteByString(activePlan.id || activePlan.examName).accentColor }}
+                  />
+                )}
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#111111] font-sans">
+                  {activePlan?.examName || t("untitledPlan")}
+                </h1>
+              </div>
               {activePlan?.examDate && (
-                <p className="text-xs text-[#666666] mt-0.5 font-mono">
-                  {language === "zh" ? "考试时间" : "EXAM"}: <strong className="text-[#111111]">{activePlan.examDate} {activePlan.examTime || "09:00"}</strong> ({activePlan.subject || (language === "zh" ? "学科" : "Course")})
-                </p>
+                <div className="text-xs text-[#666666] font-mono flex items-center space-x-2.5">
+                  <span className="text-[#888888] uppercase">[{language === "zh" ? "考试时间" : "EXAM"}]</span>
+                  <strong className="text-[#111111] bg-[#f5f5f5] px-2.5 py-0.5 border border-[#e5e5e5]">
+                    {activePlan.examDate} {activePlan.examTime || "09:00"}
+                  </strong>
+                  <span className="text-[#888888]">({activePlan.subject || (language === "zh" ? "学科" : "Course")})</span>
+                </div>
               )}
             </div>
 
             {activePlan?.examDate && (
-              <div className="flex items-center space-x-1.5 px-3 py-1.5 border border-[#111111] bg-white shrink-0 font-mono text-xs">
-                <div className="text-center px-1">
-                  <span className="text-base font-bold text-[#111111]">
-                    {String(countdown.days).padStart(2, "0")}
-                  </span>
-                  <span className="text-[9px] text-[#666666] uppercase block font-sans">{language === "zh" ? "天" : "d"}</span>
-                </div>
-                <span className="text-[#111111] font-bold">:</span>
-                <div className="text-center px-1">
-                  <span className="text-base font-bold text-[#111111]">
-                    {String(countdown.hours).padStart(2, "0")}
-                  </span>
-                  <span className="text-[9px] text-[#666666] uppercase block font-sans">{language === "zh" ? "时" : "h"}</span>
-                </div>
-                <span className="text-[#111111] font-bold">:</span>
-                <div className="text-center px-1">
-                  <span className="text-base font-bold text-[#111111]">
-                    {String(countdown.minutes).padStart(2, "0")}
-                  </span>
-                  <span className="text-[9px] text-[#666666] uppercase block font-sans">{language === "zh" ? "分" : "m"}</span>
-                </div>
-                <span className="text-[#111111] font-bold">:</span>
-                <div className="text-center px-1">
-                  <span className="text-base font-bold text-[#111111]">
-                    {String(countdown.seconds).padStart(2, "0")}
-                  </span>
-                  <span className="text-[9px] text-[#666666] uppercase block font-sans">{language === "zh" ? "秒" : "s"}</span>
-                </div>
-              </div>
+              <FlipCountdown
+                days={countdown.days}
+                hours={countdown.hours}
+                minutes={countdown.minutes}
+                seconds={countdown.seconds}
+                language={language}
+              />
             )}
           </div>
 
-          <div className="pt-2 border-t border-[#111111] flex items-center justify-between overflow-x-auto no-scrollbar font-sans text-xs">
-            <div className="flex items-center space-x-1">
+          <div className="pt-3 border-t border-[#111111] flex items-center justify-between overflow-x-auto no-scrollbar font-sans text-xs">
+            <div className="flex items-center space-x-2">
               <button
                 onClick={() => onTabChange("todo")}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 transition-all cursor-pointer border ${
+                className={`flex items-center space-x-2 px-3.5 py-2 transition-all cursor-pointer border ${
                   currentTab === "todo"
                     ? "bg-[#111111] text-white border-[#111111] font-bold"
                     : "border-transparent text-[#666666] hover:text-[#111111] hover:border-[#dedad1]"
@@ -256,7 +248,7 @@ export function NotionPageHeader({
 
               <button
                 onClick={() => onTabChange("realtime")}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 transition-all cursor-pointer border ${
+                className={`flex items-center space-x-2 px-3.5 py-2 transition-all cursor-pointer border ${
                   currentTab === "realtime"
                     ? "bg-[#111111] text-white border-[#111111] font-bold"
                     : "border-transparent text-[#666666] hover:text-[#111111] hover:border-[#dedad1]"
@@ -268,7 +260,7 @@ export function NotionPageHeader({
 
               <button
                 onClick={() => onTabChange("course")}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 transition-all cursor-pointer border ${
+                className={`flex items-center space-x-2 px-3.5 py-2 transition-all cursor-pointer border ${
                   currentTab === "course" || currentTab === "materials"
                     ? "bg-[#111111] text-white border-[#111111] font-bold"
                     : "border-transparent text-[#666666] hover:text-[#111111] hover:border-[#dedad1]"
@@ -291,7 +283,7 @@ export function NotionPageHeader({
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 placeholder={language === "zh" ? "搜索任务考点..." : "SEARCH TASKS..."}
-                className="pl-8 pr-3 py-1 bg-white border border-[#dedad1] focus:border-[#111111] text-xs font-sans text-[#111111] placeholder-[#888888] focus:outline-none w-44 transition-all"
+                className="pl-8 pr-3 py-1.5 bg-white border border-[#dedad1] focus:border-[#111111] text-xs font-sans text-[#111111] placeholder-[#888888] focus:outline-none w-44 transition-all"
               />
             </div>
           </div>

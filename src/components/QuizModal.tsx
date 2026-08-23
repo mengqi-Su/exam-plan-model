@@ -168,7 +168,7 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
                   let btnStyle = "bg-white border-[#111111] hover:bg-[#fafafa] text-[#111111]";
                   if (isRevealed) {
                     if (isCorrect) {
-                      btnStyle = "bg-[#111111] border-[#111111] text-white font-bold";
+                      btnStyle = "bg-[#FCD33B] border-[#111111] text-[#111111] font-bold";
                     } else if (isUserPick) {
                       btnStyle = "bg-[#fafafa] border-[#111111] text-[#111111] line-through font-bold";
                     } else {
@@ -183,7 +183,7 @@ export function QuizModal({ task, isOpen, onClose, onMasteryUpdated }: QuizModal
                       disabled={isRevealed}
                       className={`w-full text-left p-3 border text-xs transition-all flex items-start space-x-2.5 cursor-pointer ${btnStyle}`}
                     >
-                      <span className={`w-4 h-4 border flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${isRevealed && isCorrect ? 'border-white text-white' : 'border-[#111111]'}`}>
+                      <span className={`w-4 h-4 border flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 ${isRevealed && isCorrect ? 'border-[#111111] bg-[#111111] text-white' : 'border-[#111111]'}`}>
                         {String.fromCharCode(65 + oIdx)}
                       </span>
                       <span className="flex-1 leading-normal">{opt}</span>

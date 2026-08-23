@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { ExamStudyPlan, StudyTask, TaskCategory } from "../types";
 import { useI18n } from "../lib/i18n";
+import { getPaletteByString, getPaletteByIndex } from "../lib/themePalettes";
 
 interface MasterCalendarViewProps {
   plans: ExamStudyPlan[];
@@ -483,6 +484,7 @@ export function MasterCalendarView({
                 {activeDayTasks.map(({ task, plan }) => {
                   const isCompleted = task.status === "completed";
                   const tagClass = CATEGORY_TAG_CLASS[task.category] || "border border-[#111111] bg-white text-[#111111]";
+                  const coursePalette = getPaletteByString(plan.id || plan.examName);
 
                   return (
                     <div
@@ -509,7 +511,13 @@ export function MasterCalendarView({
                         <div className="min-w-0 flex-1 space-y-1">
 
                           <div className="flex flex-wrap items-center gap-1 font-bold">
-                            <span className="border border-[#111111] bg-[#111111] text-white px-1.5 py-0.2 text-[9px] uppercase truncate max-w-[120px]">
+                            <span
+                              className="border border-[#111111] px-1.5 py-0.2 text-[9px] uppercase truncate max-w-[120px]"
+                              style={{
+                                backgroundColor: coursePalette.accentColor,
+                                color: coursePalette.id === "dark-slate" ? "#FFFFFF" : "#111111"
+                              }}
+                            >
                               [{plan.examName}]
                             </span>
                             <span className={`${tagClass} px-1.5 py-0.2 text-[9px] uppercase`}>

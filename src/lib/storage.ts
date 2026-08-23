@@ -332,174 +332,372 @@ function getSamplePlan(): ExamStudyPlan {
         subtopics: ["布隆过滤器原理", "跳表概率分析", "势能法平摊分析"],
       },
     ],
-    tasks: [
-      {
-        id: "task-d0-1",
-        title: "红黑树 4 种旋转情况与黑高不变性推导",
-        description: "手绘红黑树插入删除 4 种旋转情形，推导树高上限 h <= 2*log(n+1)。",
-        category: "theory",
-        topicTitle: "平衡搜索树与堆结构",
-        date: startDateStr,
-        startTime: "18:00",
-        endTime: "19:00",
-        durationMinutes: 60,
-        priority: "high",
-        status: "completed",
-        keyObjectives: ["掌握左旋与右旋操作及指针维护", "验证黑高一致性规则与性质定理"],
-        activeRecallPrompt: "红黑树插入修复中，叔父节点为红色与黑色时分别如何处理？",
-        confidenceRating: 4,
-        notes: "彻底理清了叔父节点颜色判定分支。插入平衡调整平摊时间为 O(log n)。",
-        actualMinutesSpent: 55,
-        groundedUserNeed: "匹配用户目标【A (95分+ / 卓越)】：深入掌握平衡树核心理论与定理推导",
-        ragSource: {
-          documentName: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
-          documentType: "past_exam",
-          sectionTitle: "一、算法理论与数据结构选择题 第1题",
-          pageOrChapter: "真题试卷 第 1 题",
-          excerptSnippet: "在一棵包含 n 个节点的红黑树中，从根节点到任意叶子节点的最长路径长度最多是从根节点到叶子节点最短路径长度的2倍。性质：根为黑，无连续红节点，黑高一致。",
-          keyConcepts: ["红黑树性质", "黑高定理", "单双旋转", "平摊复杂度"],
-          relevanceReason: "命中了历年高频真题选择题第 1 题与性质定理考查",
-        },
-        formulaOrRules: ["树高界限: h <= 2 * log2(n + 1)", "黑高性质: 根到任意叶子路径上的黑节点数严格恒等"],
-        practiceQuestionRef: "《2025期末全真真题A卷》第1题",
-      },
-      {
-        id: "task-d0-2",
-        title: "B 树与 B+ 树特性对比与范围查询实战",
-        description: "分析 B+ 树叶子链表在大数据范围查询中的磁盘 I/O 优势。",
-        category: "practice_problems",
-        topicTitle: "平衡搜索树与堆结构",
-        date: startDateStr,
-        startTime: "19:15",
-        endTime: "20:00",
-        durationMinutes: 45,
-        priority: "medium",
-        status: "pending",
-        keyObjectives: ["计算分支因子 B 下树高及节点上限", "追踪双向叶子节点范围遍历流程"],
-        activeRecallPrompt: "为什么数据库索引普遍采用 B+ 树而不是红黑树或标准 B 树？",
-        groundedUserNeed: "针对【大题计算与综合推导】需求，强化外存索引模型",
-        ragSource: {
-          documentName: "CS 301：高级数据结构与算法 课程大纲",
-          documentType: "syllabus",
-          sectionTitle: "模块 1：平衡搜索树与堆结构",
-          pageOrChapter: "大纲考点 1.3",
-          excerptSnippet: "B 树与 B+ 树：磁盘页索引结构、多路搜索节点。要求重点掌握阶数 M 下最大关键字数推导及范围扫描复杂度。",
-          keyConcepts: ["B+ 树", "磁盘页 I/O", "范围搜索", "平衡多路查找"],
-          relevanceReason: "大纲重点标记的实际工程应用考点",
-        },
-        formulaOrRules: ["树高估计: h <= ceil(log_B(N))", "叶子节点通过双向指针串联实现 O(1) 连续范围检索"],
-      },
-      {
-        id: "task-d1-1",
-        title: "Dijkstra 与 Bellman-Ford 边界用例专项强化",
-        description: "精解 5 道图论最短路真题，对比非负权图与负权环图的算法行为。",
-        category: "practice_problems",
-        topicTitle: "图算法与网络流",
-        date: formatDate(d1),
-        startTime: "18:30",
-        endTime: "19:45",
-        durationMinutes: 75,
-        priority: "high",
-        status: "pending",
-        keyObjectives: ["解释为何 Dijkstra 在负权边下失效", "推导 Bellman-Ford 松弛 |V|-1 轮检测负环的原理"],
-        activeRecallPrompt: "Bellman-Ford 算法如何严格判断有向图中是否存在负权回路？",
-        groundedUserNeed: "针对用户指定薄弱知识点【图算法与网络流】分配额外巩固学时",
-        ragSource: {
-          documentName: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
-          documentType: "past_exam",
-          sectionTitle: "一、选择题 第2题 & 二、图论大题",
-          pageOrChapter: "真题 第 2 题",
-          excerptSnippet: "斐波那契堆实现 Dijkstra 算法时，整体时间复杂度为 O(V log V + E)。当存在负权回路时需采用 Bellman-Ford 松弛判断。",
-          keyConcepts: ["Dijkstra 堆优化", "Bellman-Ford 负环检测", "松弛定理"],
-          relevanceReason: "考查算法边界条件与时间复杂度对比",
-        },
-        formulaOrRules: ["Dijkstra + Fib-Heap: O(|V| log |V| + |E|)", "Bellman-Ford 循环: 迭代 |V|-1 次后若仍可松弛则存在负环"],
-        practiceQuestionRef: "《2025期末真题A卷》第2题",
-      },
-      {
-        id: "task-d2-1",
-        title: "Edmonds-Karp 与 Dinic 算法最大流最小割定理证明",
-        description: "推导残留网络、增广路定理以及最大流最小割容量等价性定理。",
-        category: "theory",
-        topicTitle: "图算法与网络流",
-        date: formatDate(d2),
-        startTime: "18:00",
-        endTime: "19:30",
-        durationMinutes: 90,
-        priority: "high",
-        status: "pending",
-        keyObjectives: ["准确计算残留容量与反向弧流量更新", "从可达残留点集确定最小 s-t 割集"],
-        activeRecallPrompt: "请复述最大流最小割定理，并说明为什么最小割容量必然等于最大流流量？",
-        groundedUserNeed: "重点攻坚历年期末 30 分大题【网络流建模归约】",
-        ragSource: {
-          documentName: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
-          documentType: "past_exam",
-          sectionTitle: "二、网络流与图论建模大题 第3-4题",
-          pageOrChapter: "大题第 3 题 (15分)",
-          excerptSnippet: "二分图最大匹配转化为最大流：源点 S 连 L，L 连 R，R 连 T。证明最大流值等于二分图最大匹配数。利用 Ford-Fulkerson 整数定理证明。",
-          keyConcepts: ["最大流最小割", "二分图匹配建模", "残留网络", "Dinic 分层图"],
-          relevanceReason: "期末考试必考 15 分网络流建模证明大题",
-        },
-        formulaOrRules: ["最大流最小割定理: max_flow(S, T) == min_capacity(cut(S, T))", "Dinic 时间复杂度: O(V^2 * E)，在单位网络中为 O(E * sqrt(V))"],
-        practiceQuestionRef: "《2025期末真题A卷》大题第3题",
-      },
-      {
-        id: "task-d3-1",
-        title: "0/1 背包状态转移矩阵与空间压缩演练",
-        description: "构建 2D DP 状态转移表并将其优化为单行 1D 数组倒序遍历。",
-        category: "practice_problems",
-        topicTitle: "动态规划与状压位运算",
-        date: formatDate(d3),
-        startTime: "18:30",
-        endTime: "19:30",
-        durationMinutes: 60,
-        priority: "high",
-        status: "pending",
-        keyObjectives: ["推导状态转移方程 DP[i][w] = max(DP[i-1][w], DP[i-1][w-wt[i]] + val[i])", "解释 1D 数组为何必须倒序遍历"],
-        activeRecallPrompt: "0/1 背包一维滚动数组中，为什么内层循环必须从后向前倒序遍历？",
-        groundedUserNeed: "强化高分核心模块【动态规划与状压位运算】",
-        ragSource: {
-          documentName: "CS 301：高级数据结构与算法 课程大纲",
-          documentType: "syllabus",
-          sectionTitle: "模块 3：动态规划与分治策略",
-          pageOrChapter: "大纲 3.1 核心 DP 专题",
-          excerptSnippet: "经典 DP：0/1 背包、完全背包、最长公共子序列 (LCS)、矩阵链乘法。要求熟练推导状态转移方程并掌握滚动数组空间优化。",
-          keyConcepts: ["0/1 背包", "空间压缩", "倒序遍历", "无后效性"],
-          relevanceReason: "大纲分值占比高达 30% 的核心专题",
-        },
-        formulaOrRules: ["2D方程: dp[i][j] = max(dp[i-1][j], dp[i-1][j-w[i]] + v[i])", "1D优化: for j from W downTo w[i]: dp[j] = max(dp[j], dp[j-w[i]] + v[i])"],
-        practiceQuestionRef: "《2025期末真题A卷》大题第5题",
-      },
-      {
-        id: "task-d4-1",
-        title: "阶段诊断限时小模考 (45分钟)",
-        description: "全真限时闭卷：涵盖平衡树、图论最短路与背包 DP 综合大题。",
-        category: "mock_exam",
-        topicTitle: "动态规划与状压位运算",
-        date: formatDate(d4),
-        startTime: "19:00",
-        endTime: "19:45",
-        durationMinutes: 45,
-        priority: "high",
-        status: "pending",
-        keyObjectives: ["全真模拟考试作答节奏与时间分配", "自评批改并记录第 2 阶段需攻坚的易错盲区"],
-        activeRecallPrompt: "交卷后立即归纳本次模考用时最长或犹豫的知识点类型。",
-        groundedUserNeed: "满足【智能穿插全真阶段模考】设置，检验前 4 天知识吸收效果",
-        ragSource: {
-          documentName: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
-          documentType: "past_exam",
-          sectionTitle: "综合阶段测验卷 (包含平衡树、最短路与 DP)",
-          pageOrChapter: "期末统考真题 综合模拟题",
-          excerptSnippet: "限时 45 分钟全真模考，精选历年期末核心必考大题，考察综合建模能力与定理推导严谨性。",
-          keyConcepts: ["阶段自测", "作答节奏", "查漏补缺", "错题归纳"],
-          relevanceReason: "科学复习法中的阶段性输出检索练习",
-        },
-        formulaOrRules: ["考前自测: 规范书写步骤得分点，避免跳跃性推导失分"],
-        practiceQuestionRef: "《2025期末真题A卷》阶段模拟题",
-      },
-    ],
+    tasks: generateSample21DaysTasks(startDateStr, examDateStr, formatDate),
     materials: INITIAL_SAMPLE_DOCUMENTS,
   };
+}
+
+function generateSample21DaysTasks(startDateStr: string, examDateStr: string, formatDate: (d: Date) => string) {
+  const start = new Date(startDateStr);
+  const tasks: any[] = [];
+
+  const syllabusUnits = [
+    {
+      topic: "平衡搜索树与堆结构",
+      cat: "theory",
+      title: "红黑树 4 种旋转情况与黑高不变性推导",
+      desc: "手绘红黑树插入删除 4 种旋转情形，推导树高上限 h <= 2*log(n+1)。",
+      obj: ["掌握左旋与右旋操作及指针维护", "验证黑高一致性规则与性质定理"],
+      recall: "红黑树插入修复中，叔父节点为红色与黑色时分别如何处理？",
+      need: "匹配高分目标：深入掌握平衡树核心理论与定理推导",
+      rag: {
+        docName: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
+        docType: "past_exam",
+        section: "一、选择题 第1题",
+        excerpt: "在一棵包含 n 个节点的红黑树中，从根到叶最长路径最多是最短路径的 2 倍。性质：根为黑，无连续红节点，黑高一致。",
+      }
+    },
+    {
+      topic: "平衡搜索树与堆结构",
+      cat: "practice_problems",
+      title: "B 树与 B+ 树特性对比与磁盘 I/O 范围查询实战",
+      desc: "分析 B+ 树叶子双向链表在大数据范围检索中的磁盘 I/O 优势。",
+      obj: ["计算分支因子 B 下树高及节点上限", "追踪双向叶子节点范围遍历流程"],
+      recall: "为什么数据库索引普遍采用 B+ 树而不是红黑树或标准 B 树？",
+      need: "针对【大题计算与综合推导】需求，强化外存索引模型",
+      rag: {
+        docName: "CS 301：高级数据结构与算法 课程大纲",
+        docType: "syllabus",
+        section: "模块 1：平衡搜索树与堆结构",
+        excerpt: "B 树与 B+ 树：磁盘页索引结构、多路搜索节点。要求重点掌握阶数 M 下最大关键字数推导及范围扫描复杂度。",
+      }
+    },
+    {
+      topic: "图算法与网络流",
+      cat: "practice_problems",
+      title: "Dijkstra 与 Bellman-Ford 边界用例专项强化",
+      desc: "精解 5 道图论最短路真题，对比非负权图与负权环图的算法行为。",
+      obj: ["解释为何 Dijkstra 在负权边下失效", "推导 Bellman-Ford 松弛 |V|-1 轮检测负环的原理"],
+      recall: "Bellman-Ford 算法如何严格判断有向图中是否存在负权回路？",
+      need: "针对用户薄弱知识点【图算法与网络流】分配专项攻坚学时",
+      rag: {
+        docName: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
+        docType: "past_exam",
+        section: "一、选择题 第2题 & 二、图论大题",
+        excerpt: "斐波那契堆实现 Dijkstra 算法时，整体时间复杂度为 O(V log V + E)。当存在负权回路时需采用 Bellman-Ford 松弛判断。",
+      }
+    },
+    {
+      topic: "图算法与网络流",
+      cat: "theory",
+      title: "Edmonds-Karp 与 Dinic 算法最大流最小割定理证明",
+      desc: "推导残留网络、增广路定理以及最大流最小割容量等价性定理。",
+      obj: ["准确计算残留容量与反向弧流量更新", "从可达残留点集确定最小 s-t 割集"],
+      recall: "请复述最大流最小割定理，并说明为什么最小割容量必然等于最大流流量？",
+      need: "重点攻坚历年期末 30 分大题【网络流建模归约】",
+      rag: {
+        docName: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
+        docType: "past_exam",
+        section: "二、网络流与图论建模大题 第3-4题",
+        excerpt: "二分图最大匹配转化为最大流：源点 S 连 L，L 连 R，R 连 T。证明最大流值等于二分图最大匹配数。利用 Ford-Fulkerson 整数定理证明。",
+      }
+    },
+    {
+      topic: "动态规划与状压位运算",
+      cat: "practice_problems",
+      title: "0/1 背包状态转移矩阵与空间压缩演练",
+      desc: "构建 2D DP 状态转移表并将其优化为单行 1D 数组倒序遍历。",
+      obj: ["推导状态转移方程 DP[i][w] = max(DP[i-1][w], DP[i-1][w-wt[i]] + val[i])", "解释 1D 数组为何必须倒序遍历"],
+      recall: "0/1 背包一维滚动数组中，为什么内层循环必须从后向前倒序遍历？",
+      need: "强化高分核心模块【动态规划与状压位运算】",
+      rag: {
+        docName: "CS 301：高级数据结构与算法 课程大纲",
+        docType: "syllabus",
+        section: "模块 3：动态规划与分治策略",
+        excerpt: "经典 DP：0/1 背包、完全背包、最长公共子序列 (LCS)、矩阵链乘法。要求熟练推导状态转移方程并掌握滚动数组空间优化。",
+      }
+    },
+    {
+      topic: "动态规划与状压位运算",
+      cat: "theory",
+      title: "树形 DP 与最长无相交独立集状态设计",
+      desc: "精讲树形 DP 经典例题：选择根节点与不选择根节点时的子树最优权值转移。",
+      obj: ["设计 dp[u][0] 与 dp[u][1] 的自底向上树形递归遍历", "分析时间复杂度 O(N)"],
+      recall: "树形最大独立集问题中，当节点 u 被选中时，其子节点 v 允许被选中吗？",
+      need: "攻坚期末高分大题【树形 DP 状态转移】",
+      rag: {
+        docName: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
+        docType: "past_exam",
+        section: "三、动态规划大题 第5题",
+        excerpt: "树形最大独立集：dp[u][0] = ∑ max(dp[v][0], dp[v][1])，dp[u][1] = w[u] + ∑ dp[v][0]。",
+      }
+    },
+    {
+      topic: "动态规划与状压位运算",
+      cat: "mock_exam",
+      title: "阶段诊断限时小模考 (45分钟)",
+      desc: "全真限时闭卷：涵盖平衡树、图论最短路与背包 DP 综合大题。",
+      obj: ["全真模拟考试作答节奏与时间分配", "自评批改并记录第 2 阶段需攻坚的易错盲区"],
+      recall: "交卷后立即归纳本次模考用时最长或犹豫的知识点类型。",
+      need: "满足【智能穿插全真阶段模考】设置，检验阶段知识吸收效果",
+      rag: {
+        docName: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
+        docType: "past_exam",
+        section: "综合阶段测验卷",
+        excerpt: "限时 45 分钟全真模考，精选历年期末核心必考大题，考察综合建模能力与定理推导严谨性。",
+      }
+    },
+    {
+      topic: "NP 完全性与归约证明",
+      cat: "theory",
+      title: "P vs NP 体系与多项式时间归约基本法则",
+      desc: "梳理判定问题、可验证性与 3-SAT 经典规约到顶点覆盖的构造方法。",
+      obj: ["理解多项式时间归约 A <=p B 的保真性", "写出从 3-SAT 到 Independent Set 的构造组件"],
+      recall: "如果发现某个 NP-Complete 问题能在多项式时间内求解，将引发什么结论？",
+      need: "掌握大纲占比 15% 的理论证明大题",
+      rag: {
+        docName: "CS 301：高级数据结构与算法 课程大纲",
+        docType: "syllabus",
+        section: "模块 4：NP 完全性与近似算法",
+        excerpt: "复杂度类别：P、NP、NP-Hard、NP-Complete。多项式时间归约：3-SAT 归约至顶点覆盖与独立集。",
+      }
+    },
+    {
+      topic: "NP 完全性与归约证明",
+      cat: "practice_problems",
+      title: "顶点覆盖与独立集 2-近似算法真题推导",
+      desc: "求解近似比证明：证明贪心极长匹配边集给出的顶点覆盖大小 <= 2 * OPT。",
+      obj: ["推导近似比下界与上界", "掌握常见 NP-Hard 问题的近似策略"],
+      recall: "顶点覆盖 2-近似算法中，为什么选出的极长匹配边数 <= OPT？",
+      need: "突破理论大题证明与近似算法分析",
+      rag: {
+        docName: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
+        docType: "past_exam",
+        section: "四、NP 完全性证明大题 第7题",
+        excerpt: "已知 3-SAT 问题是 NP-Complete，请通过构造多项式时间归约证明 独立集 (Independent Set) 问题也是 NP-Complete。",
+      }
+    },
+    {
+      topic: "随机算法与跳表分析",
+      cat: "reading",
+      title: "布隆过滤器哈希冲突率与跳表概率结构研读",
+      desc: "推导布隆过滤器在 m 位数组、k 个哈希函数下的最佳 k 值公式 k = (m/n)*ln2。",
+      obj: ["掌握布隆过滤器的假阳性 (False Positive) 概率推导", "理解跳表层高几何分布及 O(log n) 期望查找步数"],
+      recall: "布隆过滤器能否产生假阴性 (False Negative)？为什么？",
+      need: "掌握高级数据结构与概率算法考点",
+      rag: {
+        docName: "CS 301：高级数据结构与算法 课程大纲",
+        docType: "syllabus",
+        section: "模块 5：随机算法与平摊分析",
+        excerpt: "通用哈希与布隆过滤器 (Bloom Filters)。跳表 (Skip List) 概率分析。聚合分析与势能法。",
+      }
+    },
+    {
+      topic: "图算法与网络流",
+      cat: "active_recall",
+      title: "Tarjan 强连通分量与二分图最大匹配主动回忆",
+      desc: "不看讲义，独立画出 Tarjan 算法的 dfn 与 low 数组更新逻辑与缩点步骤。",
+      obj: ["默写 Tarjan 算法栈维护与回溯更新条件", "推导二分图最小点覆盖等于最大匹配数 (Kőnig 定理)"],
+      recall: "Tarjan 算法中，什么时候 `low[u] = min(low[u], dfn[v])`？为什么此时用的是 dfn[v]？",
+      need: "艾宾浩斯强化：主动检索图论高难度知识点",
+      rag: {
+        docName: "图论网络流与最短路 经典易错考题精编",
+        docType: "past_exam",
+        section: "题 2：Tarjan 算法求强连通分量",
+        excerpt: "Tarjan 算法中 dfn[u] 与 low[u] 的更新条件区分（搜索树边 vs 栈内反向边）。",
+      }
+    },
+    {
+      topic: "动态规划与状压位运算",
+      cat: "practice_problems",
+      title: "状态压缩 DP 旅行商 TSP 经典大题演练",
+      desc: "使用 dp[mask][i] 表示经过集合 mask 且当前停在节点 i 时的最短路径转移演练。",
+      obj: ["掌握位运算 `mask & (1 << j)` 与 `mask | (1 << j)` 的状态转移", "分析时间复杂度 O(n^2 * 2^n)"],
+      recall: "在状压 TSP 中，外层循环为什么必须按 mask 从 1 到 (1<<n)-1 递增遍历？",
+      need: "攻克 15 分状压 DP 期末压轴大题",
+      rag: {
+        docName: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
+        docType: "past_exam",
+        section: "三、动态规划大题 第6题",
+        excerpt: "状态压缩 DP：给定 n ≤ 16 个城市的旅行商问题 (TSP)，求从起点 0 出发经过所有城市恰好一次的最短路径。dp[mask][i] 转移方程。",
+      }
+    },
+    {
+      topic: "平衡搜索树与堆结构",
+      cat: "active_recall",
+      title: "斐波那契堆势能法平摊时间分析与主动回忆",
+      desc: "定义势能函数 Φ(H) = t(H) + 2*m(H)，推导 Decrease-Key 的 O(1) 平摊复杂度。",
+      obj: ["掌握级联剪切 (Cascading Cut) 机制", "严谨写出势能差 ΔΦ 的放缩推导"],
+      recall: "为什么斐波那契堆的 Decrease-Key 操作平摊时间为 O(1)？",
+      need: "突破平摊分析难点与高级堆结构原理",
+      rag: {
+        docName: "CS 301：高级数据结构与算法 课程大纲",
+        docType: "syllabus",
+        section: "模块 1：平衡搜索树与堆结构",
+        excerpt: "斐波那契堆与二项队列：平摊时间复杂度分析，势能法证明。",
+      }
+    },
+    {
+      topic: "图算法与网络流",
+      cat: "mock_exam",
+      title: "网络流与图论综合模块深度模考 (60分钟)",
+      desc: "限时闭卷演练：Dijkstra 堆优化、Bellman-Ford 负环判定、二分图匹配与最大流建模。",
+      obj: ["检验图论大题在时间压力下的建模与规范答题能力", "总结常见建图易错边界与反向边残留容量遗漏"],
+      recall: "在网络流建图中，当遇到'点容量'限制时，通常采用什么标准拆点技巧？",
+      need: "强化图论压轴大题答题手感与得分率",
+      rag: {
+        docName: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
+        docType: "past_exam",
+        section: "二、网络流与图论建模大题 第3-4题",
+        excerpt: "综合网络流建模与复杂度分析试题。",
+      }
+    },
+    {
+      topic: "动态规划与状压位运算",
+      cat: "practice_problems",
+      title: "最长公共子序列 (LCS) 与矩阵链乘法最优括号化",
+      desc: "推导区间 DP 状态转移方程与动态规划填表几何方向。",
+      obj: ["掌握区间 DP 循环枚举长度 len 的标准写法", "熟练还原括号化路径解"],
+      recall: "区间 DP 填表时，为什么最外层循环必须按区间长度 len 递增？",
+      need: "巩固动态规划基础大题，确保拿满基础过程分",
+      rag: {
+        docName: "CS 301：高级数据结构与算法 课程大纲",
+        docType: "syllabus",
+        section: "模块 3：动态规划与分治策略",
+        excerpt: "经典 DP：最长公共子序列 (LCS)、矩阵链乘法最优括号化。",
+      }
+    },
+    {
+      topic: "NP 完全性与归约证明",
+      cat: "active_recall",
+      title: "NP 经典问题规约链图谱默写与框架复盘",
+      desc: "闭卷默写 3-SAT -> Independent Set -> Vertex Cover -> Set Cover 规约链。",
+      obj: ["在白纸上完整画出 NP-Complete 经典归约关系网", "复述每个归约中的 Gadget 构造部件"],
+      recall: "如何证明一个新问题 Q 是 NP-Complete 的？需要满足哪两个严格条件？",
+      need: "理论大题考前框架固化，防止概念混淆",
+      rag: {
+        docName: "CS 301：高级数据结构与算法 课程大纲",
+        docType: "syllabus",
+        section: "模块 4：NP 完全性与近似算法",
+        excerpt: "多项式时间归约：3-SAT 归约至顶点覆盖与独立集。",
+      }
+    },
+    {
+      topic: "综合全真模拟",
+      cat: "mock_exam",
+      title: "2025年 期末统考全真模拟卷 (3小时完整仿真)",
+      desc: "严格按照考试时间 180 分钟闭卷全真作答，覆盖选择题、图论、DP 与 NP 证明全题型。",
+      obj: ["体验 180 分钟真实考试作答节奏与体能分配", "严格对照参考评分标准自评纠错"],
+      recall: "交卷后统计各题型失分比例，锁定最后 3 天需冲刺急救的考点。",
+      need: "全真模拟，校准实战答题节奏与临场心理状态",
+      rag: {
+        docName: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
+        docType: "past_exam",
+        section: "全套期末模拟试卷 (100分)",
+        excerpt: "2025年 秋季学期 CS 301 高级算法与数据结构 期末全真试卷 (A卷)，考试时间 180 分钟，满分 100 分。",
+      }
+    },
+    {
+      topic: "错题归纳与专项攻坚",
+      cat: "review_weak_spots",
+      title: "全真模考错题精析与高频失分点深度复盘",
+      desc: "针对模考中扣分的树形 DP 边界与 Tarjan 缩点细节重新推导。",
+      obj: ["重做模考错题并书写标准解题得分步骤", "建立个人避坑清单"],
+      recall: "回顾本次模考中最容易马虎的 2 个计算或边界细节。",
+      need: "查漏补缺，消除所有已暴露的扣分漏洞",
+      rag: {
+        docName: "图论网络流与最短路 经典易错考题精编",
+        docType: "past_exam",
+        section: "易错考题汇总",
+        excerpt: "错题归纳与解题避坑要点。",
+      }
+    },
+    {
+      topic: "全科目考前冲刺",
+      cat: "summary_cheat_sheet",
+      title: "考前核心公式定理急救清单与速记卡片速览",
+      desc: "快速过一遍红黑树黑高定理、Dijkstra 堆优化复杂度、最大流最小割、DP 转移方程与 NP 归约关系图。",
+      obj: ["熟记所有控制方程与渐近复杂度上界", "保持清晰敏锐的头脑与专注度"],
+      recall: "闭眼在脑海中快速过一遍 5 个模块的核心思维导图主干。",
+      need: "考前 2 天高密度强化记忆，建立峰值知识调用能力",
+      rag: {
+        docName: "CS 301：高级数据结构与算法 课程大纲",
+        docType: "syllabus",
+        section: "全模块重点速查表",
+        excerpt: "全课程考点速览与高频公式总结。",
+      }
+    },
+    {
+      topic: "考前心态与答题规范",
+      cat: "summary_cheat_sheet",
+      title: "考前答题规范确认、文具证件准备与心理调适",
+      desc: "核对准考证、考试时间与考场规则，早睡早起，以饱满自信的精神状态迎考。",
+      obj: ["确认考试时间地点与必需文具", "温习大题规范书写步骤，确保拿满步骤分"],
+      recall: "大题如果遇到完全没思路的题目，如何写出部分定义和已知条件拿步骤分？",
+      need: "考前最后一天，确保生理与心理处于最佳竞技状态",
+      rag: {
+        docName: "CS 301：高级数据结构与算法 课程大纲",
+        docType: "syllabus",
+        section: "期末考试考生须知",
+        excerpt: "闭卷考试，请携带学生证与黑色签字笔。规范书写解题步骤。",
+      }
+    },
+    {
+      topic: "期末考试",
+      cat: "mock_exam",
+      title: "期末统考：CS 301 高级算法与数据结构",
+      desc: "正式参加期末大考。保持自信，沉着冷静，斩获 A+ 卓越成绩！",
+      obj: ["认真审题，规范答题", "合理分配 180 分钟时间，先易后难"],
+      recall: "沉着冷静，发挥出平时复习的最高水平！",
+      need: "达成目标【A (95分+ / 卓越)】",
+      rag: {
+        docName: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
+        docType: "past_exam",
+        section: "正式考场",
+        excerpt: "CS 301 期末统考。",
+      }
+    },
+  ];
+
+  for (let dayOffset = 0; dayOffset < 21; dayOffset++) {
+    const curDate = new Date(start.getTime() + dayOffset * 86400000);
+    const dateStr = formatDate(curDate);
+    const unit = syllabusUnits[dayOffset % syllabusUnits.length];
+    const isToday = dayOffset === 0;
+
+    tasks.push({
+      id: `task-d${dayOffset}-1`,
+      title: unit.title,
+      description: unit.desc,
+      category: unit.cat,
+      topicTitle: unit.topic,
+      date: dateStr,
+      startTime: dayOffset % 2 === 0 ? "18:00" : "19:00",
+      endTime: dayOffset % 2 === 0 ? "19:15" : "20:30",
+      durationMinutes: unit.cat === "mock_exam" ? (dayOffset === 16 ? 180 : 60) : 45,
+      priority: unit.cat === "mock_exam" || dayOffset >= 16 ? "high" : "medium",
+      status: isToday ? "completed" : "pending",
+      keyObjectives: unit.obj,
+      activeRecallPrompt: unit.recall,
+      confidenceRating: isToday ? 4 : undefined,
+      notes: isToday ? "复习效果良好，已完全理解核心推导。" : undefined,
+      actualMinutesSpent: isToday ? 50 : undefined,
+      groundedUserNeed: unit.need,
+      ragSource: {
+        documentName: unit.rag.docName,
+        documentType: unit.rag.docType as any,
+        sectionTitle: unit.rag.section,
+        pageOrChapter: `第 ${(dayOffset % 5) + 1} 单元`,
+        excerptSnippet: unit.rag.excerpt,
+        keyConcepts: [unit.topic, "核心定理", "典型题型", "易错点"],
+        relevanceReason: "命中了考纲核心考点与历年高频真题",
+      },
+      formulaOrRules: [`${unit.topic} 核心控制方程与推导准则`, `边界约束: 变量取值区间需满足定理定义域`],
+      practiceQuestionRef: `《历年真题期末卷》第 ${(dayOffset % 6) + 1} 题`,
+    });
+  }
+
+  return tasks;
 }
 
 export function loadSavedPlans(): ExamStudyPlan[] {
@@ -514,10 +712,10 @@ export function loadSavedPlans(): ExamStudyPlan[] {
     const parsed: ExamStudyPlan[] = JSON.parse(raw);
 
     if (Array.isArray(parsed) && parsed.length > 0) {
-      const hasLegacySample = parsed.some(
-        (p) => p.id === "sample-plan-cs301" && (p.examName.includes("Final") || p.examName === "CS 301: Advanced Algorithms Final" || (p.tasks && p.tasks[0]?.title.includes("Red-Black")))
+      const needsSampleRefresh = parsed.some(
+        (p) => p.id === "sample-plan-cs301" && ((p.tasks || []).length < 15 || p.examName.includes("Final") || (p.tasks && p.tasks[0]?.title.includes("Red-Black")))
       );
-      if (hasLegacySample) {
+      if (needsSampleRefresh) {
         const sample = getSamplePlan();
         const updated = parsed.map((p) => (p.id === "sample-plan-cs301" ? sample : p));
         localStorage.setItem(STORAGE_KEY_PLANS, JSON.stringify(updated));

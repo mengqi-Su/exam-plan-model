@@ -30,6 +30,7 @@ import { StudyMaterial, ExamStudyPlan, StudyTask } from "../types";
 import { INITIAL_SAMPLE_DOCUMENTS } from "../lib/storage";
 import { useI18n } from "../lib/i18n";
 import { QuizModal } from "./QuizModal";
+import { TabbedFolderArchive } from "./TabbedFolderArchive";
 import { parseDocumentFile } from "../lib/documentParser";
 
 interface MaterialsAndQuestionsHubProps {
@@ -295,227 +296,21 @@ export function MaterialsAndQuestionsHub({
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#111111] pb-1">
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => {
-              setHubTab("questions");
-              setFilterType("all");
-            }}
-            className={`flex items-center space-x-2 px-3 py-2 text-xs font-bold transition-colors border-b-2 cursor-pointer ${
-              hubTab === "questions"
-                ? "border-[#111111] text-white bg-[#111111]"
-                : "border-transparent text-[#666666] hover:text-[#111111] hover:bg-[#fafafa]"
-            }`}
-          >
-            <FileQuestion className="w-4 h-4" />
-            <span>
-              {language === "zh" ? "历年真题与试卷题库" : "EXAM PAPERS & BANK"} [{questionPapers.length}]
-            </span>
-          </button>
-
-          <button
-            onClick={() => {
-              setHubTab("notes");
-              setFilterType("all");
-            }}
-            className={`flex items-center space-x-2 px-3 py-2 text-xs font-bold transition-colors border-b-2 cursor-pointer ${
-              hubTab === "notes"
-                ? "border-[#111111] text-white bg-[#111111]"
-                : "border-transparent text-[#666666] hover:text-[#111111] hover:bg-[#fafafa]"
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>
-              {language === "zh" ? "课程讲义与学习资料" : "LECTURE SLIDES & NOTES"} [{studyNotes.length}]
-            </span>
-          </button>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#999999]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={language === "zh" ? "按标题、考点搜索..." : "SEARCH..."}
-              className="pl-8 pr-2.5 py-1 text-xs bg-[#fafafa] border border-[#111111] text-[#111111] placeholder-[#999999] focus:outline-none focus:bg-white w-44 sm:w-56 font-mono"
-            />
-          </div>
-
-          <select
-            value={filterDifficulty}
-            onChange={(e) => setFilterDifficulty(e.target.value)}
-            className="text-xs bg-[#fafafa] text-[#111111] border border-[#111111] px-2 py-1 focus:outline-none font-bold"
-          >
-            <option value="all">{language === "zh" ? "全部难度" : "ALL DIFFICULTIES"}</option>
-            <option value="easy">{language === "zh" ? "简单" : "EASY"}</option>
-            <option value="medium">{language === "zh" ? "中等" : "MEDIUM"}</option>
-            <option value="hard">{language === "zh" ? "高难" : "HARD"}</option>
-          </select>
-        </div>
-      </div>
-
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setIsDragging(true);
-        }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setIsDragging(false);
-          handleFileUpload(e.dataTransfer.files);
-        }}
-        onClick={() => document.getElementById("quick-hub-file-upload")?.click()}
-        className={`border border-dashed border-[#111111] p-4 text-center transition-all cursor-pointer ${
-          isDragging
-            ? "bg-[#111111] text-white"
-            : "bg-[#fafafa] hover:bg-white text-[#111111]"
-        }`}
-      >
-        <input
-          id="quick-hub-file-upload"
-          type="file"
-          multiple
-          accept=".txt,.md,.doc,.docx,.pdf,.rtf,image/*"
-          onChange={(e) => handleFileUpload(e.target.files)}
-          className="hidden"
+      <div className="pt-2">
+        <TabbedFolderArchive
+          materials={materials}
+          onPreviewDoc={(doc) => setPreviewDoc(doc)}
+          onQuizDoc={(doc) => setActiveQuizMaterial(doc)}
+          onDeleteDoc={(docId) => handleDeleteMaterial(docId)}
+          onOpenUpload={() => {
+            document.getElementById("quick-hub-file-upload")?.click();
+          }}
+          onOpenPaste={() => {
+            setNewDocType(hubTab === "questions" ? "past_exam" : "notes");
+            setIsAddModalOpen(true);
+          }}
         />
-        <div className="flex items-center justify-center space-x-2">
-          {isUploadingDocs ? (
-            <div className="w-4 h-4 border-2 border-[#111111] border-t-transparent animate-spin" />
-          ) : (
-            <Upload className="w-4 h-4 text-[#111111]" />
-          )}
-          <span className="text-xs font-bold">
-            {isUploadingDocs
-              ? (uploadProgressText || (language === "zh" ? "正在智能解析文档..." : "Parsing document..."))
-              : (hubTab === "questions"
-                ? (language === "zh" ? "[点击或拖拽上传真题试卷 / 习题集 (PDF, Word, TXT)]" : "[UPLOAD EXAM PAPERS / TESTS (PDF, WORD, TXT)]")
-                : (language === "zh" ? "[点击或拖拽上传讲义 / 课件 / 公式手册 (PDF, Word, TXT)]" : "[UPLOAD LECTURE SLIDES / NOTES / CHEATSHEETS]"))}
-          </span>
-        </div>
       </div>
-
-      {filteredItems.length === 0 ? (
-        <div className="bg-white border border-[#111111] p-10 text-center space-y-3">
-          <BookOpen className="w-8 h-8 mx-auto text-[#111111] opacity-40" />
-          <div>
-            <h3 className="text-xs font-bold text-[#111111] uppercase">
-              {language === "zh" ? "暂无匹配的资料或试卷" : "NO MATCHING DOCUMENTS"}
-            </h3>
-            <p className="text-[11px] text-[#666666] mt-1">
-              {language === "zh" ? "您可以直接上传文件，或一键导入范例真题与名师讲义。" : "You can upload documents or load curated sample sets."}
-            </p>
-          </div>
-          <button
-            onClick={handleLoadSampleDocuments}
-            className="px-3 py-1.5 bg-white hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] text-xs font-bold transition-colors cursor-pointer"
-          >
-            {language === "zh" ? "[导入精选真题与讲义示例]" : "[LOAD CURATED SAMPLE LIBRARY]"}
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredItems.map((item) => {
-            const isQuestion = item.categoryGroup === "exam_question" || item.type === "past_exam";
-            return (
-              <div
-                key={item.id}
-                className="bg-white border border-[#111111] p-4 flex flex-col justify-between space-y-3"
-              >
-                <div className="space-y-2">
-
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center space-x-1.5 truncate">
-                      <span className="border border-[#111111] bg-[#111111] text-white px-2 py-0.5 text-[9px] font-bold">
-                        {isQuestion ? (language === "zh" ? "真题试卷" : "EXAM") : (language === "zh" ? "学习讲义" : "NOTES")}
-                      </span>
-                      {item.yearOrTerm && (
-                        <span className="border border-[#111111] bg-[#fafafa] px-1.5 py-0.5 text-[9px] font-bold text-[#111111]">
-                          {item.yearOrTerm}
-                        </span>
-                      )}
-                      {item.topicTag && (
-                        <span className="border border-[#111111] bg-white px-1.5 py-0.5 text-[9px] font-bold text-[#111111] truncate max-w-[130px]">
-                          {item.topicTag}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center space-x-1 shrink-0">
-                      <span className="border border-[#111111] bg-[#fafafa] px-1.5 py-0.5 text-[9px] font-bold">
-                        [{item.difficulty === "hard" ? (language === "zh" ? "高难" : "HARD") : item.difficulty === "medium" ? (language === "zh" ? "中等" : "MED") : (language === "zh" ? "基础" : "EASY")}]
-                      </span>
-                      <button
-                        onClick={() => handleDeleteMaterial(item.id)}
-                        className="text-[#111111] hover:bg-[#111111] hover:text-white p-1 transition-colors cursor-pointer"
-                        title="Delete document"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="text-xs font-bold text-[#111111] line-clamp-1 uppercase">
-                      {item.name}
-                    </h4>
-                    <p className="text-[11px] text-[#666666] mt-1 line-clamp-2 leading-relaxed font-mono">
-                      {item.summaryNotes || item.content.slice(0, 140)}
-                    </p>
-                  </div>
-
-                  {item.keyTraps && item.keyTraps.length > 0 && (
-                    <div className="p-2 bg-[#fafafa] border border-[#111111] space-y-1">
-                      <span className="text-[10px] font-bold text-[#111111] flex items-center space-x-1 uppercase">
-                        <AlertTriangle className="w-3 h-3 text-[#111111] shrink-0" />
-                        <span>{language === "zh" ? "[历年高频易错考点 / 陷阱提醒]:" : "[KEY EXAM TRAPS]:"}</span>
-                      </span>
-                      <ul className="text-[10px] text-[#666666] list-disc list-inside space-y-0.5">
-                        {item.keyTraps.slice(0, 2).map((trap, tIdx) => (
-                          <li key={tIdx} className="line-clamp-1">{trap}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-2.5 border-t border-[#111111] flex items-center justify-between gap-2 text-xs">
-                  <button
-                    onClick={() => setPreviewDoc(item)}
-                    className="text-[#111111] hover:underline flex items-center space-x-1 transition-colors text-[11px] font-bold cursor-pointer"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>{language === "zh" ? "[查看原文]" : "[READ CONTENT]"}</span>
-                  </button>
-
-                  <div className="flex items-center space-x-1.5">
-                    <button
-                      onClick={() => handleAddToDailySchedule(item)}
-                      className="px-2.5 py-1 bg-white hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] text-[10px] font-bold transition-colors flex items-center space-x-1 cursor-pointer"
-                      title="Add to daily study plan"
-                    >
-                      <BookmarkPlus className="w-3 h-3" />
-                      <span>{language === "zh" ? "[安排刷题]" : "[ADD TASK]"}</span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveQuizMaterial(item)}
-                      className="px-2.5 py-1 bg-[#111111] hover:bg-[#333333] text-white border border-[#111111] text-[10px] font-bold transition-colors flex items-center space-x-1 cursor-pointer"
-                    >
-                      <Sparkles className="w-3 h-3" />
-                      <span>{language === "zh" ? "[AI 智能自测]" : "[AI QUIZ]"}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-[#111111]/70 backdrop-blur-xs flex items-center justify-center p-4">

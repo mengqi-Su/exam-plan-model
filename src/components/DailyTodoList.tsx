@@ -42,14 +42,14 @@ interface DailyTodoListProps {
 }
 
 const CATEGORY_TAG_CLASS: Record<TaskCategory, string> = {
-  theory: "border border-[#111111] bg-white text-[#111111]",
-  reading: "border border-[#111111] bg-white text-[#111111]",
-  practice_problems: "border border-[#111111] bg-[#111111] text-white",
-  active_recall: "border border-[#111111] bg-white text-[#111111]",
-  flashcards: "border border-[#111111] bg-white text-[#111111]",
-  mock_exam: "border border-[#111111] bg-white text-[#111111] font-bold",
-  review_weak_spots: "border border-[#111111] bg-white text-[#111111]",
-  summary_cheat_sheet: "border border-[#111111] bg-white text-[#111111]",
+  theory: "border border-[#111111] bg-[#FCD33B] text-[#111111] font-bold",
+  summary_cheat_sheet: "border border-[#111111] bg-[#FCD33B] text-[#111111] font-bold",
+  reading: "border border-[#111111] bg-[#D8D8D8] text-[#111111] font-bold",
+  flashcards: "border border-[#111111] bg-[#D8D8D8] text-[#111111] font-bold",
+  active_recall: "border border-[#111111] bg-[#B5B5B5] text-[#111111] font-bold",
+  review_weak_spots: "border border-[#111111] bg-[#B5B5B5] text-[#111111] font-bold",
+  practice_problems: "border border-[#111111] bg-[#282828] text-white font-bold",
+  mock_exam: "border border-[#111111] bg-[#111111] text-white font-bold",
 };
 
 export function DailyTodoList({
@@ -216,9 +216,9 @@ export function DailyTodoList({
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6">
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-8 space-y-8">
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#111111]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#111111]">
 
         <div className="flex items-center space-x-2">
           <div className="flex items-center space-x-1">

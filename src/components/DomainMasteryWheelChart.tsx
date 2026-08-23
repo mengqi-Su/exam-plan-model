@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { SyllabusTopic, StudyTask } from "../types";
 import { Layers, PieChart, Table, Sparkles, CheckCircle2, AlertCircle, HelpCircle } from "lucide-react";
+import { getPaletteByIndex } from "../lib/themePalettes";
 
 export interface TopicMasteryItem extends SyllabusTopic {
   totalTasks: number;
@@ -186,6 +187,7 @@ export function DomainMasteryWheelChart({
             {itemsToRender.map((item, idx) => {
               const isHovered = hoveredIdx === idx;
               const isSelected = selectedIdx === idx;
+              const palette = getPaletteByIndex(idx);
 
               let valDisplay = "";
               let fillRatio = 1.0;
@@ -204,7 +206,6 @@ export function DomainMasteryWheelChart({
                 fillRatio = Math.max(0.45, (item.avgRating || 3) / 5);
               }
 
-              const isDarkShaded = idx % 2 === 1 || item.progressPercent < 40;
               const { x: textX, y: textY } = getTextCenter(idx, 0.65);
 
               return (
@@ -225,15 +226,15 @@ export function DomainMasteryWheelChart({
 
                   <path
                     d={getPetalPath(idx, 1.0)}
-                    fill={isSelected ? "#111111" : isDarkShaded ? "#e8e5dc" : "#ffffff"}
+                    fill={isSelected ? "#111111" : palette.accentColor}
                     stroke="#111111"
                     strokeWidth={isSelected ? "2.5" : "1.5"}
                     className="transition-colors duration-150"
                   />
 
                   <path
-                    d={getPetalPath(idx, isSelected ? 0.94 : isDarkShaded ? fillRatio * 0.9 : 0.92)}
-                    fill={isSelected ? "#ffffff" : isDarkShaded ? "#ffffff" : "#faf9f6"}
+                    d={getPetalPath(idx, isSelected ? 0.94 : 0.90)}
+                    fill={isSelected ? "#ffffff" : isHovered ? "#ffffff" : "#faf9f6"}
                     fillOpacity="1"
                     stroke="#111111"
                     strokeWidth="1.2"
@@ -256,7 +257,7 @@ export function DomainMasteryWheelChart({
                     y={textY + 12}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fill="#444444"
+                    fill="#333333"
                     className="font-mono font-bold text-[9px] sm:text-[10px]"
                   >
                     {item.title.length > 6 ? `${item.title.slice(0, 5)}..` : item.title}
@@ -305,12 +306,20 @@ export function DomainMasteryWheelChart({
       <div className="flex-1 w-full max-w-md bg-[#faf9f6] border border-[#111111] p-5 space-y-4 font-mono">
         <div className="flex items-center justify-between border-b border-[#111111] pb-3">
           <div className="flex items-center space-x-2">
-            <div className="w-2.5 h-2.5 bg-[#111111]" />
+            <div
+              className="w-3 h-3 border border-[#111111]"
+              style={{ backgroundColor: getPaletteByIndex(selectedIdx ?? 0).accentColor }}
+            />
             <span className="text-xs font-bold uppercase text-[#111111]">
               [{language === "zh" ? "考点深度解构" : "TOPIC DECONSTRUCTION"}]
             </span>
           </div>
-          <span className="text-[10px] px-2 py-0.5 bg-white border border-[#111111] font-bold text-[#111111]">
+          <span
+            className={`text-[10px] px-2 py-0.5 border border-[#111111] font-bold ${getPaletteByIndex(selectedIdx ?? 0).textPrimary}`}
+            style={{
+              backgroundColor: getPaletteByIndex(selectedIdx ?? 0).accentColor,
+            }}
+          >
             {activeItem.category || (language === "zh" ? "重点考点" : "CORE")}
           </span>
         </div>
@@ -341,8 +350,11 @@ export function DomainMasteryWheelChart({
           </div>
           <div className="w-full bg-white border border-[#111111] h-2.5 overflow-hidden">
             <div
-              className="bg-[#111111] h-full transition-all duration-300"
-              style={{ width: `${activeItem.progressPercent}%` }}
+              className="h-full transition-all duration-300 border-r border-[#111111]"
+              style={{
+                width: `${activeItem.progressPercent}%`,
+                backgroundColor: getPaletteByIndex(selectedIdx ?? 0).accentColor,
+              }}
             />
           </div>
         </div>

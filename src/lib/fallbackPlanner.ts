@@ -235,7 +235,7 @@ export function fallbackGeneratePlanClient(
   ];
 
   let taskCounter = 1;
-  const numDaysToPlan = Math.min(diffDays, 30);
+  const numDaysToPlan = Math.min(diffDays, 60);
 
   for (let dayOffset = 0; dayOffset < numDaysToPlan; dayOffset++) {
     const curDate = new Date(start.getTime() + dayOffset * 86400000);
@@ -247,17 +247,30 @@ export function fallbackGeneratePlanClient(
       continue;
     }
 
+    const progressRatio = dayOffset / numDaysToPlan;
+    let cat: StudyTask["category"] = "theory";
+    if (progressRatio < 0.35) {
+      cat = dayOffset % 2 === 0 ? "reading" : "theory";
+    } else if (progressRatio < 0.70) {
+      cat = "practice_problems";
+    } else if (progressRatio < 0.90) {
+      cat = (dayOffset % 3 === 0) ? "mock_exam" : "active_recall";
+    } else {
+      cat = "summary_cheat_sheet";
+    }
+
     const topic = safeTopics[dayOffset % safeTopics.length];
-    const cat = categories[dayOffset % categories.length];
     const isMock = cat === "mock_exam" || dayOffset === numDaysToPlan - 2;
 
     const taskTitle = isZh
       ? isMock
-        ? `全真模考：${preferences.examName} 仿真模拟卷 (${preferences.subject})`
+        ? `全真模考：${preferences.examName} 仿真模拟卷自测`
         : cat === "practice_problems"
-        ? `题型精炼：${topic.title} 经典大题专项突破`
+        ? `专题精练：${topic.title} 经典大题专项突破`
         : cat === "active_recall"
         ? `主动回忆：${topic.title} 核心定理与推导复盘`
+        : cat === "summary_cheat_sheet"
+        ? `考前急救：${topic.title} 核心考点与公式速记`
         : `考点研读：${topic.title} 核心概念与思维导图`
       : isMock
       ? `Timed Mock Exam: ${preferences.examName} Full Simulation`
@@ -265,6 +278,8 @@ export function fallbackGeneratePlanClient(
       ? `Problem Set: ${topic.title} Core Exercises`
       : cat === "active_recall"
       ? `Active Recall Drill: ${topic.title} Self-Testing`
+      : cat === "summary_cheat_sheet"
+      ? `Formula Sheet: ${topic.title} High-Yield Review`
       : `Deep Reading: ${topic.title} Concepts`;
 
     const randSalt = Math.random().toString(36).slice(2, 6);

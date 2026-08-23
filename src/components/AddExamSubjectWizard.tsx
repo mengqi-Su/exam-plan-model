@@ -625,25 +625,38 @@ export function AddExamSubjectWizard({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {QUICK_SUBJECT_TEMPLATES.map((tmpl, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleApplyTemplate(tmpl)}
-                  className="p-3 bg-white hover:bg-[#111111] hover:text-white border border-[#111111] text-left transition-colors group cursor-pointer"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs">
-                      {tmpl.name}
+              {QUICK_SUBJECT_TEMPLATES.map((tmpl, idx) => {
+                const paletteColors = [
+                  { bg: "bg-[#FCD33B]", text: "text-[#111111]" },
+                  { bg: "bg-[#D8D8D8]", text: "text-[#111111]" },
+                  { bg: "bg-[#B5B5B5]", text: "text-[#111111]" },
+                  { bg: "bg-[#282828]", text: "text-white" },
+                ];
+                const pColor = paletteColors[idx % paletteColors.length];
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleApplyTemplate(tmpl)}
+                    className="p-3 bg-white hover:bg-[#111111] hover:text-white border border-[#111111] text-left transition-colors group cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 truncate">
+                        <span className={`w-3 h-3 border border-[#111111] shrink-0 ${pColor.bg}`} />
+                        <span className="font-bold text-xs truncate">
+                          {tmpl.name}
+                        </span>
+                      </div>
+                      <span className="text-[10px] px-1.5 py-0.2 border border-[#111111] bg-[#fafafa] text-[#111111] group-hover:bg-[#111111] group-hover:text-white group-hover:border-white font-bold shrink-0 ml-2">
+                        [{tmpl.topics.length} {language === "zh" ? "个考点" : "topics"}]
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-[#666666] group-hover:text-[#e5e5e5] block mt-1">
+                      {tmpl.subject}
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.2 border border-[#111111] bg-[#fafafa] text-[#111111] group-hover:bg-[#111111] group-hover:text-white group-hover:border-white font-bold">
-                      [{tmpl.topics.length} {language === "zh" ? "个考点" : "topics"}]
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-[#666666] group-hover:text-[#e5e5e5] block mt-1">
-                    {tmpl.subject}
-                  </span>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

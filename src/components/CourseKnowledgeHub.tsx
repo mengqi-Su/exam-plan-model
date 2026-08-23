@@ -40,6 +40,8 @@ import { SAMPLE_MATERIALS, INITIAL_SAMPLE_DOCUMENTS, DEFAULT_WEEK_SCHEDULE } fro
 import { useI18n } from "../lib/i18n";
 import { parseDocumentFile } from "../lib/documentParser";
 import { QuizModal } from "./QuizModal";
+import { TabbedFolderArchive } from "./TabbedFolderArchive";
+import { UploadModal } from "./UploadModal";
 import { fallbackExtractSyllabusClient, fallbackGeneratePlanClient } from "../lib/fallbackPlanner";
 
 interface CourseKnowledgeHubProps {
@@ -94,6 +96,7 @@ export function CourseKnowledgeHub({
   const [extractError, setExtractError] = useState<string | null>(null);
 
   const [showPasteBox, setShowPasteBox] = useState(false);
+  const [showUploadBox, setShowUploadBox] = useState(false);
   const [pasteDocTitle, setPasteDocTitle] = useState("");
   const [pasteDocType, setPasteDocType] = useState<StudyMaterial["type"]>("notes");
   const [pasteDocContent, setPasteDocContent] = useState("");
@@ -534,39 +537,6 @@ export function CourseKnowledgeHub({
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8 space-y-10 animate-fadeIn text-[#111111] font-mono">
 
-      <div className="space-y-4 font-sans">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#111111]">
-          <div className="space-y-0.5">
-            <div className="flex items-center space-x-2">
-              <h2 className="text-xl font-bold tracking-tight text-[#111111]">
-                {language === "zh" ? "考纲与资料" : "SYLLABUS & MATERIALS"}
-              </h2>
-              <span className="px-2 py-0.5 border border-[#111111] bg-white text-[#111111] text-[11px] font-mono font-bold">
-                {materials.length} {language === "zh" ? "资料" : "DOCS"} · {topics.length} {language === "zh" ? "考点" : "TOPICS"}
-              </span>
-            </div>
-          </div>
-
-          {(onRequestDeleteCourse || onDeleteCourse) && (
-            <div className="flex flex-wrap items-center gap-2 shrink-0 font-mono">
-              <button
-                onClick={() => {
-                  if (onRequestDeleteCourse) {
-                    onRequestDeleteCourse(plan);
-                  } else if (onDeleteCourse) {
-                    onDeleteCourse();
-                  }
-                }}
-                className="flex items-center space-x-1 p-1.5 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] text-xs font-bold transition-colors cursor-pointer"
-                title={language === "zh" ? "删除" : "Delete"}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
       {planSuccessNotice && (
         <div className="flex items-center space-x-2 p-3.5 bg-white border border-[#111111] text-[#111111] text-xs font-bold animate-fadeIn">
           <CheckCircle2 className="w-4 h-4 shrink-0 text-[#111111]" />
@@ -596,36 +566,6 @@ export function CourseKnowledgeHub({
       )}
 
       <section className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#111111]">
-          <div className="flex items-center space-x-2">
-            <FolderOpen className="w-4 h-4 text-[#111111]" />
-            <h2 className="text-sm font-bold uppercase text-[#111111]">
-              [1. {language === "zh" ? "课程知识库资料" : "COURSE KNOWLEDGE BASE"}]
-            </h2>
-            <span className="text-xs px-2 py-0.5 border border-[#111111] bg-white text-[#111111] font-bold">
-              {materials.length} {language === "zh" ? "份" : "DOCS"}
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setShowPasteBox(!showPasteBox)}
-              className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-white border border-[#111111] hover:bg-[#ededed] text-[#111111] text-xs font-bold transition-colors cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>[{language === "zh" ? "粘贴文本笔记" : "PASTE NOTES"}]</span>
-            </button>
-
-            <button
-              onClick={handleLoadSampleKnowledgeBase}
-              className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-white border border-[#111111] hover:bg-[#ededed] text-[#111111] text-xs font-bold transition-colors cursor-pointer"
-            >
-              <Zap className="w-3.5 h-3.5" />
-              <span>[{language === "zh" ? "加载示例资料" : "SAMPLE DOCS"}]</span>
-            </button>
-          </div>
-        </div>
-
         {showPasteBox && (
           <div className="bg-white border border-[#111111] p-4 space-y-3 animate-fadeIn">
             <div className="flex items-center justify-between">
@@ -683,163 +623,41 @@ export function CourseKnowledgeHub({
           </div>
         )}
 
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setIsDragging(true);
-          }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setIsDragging(false);
-            handleFileUpload(e.dataTransfer.files);
-          }}
-          className={`relative border-2 border-dashed p-6 text-center transition-all ${
-            isDragging
-              ? "border-[#111111] bg-[#ededed]"
-              : "border-[#111111] bg-[#fafafa] hover:bg-[#ededed]"
-          }`}
-        >
-          <input
-            type="file"
-            multiple
-            accept=".pdf,.docx,.doc,.txt,.md,.ppt,.pptx"
-            onChange={(e) => handleFileUpload(e.target.files)}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        {/* 1. Main Knowledge Base Archive View */}
+        <div className="pt-1">
+          <TabbedFolderArchive
+            materials={materials}
+            onPreviewDoc={(doc) => setPreviewDoc(doc)}
+            onQuizDoc={(doc) => setActiveQuizMaterial(doc)}
+            onDeleteDoc={(docId) => handleDeleteDoc(docId)}
+            onOpenUpload={() => setShowUploadBox(true)}
+            onOpenPaste={() => setShowPasteBox(true)}
+            onLoadSamples={handleLoadSampleKnowledgeBase}
+            onDeleteCourse={(onRequestDeleteCourse || onDeleteCourse) ? () => {
+              if (onRequestDeleteCourse) {
+                onRequestDeleteCourse(plan);
+              } else if (onDeleteCourse) {
+                onDeleteCourse();
+              }
+            } : undefined}
           />
-          <div className="flex flex-col items-center justify-center space-y-2">
-            <div className="w-10 h-10 bg-white border border-[#111111] flex items-center justify-center text-[#111111]">
-              <Upload className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-[#111111] uppercase">
-                [{language === "zh" ? "点击或拖拽上传课程文件" : "CLICK OR DRAG & DROP FILES HERE"}]
-              </p>
-              <p className="text-[11px] text-[#666666] mt-0.5 font-bold">
-                {language === "zh"
-                  ? "支持 PDF、Word (.docx)、PPT、Markdown、TXT 格式"
-                  : "Supports PDF, Word, PPT slides, Markdown, and TXT files"}
-              </p>
-            </div>
-            {isParsingDoc && (
-              <div className="flex items-center space-x-2 px-3 py-1 bg-white border border-[#111111] text-[#111111] text-xs font-bold animate-pulse mt-2">
-                <RefreshCw className="w-3 h-3 animate-spin" />
-                <span>[{parsingStatus || (language === "zh" ? "正在解析文档文本..." : "Parsing file...")}]</span>
-              </div>
-            )}
-          </div>
         </div>
 
-        {materials.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-bold text-[#111111] uppercase">
-                  [{language === "zh" ? "知识库文件清单" : "KNOWLEDGE BASE FILES"}]
-                </span>
-                <span className="text-[11px] px-1.5 py-0.2 border border-[#111111] bg-white text-[#111111] font-bold">
-                  {filteredMaterials.length}
-                </span>
-              </div>
-
-              <div className="flex items-center space-x-1 text-xs font-mono">
-                <button
-                  onClick={() => setFilterType("all")}
-                  className={`px-2 py-1 border border-[#111111] text-[11px] font-bold transition-colors cursor-pointer ${
-                    filterType === "all" ? "bg-[#111111] text-white" : "bg-white text-[#111111] hover:bg-[#ededed]"
-                  }`}
-                >
-                  [{language === "zh" ? "全部" : "ALL"}]
-                </button>
-                <button
-                  onClick={() => setFilterType("syllabus")}
-                  className={`px-2 py-1 border border-[#111111] text-[11px] font-bold transition-colors cursor-pointer ${
-                    filterType === "syllabus" ? "bg-[#111111] text-white" : "bg-white text-[#111111] hover:bg-[#ededed]"
-                  }`}
-                >
-                  [{language === "zh" ? "考纲" : "SYLLABUS"}]
-                </button>
-                <button
-                  onClick={() => setFilterType("lecture_slides")}
-                  className={`px-2 py-1 border border-[#111111] text-[11px] font-bold transition-colors cursor-pointer ${
-                    filterType === "lecture_slides" ? "bg-[#111111] text-white" : "bg-white text-[#111111] hover:bg-[#ededed]"
-                  }`}
-                >
-                  [{language === "zh" ? "讲义" : "SLIDES"}]
-                </button>
-                <button
-                  onClick={() => setFilterType("past_exam")}
-                  className={`px-2 py-1 border border-[#111111] text-[11px] font-bold transition-colors cursor-pointer ${
-                    filterType === "past_exam" ? "bg-[#111111] text-white" : "bg-white text-[#111111] hover:bg-[#ededed]"
-                  }`}
-                >
-                  [{language === "zh" ? "真题" : "EXAMS"}]
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {filteredMaterials.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="flex items-start justify-between p-3.5 bg-white border border-[#111111] transition-all font-mono"
-                >
-                  <div className="flex items-start space-x-3 min-w-0 flex-1">
-                    <div className="w-8 h-8 bg-white border border-[#111111] flex items-center justify-center text-[#111111] shrink-0 mt-0.5">
-                      <FileText className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex items-center space-x-2">
-                        <p className="text-xs font-bold text-[#111111] truncate">
-                          {doc.name}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                        {getDocTypeBadge(doc.type)}
-                        <span className="text-[#666666] font-bold">
-                          {(doc.sizeBytes ? `${Math.round(doc.sizeBytes / 1024)} KB` : "TEXT")}
-                        </span>
-                        <span className="text-[#111111] font-bold flex items-center space-x-0.5">
-                          <Check className="w-3 h-3" />
-                          <span>[{language === "zh" ? "已解析" : "READY"}]</span>
-                        </span>
-                      </div>
-                      {doc.summaryNotes && (
-                        <p className="text-[11px] text-[#666666] line-clamp-1">
-                          {doc.summaryNotes}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-1 shrink-0 ml-2">
-                    <button
-                      onClick={() => setPreviewDoc(doc)}
-                      title={language === "zh" ? "预览解析文本" : "Preview"}
-                      className="p-1 border border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] transition-colors cursor-pointer"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setActiveQuizMaterial(doc)}
-                      title={language === "zh" ? "针对该资料出题自测" : "Quiz"}
-                      className="p-1 border border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] transition-colors cursor-pointer"
-                    >
-                      <FileQuestion className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteDoc(doc.id)}
-                      title={language === "zh" ? "从知识库移除" : "Delete"}
-                      className="p-1 border border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* 2. Upload Modal Dialog */}
+        <UploadModal
+          isOpen={showUploadBox}
+          onClose={() => setShowUploadBox(false)}
+          currentSyllabusContent={syllabusContent}
+          onUploadSuccess={(newAttachedMaterials, combinedContent) => {
+            const newDocDisplayName =
+              newAttachedMaterials.length === 1
+                ? newAttachedMaterials[0].name
+                : `${newAttachedMaterials.length} 个资料集合 (${newAttachedMaterials[0].name} 等)`;
+            onSyllabusDocNameChange(newDocDisplayName);
+            onSyllabusContentChange(combinedContent);
+            updatePlanMaterials([...newAttachedMaterials, ...materials]);
+          }}
+        />
       </section>
 
       <section className="space-y-4">

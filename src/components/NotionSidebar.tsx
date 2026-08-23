@@ -34,6 +34,7 @@ import { ExamStudyPlan, UserProfile } from "../types";
 import { downloadICSFile } from "../lib/calendarExport";
 import { useI18n } from "../lib/i18n";
 import { APP_VERSION_DATA } from "../lib/storage";
+import { getPaletteByIndex } from "../lib/themePalettes";
 
 interface NotionSidebarProps {
   isOpen: boolean;
@@ -159,13 +160,14 @@ export function NotionSidebar({
 
         {plans.map((p, idx) => {
           const isActivePlan = activePlan?.id === p.id && currentTab !== "dashboard" && currentTab !== "master_calendar" && currentTab !== "add_subject";
+          const palette = getPaletteByIndex(idx);
 
           return (
             <div
               key={p.id}
               className={`group flex items-center justify-between w-full transition-all border ${
                 isActivePlan
-                  ? "bg-white border-[#111111] font-semibold text-[#111111]"
+                  ? "bg-white border-[#111111] font-semibold text-[#111111] shadow-xs"
                   : "border-transparent hover:border-[#dedad1] hover:bg-[#e4e1d8] text-[#333333]"
               }`}
             >
@@ -176,8 +178,11 @@ export function NotionSidebar({
                 }}
                 className="flex-1 flex items-center space-x-2 px-2 py-1.5 text-left truncate cursor-pointer min-w-0"
               >
-                <span className="font-mono text-[10px] text-[#777777]">
-                  {String(idx + 1).padStart(2, "0")}
+                <span
+                  className="w-4 h-4 text-[9px] font-mono font-bold flex items-center justify-center border border-[#111111] shrink-0"
+                  style={{ backgroundColor: palette.accentColor, color: palette.id === "dark-slate" ? "#FFFFFF" : "#111111" }}
+                >
+                  {idx + 1}
                 </span>
                 <span className="flex-1 truncate text-xs font-sans">{p.examName}</span>
               </button>
