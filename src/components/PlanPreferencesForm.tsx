@@ -340,6 +340,7 @@ export function PlanPreferencesForm({
                 desc: t("paceDeepMasteryDesc"),
                 icon: ShieldCheck,
                 badge: language === "zh" ? "推荐" : "RECOMMENDED",
+                activeBg: "bg-[#FCD33B] text-[#111111] border-[#111111]",
               },
               {
                 id: "spaced_repetition",
@@ -347,6 +348,7 @@ export function PlanPreferencesForm({
                 desc: t("paceSpacedRepetitionDesc"),
                 icon: Target,
                 badge: language === "zh" ? "长期记忆" : "SPACED",
+                activeBg: "bg-[#D8D8D8] text-[#111111] border-[#111111]",
               },
               {
                 id: "balanced",
@@ -354,6 +356,7 @@ export function PlanPreferencesForm({
                 desc: t("paceBalancedDesc"),
                 icon: Sliders,
                 badge: language === "zh" ? "稳健" : "STEADY",
+                activeBg: "bg-[#B5B5B5] text-[#111111] border-[#111111]",
               },
               {
                 id: "intensive_crash",
@@ -361,6 +364,7 @@ export function PlanPreferencesForm({
                 desc: t("paceIntensiveDesc"),
                 icon: Zap,
                 badge: language === "zh" ? "快速突破" : "FAST",
+                activeBg: "bg-[#282828] text-white border-[#111111]",
               },
             ].map((pace) => {
               const isSelected = studyPace === pace.id;
@@ -368,20 +372,30 @@ export function PlanPreferencesForm({
                 <div
                   key={pace.id}
                   onClick={() => setStudyPace(pace.id as any)}
-                  className={`p-3.5 border cursor-pointer transition-all font-mono ${
+                  className={`p-3.5 border cursor-pointer transition-all font-mono shadow-xs ${
                     isSelected
-                      ? "bg-[#111111] text-white border-[#111111]"
+                      ? pace.activeBg
                       : "bg-white border-[#111111] hover:bg-[#fafafa] text-[#111111]"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-xs font-bold uppercase">[{pace.id.split('_')[0]}]</span>
-                    <span className={`text-[9px] px-1 py-0.2 border font-bold ${isSelected ? 'border-white text-white' : 'border-[#111111] text-[#111111]'}`}>
+                    <span className={`text-[9px] px-1 py-0.2 border font-bold ${
+                      isSelected && pace.id === "intensive_crash"
+                        ? "border-white text-white"
+                        : "border-[#111111] text-[#111111]"
+                    }`}>
                       {pace.badge}
                     </span>
                   </div>
                   <h4 className="font-bold text-xs uppercase">{pace.title}</h4>
-                  <p className={`text-[10px] mt-1 leading-relaxed ${isSelected ? 'text-[#cccccc]' : 'text-[#666666]'}`}>{pace.desc}</p>
+                  <p className={`text-[10px] mt-1 leading-relaxed ${
+                    isSelected
+                      ? pace.id === "intensive_crash" ? "text-[#cccccc]" : "text-[#333333]"
+                      : "text-[#666666]"
+                  }`}>
+                    {pace.desc}
+                  </p>
                 </div>
               );
             })}

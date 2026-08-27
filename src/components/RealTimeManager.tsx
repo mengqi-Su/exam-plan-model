@@ -91,7 +91,6 @@ export function RealTimeManager({
   const [showPlanSettings, setShowPlanSettings] = useState(false);
   const [showScheduleRuler, setShowScheduleRuler] = useState(false);
   const [showRoadmap, setShowRoadmap] = useState(true);
-  const [masteryViewMode, setMasteryViewMode] = useState<"wheel" | "table" | "both">("wheel");
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [planGenerateError, setPlanGenerateError] = useState<string | null>(null);
   const [planSuccessNotice, setPlanSuccessNotice] = useState(false);
@@ -434,11 +433,8 @@ export function RealTimeManager({
             <div className="flex items-center space-x-2">
               <Calendar className="w-4 h-4 text-[#111111]" />
               <h2 className="text-xs font-bold uppercase text-[#111111]">
-                [{language === "zh" ? "推进路线" : "ROADMAP"}]
+                [1. {language === "zh" ? "备考阶段推进路线" : "PHASE REVIEW ROADMAP"}]
               </h2>
-              <span className="text-[10px] text-[#666666] font-bold">
-                {plan.phases.length} {language === "zh" ? "个阶段" : "PHASES"}
-              </span>
             </div>
 
             <button
@@ -463,10 +459,10 @@ export function RealTimeManager({
 
                   <div className="text-xs text-[#555555] font-sans">
                     <span className="font-bold text-[#111111] text-sm tracking-wide">
-                      process
+                      {language === "zh" ? "备考推进全流程" : "Phase Timeline"}
                     </span>{" "}
                     <span className="text-xs text-[#888888]">
-                      {language === "zh" ? `阶段路线 · ${daysUntilExam}天倒计时` : `roadmap · ${daysUntilExam}d left`}
+                      {language === "zh" ? `· 距离考试还有 ${daysUntilExam} 天` : `· ${daysUntilExam} days remaining`}
                     </span>
                   </div>
                 </div>
@@ -552,123 +548,19 @@ export function RealTimeManager({
         </section>
       )}
 
-      <div className="border border-[#111111] bg-white font-mono">
-        <div className="px-4 py-3 bg-[#fafafa] border-b border-[#111111] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center space-x-2">
-            <PieChart className="w-4 h-4 text-[#111111]" />
-            <span className="text-xs font-bold uppercase tracking-wider text-[#111111]">
-              [DOMAIN_MASTERY_TRACKER]
-            </span>
-            <span className="text-[10px] px-1.5 py-0.5 border border-[#111111] bg-white text-[#111111] font-bold">
-              {topicMastery.length} {language === "zh" ? "考点知识域" : "DOMAINS"}
-            </span>
-          </div>
-
-          <div className="flex items-center space-x-1 text-xs">
-            <button
-              onClick={() => setMasteryViewMode("wheel")}
-              className={`px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer border ${
-                masteryViewMode === "wheel"
-                  ? "bg-[#111111] text-white border-[#111111]"
-                  : "bg-white text-[#111111] border-[#111111] hover:bg-[#ededed]"
-              }`}
-            >
-              <span>{language === "zh" ? "[花瓣罗盘饼图]" : "[PETAL PIE CHART]"}</span>
-            </button>
-            <button
-              onClick={() => setMasteryViewMode("table")}
-              className={`px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer border ${
-                masteryViewMode === "table"
-                  ? "bg-[#111111] text-white border-[#111111]"
-                  : "bg-white text-[#111111] border-[#111111] hover:bg-[#ededed]"
-              }`}
-            >
-              <span>{language === "zh" ? "[清单表格]" : "[TABLE VIEW]"}</span>
-            </button>
-            <button
-              onClick={() => setMasteryViewMode("both")}
-              className={`px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer border ${
-                masteryViewMode === "both"
-                  ? "bg-[#111111] text-white border-[#111111]"
-                  : "bg-white text-[#111111] border-[#111111] hover:bg-[#ededed]"
-              }`}
-            >
-              <span>{language === "zh" ? "[全景并排]" : "[SPLIT VIEW]"}</span>
-            </button>
-          </div>
+      <section className="space-y-3 font-mono">
+        <div className="flex items-center space-x-2 pb-2 border-b border-[#111111]">
+          <PieChart className="w-4 h-4 text-[#111111]" />
+          <h2 className="text-xs font-bold uppercase text-[#111111]">
+            [2. {language === "zh" ? "考点知识掌握度追踪" : "TOPIC MASTERY TRACKER"}]
+          </h2>
         </div>
 
-        {(masteryViewMode === "wheel" || masteryViewMode === "both") && (
-          <div className="border-b border-[#111111]">
-            <DomainMasteryWheelChart
-              topics={topicMastery}
-              language={language}
-            />
-          </div>
-        )}
-
-        {(masteryViewMode === "table" || masteryViewMode === "both") && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-[#fafafa] border-b border-[#111111] text-[#666666]">
-                  <th className="py-2.5 px-4 font-bold uppercase">{language === "zh" ? "考点知识点" : "TOPIC"}</th>
-                  <th className="py-2.5 px-3 w-28 font-bold uppercase">{language === "zh" ? "权重" : "WEIGHT"}</th>
-                  <th className="py-2.5 px-3 w-28 font-bold uppercase">{language === "zh" ? "难度" : "DIFF"}</th>
-                  <th className="py-2.5 px-3 w-48 font-bold uppercase">{language === "zh" ? "完成度" : "PROGRESS"}</th>
-                  <th className="py-2.5 px-4 w-32 font-bold uppercase text-right">{language === "zh" ? "掌握评分" : "SCORE"}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#e5e5e5]">
-                {topicMastery.map((topic, i) => (
-                  <tr key={topic.id || i} className="hover:bg-[#fafafa] transition-colors">
-                    <td className="py-3 px-4">
-                      <span className="font-bold text-[#111111] block">{topic.title}</span>
-                      <span className="text-[11px] text-[#666666] block mt-0.5">
-                        {language === "zh"
-                          ? `已完成 ${topic.completedTasks} / ${topic.totalTasks} 个复习单元`
-                          : `${topic.completedTasks} of ${topic.totalTasks} sessions completed`}
-                      </span>
-                    </td>
-
-                    <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 border border-[#111111] text-[10px] font-bold">
-                        {topic.weightPercentage}%
-                      </span>
-                    </td>
-
-                    <td className="py-3 px-3">
-                      <span className="text-[11px] font-bold uppercase">
-                        [{topic.difficulty}]
-                      </span>
-                    </td>
-
-                    <td className="py-3 px-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px]">
-                          <span className="text-[#666666]">{topic.progressPercent}%</span>
-                        </div>
-                        <div className="w-full bg-[#e5e5e5] h-1.5 overflow-hidden">
-                          <div
-                            className="bg-[#111111] h-full transition-all duration-300"
-                            style={{ width: `${topic.progressPercent}%` }}
-                          />
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="py-3 px-4 text-right">
-                      <span className="font-bold text-[#111111] text-xs">
-                        {topic.avgRating ? `${topic.avgRating.toFixed(1)} / 5.0` : (language === "zh" ? "待评" : "N/A")}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        <DomainMasteryWheelChart
+          topics={topicMastery}
+          language={language}
+        />
+      </section>
     </div>
   );
 }

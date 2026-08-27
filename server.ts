@@ -277,59 +277,187 @@ function fallbackExtractSyllabus(materials: any[], examName: string, subject: st
     /^(unit|chapter|module|week|topic|part|第|单元|章|模块|\d+\.|\b[A-Z\s]{4,}\b)/i.test(l)
   );
 
-  const topicTitlesZh = [
-    "基础概念、核心定义与理论体系",
-    "核心算法、推导机制与方法论",
-    "典型例题精析与高频题型演练",
-    "综合应用、复杂综合题与进阶难点",
-    "全真模拟、真题回溯与查漏补缺",
+  const topicTemplatesZh = [
+    {
+      unit: "第 1 单元：核心概念定义与基础理论体系",
+      category: "基础概念",
+      diff: "easy" as const,
+      subtopics: [
+        {
+          title: "核心术语界定与公理化体系",
+          keyPoints: ["基本概念定义与数学/逻辑表述", "定理适用的前提充分与必要条件", "典型反例与边界误区"],
+          difficulty: "easy" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "务必注意定理成立的前提约束条件",
+        },
+        {
+          title: "基础公式推导与符号规范",
+          keyPoints: ["标准符号约定与代数化表达", "基本等式与恒等变形技巧", "单位量纲与数值范围校验"],
+          difficulty: "easy" as const,
+          examFrequency: "medium" as const,
+          formulaOrTrap: "注意公式推导中的符号正负号与分母不为零的定义域限制",
+        },
+        {
+          title: "知识脉络梳理与分类框架",
+          keyPoints: ["知识树分支逻辑与内在关联", "同类概念横向对比与辨析矩阵", "基础概念在典型场景下的应用判断"],
+          difficulty: "easy" as const,
+          examFrequency: "medium" as const,
+          formulaOrTrap: "概念辨析选择题常考细微差异与易混淆名词",
+        },
+      ],
+    },
+    {
+      unit: "第 2 单元：核心方法、推导机制与算法状态转移",
+      category: "核心方法",
+      diff: "medium" as const,
+      subtopics: [
+        {
+          title: "核心推导模型与标准计算流程",
+          keyPoints: ["解题标准步骤分解", "主干方程建立与变量代换", "关键结论推导路径"],
+          difficulty: "medium" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "掌握规范化步骤分得分点，列出关键主方程",
+        },
+        {
+          title: "关键算法/机制分析与复杂度评估",
+          keyPoints: ["状态转移方程与递归边界", "时空复杂度数学分析", "数据结构与辅助数组开销"],
+          difficulty: "medium" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "注意边界初始化及极端规模下的溢出防范",
+        },
+        {
+          title: "定理证明逻辑与通用解题模板",
+          keyPoints: ["反证法/数学归纳法核心骨架", "构造性证明与构造辅助线/函数", "得分模板书写要点"],
+          difficulty: "medium" as const,
+          examFrequency: "medium" as const,
+          formulaOrTrap: "证明题必须完整写出归纳假设与递推依据",
+        },
+      ],
+    },
+    {
+      unit: "第 3 单元：典型大题精析、高频命题与解题专项演练",
+      category: "典型大题",
+      diff: "hard" as const,
+      subtopics: [
+        {
+          title: "历年高频主观大题解法剖析",
+          keyPoints: ["题干关键题眼抓取与建模", "多步解题策略与中间变量控制", "标准评分标准采分点拆解"],
+          difficulty: "hard" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "主观题分步作答，即使最后答案有误也能保住过程分",
+        },
+        {
+          title: "高频易错踩坑点与避坑专项防范",
+          keyPoints: ["隐蔽约束条件挖掘", "特殊值测试与极端情形检验", "符号、单位与答题卡书写规范"],
+          difficulty: "hard" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "警惕题目中隐藏的暗含条件（如非负整数、闭区间端点）",
+        },
+        {
+          title: "解题速度优化与验算技巧",
+          keyPoints: ["代入特殊值快速秒杀法", "数量级估计与量纲检验", "逆向思维与排除法运用"],
+          difficulty: "medium" as const,
+          examFrequency: "medium" as const,
+          formulaOrTrap: "客观题优先尝试特殊值与排除法，节约大题用时",
+        },
+      ],
+    },
+    {
+      unit: "第 4 单元：跨章节综合应用、前沿进阶与压轴难点突破",
+      category: "进阶难点",
+      diff: "hard" as const,
+      subtopics: [
+        {
+          title: "多模块交叉融合综合命题",
+          keyPoints: ["跨章节概念联动分析", "多层嵌套约束解题路径", "系统级综合题建模与解耦"],
+          difficulty: "hard" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "压轴题先做模块拆解，化大为小各个击破",
+        },
+        {
+          title: "复杂边界条件与极限情况推演",
+          keyPoints: ["临界状态判定准则", "扰动分析与稳定性论证", "极值点与不可导点特殊处理"],
+          difficulty: "hard" as const,
+          examFrequency: "medium" as const,
+          formulaOrTrap: "务必单独检验端点与分母为零等奇异点",
+        },
+        {
+          title: "压轴压分技巧与保底策略",
+          keyPoints: ["第一问稳拿满分策略", "复杂第二问过程分争取", "时间分配硬性止损机制"],
+          difficulty: "hard" as const,
+          examFrequency: "medium" as const,
+          formulaOrTrap: "超过预定单题时间果断止损，先做性价比更高的题目",
+        },
+      ],
+    },
+    {
+      unit: "第 5 单元：真题实战全真模拟、艾宾浩斯复盘与速记冲刺",
+      category: "真题冲刺",
+      diff: "medium" as const,
+      subtopics: [
+        {
+          title: "全真闭卷限时模考演练",
+          keyPoints: ["全套试卷时间分配实操", "做题节奏与心理调控", "草稿纸分区使用与复查通道"],
+          difficulty: "medium" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "严格按照考试时间闭卷模拟，训练考试生理时钟",
+        },
+        {
+          title: "个人错题本高频陷阱复盘",
+          keyPoints: ["错因分类（概念不清/计算失误/读题漏看）", "同类变式题针对性加练", "防重复犯错检查清单"],
+          difficulty: "medium" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "重点攻克近期反复错 2 次以上的顽固题型",
+        },
+        {
+          title: "考前 24 小时必背核心清单与速查表",
+          keyPoints: ["核心公式定理极速过筛", "高频大题答题框架闭眼回忆", "考场应急处理与心态重置预案"],
+          difficulty: "easy" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "考前不再做新难题，全力强化已掌握知识的熟练度",
+        },
+      ],
+    },
   ];
 
-  const topicTitlesEn = [
-    "Foundational Principles & Core Definitions",
-    "Key Methodologies & Analytical Frameworks",
-    "Intermediate Problem Solving & Case Studies",
-    "Advanced Theorems, Derivations & Edge Cases",
-    "Synthesis, Comprehensive Review & Exam Drills",
-  ];
+  const topics = topicTemplatesZh.map((tmpl, idx) => {
+    const customHeading = foundHeadings[idx]?.replace(/^[#*\-•\d\.\s]+/, "").trim();
+    const title = customHeading && customHeading.length > 3 && customHeading.length < 50
+      ? `第 ${idx + 1} 单元：${customHeading}`
+      : tmpl.unit;
 
-  const topicTitles = foundHeadings.length >= 3
-    ? foundHeadings.slice(0, 6).map((h) => h.replace(/^[#*\-•\d\.\s]+/, "").trim())
-    : (isZh ? topicTitlesZh : topicTitlesEn);
+    const subtopicTree = tmpl.subtopics.map((sub, sIdx) => ({
+      id: `sub-${idx + 1}-${sIdx + 1}`,
+      title: `${idx + 1}.${sIdx + 1} ${sub.title}`,
+      keyPoints: sub.keyPoints,
+      difficulty: sub.difficulty,
+      examFrequency: sub.examFrequency,
+      formulaOrTrap: sub.formulaOrTrap,
+    }));
 
-  const topics = topicTitles.map((title, idx) => {
-    const diffs: ("easy" | "medium" | "hard")[] = ["easy", "medium", "hard", "hard", "medium"];
-    const diff = diffs[idx % diffs.length];
-    const weight = Math.round(100 / topicTitles.length);
+    const subtopics = subtopicTree.map((s) => s.title);
+    const weight = idx === 0 ? 15 : idx === 1 ? 25 : idx === 2 ? 30 : idx === 3 ? 20 : 10;
+
     return {
       id: `topic-${idx + 1}`,
       title,
-      category: subject || (isZh ? "核心大纲" : "Core Curriculum"),
+      category: tmpl.category,
       description: isZh
-        ? `深度掌握 ${title}，包括核心概念推导、公式记忆及典型考题应用演练。`
-        : `In-depth mastery of ${title}, conceptual derivations, and exam-style application problems.`,
+        ? `涵盖「${title}」的大单元考点树，包含 ${subtopicTree.length} 个细分知识点体系与高频题型。`
+        : `Covers topic tree for ${title} with ${subtopicTree.length} fine-grained subtopics.`,
       weightPercentage: weight,
-      difficulty: diff,
-      userKnowledgeLevel: diff === "hard" ? "beginner" : "intermediate",
-      subtopics: isZh
-        ? [
-            `${title} - 核心定理与关键名词解释`,
-            `${title} - 解题规范与标准解题模板`,
-            `${title} - 历年高频易错考点与避坑指南`,
-          ]
-        : [
-            `${title} - Fundamental Theorems & Terminology`,
-            `${title} - Step-by-Step Problem Solving Method`,
-            `${title} - High-Yield Exam Pitfalls & Trap Avoidance`,
-          ],
-      estimatedHours: diff === "hard" ? 8 : diff === "medium" ? 6 : 4,
+      difficulty: tmpl.diff,
+      userKnowledgeLevel: tmpl.diff === "hard" ? "beginner" : "intermediate",
+      subtopics,
+      subtopicTree,
+      estimatedHours: tmpl.diff === "hard" ? 8 : tmpl.diff === "medium" ? 6 : 4,
     };
   });
 
   return {
     summary: isZh
-      ? `针对 ${examName || "目标考试"}（${subject || "综合"}）的结构化考纲，共拆解为 ${topics.length} 个重点知识模块，已按科学复习梯度完成学时分配与主动回忆规划。`
-      : `Structured syllabus for ${examName || "Upcoming Exam"} (${subject || "General"}), organized into ${topics.length} prioritized learning units with calibrated study hours and active recall checkpoints.`,
+      ? `已深度解析课程资料，构建了完整的树状考点架构（Tree Hierarchy）。包含 ${topics.length} 个大单元模块，细分出 ${topics.reduce((acc, t) => acc + (t.subtopics?.length || 0), 0)} 个颗粒度考点及核心考查要点。`
+      : `Extracted comprehensive hierarchical topic tree with ${topics.length} major units and ${topics.reduce((acc, t) => acc + (t.subtopics?.length || 0), 0)} granular subtopics.`,
     topics,
   };
 }
@@ -895,26 +1023,39 @@ app.post("/api/extract-syllabus", async (req, res) => {
       .join("\n\n");
 
     const isZh = req.body.language === "zh" || isChinese(examName) || isChinese(subject) || true;
-    const prompt = `You are an expert academic curriculum analyzer and exam preparation strategist.
+    const prompt = `You are an expert academic curriculum analyzer, knowledge tree architect, and exam preparation strategist.
 Analyze the following exam study materials for the exam "${examName || 'Upcoming Exam'}" in subject "${subject || 'General'}".
-Extract the complete, structured syllabus breakdown with all major topics, chapters, estimated study hours needed, difficulty rating (easy, medium, hard), relative exam weight percentage (must sum to roughly 100%), and concrete subtopics/concepts.
-${isZh ? "CRITICAL: Output ALL titles, summaries, descriptions, and subtopics in Simplified Chinese (简体中文)." : ""}
+Extract a deep, multi-tier hierarchical syllabus tree (考点树状图体系).
+
+TREE HIERARCHY RULES:
+1. ROOT NODES (Major Units / 核心大单元): Group content into 4-7 cohesive units or chapters (e.g. "第1单元：...", "第2单元：...").
+2. BRANCH NODES (Granular Subtopics / 细分考点): Under EACH major unit, extract 3-6 concrete, highly granular sub-topics / problem types (e.g., "1.1 动态规划最优子结构与状态定义", "1.2 背包问题变式与空间压缩").
+3. LEAF NODES (Key Points & Traps / 核心要点与避坑点): For each subtopic, extract 2-4 specific testable points, governing formulas/theorems, score-earning checkpoints, and common pitfalls.
+4. Ensure comprehensive exam weight distribution (weights summing to roughly 100%) and realistic estimated study hours.
+${isZh ? "CRITICAL: Output ALL titles, descriptions, subtopic titles, key points, and formula notes in natural, academic Simplified Chinese (简体中文)." : ""}
 
 Documents content:
 ${aggregatedContent.slice(0, 50000)}
 
 Output a clean JSON object containing:
-- summary: A concise 2-sentence summary of the syllabus scope and high-yield focus areas.
-- topics: An array of syllabus topics, each having:
-  - id: unique string (e.g. topic-1, topic-2)
-  - title: topic or chapter title
-  - category: broad domain or module
-  - description: key concepts covered in this topic
+- summary: A concise 2-sentence summary of the whole knowledge tree scope and highest-yield focus branches.
+- topics: An array of major unit topics, each having:
+  - id: unique string (e.g. "topic-1", "topic-2")
+  - title: major unit/chapter title (e.g. "第 1 单元：核心理论与定义体系")
+  - category: broad domain or module name
+  - description: overview of the concepts covered in this unit
   - weightPercentage: estimated weight in exam (number 5 to 40)
   - difficulty: "easy" | "medium" | "hard"
-  - userKnowledgeLevel: default to "intermediate" (or "beginner" for hard topics)
-  - subtopics: array of specific concept strings
-  - estimatedHours: realistic hours needed for first pass + practice (e.g. 3 to 12)`;
+  - userKnowledgeLevel: "beginner" | "intermediate" | "advanced"
+  - subtopics: array of subtopic title strings (e.g. ["1.1 核心术语界定", "1.2 基础公式推导"])
+  - subtopicTree: array of granular subtopic nodes, each containing:
+    - id: string (e.g. "sub-1-1")
+    - title: specific subtopic title
+    - keyPoints: array of 2-4 concrete concept points or formula notes
+    - difficulty: "easy" | "medium" | "hard"
+    - examFrequency: "high" | "medium" | "low"
+    - formulaOrTrap: brief tip, formula, or common mistake to watch out for
+  - estimatedHours: realistic hours needed (e.g. 4 to 15)`;
 
     const result = await generateWithRetryAndFallback(
       (modelName) => ({
@@ -942,6 +1083,24 @@ Output a clean JSON object containing:
                       type: Type.ARRAY,
                       items: { type: Type.STRING },
                     },
+                    subtopicTree: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          id: { type: Type.STRING },
+                          title: { type: Type.STRING },
+                          keyPoints: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING },
+                          },
+                          difficulty: { type: Type.STRING },
+                          examFrequency: { type: Type.STRING },
+                          formulaOrTrap: { type: Type.STRING },
+                        },
+                        required: ["title"],
+                      },
+                    },
                     estimatedHours: { type: Type.NUMBER },
                   },
                   required: ["id", "title", "difficulty", "subtopics", "estimatedHours"],
@@ -952,7 +1111,26 @@ Output a clean JSON object containing:
           },
         },
       }),
-      (text) => JSON.parse(text),
+      (text) => {
+        const parsed = JSON.parse(text);
+        if (parsed.topics && Array.isArray(parsed.topics)) {
+          parsed.topics.forEach((t: any, idx: number) => {
+            if (!t.id) t.id = `topic-${idx + 1}`;
+            if (!t.subtopicTree && t.subtopics && Array.isArray(t.subtopics)) {
+              t.subtopicTree = t.subtopics.map((sub: string, sIdx: number) => ({
+                id: `sub-${idx + 1}-${sIdx + 1}`,
+                title: sub,
+                keyPoints: [],
+                difficulty: t.difficulty || "medium",
+                examFrequency: "medium",
+              }));
+            } else if (t.subtopicTree && (!t.subtopics || t.subtopics.length === 0)) {
+              t.subtopics = t.subtopicTree.map((s: any) => s.title);
+            }
+          });
+        }
+        return parsed;
+      },
       () => fallbackExtractSyllabus(materials, examName, subject, isZh ? "zh" : "en")
     );
 

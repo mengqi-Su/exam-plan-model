@@ -1,8 +1,9 @@
-import { ExamStudyPlan, StudyMaterial, UserStudyPreferences, UserProfile, AppSettings } from "../types";
+import { ExamStudyPlan, StudyMaterial, UserStudyPreferences, UserProfile, AppSettings, DailyMemoNote } from "../types";
 
 const STORAGE_KEY_PLANS = "exam_planner_saved_plans_v1";
 const STORAGE_KEY_ACTIVE_ID = "exam_planner_active_plan_id_v1";
 const STORAGE_KEY_MATERIALS = "exam_planner_materials_v1";
+const STORAGE_KEY_DAILY_MEMOS = "exam_planner_daily_memos_v1";
 
 export const DEFAULT_WEEK_SCHEDULE = [
   { dayOfWeek: 0, dayName: "周日", availableHours: 4, preferredTimeSlot: "afternoon" as const, enabled: true },
@@ -283,53 +284,176 @@ function getSamplePlan(): ExamStudyPlan {
     topics: [
       {
         id: "top-1",
-        title: "平衡搜索树与堆结构",
+        title: "第 1 单元：平衡搜索树与堆结构",
         category: "数据结构",
         difficulty: "medium",
         userKnowledgeLevel: "intermediate",
         weightPercentage: 20,
         estimatedHours: 8,
         subtopics: ["红黑树旋转平衡", "AVL 树平衡因子", "B+ 树磁盘索引", "斐波那契堆"],
+        subtopicTree: [
+          {
+            title: "红黑树 (Red-Black Tree) 性质与旋转平衡",
+            keyPoints: ["黑高一致性定理推导", "插入时叔节点为红/黑的处理", "删除黑色节点双黑调整"],
+            difficulty: "hard",
+            examFrequency: "high",
+            formulaOrTrap: "最长路径长度不超过最短路径长度的 2 倍",
+          },
+          {
+            title: "AVL 树与自平衡搜索",
+            keyPoints: ["LL、RR、LR、RL 四种单双旋转判定", "平衡因子 Balance Factor 计算"],
+            difficulty: "medium",
+            examFrequency: "medium",
+          },
+          {
+            title: "B 树与 B+ 树磁盘索引结构",
+            keyPoints: ["阶数 m 与关键字个数范围 [ceil(m/2)-1, m-1]", "B+ 树叶子节点双向链表与范围查询"],
+            difficulty: "medium",
+            examFrequency: "high",
+          },
+          {
+            title: "斐波那契堆与平摊时间复杂度",
+            keyPoints: ["Decrease-Key 级联剪枝 (Cascading Cut)", "平摊复杂度 O(1) 与 Extract-Min O(log n)"],
+            difficulty: "hard",
+            examFrequency: "low",
+          },
+        ],
       },
       {
         id: "top-2",
-        title: "图算法与网络流",
+        title: "第 2 单元：图算法与网络流",
         category: "图论",
         difficulty: "hard",
         userKnowledgeLevel: "beginner",
         weightPercentage: 25,
         estimatedHours: 12,
         subtopics: ["Dijkstra 与 Bellman-Ford", "Floyd-Warshall", "Edmonds-Karp 最大流", "Tarjan 强连通分量"],
+        subtopicTree: [
+          {
+            title: "单源最短路 (SSSP) 算法对比",
+            keyPoints: ["Dijkstra 贪心策略与斐波那契堆优化 O(V log V + E)", "Bellman-Ford 负权环检测与 SPFA 队列优化"],
+            difficulty: "medium",
+            examFrequency: "high",
+            formulaOrTrap: "Dijkstra 无法处理负权边的本质原因",
+          },
+          {
+            title: "多源最短路与传递闭包",
+            keyPoints: ["Floyd-Warshall 三重循环 k 的外层枚举次序", "动态规划矩阵状态转移 d[i][j] = min(d[i][j], d[i][k]+d[k][j])"],
+            difficulty: "medium",
+            examFrequency: "medium",
+          },
+          {
+            title: "网络流与最大流最小割定理",
+            keyPoints: ["Edmonds-Karp 与 Dinic 算法残量网络构建", "增广路 (Augmenting Path) 与反向边流量回退", "最大流最小割 (Max-Flow Min-Cut) 等价证明"],
+            difficulty: "hard",
+            examFrequency: "high",
+            formulaOrTrap: "割的容量计算仅统计从 S 到 T 方向的有向边",
+          },
+          {
+            title: "有向图连通性与 Tarjan 算法",
+            keyPoints: ["深度优先搜索生成树与返祖边/横叉边", "时间戳 dfn 与追溯值 low 的更新条件", "二分图最大匹配与 Kőnig 最小点覆盖定理"],
+            difficulty: "hard",
+            examFrequency: "high",
+          },
+        ],
       },
       {
         id: "top-3",
-        title: "动态规划与状压位运算",
+        title: "第 3 单元：动态规划与状压位运算",
         category: "算法设计",
         difficulty: "hard",
         userKnowledgeLevel: "beginner",
         weightPercentage: 30,
         estimatedHours: 14,
         subtopics: ["0/1 与完全背包", "最长公共子序列 (LCS)", "矩阵链乘法", "状态压缩 DP"],
+        subtopicTree: [
+          {
+            title: "背包问题模型族",
+            keyPoints: ["0/1 背包空间优化逆序枚举容量", "完全背包正序枚举容量", "多重背包单调队列/二进制拆分优化"],
+            difficulty: "medium",
+            examFrequency: "high",
+          },
+          {
+            title: "区间与序列 DP",
+            keyPoints: ["最长公共子序列 (LCS) 与最长递增子序列 (LIS) O(n log n)", "矩阵链乘法最优加括号与区间长度枚举"],
+            difficulty: "medium",
+            examFrequency: "high",
+          },
+          {
+            title: "树形动态规划",
+            keyPoints: ["树的最大独立集 (包含根/不包含根)", "树的直径两遍 DFS 或单遍 DP 推导"],
+            difficulty: "hard",
+            examFrequency: "high",
+          },
+          {
+            title: "状态压缩 DP 与 TSP 问题",
+            keyPoints: ["二进制状态集合表示与位运算 `mask & (1 << j)`", "旅行商 TSP 状态转移方程 O(n^2 * 2^n)"],
+            difficulty: "hard",
+            examFrequency: "high",
+            formulaOrTrap: "外层循环必须按 mask 升序递增以保证无后效性",
+          },
+        ],
       },
       {
         id: "top-4",
-        title: "NP 完全性与归约证明",
+        title: "第 4 单元：NP 完全性与归约证明",
         category: "计算复杂度",
         difficulty: "medium",
         userKnowledgeLevel: "intermediate",
         weightPercentage: 15,
         estimatedHours: 5,
         subtopics: ["P 与 NP 概念", "3-SAT 经典归约", "顶点覆盖与独立集", "近似算法"],
+        subtopicTree: [
+          {
+            title: "计算复杂性分类理论",
+            keyPoints: ["P、NP、NP-Hard、NP-Complete 严格定义", "多项式时间判定与多项式时间可验证证书 (Certificate)"],
+            difficulty: "medium",
+            examFrequency: "high",
+          },
+          {
+            title: "经典多项式时间归约证明链",
+            keyPoints: ["Cook-Levin 定理与 SAT/3-SAT 问题", "3-SAT -> Independent Set (独立集) Gadget 构造", "Independent Set <-> Vertex Cover (顶点覆盖) 补图等价性"],
+            difficulty: "hard",
+            examFrequency: "high",
+            formulaOrTrap: "证明新问题 Q 是 NPC：先证 Q 属于 NP，再将已知 NPC 问题归约至 Q",
+          },
+          {
+            title: "NP 难问题的近似算法",
+            keyPoints: ["近似比 (Approximation Ratio) 定义", "顶点覆盖 2-近似算法极长匹配证明"],
+            difficulty: "medium",
+            examFrequency: "medium",
+          },
+        ],
       },
       {
         id: "top-5",
-        title: "随机算法与跳表分析",
+        title: "第 5 单元：随机算法与平摊分析",
         category: "高级数据结构",
         difficulty: "easy",
         userKnowledgeLevel: "advanced",
         weightPercentage: 10,
         estimatedHours: 3,
         subtopics: ["布隆过滤器原理", "跳表概率分析", "势能法平摊分析"],
+        subtopicTree: [
+          {
+            title: "概率数据结构与布隆过滤器",
+            keyPoints: ["k 个独立哈希函数位图映射", "假阳性 (False Positive) 冲突率推导与最优 k = (m/n)ln2", "无假阴性 (No False Negative) 本质"],
+            difficulty: "medium",
+            examFrequency: "high",
+          },
+          {
+            title: "跳表 (Skip List) 随机化索引",
+            keyPoints: ["节点层高几何分布随机生成 (p = 1/2)", "期望空间复杂度 O(n) 与期望查询步数 O(log n)"],
+            difficulty: "easy",
+            examFrequency: "medium",
+          },
+          {
+            title: "平摊分析三种方法",
+            keyPoints: ["聚合分析法 (Aggregate Analysis)", "记账法 (Accounting Method)", "势能函数法 (Potential Method) 与动态数组扩容分析"],
+            difficulty: "medium",
+            examFrequency: "medium",
+          },
+        ],
       },
     ],
     tasks: generateSample21DaysTasks(startDateStr, examDateStr, formatDate),
@@ -928,3 +1052,56 @@ export const APP_VERSION_DATA = {
     },
   ],
 };
+
+export function getDailyMemos(): Record<string, DailyMemoNote> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_DAILY_MEMOS);
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error("Failed to parse daily memos", e);
+    return {};
+  }
+}
+
+export function getDailyMemo(date: string): DailyMemoNote | null {
+  const all = getDailyMemos();
+  return all[date] || null;
+}
+
+export function saveDailyMemo(date: string, data: { content?: string; mood?: DailyMemoNote["mood"]; tags?: string[] }): Record<string, DailyMemoNote> {
+  try {
+    const all = getDailyMemos();
+    const existing = all[date] || { date, content: "", updatedAt: new Date().toISOString() };
+    const updated: DailyMemoNote = {
+      ...existing,
+      ...data,
+      date,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (!updated.content?.trim() && !updated.mood && (!updated.tags || updated.tags.length === 0)) {
+      delete all[date];
+    } else {
+      all[date] = updated;
+    }
+
+    localStorage.setItem(STORAGE_KEY_DAILY_MEMOS, JSON.stringify(all));
+    return all;
+  } catch (e) {
+    console.error("Failed to save daily memo", e);
+    return {};
+  }
+}
+
+export function deleteDailyMemo(date: string): Record<string, DailyMemoNote> {
+  try {
+    const all = getDailyMemos();
+    delete all[date];
+    localStorage.setItem(STORAGE_KEY_DAILY_MEMOS, JSON.stringify(all));
+    return all;
+  } catch (e) {
+    console.error("Failed to delete daily memo", e);
+    return {};
+  }
+}

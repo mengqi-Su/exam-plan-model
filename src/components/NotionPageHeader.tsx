@@ -239,11 +239,6 @@ export function NotionPageHeader({
               >
                 <span className="font-mono text-[10px] opacity-70">01</span>
                 <span>{language === "zh" ? "每日待办" : "DAILY TO-DO"}</span>
-                {activePlan && (
-                  <span className={`ml-1 text-[10px] font-mono ${currentTab === "todo" ? "text-[#fef08a]" : "text-[#888888]"}`}>
-                    ({activePlan.tasks.length})
-                  </span>
-                )}
               </button>
 
               <button
@@ -268,11 +263,6 @@ export function NotionPageHeader({
               >
                 <span className="font-mono text-[10px] opacity-70">03</span>
                 <span>{language === "zh" ? "考纲资料" : "KNOWLEDGE"}</span>
-                {activePlan && (
-                  <span className={`ml-1 text-[10px] font-mono ${currentTab === "course" ? "text-[#fef08a]" : "text-[#888888]"}`}>
-                    ({(activePlan.topics?.length || 0) + (activePlan.materials?.length || 0)})
-                  </span>
-                )}
               </button>
             </div>
 

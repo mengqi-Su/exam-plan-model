@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,11 +13,14 @@ import {
   Target,
   Search,
   CheckSquare,
-  BookOpen
+  BookOpen,
+  PenLine
 } from "lucide-react";
-import { ExamStudyPlan, StudyTask, TaskCategory } from "../types";
+import { ExamStudyPlan, StudyTask, TaskCategory, DailyMemoNote } from "../types";
 import { useI18n } from "../lib/i18n";
 import { getPaletteByString, getPaletteByIndex } from "../lib/themePalettes";
+import { getDailyMemos } from "../lib/storage";
+import { DailyMoodMemoPad } from "./DailyMoodMemoPad";
 
 interface MasterCalendarViewProps {
   plans: ExamStudyPlan[];
@@ -27,17 +30,6 @@ interface MasterCalendarViewProps {
   onSelectDate?: (dateStr: string) => void;
   selectedDate?: string;
 }
-
-const CATEGORY_TAG_CLASS: Record<TaskCategory, string> = {
-  theory: "border border-[#111111] bg-white text-[#111111]",
-  reading: "border border-[#111111] bg-white text-[#111111]",
-  practice_problems: "border border-[#111111] bg-white text-[#111111]",
-  active_recall: "border border-[#111111] bg-white text-[#111111]",
-  flashcards: "border border-[#111111] bg-white text-[#111111]",
-  mock_exam: "border border-[#111111] bg-[#111111] text-white",
-  review_weak_spots: "border border-[#111111] bg-white text-[#111111]",
-  summary_cheat_sheet: "border border-[#111111] bg-white text-[#111111]",
-};
 
 const COURSE_COLORS = [
   "border border-[#111111] bg-white text-[#111111]",
@@ -72,15 +64,18 @@ export function MasterCalendarView({
     return propSelectedDate || new Date().toISOString().split("T")[0];
   });
 
+  const [dailyMemos, setDailyMemos] = useState<Record<string, DailyMemoNote>>(() => getDailyMemos());
+
+  const refreshMemos = () => {
+    setDailyMemos(getDailyMemos());
+  };
+
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  const planColorMap = useMemo(() => {
-    const map = new Map<string, string>();
-    plans.forEach((p, idx) => {
-      map.set(p.id, COURSE_COLORS[idx % COURSE_COLORS.length]);
-    });
-    return map;
-  }, [plans]);
+  const getPlanPalette = (planId: string) => {
+    const idx = plans.findIndex((p) => p.id === planId);
+    return getPaletteByIndex(idx >= 0 ? idx : 0);
+  };
 
   const allAggregatedTasks = useMemo(() => {
     const list: Array<{ task: StudyTask; plan: ExamStudyPlan }> = [];
@@ -259,7 +254,7 @@ export function MasterCalendarView({
                 className="text-xs font-mono bg-transparent text-[#111111] outline-none cursor-pointer"
               >
                 <option value="all">
-                  {language === "zh" ? "全部科目" : "ALL COURSES"} ({plans.length})
+                  {language === "zh" ? "全部科目" : "ALL COURSES"}
                 </option>
                 {plans.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -294,29 +289,6 @@ export function MasterCalendarView({
             </div>
           </div>
         </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-[10px] font-mono text-[#666666] border-t border-[#e5e5e5]">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="flex items-center space-x-1">
-              <span className="w-2 h-2 bg-[#d44c47]" />
-              <span>{language === "zh" ? "考试日" : "EXAM DAY"}</span>
-            </span>
-            <span className="flex items-center space-x-1">
-              <span className="w-2 h-2 bg-[#111111]" />
-              <span>{language === "zh" ? "复习任务" : "TASK"}</span>
-            </span>
-            <span className="flex items-center space-x-1">
-              <span className="w-2 h-2 bg-[#448361]" />
-              <span>{language === "zh" ? "已完成" : "DONE"}</span>
-            </span>
-          </div>
-
-          <div className="font-bold">
-            {language === "zh"
-              ? `本月共排定 ${allAggregatedTasks.length} 个任务`
-              : `${allAggregatedTasks.length} TOTAL TASKS`}
-          </div>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-[#111111] font-mono">
@@ -335,6 +307,7 @@ export function MasterCalendarView({
             {calendarDays.map(({ dateStr, dayNum, isCurrentMonth }, idx) => {
               const dayTasks = tasksByDate.get(dateStr) || [];
               const dayExams = examDatesByDate.get(dateStr) || [];
+              const dayMemo = dailyMemos[dateStr];
               const isToday = dateStr === todayStr;
               const isSelected = dateStr === activeDayDate;
               const completedInDay = dayTasks.filter((t) => t.task.status === "completed").length;
@@ -372,11 +345,30 @@ export function MasterCalendarView({
                       {dayNum}
                     </span>
 
-                    {dayTasks.length > 0 && (
-                      <span className={`text-[10px] font-bold ${isSelected ? "text-white" : "text-[#666666]"}`}>
-                        [{completedInDay}/{dayTasks.length}]
-                      </span>
-                    )}
+                    <div className="flex items-center space-x-1">
+                      {dayMemo && (
+                        <span
+                          className={`text-[9px] px-1 py-0.2 font-bold ${
+                            isSelected ? "bg-white text-[#111111]" : "bg-[#fef08a] text-[#111111] border border-[#111111]"
+                          }`}
+                          title={language === "zh" ? `随心便签: ${dayMemo.content || "有记录"}` : `Memo: ${dayMemo.content || "Recorded"}`}
+                        >
+                          {dayMemo.mood === "motivated" && "⚡"}
+                          {dayMemo.mood === "calm" && "☕"}
+                          {dayMemo.mood === "inspired" && "💡"}
+                          {dayMemo.mood === "breakthrough" && "🎯"}
+                          {dayMemo.mood === "anxious" && "🌧️"}
+                          {dayMemo.mood === "tired" && "🔋"}
+                          {!dayMemo.mood && "📝"}
+                        </span>
+                      )}
+
+                      {dayTasks.length > 0 && (
+                        <span className={`text-[10px] font-bold ${isSelected ? "text-white" : "text-[#666666]"}`}>
+                          [{completedInDay}/{dayTasks.length}]
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-1 space-y-1 flex-1 overflow-hidden">
@@ -385,7 +377,7 @@ export function MasterCalendarView({
                       <div
                         key={`exam-${exam.id}`}
                         className={`border border-[#111111] px-1 py-0.5 text-[9px] font-bold truncate flex items-center space-x-0.5 ${
-                          isSelected ? "bg-white text-[#111111]" : "bg-[#111111] text-white"
+                          isSelected ? "bg-white text-[#d44c47]" : "bg-[#d44c47] text-white"
                         }`}
                         title={`大考日: ${exam.examName}`}
                       >
@@ -396,6 +388,7 @@ export function MasterCalendarView({
 
                     {dayTasks.slice(0, 2).map(({ task, plan }) => {
                       const isTaskDone = task.status === "completed";
+                      const coursePalette = getPlanPalette(plan.id);
 
                       return (
                         <div
@@ -412,9 +405,10 @@ export function MasterCalendarView({
                           title={`${plan.examName}: ${task.title}`}
                         >
                           <span
-                            className={`w-1.5 h-1.5 shrink-0 ${
-                              isTaskDone ? "bg-[#666666]" : "bg-current"
-                            }`}
+                            className="w-2 h-2 shrink-0 border border-[#111111]"
+                            style={{
+                              backgroundColor: coursePalette.accentColor,
+                            }}
                           />
                           <span className="truncate flex-1">
                             {task.title}
@@ -473,7 +467,7 @@ export function MasterCalendarView({
             )}
 
             {activeDayTasks.length === 0 ? (
-              <div className="py-12 text-center space-y-2">
+              <div className="py-8 text-center space-y-2">
                 <CheckCircle2 className="w-8 h-8 text-[#111111] mx-auto opacity-40" />
                 <p className="text-xs text-[#666666] font-bold">
                   [{language === "zh" ? "该日期无任何排定的复习任务" : "NO TASKS SCHEDULED FOR THIS DAY"}]
@@ -483,8 +477,7 @@ export function MasterCalendarView({
               <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
                 {activeDayTasks.map(({ task, plan }) => {
                   const isCompleted = task.status === "completed";
-                  const tagClass = CATEGORY_TAG_CLASS[task.category] || "border border-[#111111] bg-white text-[#111111]";
-                  const coursePalette = getPaletteByString(plan.id || plan.examName);
+                  const coursePalette = getPlanPalette(plan.id);
 
                   return (
                     <div
@@ -519,9 +512,6 @@ export function MasterCalendarView({
                               }}
                             >
                               [{plan.examName}]
-                            </span>
-                            <span className={`${tagClass} px-1.5 py-0.2 text-[9px] uppercase`}>
-                              [{t(`cat_${task.category}` as any) || task.category}]
                             </span>
                             <span className="text-[10px] text-[#666666] flex items-center space-x-0.5">
                               <Clock className="w-2.5 h-2.5" />
@@ -568,6 +558,15 @@ export function MasterCalendarView({
                 })}
               </div>
             )}
+
+            {/* 随心记便签 (Daily Mood & Note Sticky Pad) - 放置在任务列表下方 */}
+            <div className="pt-2 border-t border-[#e5e5e5]">
+              <DailyMoodMemoPad
+                dateStr={activeDayDate}
+                language={language}
+                onMemoUpdated={refreshMemos}
+              />
+            </div>
           </div>
         </div>
       </div>

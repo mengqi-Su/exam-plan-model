@@ -132,16 +132,44 @@ export function TaskFocusTimerModal({
             </h3>
           </div>
 
-          <div className="relative w-48 h-48 border border-[#111111] bg-[#fafafa] flex flex-col items-center justify-center">
+          {/* 4 Palette Duration Presets */}
+          <div className="flex items-center gap-1.5 text-[10px] font-bold">
+            <button
+              onClick={() => { setTimeLeft(25 * 60); setIsRunning(false); }}
+              className="px-2 py-0.5 border border-[#111111] bg-[#FCD33B] text-[#111111] hover:opacity-85 transition-opacity cursor-pointer"
+            >
+              25M [{language === "zh" ? "番茄" : "POMO"}]
+            </button>
+            <button
+              onClick={() => { setTimeLeft(45 * 60); setIsRunning(false); }}
+              className="px-2 py-0.5 border border-[#111111] bg-[#D8D8D8] text-[#111111] hover:opacity-85 transition-opacity cursor-pointer"
+            >
+              45M [{language === "zh" ? "标准" : "STD"}]
+            </button>
+            <button
+              onClick={() => { setTimeLeft(60 * 60); setIsRunning(false); }}
+              className="px-2 py-0.5 border border-[#111111] bg-[#B5B5B5] text-[#111111] hover:opacity-85 transition-opacity cursor-pointer"
+            >
+              60M [{language === "zh" ? "深度" : "DEEP"}]
+            </button>
+            <button
+              onClick={() => { setTimeLeft(90 * 60); setIsRunning(false); }}
+              className="px-2 py-0.5 border border-[#111111] bg-[#282828] text-white hover:opacity-85 transition-opacity cursor-pointer"
+            >
+              90M [{language === "zh" ? "模考" : "MOCK"}]
+            </button>
+          </div>
+
+          <div className="relative w-48 h-48 border-2 border-[#111111] bg-[#fafafa] flex flex-col items-center justify-center shadow-xs">
             <span className="text-4xl font-bold tracking-widest text-[#111111]">
               {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
             </span>
             <span className="text-[10px] text-[#666666] font-bold mt-2 uppercase tracking-wider">
               {isRunning ? `[ ${t("deepFocusing")} ]` : timeLeft === 0 ? `[ ${t("sessionCompleted")} ]` : `[ ${t("readyToFocus")} ]`}
             </span>
-            <div className="absolute bottom-0 left-0 right-0 h-1 bg-[#e5e5e5]">
+            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-[#e5e5e5] overflow-hidden">
               <div
-                className="h-full bg-[#111111] transition-all duration-300"
+                className="h-full bg-[#FCD33B] border-r border-[#111111] transition-all duration-300"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>

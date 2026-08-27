@@ -27,112 +27,183 @@ export function fallbackExtractSyllabusClient(
 
   const defaultZh = [
     {
-      title: "核心概念、理论基础与定义体系",
+      unit: "第 1 单元：核心概念定义与基础理论体系",
       category: "基础概念",
-      weightPercentage: 20,
-      difficulty: "easy" as const,
-      subtopics: ["学科核心术语界定", "基本定理与公理前提", "基础理论应用场景"],
-      estimatedHours: 6,
+      diff: "easy" as const,
+      subtopics: [
+        {
+          title: "核心术语界定与公理化体系",
+          keyPoints: ["基本概念定义与数学/逻辑表述", "定理适用的前提充分与必要条件", "典型反例与边界误区"],
+          difficulty: "easy" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "务必注意定理成立的前提约束条件",
+        },
+        {
+          title: "基础公式推导与符号规范",
+          keyPoints: ["标准符号约定与代数化表达", "基本等式与恒等变形技巧", "单位量纲与数值范围校验"],
+          difficulty: "easy" as const,
+          examFrequency: "medium" as const,
+          formulaOrTrap: "注意公式推导中的符号正负号与分母不为零的定义域限制",
+        },
+        {
+          title: "知识脉络梳理与分类框架",
+          keyPoints: ["知识树分支逻辑与内在关联", "同类概念横向对比与辨析矩阵", "基础概念在典型场景下的应用判断"],
+          difficulty: "easy" as const,
+          examFrequency: "medium" as const,
+          formulaOrTrap: "概念辨析选择题常考细微差异与易混淆名词",
+        },
+      ],
     },
     {
-      title: "核心算法与推导方法论",
+      unit: "第 2 单元：核心方法、推导机制与算法状态转移",
       category: "核心方法",
-      weightPercentage: 30,
-      difficulty: "medium" as const,
-      subtopics: ["关键公式与算法流程", "典型推导与状态转移", "时空复杂度与边界分析"],
-      estimatedHours: 10,
+      diff: "medium" as const,
+      subtopics: [
+        {
+          title: "核心推导模型与标准计算流程",
+          keyPoints: ["解题标准步骤分解", "主干方程建立与变量代换", "关键结论推导路径"],
+          difficulty: "medium" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "掌握规范化步骤分得分点，列出关键主方程",
+        },
+        {
+          title: "关键算法/机制分析与复杂度评估",
+          keyPoints: ["状态转移方程与递归边界", "时空复杂度数学分析", "数据结构与辅助数组开销"],
+          difficulty: "medium" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "注意边界初始化及极端规模下的溢出防范",
+        },
+        {
+          title: "定理证明逻辑与通用解题模板",
+          keyPoints: ["反证法/数学归纳法核心骨架", "构造性证明与构造辅助线/函数", "得分模板书写要点"],
+          difficulty: "medium" as const,
+          examFrequency: "medium" as const,
+          formulaOrTrap: "证明题必须完整写出归纳假设与递推依据",
+        },
+      ],
     },
     {
-      title: "典型高频考题精析与题型演练",
+      unit: "第 3 单元：典型大题精析、高频命题与解题专项演练",
       category: "典型大题",
-      weightPercentage: 25,
-      difficulty: "medium" as const,
-      subtopics: ["历年典型大题解法", "易错约束与踩坑防范", "标准答题得分点"],
-      estimatedHours: 8,
+      diff: "hard" as const,
+      subtopics: [
+        {
+          title: "历年高频主观大题解法剖析",
+          keyPoints: ["题干关键题眼抓取与建模", "多步解题策略与中间变量控制", "标准评分标准采分点拆解"],
+          difficulty: "hard" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "主观题分步作答，即使最后答案有误也能保住过程分",
+        },
+        {
+          title: "高频易错踩坑点与避坑专项防范",
+          keyPoints: ["隐蔽约束条件挖掘", "特殊值测试与极端情形检验", "符号、单位与答题卡书写规范"],
+          difficulty: "hard" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "警惕题目中隐藏的暗含条件（如非负整数、闭区间端点）",
+        },
+        {
+          title: "解题速度优化与验算技巧",
+          keyPoints: ["代入特殊值快速秒杀法", "数量级估计与量纲检验", "逆向思维与排除法运用"],
+          difficulty: "medium" as const,
+          examFrequency: "medium" as const,
+          formulaOrTrap: "客观题优先尝试特殊值与排除法，节约大题用时",
+        },
+      ],
     },
     {
-      title: "进阶难点与综合应用案例",
-      category: "进阶综合",
-      weightPercentage: 15,
-      difficulty: "hard" as const,
-      subtopics: ["跨章节综合命题", "复杂边界条件攻坚", "多定理联合证明"],
-      estimatedHours: 6,
+      unit: "第 4 单元：跨章节综合应用、前沿进阶与压轴难点突破",
+      category: "进阶难点",
+      diff: "hard" as const,
+      subtopics: [
+        {
+          title: "多模块交叉融合综合命题",
+          keyPoints: ["跨章节概念联动分析", "多层嵌套约束解题路径", "系统级综合题建模与解耦"],
+          difficulty: "hard" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "压轴题先做模块拆解，化大为小各个击破",
+        },
+        {
+          title: "复杂边界条件与极限情况推演",
+          keyPoints: ["临界状态判定准则", "扰动分析与稳定性论证", "极值点与不可导点特殊处理"],
+          difficulty: "hard" as const,
+          examFrequency: "medium" as const,
+          formulaOrTrap: "务必单独检验端点与分母为零等奇异点",
+        },
+        {
+          title: "压轴压分技巧与保底策略",
+          keyPoints: ["第一问稳拿满分策略", "复杂第二问过程分争取", "时间分配硬性止损机制"],
+          difficulty: "hard" as const,
+          examFrequency: "medium" as const,
+          formulaOrTrap: "超过预定单题时间果断止损，先做性价比更高的题目",
+        },
+      ],
     },
     {
-      title: "全真模拟、真题回溯与查漏补缺",
+      unit: "第 5 单元：真题实战全真模拟、艾宾浩斯复盘与速记冲刺",
       category: "真题冲刺",
-      weightPercentage: 10,
-      difficulty: "hard" as const,
-      subtopics: ["限时闭卷全真模拟", "高频错题归纳复盘", "考前核心要点速览"],
-      estimatedHours: 5,
+      diff: "medium" as const,
+      subtopics: [
+        {
+          title: "全真闭卷限时模考演练",
+          keyPoints: ["全套试卷时间分配实操", "做题节奏与心理调控", "草稿纸分区使用与复查通道"],
+          difficulty: "medium" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "严格按照考试时间闭卷模拟，训练考试生理时钟",
+        },
+        {
+          title: "个人错题本高频陷阱复盘",
+          keyPoints: ["错因分类（概念不清/计算失误/读题漏看）", "同类变式题针对性加练", "防重复犯错检查清单"],
+          difficulty: "medium" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "重点攻克近期反复错 2 次以上的顽固题型",
+        },
+        {
+          title: "考前 24 小时必背核心清单与速查表",
+          keyPoints: ["核心公式定理极速过筛", "高频大题答题框架闭眼回忆", "考场应急处理与心态重置预案"],
+          difficulty: "easy" as const,
+          examFrequency: "high" as const,
+          formulaOrTrap: "考前不再做新难题，全力强化已掌握知识的熟练度",
+        },
+      ],
     },
   ];
 
-  const defaultEn = [
-    {
-      title: "Foundational Principles & Core Definitions",
-      category: "Fundamentals",
-      weightPercentage: 20,
-      difficulty: "easy" as const,
-      subtopics: ["Core definitions", "Fundamental axioms", "Basic properties"],
-      estimatedHours: 6,
-    },
-    {
-      title: "Key Methodologies & Analytical Frameworks",
-      category: "Methods",
-      weightPercentage: 30,
-      difficulty: "medium" as const,
-      subtopics: ["Formula derivations", "Algorithmic steps", "Constraint analysis"],
-      estimatedHours: 10,
-    },
-    {
-      title: "Intermediate Problem Solving & Case Studies",
-      category: "Practice",
-      weightPercentage: 25,
-      difficulty: "medium" as const,
-      subtopics: ["Past paper questions", "Common edge cases", "Rubric scoring points"],
-      estimatedHours: 8,
-    },
-    {
-      title: "Advanced Theorems, Derivations & Edge Cases",
-      category: "Advanced",
-      weightPercentage: 15,
-      difficulty: "hard" as const,
-      subtopics: ["Cross-topic synthesis", "Edge case proofs", "Performance optimization"],
-      estimatedHours: 6,
-    },
-    {
-      title: "Synthesis, Comprehensive Review & Exam Drills",
-      category: "Exam Prep",
-      weightPercentage: 10,
-      difficulty: "hard" as const,
-      subtopics: ["Timed practice exams", "Weak spot remediation", "High-yield summary"],
-      estimatedHours: 5,
-    },
-  ];
-
-  const baseList = isZh ? defaultZh : defaultEn;
-
-  const topics: SyllabusTopic[] = baseList.map((item, idx) => {
+  const topics: SyllabusTopic[] = defaultZh.map((item, idx) => {
     const customHeading = foundHeadings[idx]?.replace(/^[#*\-•\d\.\s]+/, "").trim();
-    const title = customHeading && customHeading.length > 3 && customHeading.length < 40 ? customHeading : item.title;
+    const title = customHeading && customHeading.length > 3 && customHeading.length < 50
+      ? `第 ${idx + 1} 单元：${customHeading}`
+      : item.unit;
+
+    const subtopicTree = item.subtopics.map((sub, sIdx) => ({
+      id: `sub-${idx + 1}-${sIdx + 1}`,
+      title: `${idx + 1}.${sIdx + 1} ${sub.title}`,
+      keyPoints: sub.keyPoints,
+      difficulty: sub.difficulty,
+      examFrequency: sub.examFrequency,
+      formulaOrTrap: sub.formulaOrTrap,
+    }));
+
+    const subtopics = subtopicTree.map((s) => s.title);
+    const weight = idx === 0 ? 15 : idx === 1 ? 25 : idx === 2 ? 30 : idx === 3 ? 20 : 10;
+
     return {
       id: `topic-${idx + 1}`,
       title,
       category: item.category,
-      description: isZh ? `涵盖${title}的重点考点、推导与题型实战。` : `Covers key theorems and drills for ${title}.`,
-      weightPercentage: item.weightPercentage,
-      difficulty: item.difficulty,
+      description: isZh ? `涵盖「${title}」的大单元考点树，包含 ${subtopicTree.length} 个细分知识点体系与高频题型。` : `Covers key theorems and drills for ${title}.`,
+      weightPercentage: weight,
+      difficulty: item.diff,
       userKnowledgeLevel: "intermediate",
-      subtopics: item.subtopics,
-      estimatedHours: item.estimatedHours,
+      subtopics,
+      subtopicTree,
+      estimatedHours: item.diff === "hard" ? 8 : item.diff === "medium" ? 6 : 4,
     };
   });
 
   return {
     summary: isZh
-      ? `已解析备考资料，提炼出 ${topics.length} 个核心考点模块，涵盖基础理论、核心方法、大题专项与真题模拟。`
-      : `Extracted ${topics.length} core topics covering foundational theory, key methodology, problem-solving drills, and timed exam preparation.`,
+      ? `已解析备考资料，提炼出 ${topics.length} 个大单元考点树，细分出 ${topics.reduce((acc, t) => acc + (t.subtopics?.length || 0), 0)} 个颗粒度考点及核心考查要点。`
+      : `Extracted ${topics.length} core topic units covering foundational theory, key methodology, problem-solving drills, and timed exam preparation.`,
     topics,
   };
 }

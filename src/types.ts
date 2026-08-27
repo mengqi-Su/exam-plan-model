@@ -8,6 +8,16 @@ export interface DaySchedulePreference {
   enabled: boolean;
 }
 
+export interface SyllabusSubtopicNode {
+  id?: string;
+  title: string;
+  name?: string;
+  keyPoints?: string[];
+  difficulty?: 'easy' | 'medium' | 'hard';
+  examFrequency?: 'high' | 'medium' | 'low';
+  formulaOrTrap?: string;
+}
+
 export interface SyllabusTopic {
   id: string;
   title: string;
@@ -17,6 +27,7 @@ export interface SyllabusTopic {
   difficulty: 'easy' | 'medium' | 'hard';
   userKnowledgeLevel?: 'beginner' | 'intermediate' | 'advanced';
   subtopics: string[];
+  subtopicTree?: SyllabusSubtopicNode[];
   estimatedHours: number;
 }
 
@@ -196,3 +207,20 @@ export interface AppVersionInfo {
     highlights: string[];
   }[];
 }
+
+export type DailyMoodType =
+  | 'motivated' // 充满干劲
+  | 'calm'      // 平静专注
+  | 'anxious'   // 略有焦虑
+  | 'inspired'  // 灵感迸发
+  | 'tired'     // 疲惫蓄力
+  | 'breakthrough'; // 突破瓶颈
+
+export interface DailyMemoNote {
+  date: string; // YYYY-MM-DD
+  content: string;
+  mood?: DailyMoodType;
+  tags?: string[];
+  updatedAt: string;
+}
+

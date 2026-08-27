@@ -42,17 +42,6 @@ interface MasterDashboardProps {
   onAddNewSubject: () => void;
 }
 
-const CATEGORY_TAG_CLASS: Record<TaskCategory, string> = {
-  theory: "border border-[#111111] bg-[#FCD33B] text-[#111111] font-bold",
-  summary_cheat_sheet: "border border-[#111111] bg-[#FCD33B] text-[#111111] font-bold",
-  reading: "border border-[#111111] bg-[#D8D8D8] text-[#111111] font-bold",
-  flashcards: "border border-[#111111] bg-[#D8D8D8] text-[#111111] font-bold",
-  active_recall: "border border-[#111111] bg-[#B5B5B5] text-[#111111] font-bold",
-  review_weak_spots: "border border-[#111111] bg-[#B5B5B5] text-[#111111] font-bold",
-  practice_problems: "border border-[#111111] bg-[#282828] text-white font-bold",
-  mock_exam: "border border-[#111111] bg-[#111111] text-white font-bold",
-};
-
 export function MasterDashboard({
   plans,
   activePlan,
@@ -273,8 +262,9 @@ export function MasterDashboard({
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 pt-2">
 
-          <div className="bg-[#fafafa] border border-[#111111] p-4 flex flex-col justify-between space-y-2">
-            <div className="flex items-center justify-between text-xs text-[#666666] font-bold">
+          {/* Card 1: Canary Yellow */}
+          <div className="bg-[#FCD33B] border border-[#111111] p-4 flex flex-col justify-between space-y-2 shadow-xs transition-transform hover:-translate-y-0.5">
+            <div className="flex items-center justify-between text-xs text-[#111111] font-bold">
               <span>[{language === "zh" ? "在考科目" : "COURSES"}]</span>
               <BookOpen className="w-4 h-4 text-[#111111]" />
             </div>
@@ -285,7 +275,8 @@ export function MasterDashboard({
             </div>
           </div>
 
-          <div className="bg-[#fafafa] border border-[#111111] p-4 flex flex-col justify-between space-y-2">
+          {/* Card 2: Concrete Gray */}
+          <div className="bg-[#D8D8D8] border border-[#111111] p-4 flex flex-col justify-between space-y-2 shadow-xs transition-transform hover:-translate-y-0.5">
             <div className="flex items-center justify-between text-xs text-[#111111] font-bold">
               <span>[{language === "zh" ? "最近考试" : "NEAREST EXAM"}]</span>
               <Clock className="w-4 h-4 text-[#111111]" />
@@ -307,7 +298,8 @@ export function MasterDashboard({
             </div>
           </div>
 
-          <div className="bg-[#fafafa] border border-[#111111] p-4 flex flex-col justify-between space-y-2">
+          {/* Card 3: Stone Gray */}
+          <div className="bg-[#B5B5B5] border border-[#111111] p-4 flex flex-col justify-between space-y-2 shadow-xs transition-transform hover:-translate-y-0.5">
             <div className="flex items-center justify-between text-xs text-[#111111] font-bold">
               <span>[{language === "zh" ? "今日待办" : "TODAY"}]</span>
               <CheckSquare className="w-4 h-4 text-[#111111]" />
@@ -319,18 +311,19 @@ export function MasterDashboard({
             </div>
           </div>
 
-          <div className="bg-[#fafafa] border border-[#111111] p-4 flex flex-col justify-between space-y-2">
-            <div className="flex items-center justify-between text-xs text-[#111111] font-bold">
+          {/* Card 4: Dark Slate */}
+          <div className="bg-[#282828] border border-[#111111] p-4 flex flex-col justify-between space-y-2 text-white shadow-xs transition-transform hover:-translate-y-0.5">
+            <div className="flex items-center justify-between text-xs text-[#D8D8D8] font-bold">
               <span>[{language === "zh" ? "总进度" : "PROGRESS"}]</span>
-              <TrendingUp className="w-4 h-4 text-[#111111]" />
+              <TrendingUp className="w-4 h-4 text-white" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-[#111111] tracking-tight">
+              <div className="text-2xl font-bold text-white tracking-tight">
                 {workspaceMetrics.globalProgress}%
               </div>
-              <div className="w-full bg-white border border-[#111111] h-2 overflow-hidden mt-1.5">
+              <div className="w-full bg-black/40 border border-white/30 h-2 overflow-hidden mt-1.5">
                 <div
-                  className="bg-[#111111] h-full transition-all duration-500"
+                  className="bg-[#FCD33B] h-full transition-all duration-500"
                   style={{ width: `${workspaceMetrics.globalProgress}%` }}
                 />
               </div>
@@ -424,7 +417,6 @@ export function MasterDashboard({
           <div className="space-y-2 font-mono">
             {crossSubjectDailyTasks.map(({ task, plan }, index) => {
               const isCompleted = task.status === "completed";
-              const tagClass = CATEGORY_TAG_CLASS[task.category] || "border border-[#111111] bg-white text-[#111111]";
 
               return (
                 <div
@@ -453,10 +445,6 @@ export function MasterDashboard({
 
                         <span className="border border-[#111111] bg-[#111111] text-white px-1.5 py-0.2 text-[10px] font-bold truncate max-w-[140px]">
                           [{plan.examName}]
-                        </span>
-
-                        <span className={`${tagClass} px-1.5 py-0.2 text-[10px] font-bold uppercase`}>
-                          [{t(`cat_${task.category}` as any) || task.category}]
                         </span>
 
                         <span className="text-[10px] text-[#666666] flex items-center space-x-1 font-bold">

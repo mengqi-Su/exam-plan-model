@@ -37,6 +37,7 @@ import { useI18n } from "../lib/i18n";
 import { parseDocumentFile } from "../lib/documentParser";
 import { fallbackExtractSyllabusClient, fallbackGeneratePlanClient } from "../lib/fallbackPlanner";
 import { RulerTimePicker } from "./RulerTimePicker";
+import { HierarchicalTopicTreeView } from "./HierarchicalTopicTreeView";
 
 interface AddExamSubjectWizardProps {
   onPlanCreated: (newPlan: ExamStudyPlan) => void;
@@ -963,8 +964,8 @@ export function AddExamSubjectWizard({
                     <Sparkles className="w-3.5 h-3.5" />
                     <span>
                       [{language === "zh"
-                        ? `AI 联合提炼考点与权重 (${courseDocuments.length} 份文件)`
-                        : `EXTRACT TOPICS WITH AI (${courseDocuments.length} FILES)`}]
+                        ? "AI 联合提炼考点与权重"
+                        : "EXTRACT TOPICS WITH AI"}]
                     </span>
                   </>
                 )}
@@ -976,10 +977,10 @@ export function AddExamSubjectWizard({
             <div className="flex items-center justify-between border-b border-[#111111] pb-2.5">
               <div>
                 <h3 className="text-xs font-bold uppercase text-[#111111]">
-                  [// {language === "zh" ? "结构化考点与分值架构" : "STRUCTURED TOPIC BREAKDOWN"}]
+                  [// {language === "zh" ? "考点知识树架构 (Tree Hierarchy)" : "KNOWLEDGE TREE HIERARCHY"}]
                 </h3>
                 <span className="text-xs text-[#666666]">
-                  {language === "zh" ? `已生成 ${topics.length} 个核心知识模块` : `${topics.length} topics defined`}
+                  {language === "zh" ? `已解析 ${topics.length} 个核心大单元模块` : `${topics.length} units extracted`}
                 </span>
               </div>
 
@@ -988,75 +989,23 @@ export function AddExamSubjectWizard({
                 className="flex items-center space-x-1 px-3 py-1 bg-white hover:bg-[#111111] hover:text-white text-xs font-bold text-[#111111] border border-[#111111] transition-colors cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>[{language === "zh" ? "添加考点" : "ADD TOPIC"}]</span>
+                <span>[{language === "zh" ? "+ 新增大单元" : "+ ADD UNIT"}]</span>
               </button>
             </div>
 
-            {topics.length === 0 ? (
-              <div className="text-center py-8 text-[#666666] text-xs font-bold uppercase">
-                <BookOpen className="w-8 h-8 mx-auto text-[#111111] opacity-40 mb-2" />
-                <p>[{language === "zh" ? "暂无考点，请上传课程文件后点击「AI 联合提炼考点」或手动添加。" : "NO TOPICS YET. UPLOAD COURSE FILES AND EXTRACT TOPICS."}]</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {topics.map((t, idx) => (
-                  <div key={t.id} className="p-3.5 border border-[#111111] bg-[#fafafa] space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2 flex-1 min-w-0 mr-3">
-                        <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold shrink-0">
-                          [{idx + 1}]
-                        </span>
-                        <input
-                          type="text"
-                          value={t.title}
-                          onChange={(e) => handleUpdateTopic(t.id, { title: e.target.value })}
-                          className="font-bold text-xs text-[#111111] bg-transparent border-b border-transparent hover:border-[#111111] focus:border-[#111111] outline-none flex-1 font-mono"
-                        />
-                      </div>
-
-                      <div className="flex items-center space-x-2 shrink-0">
-                        <select
-                          value={t.difficulty}
-                          onChange={(e) => handleUpdateTopic(t.id, { difficulty: e.target.value as any })}
-                          className="text-[11px] font-bold px-2 py-0.5 border border-[#111111] bg-white text-[#111111] outline-none font-mono"
-                        >
-                          <option value="easy">{language === "zh" ? "基础 (Easy)" : "Easy"}</option>
-                          <option value="medium">{language === "zh" ? "中等 (Medium)" : "Medium"}</option>
-                          <option value="hard">{language === "zh" ? "难点 (Hard)" : "Hard"}</option>
-                        </select>
-
-                        <div className="flex items-center space-x-1 text-xs text-[#111111] font-bold">
-                          <input
-                            type="number"
-                            value={t.estimatedHours}
-                            onChange={(e) => handleUpdateTopic(t.id, { estimatedHours: Number(e.target.value) || 1 })}
-                            className="w-12 px-1 py-0.5 text-center text-xs bg-white border border-[#111111] font-bold"
-                          />
-                          <span>{language === "zh" ? "学时" : "hrs"}</span>
-                        </div>
-
-                        <button
-                          onClick={() => handleDeleteTopic(t.id)}
-                          className="p-1 text-[#111111] hover:bg-[#111111] hover:text-white transition-colors cursor-pointer border border-[#111111] bg-white"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="text-[11px] text-[#666666]">
-                      <input
-                        type="text"
-                        value={t.description || ""}
-                        onChange={(e) => handleUpdateTopic(t.id, { description: e.target.value })}
-                        placeholder={language === "zh" ? "考点概述与学习目标..." : "Topic summary..."}
-                        className="w-full bg-transparent border-b border-transparent hover:border-[#111111] focus:border-[#111111] outline-none text-xs text-[#111111] font-mono"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <HierarchicalTopicTreeView
+              topics={topics}
+              language={language}
+              editable={true}
+              onUpdateTopic={(index, updated) => {
+                const updatedTopics = [...topics];
+                updatedTopics[index] = { ...updatedTopics[index], ...updated };
+                setTopics(updatedTopics);
+              }}
+              onDeleteTopic={(topicId) => handleDeleteTopic(topicId)}
+              onReExtract={handleExtractSyllabus}
+              isExtracting={isExtracting}
+            />
           </div>
 
           <div className="flex items-center justify-between pt-2">

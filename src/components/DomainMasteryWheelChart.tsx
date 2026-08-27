@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
-import { SyllabusTopic, StudyTask } from "../types";
-import { Layers, PieChart, Table, Sparkles, CheckCircle2, AlertCircle, HelpCircle } from "lucide-react";
+import { SyllabusTopic } from "../types";
+import { PieChart, CheckCircle2, Award, Zap, BookOpen, Clock, Target } from "lucide-react";
 import { getPaletteByIndex } from "../lib/themePalettes";
 
 export interface TopicMasteryItem extends SyllabusTopic {
@@ -23,7 +23,7 @@ export function DomainMasteryWheelChart({
 }: DomainMasteryWheelChartProps) {
   const [activeMetric, setActiveMetric] = useState<"progress" | "weight" | "tasks" | "score">("progress");
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(0);
+  const [selectedIdx, setSelectedIdx] = useState<number>(0);
 
   const displayItems = useMemo(() => {
     if (!topics || topics.length === 0) {
@@ -34,7 +34,7 @@ export function DomainMasteryWheelChart({
           category: "基础",
           weightPercentage: 25,
           difficulty: "easy" as const,
-          subtopics: [],
+          subtopics: ["概念定义", "基础定理", "公式推导"],
           totalTasks: 4,
           completedTasks: 3,
           progressPercent: 75,
@@ -46,7 +46,7 @@ export function DomainMasteryWheelChart({
           category: "进阶",
           weightPercentage: 35,
           difficulty: "hard" as const,
-          subtopics: [],
+          subtopics: ["高频题型", "易错归纳", "解题套路"],
           totalTasks: 6,
           completedTasks: 4,
           progressPercent: 67,
@@ -58,7 +58,7 @@ export function DomainMasteryWheelChart({
           category: "冲刺",
           weightPercentage: 25,
           difficulty: "hard" as const,
-          subtopics: [],
+          subtopics: ["大题演练", "真题变式", "时间控制"],
           totalTasks: 5,
           completedTasks: 2,
           progressPercent: 40,
@@ -66,11 +66,11 @@ export function DomainMasteryWheelChart({
         },
         {
           id: "def-4",
-          title: language === "zh" ? "错题总结" : "Review Weakspots",
+          title: language === "zh" ? "错题重温" : "Review Weakspots",
           category: "巩固",
           weightPercentage: 15,
           difficulty: "medium" as const,
-          subtopics: [],
+          subtopics: ["双黑调整", "负权回路", "剪枝边界"],
           totalTasks: 3,
           completedTasks: 1,
           progressPercent: 33,
@@ -81,52 +81,57 @@ export function DomainMasteryWheelChart({
     return topics;
   }, [topics, language]);
 
-  const numSectors = Math.max(displayItems.length, 4);
-  const totalSectors = numSectors <= 8 ? numSectors : 8;
-  const itemsToRender = displayItems.slice(0, totalSectors);
+  const totalSectors = displayItems.length;
+  const itemsToRender = displayItems;
 
-  const size = 360;
+  const size = 380;
   const center = size / 2;
-  const outerRadius = 160;
-  const innerRadius = 38;
+  const outerRadius = 164;
+  const innerRadius = 52;
   const sectorAngle = (2 * Math.PI) / totalSectors;
-  const gapAngle = (4 * Math.PI) / 180;
+  // Precise gap in radians between sectors for crisp radial dividers
+  const gapAngle = totalSectors > 1 ? Math.min(0.045, (sectorAngle * 0.12)) : 0;
 
-  const getPetalPath = (idx: number, fillFactor: number = 1.0) => {
+  // Mathematically perfect circular arc sector path generator
+  const getCircularSectorPath = (
+    idx: number,
+    fillFactor: number = 1.0,
+    baseInnerR: number = innerRadius
+  ) => {
+    const midAngle = -Math.PI / 2 + (idx + 0.5) * sectorAngle;
+    const halfSector = sectorAngle / 2;
+    const effGap = totalSectors > 1 ? gapAngle : 0;
+    const startAngle = midAngle - halfSector + effGap / 2;
+    const endAngle = midAngle + halfSector - effGap / 2;
 
-    const midAngle = -Math.PI / 2 + idx * sectorAngle;
-    const startAngle = midAngle - sectorAngle / 2 + gapAngle / 2;
-    const endAngle = midAngle + sectorAngle / 2 - gapAngle / 2;
+    const currentOuterR = baseInnerR + (outerRadius - baseInnerR) * Math.max(0.2, Math.min(1.0, fillFactor));
 
-    const currentOuterRadius = innerRadius + (outerRadius - innerRadius) * Math.max(0.4, Math.min(1.0, fillFactor));
+    const x1 = center + baseInnerR * Math.cos(startAngle);
+    const y1 = center + baseInnerR * Math.sin(startAngle);
 
-    const x1 = center + innerRadius * Math.cos(startAngle);
-    const y1 = center + innerRadius * Math.sin(startAngle);
+    const x2 = center + currentOuterR * Math.cos(startAngle);
+    const y2 = center + currentOuterR * Math.sin(startAngle);
 
-    const x2 = center + currentOuterRadius * Math.cos(startAngle);
-    const y2 = center + currentOuterRadius * Math.sin(startAngle);
+    const x3 = center + currentOuterR * Math.cos(endAngle);
+    const y3 = center + currentOuterR * Math.sin(endAngle);
 
-    const x3 = center + currentOuterRadius * Math.cos(endAngle);
-    const y3 = center + currentOuterRadius * Math.sin(endAngle);
+    const x4 = center + baseInnerR * Math.cos(endAngle);
+    const y4 = center + baseInnerR * Math.sin(endAngle);
 
-    const x4 = center + innerRadius * Math.cos(endAngle);
-    const y4 = center + innerRadius * Math.sin(endAngle);
-
-    const xMidOuter = center + (currentOuterRadius + 6) * Math.cos(midAngle);
-    const yMidOuter = center + (currentOuterRadius + 6) * Math.sin(midAngle);
+    const largeArc = endAngle - startAngle > Math.PI ? 1 : 0;
 
     return `
       M ${x1} ${y1}
       L ${x2} ${y2}
-      Q ${xMidOuter} ${yMidOuter} ${x3} ${y3}
+      A ${currentOuterR} ${currentOuterR} 0 ${largeArc} 1 ${x3} ${y3}
       L ${x4} ${y4}
-      A ${innerRadius} ${innerRadius} 0 0 0 ${x1} ${y1}
+      A ${baseInnerR} ${baseInnerR} 0 ${largeArc} 0 ${x1} ${y1}
       Z
     `;
   };
 
-  const getTextCenter = (idx: number, radiusRatio: number = 0.68) => {
-    const midAngle = -Math.PI / 2 + idx * sectorAngle;
+  const getTextCenter = (idx: number, radiusRatio: number = 0.65) => {
+    const midAngle = -Math.PI / 2 + (idx + 0.5) * sectorAngle;
     const r = innerRadius + (outerRadius - innerRadius) * radiusRatio;
     return {
       x: center + r * Math.cos(midAngle),
@@ -135,20 +140,25 @@ export function DomainMasteryWheelChart({
     };
   };
 
-  const activeItem = selectedIdx !== null && itemsToRender[selectedIdx]
-    ? itemsToRender[selectedIdx]
-    : itemsToRender[0];
+  // Overall average stats
+  const overallAvgProgress = useMemo(() => {
+    if (itemsToRender.length === 0) return 0;
+    const sum = itemsToRender.reduce((acc, it) => acc + (it.progressPercent || 0), 0);
+    return Math.round(sum / itemsToRender.length);
+  }, [itemsToRender]);
+
+  const activeItem = itemsToRender[selectedIdx] || itemsToRender[0];
 
   return (
     <div className="flex flex-col lg:flex-row items-center justify-between gap-8 p-6 bg-white border border-[#111111] font-mono">
-
+      {/* Left: Circular Dial / Wheel View */}
       <div className="flex flex-col items-center justify-center space-y-4">
-
+        {/* Metric Selector Pills */}
         <div className="flex items-center space-x-1.5 p-1 bg-[#faf9f6] border border-[#111111] text-[10px] font-bold">
-          <span className="text-[#888888] px-1.5">{language === "zh" ? "罗盘指标:" : "METRIC:"}</span>
+          <span className="text-[#888888] px-1.5">{language === "zh" ? "圆盘指标:" : "METRIC:"}</span>
           <button
             onClick={() => setActiveMetric("progress")}
-            className={`px-2 py-0.5 transition-colors cursor-pointer ${
+            className={`px-2.5 py-1 transition-colors cursor-pointer ${
               activeMetric === "progress"
                 ? "bg-[#111111] text-white"
                 : "text-[#111111] hover:bg-[#e4e1d8]"
@@ -158,7 +168,7 @@ export function DomainMasteryWheelChart({
           </button>
           <button
             onClick={() => setActiveMetric("weight")}
-            className={`px-2 py-0.5 transition-colors cursor-pointer ${
+            className={`px-2.5 py-1 transition-colors cursor-pointer ${
               activeMetric === "weight"
                 ? "bg-[#111111] text-white"
                 : "text-[#111111] hover:bg-[#e4e1d8]"
@@ -168,7 +178,7 @@ export function DomainMasteryWheelChart({
           </button>
           <button
             onClick={() => setActiveMetric("tasks")}
-            className={`px-2 py-0.5 transition-colors cursor-pointer ${
+            className={`px-2.5 py-1 transition-colors cursor-pointer ${
               activeMetric === "tasks"
                 ? "bg-[#111111] text-white"
                 : "text-[#111111] hover:bg-[#e4e1d8]"
@@ -176,14 +186,80 @@ export function DomainMasteryWheelChart({
           >
             {language === "zh" ? "任务单元数" : "Tasks"}
           </button>
+          <button
+            onClick={() => setActiveMetric("score")}
+            className={`px-2.5 py-1 transition-colors cursor-pointer ${
+              activeMetric === "score"
+                ? "bg-[#111111] text-white"
+                : "text-[#111111] hover:bg-[#e4e1d8]"
+            }`}
+          >
+            {language === "zh" ? "自评得分" : "Rating"}
+          </button>
         </div>
 
-        <div className="relative w-[320px] h-[320px] sm:w-[360px] sm:h-[360px] select-none">
+        {/* SVG Circular Dial Container */}
+        <div className="relative w-[320px] h-[320px] sm:w-[370px] sm:h-[370px] select-none flex items-center justify-center">
           <svg
             viewBox={`0 0 ${size} ${size}`}
             className="w-full h-full drop-shadow-sm overflow-visible"
           >
+            {/* Outer Precision Circular Rim & Tick Guides */}
+            <circle
+              cx={center}
+              cy={center}
+              r={outerRadius + 8}
+              fill="none"
+              stroke="#e5e5e5"
+              strokeWidth="1"
+              strokeDasharray="2 3"
+            />
+            <circle
+              cx={center}
+              cy={center}
+              r={outerRadius + 3}
+              fill="none"
+              stroke="#111111"
+              strokeWidth="1"
+            />
 
+            {/* Concentric Guide Grid Rings */}
+            {[0.25, 0.5, 0.75, 1.0].map((ratio) => {
+              const r = innerRadius + (outerRadius - innerRadius) * ratio;
+              return (
+                <circle
+                  key={ratio}
+                  cx={center}
+                  cy={center}
+                  r={r}
+                  fill="none"
+                  stroke="#e0dfd5"
+                  strokeWidth="0.75"
+                  strokeDasharray="2 2"
+                />
+              );
+            })}
+
+            {/* Calibration tick marks on outer rim */}
+            {Array.from({ length: 36 }).map((_, tickIdx) => {
+              const angle = (tickIdx * 10 * Math.PI) / 180;
+              const isMajor = tickIdx % 9 === 0;
+              const r1 = outerRadius + 3;
+              const r2 = outerRadius + (isMajor ? 7 : 5);
+              return (
+                <line
+                  key={tickIdx}
+                  x1={center + r1 * Math.cos(angle)}
+                  y1={center + r1 * Math.sin(angle)}
+                  x2={center + r2 * Math.cos(angle)}
+                  y2={center + r2 * Math.sin(angle)}
+                  stroke="#111111"
+                  strokeWidth={isMajor ? "1.5" : "0.75"}
+                />
+              );
+            })}
+
+            {/* Sectors */}
             {itemsToRender.map((item, idx) => {
               const isHovered = hoveredIdx === idx;
               const isSelected = selectedIdx === idx;
@@ -194,23 +270,25 @@ export function DomainMasteryWheelChart({
 
               if (activeMetric === "progress") {
                 valDisplay = `${item.progressPercent}%`;
-                fillRatio = Math.max(0.45, item.progressPercent / 100);
+                fillRatio = item.progressPercent / 100;
               } else if (activeMetric === "weight") {
                 valDisplay = `${item.weightPercentage}%`;
-                fillRatio = Math.max(0.45, item.weightPercentage / 50);
+                fillRatio = item.weightPercentage / 50;
               } else if (activeMetric === "tasks") {
                 valDisplay = `${item.completedTasks}/${item.totalTasks}`;
-                fillRatio = Math.max(0.45, item.totalTasks > 0 ? item.completedTasks / item.totalTasks : 0.5);
+                fillRatio = item.totalTasks > 0 ? item.completedTasks / item.totalTasks : 0.5;
               } else {
                 valDisplay = item.avgRating ? `${item.avgRating.toFixed(1)}` : "3.5";
-                fillRatio = Math.max(0.45, (item.avgRating || 3) / 5);
+                fillRatio = (item.avgRating || 3.5) / 5;
               }
 
-              const { x: textX, y: textY } = getTextCenter(idx, 0.65);
+              // Clamp fillRatio between 0.15 and 1.0 for visual balance
+              const clampedRatio = Math.max(0.18, Math.min(1.0, fillRatio));
+              const { x: textX, y: textY } = getTextCenter(idx, 0.64);
 
               return (
                 <g
-                  key={item.id || `petal-${idx}`}
+                  key={item.id || `sector-${idx}`}
                   onClick={() => {
                     setSelectedIdx(idx);
                     if (onSelectTopic) onSelectTopic(item);
@@ -218,109 +296,129 @@ export function DomainMasteryWheelChart({
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
                   className="cursor-pointer transition-all duration-200"
-                  style={{
-                    transformOrigin: `${center}px ${center}px`,
-                    transform: isSelected || isHovered ? "scale(1.03)" : "scale(1.0)",
-                  }}
                 >
-
+                  {/* Background Full Sector Track */}
                   <path
-                    d={getPetalPath(idx, 1.0)}
-                    fill={isSelected ? "#111111" : palette.accentColor}
+                    d={getCircularSectorPath(idx, 1.0)}
+                    fill={isSelected ? "#f5f5f0" : isHovered ? "#faf9f6" : "#ffffff"}
                     stroke="#111111"
-                    strokeWidth={isSelected ? "2.5" : "1.5"}
+                    strokeWidth={isSelected ? "2" : "1"}
                     className="transition-colors duration-150"
                   />
 
+                  {/* Active Value Arc Fill */}
                   <path
-                    d={getPetalPath(idx, isSelected ? 0.94 : 0.90)}
-                    fill={isSelected ? "#ffffff" : isHovered ? "#ffffff" : "#faf9f6"}
-                    fillOpacity="1"
+                    d={getCircularSectorPath(idx, clampedRatio)}
+                    fill={isSelected ? "#111111" : palette.accentColor}
+                    fillOpacity={isSelected ? 1 : 0.85}
                     stroke="#111111"
-                    strokeWidth="1.2"
-                    className="transition-all duration-300"
+                    strokeWidth={isSelected ? "2" : "1"}
+                    className="transition-all duration-200"
                   />
 
+                  {/* Sector Metric Value Text */}
                   <text
                     x={textX}
-                    y={textY - 4}
+                    y={textY - 3}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fill="#111111"
-                    className="font-bold font-mono text-[13px] sm:text-[14px]"
+                    fill={isSelected ? (clampedRatio > 0.45 ? "#ffffff" : "#111111") : "#111111"}
+                    className="font-bold font-mono text-[12px] sm:text-[13px] pointer-events-none select-none"
                   >
                     {valDisplay}
                   </text>
 
+                  {/* Sector Short Title Text */}
                   <text
                     x={textX}
-                    y={textY + 12}
+                    y={textY + 11}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fill="#333333"
-                    className="font-mono font-bold text-[9px] sm:text-[10px]"
+                    fill={isSelected ? (clampedRatio > 0.45 ? "#ffffff" : "#333333") : "#444444"}
+                    className="font-mono font-bold text-[9px] sm:text-[10px] pointer-events-none select-none"
                   >
-                    {item.title.length > 6 ? `${item.title.slice(0, 5)}..` : item.title}
+                    {item.title.length > 5 ? `${item.title.slice(0, 4)}..` : item.title}
                   </text>
                 </g>
               );
             })}
 
+            {/* Central Precision Hub Dial */}
             <circle
               cx={center}
               cy={center}
-              r={innerRadius - 4}
+              r={innerRadius - 2}
               fill="#ffffff"
               stroke="#111111"
               strokeWidth="2"
             />
+            <circle
+              cx={center}
+              cy={center}
+              r={innerRadius - 6}
+              fill="#faf9f6"
+              stroke="#e0dfd5"
+              strokeWidth="1"
+            />
 
+            {/* Center Dial Information */}
             <text
               x={center}
-              y={center - 3}
+              y={center - 11}
               textAnchor="middle"
               dominantBaseline="middle"
-              className="text-[9px] font-bold fill-[#111111] uppercase font-mono"
+              className="text-[8px] font-bold fill-[#888888] uppercase tracking-wider font-mono"
             >
-              DOMAIN
+              {language === "zh" ? "平均掌握度" : "AVG MASTERY"}
             </text>
             <text
               x={center}
-              y={center + 8}
+              y={center + 3}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="text-[16px] font-bold fill-[#111111] font-mono tracking-tight"
+            >
+              {overallAvgProgress}%
+            </text>
+            <text
+              x={center}
+              y={center + 17}
               textAnchor="middle"
               dominantBaseline="middle"
               className="text-[8px] font-bold fill-[#666666] font-mono"
             >
-              {itemsToRender.length} SECTORS
+              {totalSectors} {language === "zh" ? "考点扇区" : "SECTORS"}
             </text>
           </svg>
         </div>
 
-        <span className="text-[10px] text-[#888888] text-center max-w-xs">
+        {/* Caption Hint */}
+        <span className="text-[11px] text-[#666666] text-center max-w-xs">
           {language === "zh"
-            ? "✦ 点击或悬停花瓣扇区，查看对应考点的深度掌握详情与关联任务"
-            : "✦ Click or hover any petal sector to inspect topic mastery and subtopics"}
+            ? "✦ 点击圆盘各考点扇区，右侧实时联动深度掌握明细"
+            : "✦ Click circular sectors to inspect domain deconstruction and subtopics"}
         </span>
       </div>
 
+      {/* Right: Topic Deconstruction Card */}
       <div className="flex-1 w-full max-w-md bg-[#faf9f6] border border-[#111111] p-5 space-y-4 font-mono">
         <div className="flex items-center justify-between border-b border-[#111111] pb-3">
           <div className="flex items-center space-x-2">
             <div
-              className="w-3 h-3 border border-[#111111]"
-              style={{ backgroundColor: getPaletteByIndex(selectedIdx ?? 0).accentColor }}
+              className="w-3.5 h-3.5 border border-[#111111]"
+              style={{ backgroundColor: getPaletteByIndex(selectedIdx).accentColor }}
             />
             <span className="text-xs font-bold uppercase text-[#111111]">
               [{language === "zh" ? "考点深度解构" : "TOPIC DECONSTRUCTION"}]
             </span>
           </div>
           <span
-            className={`text-[10px] px-2 py-0.5 border border-[#111111] font-bold ${getPaletteByIndex(selectedIdx ?? 0).textPrimary}`}
+            className={`text-[10px] px-2 py-0.5 border border-[#111111] font-bold ${getPaletteByIndex(selectedIdx).textPrimary}`}
             style={{
-              backgroundColor: getPaletteByIndex(selectedIdx ?? 0).accentColor,
+              backgroundColor: getPaletteByIndex(selectedIdx).accentColor,
             }}
           >
-            {activeItem.category || (language === "zh" ? "重点考点" : "CORE")}
+            {activeItem.category || (language === "zh" ? "重点考点" : "CORE DOMAIN")}
           </span>
         </div>
 
@@ -343,17 +441,17 @@ export function DomainMasteryWheelChart({
 
         <div className="space-y-1.5 pt-1">
           <div className="flex items-center justify-between text-xs font-bold">
-            <span className="text-[#666666]">{language === "zh" ? "复习完成度" : "Completion Progress"}</span>
+            <span className="text-[#666666]">{language === "zh" ? "复习完成进度" : "Completion Progress"}</span>
             <span className="text-[#111111]">
               {activeItem.progressPercent}% ({activeItem.completedTasks}/{activeItem.totalTasks} {language === "zh" ? "单元" : "tasks"})
             </span>
           </div>
-          <div className="w-full bg-white border border-[#111111] h-2.5 overflow-hidden">
+          <div className="w-full bg-white border border-[#111111] h-3 overflow-hidden">
             <div
               className="h-full transition-all duration-300 border-r border-[#111111]"
               style={{
                 width: `${activeItem.progressPercent}%`,
-                backgroundColor: getPaletteByIndex(selectedIdx ?? 0).accentColor,
+                backgroundColor: getPaletteByIndex(selectedIdx).accentColor,
               }}
             />
           </div>
@@ -364,7 +462,7 @@ export function DomainMasteryWheelChart({
             <span className="text-[11px] font-bold text-[#666666] uppercase block">
               {language === "zh" ? "核心子考点 / 概念清单" : "SUBTOPICS & CONCEPTS"}:
             </span>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
               {activeItem.subtopics.map((sub, sIdx) => (
                 <div
                   key={sIdx}

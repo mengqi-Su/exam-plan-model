@@ -19,6 +19,7 @@ import { SyllabusTopic, StudyMaterial } from "../types";
 import { SAMPLE_MATERIALS } from "../lib/storage";
 import { useI18n } from "../lib/i18n";
 import { parseDocumentFile } from "../lib/documentParser";
+import { HierarchicalTopicTreeView } from "./HierarchicalTopicTreeView";
 
 interface CourseSyllabusManagerProps {
   examName: string;
@@ -397,11 +398,11 @@ export function CourseSyllabusManager({
             <div>
               <div className="flex items-center space-x-1.5 text-xs font-bold text-[#111111]">
                 <span>
-                  [{topics.length} {language === "zh" ? "个课程重点知识领域已结构化" : "DOMAINS STRUCTURED"}]
+                  [{topics.length} {language === "zh" ? "个课程重点知识大单元已解析" : "DOMAINS STRUCTURED"}]
                 </span>
               </div>
               <h3 className="text-xs font-bold uppercase text-[#111111] mt-0.5">
-                {language === "zh" ? "课程知识点大纲与学时规划表" : "Curriculum Domains & Study Allocation"}
+                {language === "zh" ? "课程考点知识树架构与学时规划" : "Curriculum Knowledge Tree & Study Allocation"}
               </h3>
             </div>
 
@@ -425,94 +426,18 @@ export function CourseSyllabusManager({
             </div>
           </div>
 
-          <div className="border border-[#111111] overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse font-mono">
-              <thead>
-                <tr className="bg-[#fafafa] border-b border-[#111111] text-[#111111] font-bold uppercase">
-                  <th className="py-2.5 px-3">{t("tableTopicTitle")}</th>
-                  <th className="py-2.5 px-3 w-28">{t("tableWeight")}</th>
-                  <th className="py-2.5 px-3 w-28">{t("tableDifficulty")}</th>
-                  <th className="py-2.5 px-3 w-24">{t("tableEstHours")}</th>
-                  <th className="py-2.5 px-3 w-16 text-center">{t("tableAction")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#111111]">
-                {topics.map((topic, idx) => (
-                  <tr key={topic.id || idx} className="hover:bg-[#fafafa] transition-colors">
-                    <td className="py-2.5 px-3">
-                      <input
-                        type="text"
-                        value={topic.title}
-                        onChange={(e) => handleUpdateTopic(idx, { title: e.target.value })}
-                        className="font-bold text-xs text-[#111111] bg-transparent border-b border-transparent hover:border-[#111111] focus:border-[#111111] focus:outline-none w-full"
-                      />
-                      {topic.subtopics && topic.subtopics.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {topic.subtopics.map((sub, sIdx) => (
-                            <span
-                              key={sIdx}
-                              className="border border-[#111111] px-1 py-0.2 text-[9px] font-bold text-[#111111] bg-white"
-                            >
-                              {sub}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-
-                    <td className="py-2 px-3">
-                      <div className="flex items-center space-x-1">
-                        <input
-                          type="number"
-                          min={1}
-                          max={100}
-                          value={topic.weightPercentage || 20}
-                          onChange={(e) => handleUpdateTopic(idx, { weightPercentage: Number(e.target.value) })}
-                          className="w-12 bg-white border border-[#111111] px-1.5 py-0.5 text-xs text-[#111111] font-bold"
-                        />
-                        <span className="text-[#111111] font-bold">%</span>
-                      </div>
-                    </td>
-
-                    <td className="py-2 px-3">
-                      <select
-                        value={topic.difficulty}
-                        onChange={(e) => handleUpdateTopic(idx, { difficulty: e.target.value as any })}
-                        className="w-full bg-white border border-[#111111] px-1.5 py-0.5 text-xs text-[#111111] font-bold"
-                      >
-                        <option value="easy">{language === "zh" ? "简单" : "Easy"}</option>
-                        <option value="medium">{language === "zh" ? "中等" : "Medium"}</option>
-                        <option value="hard">{language === "zh" ? "高难" : "Hard"}</option>
-                      </select>
-                    </td>
-
-                    <td className="py-2 px-3">
-                      <div className="flex items-center space-x-1">
-                        <input
-                          type="number"
-                          min={1}
-                          max={100}
-                          value={topic.estimatedHours || 4}
-                          onChange={(e) => handleUpdateTopic(idx, { estimatedHours: Number(e.target.value) })}
-                          className="w-12 bg-white border border-[#111111] px-1.5 py-0.5 text-xs text-[#111111] font-bold"
-                        />
-                        <span className="text-[#111111] font-bold">{language === "zh" ? "小时" : "h"}</span>
-                      </div>
-                    </td>
-
-                    <td className="py-2 px-3 text-center">
-                      <button
-                        onClick={() => handleDeleteTopic(idx)}
-                        className="text-[#111111] hover:bg-[#111111] hover:text-white p-1 transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <HierarchicalTopicTreeView
+            topics={topics}
+            language={language}
+            editable={true}
+            onUpdateTopic={(index, updated) => handleUpdateTopic(index, updated)}
+            onDeleteTopic={(topicId) => {
+              const idx = topics.findIndex((t) => t.id === topicId);
+              if (idx !== -1) handleDeleteTopic(idx);
+            }}
+            onReExtract={handleExtractSyllabus}
+            isExtracting={isExtracting}
+          />
         </div>
       )}
     </div>

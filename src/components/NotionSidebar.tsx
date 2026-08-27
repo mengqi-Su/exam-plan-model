@@ -170,6 +170,7 @@ export function NotionSidebar({
                   ? "bg-white border-[#111111] font-semibold text-[#111111] shadow-xs"
                   : "border-transparent hover:border-[#dedad1] hover:bg-[#e4e1d8] text-[#333333]"
               }`}
+              style={isActivePlan ? { borderLeftWidth: "4px", borderLeftColor: palette.accentColor } : {}}
             >
               <button
                 onClick={() => {

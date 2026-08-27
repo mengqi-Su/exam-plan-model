@@ -32,6 +32,7 @@ import { TaskFocusTimerModal } from "./TaskFocusTimerModal";
 import { QuizModal } from "./QuizModal";
 import { RagKnowledgeModal } from "./RagKnowledgeModal";
 import { useI18n } from "../lib/i18n";
+import { getPaletteByString } from "../lib/themePalettes";
 
 interface DailyTodoListProps {
   plan: ExamStudyPlan;
@@ -259,6 +260,10 @@ export function DailyTodoList({
         <div className="flex flex-wrap items-center gap-2">
 
           <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-white border border-[#111111] text-xs font-mono text-[#111111]">
+            <span
+              className="w-2.5 h-2.5 border border-[#111111] shrink-0"
+              style={{ backgroundColor: getPaletteByString(plan.id || plan.examName).accentColor }}
+            />
             <span className="font-bold">
               {completedCount}/{dayTasks.length} {language === "zh" ? "已完成" : "DONE"} ({completionPercent}%)
             </span>
@@ -413,15 +418,15 @@ export function DailyTodoList({
 
                       <td className="py-2.5 px-3">
                         {task.priority === "high" ? (
-                          <span className="border border-[#111111] bg-[#111111] text-white px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                          <span className="border border-[#111111] bg-[#FCD33B] text-[#111111] px-1.5 py-0.5 text-[10px] font-bold uppercase">
                             [{language === "zh" ? "高优" : "HIGH"}]
                           </span>
                         ) : task.priority === "low" ? (
-                          <span className="border border-[#e5e5e5] text-[#888888] px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                          <span className="border border-[#111111] bg-[#B5B5B5] text-[#111111] px-1.5 py-0.5 text-[10px] font-bold uppercase">
                             [{language === "zh" ? "低优" : "LOW"}]
                           </span>
                         ) : (
-                          <span className="border border-[#111111] text-[#111111] bg-white px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                          <span className="border border-[#111111] text-[#111111] bg-[#D8D8D8] px-1.5 py-0.5 text-[10px] font-bold uppercase">
                             [{language === "zh" ? "中优" : "MED"}]
                           </span>
                         )}
@@ -655,8 +660,18 @@ export function DailyTodoList({
                       </span>
                       <span className="text-[11px] text-[#666666] font-mono">• {task.topicTitle}</span>
                       {task.priority === "high" && (
-                        <span className="border border-[#111111] bg-[#111111] text-white px-1.5 py-0.2 text-[10px] font-bold">
+                        <span className="border border-[#111111] bg-[#FCD33B] text-[#111111] px-1.5 py-0.2 text-[10px] font-bold">
                           [{language === "zh" ? "高优" : "HIGH"}]
+                        </span>
+                      )}
+                      {task.priority === "medium" && (
+                        <span className="border border-[#111111] bg-[#D8D8D8] text-[#111111] px-1.5 py-0.2 text-[10px] font-bold">
+                          [{language === "zh" ? "中优" : "MED"}]
+                        </span>
+                      )}
+                      {task.priority === "low" && (
+                        <span className="border border-[#111111] bg-[#B5B5B5] text-[#111111] px-1.5 py-0.2 text-[10px] font-bold">
+                          [{language === "zh" ? "低优" : "LOW"}]
                         </span>
                       )}
                     </div>

@@ -219,23 +219,14 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
             </button>
           </div>
 
-          {onLoadSamples && (
-            <button
-              onClick={onLoadSamples}
-              className="flex items-center space-x-1 px-2 py-1 bg-white border border-[#111111] hover:bg-[#ededed] text-[#111111] text-[11px] font-bold transition-colors cursor-pointer shadow-xs"
-              title={language === "zh" ? "加载预设精选示例资料" : "Load sample documents"}
-            >
-              <span>[{language === "zh" ? "示例" : "SAMPLES"}]</span>
-            </button>
-          )}
-
           {onOpenPaste && (
             <button
               onClick={onOpenPaste}
               className="flex items-center space-x-1 px-2.5 py-1 bg-white border border-[#111111] hover:bg-[#ededed] text-[#111111] text-[11px] font-bold transition-colors cursor-pointer shadow-xs"
+              title={language === "zh" ? "弹窗录入笔记文本" : "Add note / text dialog"}
             >
               <Plus className="w-3 h-3" />
-              <span>[{language === "zh" ? "笔记" : "PASTE"}]</span>
+              <span>[{language === "zh" ? "笔记" : "NOTE"}]</span>
             </button>
           )}
 
@@ -243,6 +234,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
             <button
               onClick={onOpenUpload}
               className="flex items-center space-x-1 px-2.5 py-1 bg-[#111111] hover:bg-[#2b2b2b] text-white border border-[#111111] text-[11px] font-bold transition-colors cursor-pointer shadow-xs"
+              title={language === "zh" ? "弹窗上传文档资料" : "Upload document dialog"}
             >
               <Plus className="w-3 h-3" />
               <span>[{language === "zh" ? "上传" : "UPLOAD"}]</span>
@@ -273,7 +265,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                 : "bg-white text-[#111111] hover:bg-[#f0f0f0]"
             }`}
           >
-            {language === "zh" ? "全部" : "ALL"} ({materials.length})
+            {language === "zh" ? "全部" : "ALL"}
           </button>
           <button
             onClick={() => setFilterType("syllabus")}
@@ -332,11 +324,31 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
 
       {/* 3. Empty State */}
       {filteredMaterials.length === 0 && (
-        <div className="p-6 text-center border border-dashed border-[#111111] bg-white space-y-2">
+        <div className="p-8 text-center border border-dashed border-[#111111] bg-white space-y-3">
           <BookOpen className="w-6 h-6 mx-auto text-[#888888]" />
           <p className="text-xs font-bold text-[#111111] uppercase">
             [{language === "zh" ? "暂无匹配的归档资料" : "NO ARCHIVED DOCUMENTS"}]
           </p>
+          <div className="flex items-center justify-center space-x-2 pt-1">
+            {onOpenPaste && (
+              <button
+                onClick={onOpenPaste}
+                className="flex items-center space-x-1 px-3 py-1.5 bg-white hover:bg-[#ededed] text-[#111111] border border-[#111111] text-xs font-bold transition-colors cursor-pointer shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>[{language === "zh" ? "录入笔记" : "ADD NOTE"}]</span>
+              </button>
+            )}
+            {onOpenUpload && (
+              <button
+                onClick={onOpenUpload}
+                className="flex items-center space-x-1 px-3 py-1.5 bg-[#111111] hover:bg-[#2b2b2b] text-white border border-[#111111] text-xs font-bold transition-colors cursor-pointer shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>[{language === "zh" ? "上传文件" : "UPLOAD FILE"}]</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
 
