@@ -101,14 +101,17 @@ export function downloadICSFile(plan: ExamStudyPlan, selectedTasks?: StudyTask[]
   URL.revokeObjectURL(url);
 }
 
-export function generateGoogleCalendarUrl(task: StudyTask, plan: ExamStudyPlan): string {
+export function generateGoogleCalendarUrl(task: StudyTask, plan?: ExamStudyPlan | null): string {
   const startTime = task.startTime || "09:00";
   const dtStart = formatDateToICS(task.date, startTime);
   const dtEnd = getEndTime(task.date, startTime, task.durationMinutes);
 
+  const examName = plan?.examName || "Study Session";
+  const subject = plan?.subject || "Academics";
+
   const text = encodeURIComponent(`[Study] ${task.title}`);
   const details = encodeURIComponent(
-    `Exam: ${plan.examName} (${plan.subject})\nTopic: ${task.topicTitle}\nDuration: ${task.durationMinutes} mins\n\nObjectives:\n${(task.keyObjectives || []).map(o => `• ${o}`).join('\n')}\n\nDescription:\n${task.description}`
+    `Exam: ${examName} (${subject})\nTopic: ${task.topicTitle}\nDuration: ${task.durationMinutes} mins\n\nObjectives:\n${(task.keyObjectives || []).map(o => `• ${o}`).join('\n')}\n\nDescription:\n${task.description}`
   );
 
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${dtStart}/${dtEnd}&details=${details}&location=Online%20Study`;

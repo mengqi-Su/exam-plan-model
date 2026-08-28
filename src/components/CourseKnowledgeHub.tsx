@@ -43,6 +43,7 @@ import { QuizModal } from "./QuizModal";
 import { TabbedFolderArchive } from "./TabbedFolderArchive";
 import { UploadModal } from "./UploadModal";
 import { NoteModal } from "./NoteModal";
+import { DocumentReaderModal } from "./DocumentReaderModal";
 import { fallbackExtractSyllabusClient, fallbackGeneratePlanClient } from "../lib/fallbackPlanner";
 import { HierarchicalTopicTreeView } from "./HierarchicalTopicTreeView";
 
@@ -99,6 +100,7 @@ export function CourseKnowledgeHub({
 
   const [showPasteBox, setShowPasteBox] = useState(false);
   const [showUploadBox, setShowUploadBox] = useState(false);
+  const [activeFolderDocType, setActiveFolderDocType] = useState<StudyMaterial["type"]>("notes");
   const [pasteDocTitle, setPasteDocTitle] = useState("");
   const [pasteDocType, setPasteDocType] = useState<StudyMaterial["type"]>("notes");
   const [pasteDocContent, setPasteDocContent] = useState("");
@@ -575,8 +577,14 @@ export function CourseKnowledgeHub({
             onPreviewDoc={(doc) => setPreviewDoc(doc)}
             onQuizDoc={(doc) => setActiveQuizMaterial(doc)}
             onDeleteDoc={(docId) => handleDeleteDoc(docId)}
-            onOpenUpload={() => setShowUploadBox(true)}
-            onOpenPaste={() => setShowPasteBox(true)}
+            onOpenUpload={(folderType) => {
+              if (folderType) setActiveFolderDocType(folderType);
+              setShowUploadBox(true);
+            }}
+            onOpenPaste={(folderType) => {
+              if (folderType) setActiveFolderDocType(folderType);
+              setShowPasteBox(true);
+            }}
             onLoadSamples={handleLoadSampleKnowledgeBase}
             onDeleteCourse={(onRequestDeleteCourse || onDeleteCourse) ? () => {
               if (onRequestDeleteCourse) {
@@ -593,6 +601,7 @@ export function CourseKnowledgeHub({
           isOpen={showUploadBox}
           onClose={() => setShowUploadBox(false)}
           currentSyllabusContent={syllabusContent}
+          initialType={activeFolderDocType}
           onUploadSuccess={(newAttachedMaterials, combinedContent) => {
             const newDocDisplayName =
               newAttachedMaterials.length === 1
@@ -608,6 +617,7 @@ export function CourseKnowledgeHub({
         <NoteModal
           isOpen={showPasteBox}
           onClose={() => setShowPasteBox(false)}
+          initialType={activeFolderDocType}
           onSave={(noteData) => {
             const newDoc: StudyMaterial = {
               id: `mat-paste-${Date.now()}`,
@@ -731,36 +741,12 @@ export function CourseKnowledgeHub({
         />
       </section>
 
-      {previewDoc && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 font-mono">
-          <div className="bg-white max-w-2xl w-full max-h-[85vh] flex flex-col border-2 border-[#111111]">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#111111]">
-              <div className="flex items-center space-x-2">
-                <FileText className="w-4 h-4 text-[#111111]" />
-                <h3 className="text-sm font-bold text-[#111111] truncate uppercase">[{previewDoc.name}]</h3>
-              </div>
-              <button
-                onClick={() => setPreviewDoc(null)}
-                className="p-1 border border-[#111111] hover:bg-[#111111] hover:text-white cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="p-5 overflow-y-auto flex-1 font-mono text-xs text-[#111111] leading-relaxed whitespace-pre-wrap bg-[#fafafa]">
-              {previewDoc.content || (language === "zh" ? "无文本内容" : "No content")}
-            </div>
-            <div className="px-5 py-3 border-t border-[#111111] bg-white flex justify-between items-center text-xs">
-              <span className="text-[#666666] font-bold">{previewDoc.sizeBytes ? `${Math.round(previewDoc.sizeBytes / 1024)} KB` : ""}</span>
-              <button
-                onClick={() => setPreviewDoc(null)}
-                className="px-4 py-1.5 bg-[#111111] hover:bg-[#333333] text-white text-xs font-bold border border-[#111111] cursor-pointer"
-              >
-                [{language === "zh" ? "关闭" : "CLOSE"}]
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DocumentReaderModal
+        doc={previewDoc}
+        isOpen={Boolean(previewDoc)}
+        onClose={() => setPreviewDoc(null)}
+        onLaunchQuiz={(doc) => setActiveQuizMaterial(doc)}
+      />
 
       {activeQuizMaterial && (
         <QuizModal

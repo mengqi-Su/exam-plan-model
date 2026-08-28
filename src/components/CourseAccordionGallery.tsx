@@ -184,9 +184,6 @@ export function CourseAccordionGallery({
                         <div className={`w-8 h-8 ${theme.circleBg} flex items-center justify-center font-bold text-xs shrink-0 font-mono border border-current`}>
                           0{idx + 1}
                         </div>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 border ${theme.badgeBg} uppercase tracking-wider inline-block font-mono`}>
-                          [{plan.subject || (language === "zh" ? "学科" : "SUBJECT")}]
-                        </span>
                       </div>
 
                       {daysLeft !== null && (

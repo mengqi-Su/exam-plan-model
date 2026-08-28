@@ -9,6 +9,7 @@ interface UploadModalProps {
   onClose: () => void;
   onUploadSuccess: (newMaterials: StudyMaterial[], combinedContent: string) => void;
   currentSyllabusContent?: string;
+  initialType?: StudyMaterial["type"];
 }
 
 export const UploadModal: React.FC<UploadModalProps> = ({
@@ -16,6 +17,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   onClose,
   onUploadSuccess,
   currentSyllabusContent = "",
+  initialType,
 }) => {
   const { language } = useI18n();
   const [isDragging, setIsDragging] = useState(false);
@@ -40,7 +42,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         const parsed = await parseDocumentFile(file, language);
         const text = parsed?.text || "";
 
-        let inferredType: StudyMaterial["type"] = "notes";
+        let inferredType: StudyMaterial["type"] = initialType || "notes";
         const lowerName = file.name.toLowerCase();
         if (lowerName.includes("syllabus") || lowerName.includes("大纲") || lowerName.includes("考纲")) {
           inferredType = "syllabus";

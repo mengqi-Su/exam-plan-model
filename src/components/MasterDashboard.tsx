@@ -12,7 +12,6 @@ import {
   Download,
   Search,
   CheckCircle2,
-  Circle,
   Play,
   Sparkles,
   BookOpen,
@@ -20,7 +19,8 @@ import {
   Target,
   Trash2,
   Layers,
-  ChevronLeft
+  ChevronLeft,
+  Pin
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { ExamStudyPlan, StudyTask, TaskCategory } from "../types";
@@ -30,6 +30,7 @@ import { useI18n } from "../lib/i18n";
 import { TaskFocusTimerModal } from "./TaskFocusTimerModal";
 import { QuizModal } from "./QuizModal";
 import { CourseAccordionGallery } from "./CourseAccordionGallery";
+import { PinnedRoadmapTodoList } from "./PinnedRoadmapTodoList";
 
 interface MasterDashboardProps {
   plans: ExamStudyPlan[];
@@ -339,9 +340,6 @@ export function MasterDashboard({
             <h2 className="font-bold text-sm uppercase text-[#111111]">
               [{language === "zh" ? "科目清单" : "COURSES"}]
             </h2>
-            <span className="text-xs px-2 py-0.5 border border-[#111111] bg-white text-[#111111] font-bold">
-              {plans.length}
-            </span>
           </div>
         </div>
 
@@ -362,41 +360,38 @@ export function MasterDashboard({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#111111]">
           <div className="flex items-center space-x-2">
             <CheckSquare className="w-4 h-4 text-[#111111]" />
-            <h2 className="font-bold text-sm uppercase text-[#111111]">
-              [{language === "zh" ? "今日待办" : "TODAY TASKS"}]
+            <h2 className="font-bold text-sm text-[#111111]">
+              {language === "zh" ? "今日待办" : "Today Tasks"}
             </h2>
-            <span className="text-xs px-2 py-0.5 border border-[#111111] bg-white text-[#111111] font-bold">
-              {crossSubjectDailyTasks.filter((t) => t.task.status === "completed").length} / {crossSubjectDailyTasks.length}
-            </span>
           </div>
 
-          <div className="flex items-center space-x-1.5 self-start sm:self-auto font-mono">
+          <div className="flex items-center space-x-1 font-mono self-start sm:self-auto">
             <button
               onClick={() => handleShiftDate(-1)}
-              className="p-1 border border-[#111111] hover:bg-[#ededed] text-[#111111] transition-colors cursor-pointer"
+              className="p-1 border border-[#111111] hover:bg-[#ededed] text-[#111111] transition-colors cursor-pointer rounded"
               title="Previous Day"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={() => setSelectedDate(todayStr)}
-              className={`px-2.5 py-1 text-xs font-bold border transition-colors cursor-pointer ${
+              className={`px-2.5 py-1 text-xs font-bold border transition-colors cursor-pointer rounded ${
                 selectedDate === todayStr
                   ? "bg-[#111111] text-white border-[#111111]"
                   : "bg-white text-[#111111] border-[#111111] hover:bg-[#ededed]"
               }`}
             >
-              [{language === "zh" ? "今天" : "TODAY"}]
+              {language === "zh" ? "今天" : "Today"}
             </button>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-2 py-1 text-xs bg-white border border-[#111111] text-[#111111] outline-none cursor-pointer font-mono font-bold"
+              className="px-2 py-1 text-xs bg-white border border-[#111111] text-[#111111] outline-none cursor-pointer font-mono font-bold rounded"
             />
             <button
               onClick={() => handleShiftDate(1)}
-              className="p-1 border border-[#111111] hover:bg-[#ededed] text-[#111111] transition-colors cursor-pointer"
+              className="p-1 border border-[#111111] hover:bg-[#ededed] text-[#111111] transition-colors cursor-pointer rounded"
               title="Next Day"
             >
               <ChevronRight className="w-4 h-4" />
@@ -414,86 +409,72 @@ export function MasterDashboard({
             </p>
           </div>
         ) : (
-          <div className="space-y-2 font-mono">
-            {crossSubjectDailyTasks.map(({ task, plan }, index) => {
-              const isCompleted = task.status === "completed";
-
-              return (
-                <div
-                  key={`${plan.id}-${task.id}-${index}`}
-                  className={`p-3.5 border border-[#111111] transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                    isCompleted
-                      ? "bg-[#fafafa] text-[#888888]"
-                      : "bg-white text-[#111111]"
-                  }`}
-                >
-                  <div className="flex items-start space-x-3 min-w-0 flex-1">
-
-                    <button
-                      onClick={() => handleToggleTaskStatus(plan.id, task.id)}
-                      className="mt-0.5 shrink-0 cursor-pointer"
-                    >
-                      {isCompleted ? (
-                        <CheckSquare className="w-4 h-4 text-[#111111]" />
-                      ) : (
-                        <Circle className="w-4 h-4 text-[#888888] hover:text-[#111111]" />
-                      )}
-                    </button>
-
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-
-                        <span className="border border-[#111111] bg-[#111111] text-white px-1.5 py-0.2 text-[10px] font-bold truncate max-w-[140px]">
-                          [{plan.examName}]
-                        </span>
-
-                        <span className="text-[10px] text-[#666666] flex items-center space-x-1 font-bold">
-                          <Clock className="w-3 h-3 text-[#666666]" />
-                          <span>{task.durationMinutes} {language === "zh" ? "分钟" : "MIN"}</span>
-                        </span>
-                      </div>
-
-                      <p
-                        className={`text-xs font-bold ${
-                          isCompleted ? "line-through text-[#888888]" : "text-[#111111]"
-                        }`}
-                      >
-                        {task.title}
-                      </p>
-
-                      {task.keyObjectives && task.keyObjectives.length > 0 && (
-                        <p className="text-[11px] text-[#666666] line-clamp-1">
-                          {task.keyObjectives.join(" · ")}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2 shrink-0 self-end sm:self-center font-mono">
-                    {task.activeRecallPrompt && (
-                      <button
-                        onClick={() => setActiveQuizTask({ task, planId: plan.id })}
-                        className="px-2.5 py-1 text-[11px] bg-white hover:bg-[#111111] hover:text-white text-[#111111] font-bold transition-colors flex items-center space-x-1 cursor-pointer border border-[#111111]"
-                        title="Start Active Recall Quiz"
-                      >
-                        <Sparkles className="w-3 h-3" />
-                        <span>[{language === "zh" ? "快速测验" : "QUIZ"}]</span>
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => setActiveTimerTask({ task, planId: plan.id })}
-                      className="px-2.5 py-1 text-[11px] bg-[#111111] hover:bg-[#333333] text-white font-bold transition-colors flex items-center space-x-1 cursor-pointer border border-[#111111]"
-                      title="Launch Focus Pomodoro Timer"
-                    >
-                      <Play className="w-3 h-3" />
-                      <span>[{language === "zh" ? "专注计时" : "FOCUS"}]</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <PinnedRoadmapTodoList
+            tasks={crossSubjectDailyTasks.map((t) => ({
+              ...t.task,
+              topicTitle: `[${t.plan.examName}] ${t.task.topicTitle || ""}`,
+            }))}
+            onToggleComplete={(taskId) => {
+              const matched = crossSubjectDailyTasks.find((t) => t.task.id === taskId);
+              if (matched) {
+                handleToggleTaskStatus(matched.plan.id, taskId);
+              }
+            }}
+            onUpdateConfidence={(taskId, rating) => {
+              const matched = crossSubjectDailyTasks.find((t) => t.task.id === taskId);
+              if (matched) {
+                const updatedPlan = {
+                  ...matched.plan,
+                  tasks: matched.plan.tasks.map((t) => (t.id === taskId ? { ...t, confidenceRating: rating } : t)),
+                };
+                onUpdatePlan(updatedPlan);
+              }
+            }}
+            onSaveNotes={(taskId, notes) => {
+              const matched = crossSubjectDailyTasks.find((t) => t.task.id === taskId);
+              if (matched) {
+                const updatedPlan = {
+                  ...matched.plan,
+                  tasks: matched.plan.tasks.map((t) => (t.id === taskId ? { ...t, notes } : t)),
+                };
+                onUpdatePlan(updatedPlan);
+              }
+            }}
+            onDeleteTask={(taskId) => {
+              const matched = crossSubjectDailyTasks.find((t) => t.task.id === taskId);
+              if (matched) {
+                const updatedPlan = {
+                  ...matched.plan,
+                  tasks: matched.plan.tasks.filter((t) => t.id !== taskId),
+                };
+                onUpdatePlan(updatedPlan);
+              }
+            }}
+            onStartTimer={(task) => {
+              const matched = crossSubjectDailyTasks.find((t) => t.task.id === task.id);
+              if (matched) {
+                setActiveTimerTask({ task, planId: matched.plan.id });
+              }
+            }}
+            onStartQuiz={(task) => {
+              const matched = crossSubjectDailyTasks.find((t) => t.task.id === task.id);
+              if (matched) {
+                setActiveQuizTask({ task, planId: matched.plan.id });
+              }
+            }}
+            onStartRag={(task) => {
+              const matched = crossSubjectDailyTasks.find((t) => t.task.id === task.id);
+              if (matched) {
+                onSelectPlan(matched.plan.id);
+              }
+            }}
+            onAddNewTask={() => {
+              if (plans.length > 0) {
+                onSelectPlan(plans[0].id);
+              }
+            }}
+            selectedDate={selectedDate}
+          />
         )}
       </section>
 

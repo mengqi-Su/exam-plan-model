@@ -1,36 +1,21 @@
 import React, { useState } from "react";
 import {
   CheckCircle2,
-  Circle,
   Clock,
-  Calendar as CalendarIcon,
-  Play,
-  Sparkles,
   Plus,
-  Trash2,
-  ExternalLink,
   ChevronLeft,
   ChevronRight,
   BookOpen,
-  Flame,
-  MessageSquare,
-  Star,
-  Layers,
-  HelpCircle,
-  Table as TableIcon,
-  List as ListIcon,
-  Check,
   Filter,
-  Zap,
-  FileText
+  Pin
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { ExamStudyPlan, StudyTask, TaskCategory } from "../types";
 import { playCompletionChime } from "../lib/audio";
-import { generateGoogleCalendarUrl } from "../lib/calendarExport";
 import { TaskFocusTimerModal } from "./TaskFocusTimerModal";
 import { QuizModal } from "./QuizModal";
 import { RagKnowledgeModal } from "./RagKnowledgeModal";
+import { PinnedRoadmapTodoList } from "./PinnedRoadmapTodoList";
 import { useI18n } from "../lib/i18n";
 import { getPaletteByString } from "../lib/themePalettes";
 
@@ -42,17 +27,6 @@ interface DailyTodoListProps {
   searchQuery?: string;
 }
 
-const CATEGORY_TAG_CLASS: Record<TaskCategory, string> = {
-  theory: "border border-[#111111] bg-[#FCD33B] text-[#111111] font-bold",
-  summary_cheat_sheet: "border border-[#111111] bg-[#FCD33B] text-[#111111] font-bold",
-  reading: "border border-[#111111] bg-[#D8D8D8] text-[#111111] font-bold",
-  flashcards: "border border-[#111111] bg-[#D8D8D8] text-[#111111] font-bold",
-  active_recall: "border border-[#111111] bg-[#B5B5B5] text-[#111111] font-bold",
-  review_weak_spots: "border border-[#111111] bg-[#B5B5B5] text-[#111111] font-bold",
-  practice_problems: "border border-[#111111] bg-[#282828] text-white font-bold",
-  mock_exam: "border border-[#111111] bg-[#111111] text-white font-bold",
-};
-
 export function DailyTodoList({
   plan,
   onUpdatePlan,
@@ -61,12 +35,10 @@ export function DailyTodoList({
   searchQuery = "",
 }: DailyTodoListProps) {
   const { t, language } = useI18n();
-  const [viewStyle, setViewStyle] = useState<"table" | "list">("table");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [activeTimerTask, setActiveTimerTask] = useState<StudyTask | null>(null);
   const [activeQuizTask, setActiveQuizTask] = useState<StudyTask | null>(null);
   const [activeRagTask, setActiveRagTask] = useState<StudyTask | null>(null);
-  const [expandedNotesId, setExpandedNotesId] = useState<string | null>(null);
   const [isAddingInline, setIsAddingInline] = useState(false);
 
   const [newTitle, setNewTitle] = useState("");
@@ -289,40 +261,135 @@ export function DailyTodoList({
             </select>
           </div>
 
-          <div className="flex items-center border border-[#111111] bg-white p-0.5">
-            <button
-              onClick={() => setViewStyle("table")}
-              className={`p-1 text-xs flex items-center space-x-1 transition-colors cursor-pointer ${
-                viewStyle === "table" ? "bg-[#111111] text-white" : "text-[#666666] hover:text-[#111111]"
-              }`}
-              title={language === "zh" ? "表格视图" : "Table View"}
-            >
-              <TableIcon className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => setViewStyle("list")}
-              className={`p-1 text-xs flex items-center space-x-1 transition-colors cursor-pointer ${
-                viewStyle === "list" ? "bg-[#111111] text-white" : "text-[#666666] hover:text-[#111111]"
-              }`}
-              title={language === "zh" ? "列表视图" : "List View"}
-            >
-              <ListIcon className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
           <button
             onClick={() => setIsAddingInline(true)}
-            className="flex items-center space-x-1 px-3 py-1 bg-[#111111] hover:bg-[#333333] text-white text-xs font-mono font-bold transition-colors cursor-pointer"
+            className="flex items-center space-x-1 px-3 py-1.5 bg-[#111111] hover:bg-[#333333] text-white text-xs font-medium rounded-lg transition-all shadow-xs cursor-pointer active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>[{language === "zh" ? "+ 新建任务" : "+ TASK"}]</span>
+            <span>{language === "zh" ? "新建待办" : "Add Task"}</span>
           </button>
         </div>
       </div>
 
+      {/* Inline Quick Add Task Box when triggered */}
+      {isAddingInline && (
+        <div className="p-4 bg-white border border-[#111111] rounded-xl shadow-md space-y-3 animate-fadeIn">
+          <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+            <div className="flex items-center space-x-2 font-bold text-xs text-gray-900">
+              <Pin className="w-4 h-4 text-[#111111]" />
+              <span>{language === "zh" ? "钉入新待办" : "Pin New Study Task"}</span>
+              <span className="text-gray-400 font-normal">({selectedDate})</span>
+            </div>
+            <button
+              onClick={() => setIsAddingInline(false)}
+              className="text-xs text-gray-400 hover:text-gray-800 cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="sm:col-span-2">
+              <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
+                {language === "zh" ? "任务名称" : "Task Name"}
+              </label>
+              <input
+                type="text"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder={language === "zh" ? "例如：复习动态规划核心状态转移方程" : "e.g. Dynamic Programming Review"}
+                className="w-full bg-[#FAF9F6] border border-gray-300 rounded-lg px-3 py-1.5 text-xs text-[#111111] focus:outline-none focus:border-gray-900 font-sans font-medium"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
+                {language === "zh" ? "任务类型" : "Category"}
+              </label>
+              <select
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value as any)}
+                className="w-full bg-[#FAF9F6] border border-gray-300 rounded-lg px-2 py-1.5 text-xs text-[#111111] focus:outline-none"
+              >
+                <option value="practice_problems">{t("catPracticeProblems")}</option>
+                <option value="theory">{t("catTheory")}</option>
+                <option value="active_recall">{t("catActiveRecall")}</option>
+                <option value="mock_exam">{t("catMockExam")}</option>
+                <option value="review_weak_spots">{t("catReviewWeakSpots")}</option>
+                <option value="summary_cheat_sheet">{t("catSummaryCheatSheet")}</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
+                {language === "zh" ? "所属知识点/章节" : "Topic"}
+              </label>
+              <select
+                value={newTopic}
+                onChange={(e) => setNewTopic(e.target.value)}
+                className="w-full bg-[#FAF9F6] border border-gray-300 rounded-lg px-2 py-1.5 text-xs text-[#111111] focus:outline-none"
+              >
+                {plan.topics.map((t) => (
+                  <option key={t.id} value={t.title}>
+                    {t.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
+                {language === "zh" ? "预计时长 (分钟)" : "Duration (Mins)"}
+              </label>
+              <input
+                type="number"
+                min={10}
+                max={240}
+                step={5}
+                value={newDuration}
+                onChange={(e) => setNewDuration(Number(e.target.value))}
+                className="w-full bg-[#FAF9F6] border border-gray-300 rounded-lg px-2 py-1.5 text-xs text-[#111111] font-medium"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
+                {language === "zh" ? "优先级" : "Priority"}
+              </label>
+              <select
+                value={newPriority}
+                onChange={(e) => setNewPriority(e.target.value as any)}
+                className="w-full bg-[#FAF9F6] border border-gray-300 rounded-lg px-2 py-1.5 text-xs text-[#111111] font-medium"
+              >
+                <option value="high">{t("priorityHigh")}</option>
+                <option value="medium">{t("priorityMedium")}</option>
+                <option value="low">{t("priorityLow")}</option>
+              </select>
+            </div>
+
+            <div className="sm:col-span-2 flex items-end justify-end space-x-2 pt-2 sm:pt-0">
+              <button
+                onClick={() => setIsAddingInline(false)}
+                className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-800 cursor-pointer font-medium"
+              >
+                {t("cancel")}
+              </button>
+              <button
+                onClick={handleCreateTask}
+                disabled={!newTitle.trim()}
+                className="px-4 py-1.5 bg-[#111111] hover:bg-[#333333] disabled:opacity-50 text-white text-xs font-medium rounded-lg cursor-pointer shadow-xs"
+              >
+                {language === "zh" ? "钉入待办" : "Pin Task"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {filteredTasks.length === 0 ? (
-        <div className="p-8 text-center space-y-2 border border-dashed border-[#111111]/40 bg-[#fafafa]">
-          <BookOpen className="w-7 h-7 mx-auto text-[#888888]" />
+        <div className="p-12 text-center space-y-3 border-2 border-dashed border-[#111111]/30 bg-[#faf8f5] rounded-2xl">
+          <BookOpen className="w-8 h-8 mx-auto text-[#888888]" />
           <h3 className="font-mono font-bold text-sm text-[#111111]">
             {t("noTasksToday", { date: formattedDate })}
           </h3>
@@ -331,424 +398,25 @@ export function DailyTodoList({
           </p>
           <button
             onClick={() => setIsAddingInline(true)}
-            className="mt-2 px-3 py-1.5 bg-[#111111] hover:bg-[#333333] text-white text-xs font-mono font-bold transition-colors cursor-pointer"
+            className="mt-2 px-4 py-2 bg-[#111111] hover:bg-[#333333] text-white text-xs font-mono font-bold rounded-lg transition-all shadow-xs cursor-pointer"
           >
-            [{language === "zh" ? "+ 为此日期添加任务" : "+ ADD TASK FOR THIS DATE"}]
+            [{language === "zh" ? "+ 为此日期钉入新待办" : "+ PIN TASK FOR THIS DATE"}]
           </button>
         </div>
-      ) : viewStyle === "table" ? (
-
-        <div className="border border-[#111111] overflow-x-auto bg-white">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-[#fafafa] border-b border-[#111111] text-[#111111] font-mono font-bold uppercase text-[10px] tracking-wider select-none">
-                <th className="py-2.5 px-3 w-10 text-center">{t("colDone")}</th>
-                <th className="py-2.5 px-3 min-w-[240px]">{t("colTaskName")}</th>
-                <th className="py-2.5 px-3 w-36">{t("colCategory")}</th>
-                <th className="py-2.5 px-3 w-40">{t("colTopic")}</th>
-                <th className="py-2.5 px-3 w-24">{t("colDuration")}</th>
-                <th className="py-2.5 px-3 w-28">{t("colPriority")}</th>
-                <th className="py-2.5 px-3 w-28">{t("colMastery")}</th>
-                <th className="py-2.5 px-3 w-44 text-right pr-4">{t("colActions")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#e5e5e5]">
-              {filteredTasks.map((task) => {
-                const isCompleted = task.status === "completed";
-                const catClass = CATEGORY_TAG_CLASS[task.category] || "border border-[#111111] bg-white text-[#111111]";
-
-                return (
-                  <React.Fragment key={task.id}>
-                    <tr
-                      className={`hover:bg-[#f2f2f2] transition-colors group font-mono ${
-                        isCompleted ? "bg-[#fafafa] text-[#888888]" : "text-[#111111]"
-                      }`}
-                    >
-
-                      <td className="py-2.5 px-3 text-center">
-                        <button
-                          onClick={() => handleToggleComplete(task.id)}
-                          className={`w-4 h-4 border border-[#111111] flex items-center justify-center transition-colors cursor-pointer ${
-                            isCompleted
-                              ? "bg-[#111111] text-white"
-                              : "bg-white hover:bg-[#ededed]"
-                          }`}
-                        >
-                          {isCompleted && <Check className="w-3 h-3 stroke-[3]" />}
-                        </button>
-                      </td>
-
-                      <td className="py-2.5 px-3">
-                        <div className="flex items-start space-x-2">
-                          <div className="flex-1 min-w-0">
-                            <span
-                              className={`font-bold block truncate text-xs ${
-                                isCompleted ? "line-through text-[#888888]" : "text-[#111111]"
-                              }`}
-                            >
-                              {task.title}
-                            </span>
-                            {task.description && (
-                              <span className="text-[10px] text-[#666666] block truncate mt-0.5">
-                                {task.description}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="py-2.5 px-3">
-                        <span className={`${catClass} px-1.5 py-0.5 text-[10px] font-bold uppercase whitespace-nowrap`}>
-                          [{getCategoryLabel(task.category)}]
-                        </span>
-                      </td>
-
-                      <td className="py-2.5 px-3">
-                        <span className="text-[#666666] text-[11px] truncate block max-w-[150px] font-mono">
-                          {task.topicTitle}
-                        </span>
-                      </td>
-
-                      <td className="py-2.5 px-3 text-[#111111]">
-                        <span className="flex items-center space-x-1 font-mono text-[11px] font-bold">
-                          <Clock className="w-3 h-3 text-[#666666]" />
-                          <span>{task.durationMinutes}m</span>
-                        </span>
-                      </td>
-
-                      <td className="py-2.5 px-3">
-                        {task.priority === "high" ? (
-                          <span className="border border-[#111111] bg-[#FCD33B] text-[#111111] px-1.5 py-0.5 text-[10px] font-bold uppercase">
-                            [{language === "zh" ? "高优" : "HIGH"}]
-                          </span>
-                        ) : task.priority === "low" ? (
-                          <span className="border border-[#111111] bg-[#B5B5B5] text-[#111111] px-1.5 py-0.5 text-[10px] font-bold uppercase">
-                            [{language === "zh" ? "低优" : "LOW"}]
-                          </span>
-                        ) : (
-                          <span className="border border-[#111111] text-[#111111] bg-[#D8D8D8] px-1.5 py-0.5 text-[10px] font-bold uppercase">
-                            [{language === "zh" ? "中优" : "MED"}]
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="py-2.5 px-3">
-                        <div className="flex space-x-0.5 text-xs">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <button
-                              key={star}
-                              onClick={() => handleUpdateConfidence(task.id, star as any)}
-                              className={`p-0.5 transition-colors cursor-pointer ${
-                                (task.confidenceRating || 0) >= star
-                                  ? "text-[#111111] font-bold"
-                                  : "text-[#cccccc] hover:text-[#111111]"
-                              }`}
-                            >
-                              ★
-                            </button>
-                          ))}
-                        </div>
-                      </td>
-
-                      <td className="py-2.5 px-3 text-right pr-4 font-mono">
-                        <div className="flex items-center justify-end space-x-1">
-
-                          <button
-                            onClick={() => setActiveRagTask(task)}
-                            className="p-1 hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] transition-colors cursor-pointer"
-                            title={language === "zh" ? "RAG 资料溯源与问答" : "RAG Material Grounding & QA"}
-                          >
-                            <Zap className="w-3 h-3" />
-                          </button>
-
-                          <button
-                            onClick={() => setActiveTimerTask(task)}
-                            className="p-1 hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] transition-colors cursor-pointer"
-                            title={t("startFocusTimer")}
-                          >
-                            <Play className="w-3 h-3" />
-                          </button>
-
-                          <button
-                            onClick={() => setActiveQuizTask(task)}
-                            className="p-1 hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] transition-colors cursor-pointer"
-                            title={t("generateQuiz")}
-                          >
-                            <Sparkles className="w-3 h-3" />
-                          </button>
-
-                          <button
-                            onClick={() => setExpandedNotesId(expandedNotesId === task.id ? null : task.id)}
-                            className={`p-1 border border-[#111111] transition-colors cursor-pointer ${
-                              task.notes
-                                ? "bg-[#111111] text-white"
-                                : "text-[#111111] hover:bg-[#111111] hover:text-white"
-                            }`}
-                            title={t("viewNotes")}
-                          >
-                            <MessageSquare className="w-3 h-3" />
-                          </button>
-
-                          <a
-                            href={generateGoogleCalendarUrl(task, plan)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1 border border-[#111111] text-[#111111] hover:bg-[#111111] hover:text-white transition-colors cursor-pointer"
-                            title={t("addToGCal")}
-                          >
-                            <CalendarIcon className="w-3 h-3" />
-                          </a>
-
-                          <button
-                            onClick={() => handleDeleteTask(task.id)}
-                            className="p-1 border border-[#111111] text-[#111111] hover:bg-[#111111] hover:text-white transition-colors opacity-60 group-hover:opacity-100 cursor-pointer"
-                            title={t("delete")}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-
-                    {expandedNotesId === task.id && (
-                      <tr className="bg-[#fafafa]">
-                        <td colSpan={8} className="px-6 py-3 border-t border-b border-[#111111]">
-                          <div className="space-y-1.5 max-w-3xl font-mono">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#666666]">
-                              [{t("notesSectionTitle", { title: task.title })}]
-                            </span>
-                            <textarea
-                              rows={2}
-                              value={task.notes || ""}
-                              onChange={(e) => handleSaveNotes(task.id, e.target.value)}
-                              placeholder={t("notesPlaceholder")}
-                              className="w-full bg-white border border-[#111111] p-2 text-xs text-[#111111] placeholder-[#888888] focus:outline-none font-mono"
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-
-              {isAddingInline ? (
-                <tr className="bg-[#fafafa] font-mono">
-                  <td className="py-2 px-3 text-center text-[#111111] font-bold">+</td>
-                  <td className="py-2 px-3">
-                    <input
-                      type="text"
-                      value={newTitle}
-                      onChange={(e) => setNewTitle(e.target.value)}
-                      placeholder={t("inlineTaskTitlePlaceholder")}
-                      className="w-full bg-white border border-[#111111] px-2 py-1 text-xs text-[#111111] focus:outline-none font-mono"
-                      autoFocus
-                    />
-                  </td>
-                  <td className="py-2 px-3">
-                    <select
-                      value={newCategory}
-                      onChange={(e) => setNewCategory(e.target.value as any)}
-                      className="bg-white border border-[#111111] px-1.5 py-1 text-xs text-[#111111] focus:outline-none font-mono font-bold"
-                    >
-                      <option value="practice_problems">{t("catPracticeProblems")}</option>
-                      <option value="theory">{t("catTheory")}</option>
-                      <option value="active_recall">{t("catActiveRecall")}</option>
-                      <option value="mock_exam">{t("catMockExam")}</option>
-                      <option value="review_weak_spots">{t("catReviewWeakSpots")}</option>
-                    </select>
-                  </td>
-                  <td className="py-2 px-3">
-                    <select
-                      value={newTopic}
-                      onChange={(e) => setNewTopic(e.target.value)}
-                      className="bg-white border border-[#111111] px-1.5 py-1 text-xs text-[#111111] focus:outline-none max-w-[130px] font-mono font-bold"
-                    >
-                      {plan.topics.map((t) => (
-                        <option key={t.id} value={t.title}>
-                          {t.title}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="py-2 px-3">
-                    <input
-                      type="number"
-                      min={10}
-                      max={240}
-                      step={5}
-                      value={newDuration}
-                      onChange={(e) => setNewDuration(Number(e.target.value))}
-                      className="w-16 bg-white border border-[#111111] px-1.5 py-1 text-xs text-[#111111] font-mono font-bold"
-                    />
-                  </td>
-                  <td className="py-2 px-3">
-                    <select
-                      value={newPriority}
-                      onChange={(e) => setNewPriority(e.target.value as any)}
-                      className="bg-white border border-[#111111] px-1.5 py-1 text-xs text-[#111111] font-mono font-bold"
-                    >
-                      <option value="high">{t("priorityHigh")}</option>
-                      <option value="medium">{t("priorityMedium")}</option>
-                      <option value="low">{t("priorityLow")}</option>
-                    </select>
-                  </td>
-                  <td colSpan={2} className="py-2 px-3 text-right pr-4">
-                    <div className="flex items-center justify-end space-x-2 font-mono">
-                      <button
-                        onClick={() => setIsAddingInline(false)}
-                        className="px-2 py-1 text-xs text-[#666666] hover:text-[#111111] cursor-pointer"
-                      >
-                        [{t("cancel")}]
-                      </button>
-                      <button
-                        onClick={handleCreateTask}
-                        disabled={!newTitle.trim()}
-                        className="px-3 py-1 bg-[#111111] hover:bg-[#333333] disabled:opacity-50 text-white text-xs font-bold font-mono cursor-pointer border border-[#111111]"
-                      >
-                        [{t("btnAddInlineTask")}]
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                <tr>
-                  <td colSpan={8} className="py-2 px-4 font-mono">
-                    <button
-                      onClick={() => setIsAddingInline(true)}
-                      className="flex items-center space-x-1.5 text-xs text-[#666666] hover:text-[#111111] transition-colors py-1 cursor-pointer font-bold"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>[{t("btnNewTask")}]</span>
-                    </button>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
       ) : (
-
-        <div className="space-y-2 font-mono">
-          {filteredTasks.map((task) => {
-            const isCompleted = task.status === "completed";
-            const catClass = CATEGORY_TAG_CLASS[task.category] || "border border-[#111111] bg-white text-[#111111]";
-
-            return (
-              <div
-                key={task.id}
-                className={`p-3.5 border border-[#111111] bg-white transition-all flex items-start justify-between gap-3 ${
-                  isCompleted ? "bg-[#fafafa] text-[#888888]" : "text-[#111111]"
-                }`}
-              >
-                <div className="flex items-start space-x-3 flex-1 min-w-0">
-                  <button
-                    onClick={() => handleToggleComplete(task.id)}
-                    className={`mt-0.5 w-4 h-4 border border-[#111111] flex items-center justify-center transition-colors cursor-pointer ${
-                      isCompleted
-                        ? "bg-[#111111] text-white"
-                        : "bg-white hover:bg-[#ededed]"
-                    }`}
-                  >
-                    {isCompleted && <Check className="w-3 h-3 stroke-[3]" />}
-                  </button>
-
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className={`${catClass} px-1.5 py-0.2 text-[10px] font-bold uppercase`}>
-                        [{getCategoryLabel(task.category)}]
-                      </span>
-                      <span className="text-[11px] text-[#666666] font-mono">• {task.topicTitle}</span>
-                      {task.priority === "high" && (
-                        <span className="border border-[#111111] bg-[#FCD33B] text-[#111111] px-1.5 py-0.2 text-[10px] font-bold">
-                          [{language === "zh" ? "高优" : "HIGH"}]
-                        </span>
-                      )}
-                      {task.priority === "medium" && (
-                        <span className="border border-[#111111] bg-[#D8D8D8] text-[#111111] px-1.5 py-0.2 text-[10px] font-bold">
-                          [{language === "zh" ? "中优" : "MED"}]
-                        </span>
-                      )}
-                      {task.priority === "low" && (
-                        <span className="border border-[#111111] bg-[#B5B5B5] text-[#111111] px-1.5 py-0.2 text-[10px] font-bold">
-                          [{language === "zh" ? "低优" : "LOW"}]
-                        </span>
-                      )}
-                    </div>
-
-                    <h4
-                      className={`text-xs font-bold ${
-                        isCompleted ? "line-through text-[#888888]" : "text-[#111111]"
-                      }`}
-                    >
-                      {task.title}
-                    </h4>
-
-                    {task.description && (
-                      <p className="text-xs text-[#666666] leading-relaxed">
-                        {task.description}
-                      </p>
-                    )}
-
-                    {task.activeRecallPrompt && (
-                      <div className="p-2.5 bg-[#fafafa] border border-[#111111] text-xs text-[#111111] flex items-start space-x-2 mt-2">
-                        <Sparkles className="w-4 h-4 text-[#111111] shrink-0 mt-0.5" />
-                        <div>
-                          <strong className="font-bold text-[10px] uppercase block">[{t("activeRecallPromptTitle")}]</strong>
-                          <span className="text-[11px] text-[#333333]">{task.activeRecallPrompt}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {task.ragSource && (
-                      <div className="flex items-center space-x-1.5 text-[10px] text-[#111111] bg-[#fafafa] px-2 py-1 border border-[#111111] mt-1.5 w-fit font-mono">
-                        <FileText className="w-3 h-3" />
-                        <span className="font-bold truncate max-w-[280px]">
-                          [{task.ragSource.documentName} {task.ragSource.pageOrChapter ? `(${task.ragSource.pageOrChapter})` : ""}]
-                        </span>
-                        {task.groundedUserNeed && (
-                          <span className="text-[#666666] border-l border-[#111111] pl-1.5 ml-1">
-                            {task.groundedUserNeed}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-end space-y-2 shrink-0 font-mono">
-                  <span className="text-xs text-[#666666] font-bold">{task.durationMinutes} {language === "zh" ? "分钟" : "MIN"}</span>
-                  <div className="flex items-center space-x-1">
-                    <button
-                      onClick={() => setActiveRagTask(task)}
-                      className="px-2 py-1 bg-white hover:bg-[#111111] hover:text-white border border-[#111111] text-xs font-bold text-[#111111] flex items-center space-x-1 cursor-pointer transition-colors"
-                      title={language === "zh" ? "RAG 资料溯源与问答" : "RAG Grounding"}
-                    >
-                      <Zap className="w-3 h-3" />
-                      <span>[{language === "zh" ? "溯源" : "RAG"}]</span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveTimerTask(task)}
-                      className="px-2.5 py-1 bg-[#111111] hover:bg-[#333333] text-white border border-[#111111] text-xs font-bold flex items-center space-x-1 cursor-pointer transition-colors"
-                    >
-                      <Play className="w-3 h-3" />
-                      <span>[{language === "zh" ? "专注" : "FOCUS"}]</span>
-                    </button>
-
-                    <button
-                      onClick={() => setActiveQuizTask(task)}
-                      className="p-1 border border-[#111111] text-[#111111] hover:bg-[#111111] hover:text-white transition-colors cursor-pointer"
-                      title={t("generateQuiz")}
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <PinnedRoadmapTodoList
+          plan={plan}
+          tasks={filteredTasks}
+          onToggleComplete={handleToggleComplete}
+          onUpdateConfidence={handleUpdateConfidence}
+          onSaveNotes={handleSaveNotes}
+          onDeleteTask={handleDeleteTask}
+          onStartTimer={(task) => setActiveTimerTask(task)}
+          onStartQuiz={(task) => setActiveQuizTask(task)}
+          onStartRag={(task) => setActiveRagTask(task)}
+          onAddNewTask={() => setIsAddingInline(true)}
+          selectedDate={selectedDate}
+        />
       )}
 
       {activeTimerTask && (

@@ -31,6 +31,7 @@ import { INITIAL_SAMPLE_DOCUMENTS } from "../lib/storage";
 import { useI18n } from "../lib/i18n";
 import { QuizModal } from "./QuizModal";
 import { TabbedFolderArchive } from "./TabbedFolderArchive";
+import { DocumentReaderModal } from "./DocumentReaderModal";
 import { parseDocumentFile } from "../lib/documentParser";
 
 interface MaterialsAndQuestionsHubProps {

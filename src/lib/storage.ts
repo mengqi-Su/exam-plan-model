@@ -81,6 +81,37 @@ export const SAMPLE_MATERIALS = [
 
 export const INITIAL_SAMPLE_DOCUMENTS: StudyMaterial[] = [
   {
+    id: "doc-syllabus-1",
+    name: "CS 301 高级算法与数据结构 官方考试大纲与分值权重分布",
+    type: "syllabus",
+    categoryGroup: "course_syllabus",
+    topicTag: "官方考试大纲",
+    difficulty: "medium",
+    yearOrTerm: "2025/2026 学年大纲",
+    uploadedAt: new Date(Date.now() - 86400000 * 4).toISOString(),
+    sizeBytes: 1024 * 16,
+    summaryNotes: "官方考试大纲明确规定了 5 大核心板块（平衡搜索树、图算法与网络流、动态规划、NP完全性、随机算法与平摊分析）及对应分值权重占比。",
+    content: `【CS 301 高级算法与数据结构 官方课程考纲】
+考试形式：闭卷统考 (180分钟，满分 100 分)
+
+一、各模块权重与核心考查要求：
+1. 平衡搜索树与优先队列 (占比 20%)：
+   - 红黑树五大性质、插入/删除旋转修复推导
+   - 斐波那契堆平摊复杂度分析 (Potential Method)
+2. 图算法与网络流建模 (占比 25%)：
+   - 最短路径 Dijkstra、Bellman-Ford 负权环判断
+   - 最大流最小割定理、Ford-Fulkerson 与 Dinic 算法
+   - 强连通分量 Tarjan 算法
+3. 动态规划与贪心策略 (占比 30%)：
+   - 背包问题、最长公共子序列、区间 DP
+   - 树形 DP (最大权独立集)、状态压缩 DP (旅行商 TSP)
+4. 计算复杂性与 NP 完全性 (占比 15%)：
+   - P、NP、NP-Hard、NP-Complete 定义与多项式归约
+   - 3-SAT 到顶点覆盖/独立集的归约构造
+5. 随机化算法与平摊分析 (占比 10%)：
+   - 跳表 (Skip List) 查找期望、布隆过滤器`,
+  },
+  {
     id: "doc-exam-1",
     name: "2025年 高级算法与数据结构 期末统考真题 (A卷)",
     type: "past_exam",
@@ -154,17 +185,42 @@ export const INITIAL_SAMPLE_DOCUMENTS: StudyMaterial[] = [
 题 3：最小割模型应用：如何利用最大割/最小割将二值图像分割问题建模为网络流？`,
   },
   {
+    id: "doc-slides-1",
+    name: "高级算法与数据结构 核心授课讲义 (第1-5周精编)",
+    type: "lecture_slides",
+    categoryGroup: "study_material",
+    topicTag: "动态规划与状压位运算",
+    difficulty: "hard",
+    yearOrTerm: "教授授课课件",
+    uploadedAt: new Date(Date.now() - 86400000 * 1).toISOString(),
+    sizeBytes: 1024 * 22,
+    summaryNotes: "包含背包问题、区间 DP、树形 DP、状压 DP 及斜率优化 DP 状态转移范式与经典例题推导。",
+    content: `【高级算法与数据结构 核心授课讲义】
+
+一、0/1 背包 vs 完全背包
+- 0/1 背包：dp[v] = max(dp[v], dp[v - w[i]] + c[i])  (容量倒序遍历)
+- 完全背包：dp[v] = max(dp[v], dp[v - w[i]] + c[i])  (容量正序遍历)
+
+二、最长公共子序列 (LCS)
+- 若 s1[i] == s2[j]: dp[i][j] = dp[i-1][j-1] + 1
+- 若 s1[i] != s2[j]: dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+
+三、状态压缩 DP (旅行商 TSP)
+- dp[mask][i] 表示已经访问过的城市集合为 mask，当前处于城市 i 的最小花费
+- dp[mask | (1<<j)][j] = min(dp[mask | (1<<j)][j], dp[mask][i] + dist[i][j])`,
+  },
+  {
     id: "doc-notes-1",
-    name: "算法复杂度、主定理与平衡搜索树 核心公式速查讲义",
+    name: "算法复杂度、主定理与平衡搜索树 核心公式速查笔记",
     type: "notes",
     categoryGroup: "study_material",
     topicTag: "平衡搜索树与堆结构",
     difficulty: "medium",
-    yearOrTerm: "教授精编讲义",
+    yearOrTerm: "学生速查笔记",
     uploadedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
     sizeBytes: 1024 * 15,
-    summaryNotes: "包含红黑树 5 大不变性定律、主定理 (Master Theorem) 3 种情况分界线、势能法证明公式。",
-    content: `【CS 301 核心定理与公式速查讲义】
+    summaryNotes: "整理了红黑树 5 大不变性定律、主定理 (Master Theorem) 3 种情况分界线、势能法证明公式。",
+    content: `【CS 301 核心定理与公式速查笔记】
 
 1. 红黑树的五大不变性性质：
 - 性质 1：每个节点要么是红色，要么是黑色。
@@ -182,31 +238,6 @@ export const INITIAL_SAMPLE_DOCUMENTS: StudyMaterial[] = [
 3. 平摊分析 (Amortized Analysis) 势能法 (Potential Method)：
 - a_i = c_i + Φ(D_i) - Φ(D_{i-1})
 - 只要保证对所有 i 均有 Φ(D_i) ≥ Φ(D_0)，则平摊成本总和即为实际成本的上界。`,
-  },
-  {
-    id: "doc-notes-2",
-    name: "动态规划 10 大经典模型与状态设计清单",
-    type: "lecture_slides",
-    categoryGroup: "study_material",
-    topicTag: "动态规划与状压位运算",
-    difficulty: "hard",
-    yearOrTerm: "考前必背提纲",
-    uploadedAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-    sizeBytes: 1024 * 22,
-    summaryNotes: "整理了背包问题、区间 DP、树形 DP、状压 DP 及斜率优化 DP 状态转移范式。",
-    content: `【动态规划核心范式与状态转移方程精粹】
-
-一、0/1 背包 vs 完全背包
-- 0/1 背包：dp[v] = max(dp[v], dp[v - w[i]] + c[i])  (容量倒序遍历)
-- 完全背包：dp[v] = max(dp[v], dp[v - w[i]] + c[i])  (容量正序遍历)
-
-二、最长公共子序列 (LCS)
-- 若 s1[i] == s2[j]: dp[i][j] = dp[i-1][j-1] + 1
-- 若 s1[i] != s2[j]: dp[i][j] = max(dp[i-1][j], dp[i][j-1])
-
-三、状态压缩 DP (旅行商 TSP)
-- dp[mask][i] 表示已经访问过的城市集合为 mask，当前处于城市 i 的最小花费
-- dp[mask | (1<<j)][j] = min(dp[mask | (1<<j)][j], dp[mask][i] + dist[i][j])`,
   },
 ];
 

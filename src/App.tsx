@@ -8,6 +8,7 @@ import { DailyTodoList } from "./components/DailyTodoList";
 import { RealTimeManager } from "./components/RealTimeManager";
 import { AddExamSubjectWizard } from "./components/AddExamSubjectWizard";
 import { MasterCalendarView } from "./components/MasterCalendarView";
+import { CourseDetailPage } from "./components/CourseDetailPage";
 import { SettingsModal } from "./components/SettingsModal";
 import { DeleteConfirmModal } from "./components/DeleteConfirmModal";
 import { ChevronLeft, LayoutDashboard, Calendar } from "lucide-react";
@@ -269,23 +270,6 @@ export default function App() {
           isSidebarOpen ? "md:ml-64" : "ml-0"
         }`}
       >
-
-        {currentTab !== "dashboard" && currentTab !== "master_calendar" && currentTab !== "add_subject" && (
-          <NotionPageHeader
-            activePlan={activePlan}
-            currentTab={currentTab}
-            onTabChange={(tab) => {
-              handleNavigateToTab(tab as any);
-            }}
-            onOpenRebalanceModal={() => setCurrentTab("realtime")}
-            onNewPlan={handleNewPlan}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            userProfile={userProfile}
-            onOpenSettings={handleOpenSettings}
-          />
-        )}
-
         <main className="flex-1 pb-16">
           {currentTab === "dashboard" && (
             <MasterDashboard
@@ -302,7 +286,6 @@ export default function App() {
 
           {currentTab === "master_calendar" && (
             <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6 animate-fadeIn">
-
               <MasterCalendarView
                 plans={plans}
                 onToggleTaskStatus={(planId, taskId) => {
@@ -323,43 +306,20 @@ export default function App() {
                   const targetPlan = plans.find((p) => p.id === planId);
                   if (targetPlan) {
                     handleSelectPlan(planId);
-                    setCurrentTab("todo");
+                    setCurrentTab("course");
                   }
                 }}
                 onStartQuiz={(task, planId) => {
                   const targetPlan = plans.find((p) => p.id === planId);
                   if (targetPlan) {
                     handleSelectPlan(planId);
-                    setCurrentTab("todo");
+                    setCurrentTab("course");
                   }
                 }}
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
               />
             </div>
-          )}
-
-          {currentTab === "todo" && activePlan && (
-            <DailyTodoList
-              plan={activePlan}
-              onUpdatePlan={handleUpdatePlan}
-              selectedDate={selectedDate}
-              onSelectDate={setSelectedDate}
-              searchQuery={searchQuery}
-            />
-          )}
-
-          {currentTab === "realtime" && activePlan && (
-            <RealTimeManager
-              plan={activePlan}
-              plans={plans}
-              onSelectPlan={handleSelectPlan}
-              onAddNewSubject={() => setCurrentTab("add_subject")}
-              onUpdatePlan={handleUpdatePlan}
-              onNavigateToTab={setCurrentTab}
-              isRebalanceModalOpen={isRebalanceModalOpen}
-              onCloseRebalanceModal={() => setIsRebalanceModalOpen(false)}
-            />
           )}
 
           {currentTab === "add_subject" && (
@@ -370,39 +330,16 @@ export default function App() {
             />
           )}
 
-          {(currentTab === "course" || currentTab === "materials") && (
-            courseStep === "syllabus" ? (
-              <CourseKnowledgeHub
-                plan={activePlan}
-                examName={examName}
-                onExamNameChange={setExamName}
-                subject={subject}
-                onSubjectChange={setSubject}
-                syllabusContent={syllabusContent}
-                onSyllabusContentChange={setSyllabusContent}
-                syllabusDocName={syllabusDocName}
-                onSyllabusDocNameChange={setSyllabusDocName}
-                topics={currentTopics}
-                onTopicsChange={setCurrentTopics}
-                materialsSummary={materialsSummary}
-                onMaterialsSummaryChange={setMaterialsSummary}
-                onUpdatePlan={handleUpdatePlan}
-                onDeleteCourse={() => activePlan && handleDeletePlan(activePlan.id)}
-                onRequestDeleteCourse={(p) => setPlanToDelete(p || activePlan)}
-                onProceedToPlanConfig={() => setCourseStep("config")}
-                onNavigateToTab={(tab) => setCurrentTab(tab as any)}
-              />
-            ) : (
-              <PlanPreferencesForm
-                examName={examName}
-                subject={subject}
-                topics={currentTopics}
-                materials={activePlan?.materials || []}
-                materialsSummary={materialsSummary}
-                onBackToMaterials={() => setCourseStep("syllabus")}
-                onPlanGenerated={handlePlanGenerated}
-              />
-            )
+          {(currentTab === "course" || currentTab === "todo" || currentTab === "realtime" || currentTab === "materials") && activePlan && (
+            <CourseDetailPage
+              plan={activePlan}
+              plans={plans}
+              onUpdatePlan={handleUpdatePlan}
+              onDeletePlan={handleDeletePlan}
+              onRequestDeletePlan={(p) => setPlanToDelete(p)}
+              onNavigateToTab={handleNavigateToTab}
+              initialDrawer={currentTab === "realtime" ? "progress" : currentTab === "materials" ? "syllabus" : null}
+            />
           )}
         </main>
       </div>
