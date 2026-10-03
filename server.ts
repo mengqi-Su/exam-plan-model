@@ -1041,9 +1041,36 @@ app.post("/api/extract-syllabus", aiLimiter, async (req, res) => {
       return res.status(400).json({ error: "No materials provided" });
     }
 
-    const aggregatedContent = materials
-      .map((m: any, idx: number) => `--- DOCUMENT ${idx + 1}: ${m.name} (${m.type}) ---\n${m.content}`)
-      .join("\n\n");
+    // —— 章节框架优先：不再全量塞 + slice(0,50000) 截断，而是按"目录骨架 + 各资料开头/中段/结尾采样"，
+    //    避免长教材后半章节被丢弃。返回 topics 结构保持不变。——
+    const allExtractChunks = chunkAllMaterials(materials);
+    const chunksByName = new Map<string, DocumentChunk[]>();
+    for (const c of allExtractChunks) {
+      if (!chunksByName.has(c.materialName)) chunksByName.set(c.materialName, []);
+      chunksByName.get(c.materialName)!.push(c);
+    }
+    const skeletonLines: string[] = [];
+    const sampleBlocks: string[] = [];
+    for (const m of materials) {
+      const chunks = chunksByName.get(m.name) || [];
+      if (chunks.length === 0) {
+        const raw = (m.content || "").slice(0, 1500);
+        if (raw.trim()) sampleBlocks.push(`[资料《${m.name}》(${m.type})]\n${raw}`);
+        continue;
+      }
+      const headings = Array.from(new Set(chunks.map((c) => c.sectionTitle))).slice(0, 30);
+      skeletonLines.push(`【${m.name} · ${m.type}】章节：` + headings.map((h) => `「${h}」`).join("、"));
+      const pick = (frac: number) => chunks[Math.min(chunks.length - 1, Math.floor(frac * Math.max(0, chunks.length - 1)))];
+      const picked = [pick(0), pick(0.5), pick(1)].filter(Boolean);
+      const uniq: DocumentChunk[] = [];
+      for (const p of picked) if (!uniq.find((u) => u.id === p.id)) uniq.push(p);
+      uniq.forEach((c, i) => {
+        sampleBlocks.push(`[片段 ${i + 1} · 《${c.materialName}》(${c.materialType}) · 章节「${c.sectionTitle}」]\n${c.content.slice(0, 1100)}`);
+      });
+    }
+    const skeletonText = skeletonLines.join("\n") || "（未能识别到明确章节标题，请根据下方片段自行梳理章节结构）";
+    let samplesText = sampleBlocks.join("\n\n");
+    if (samplesText.length > 14000) samplesText = samplesText.slice(0, 14000);
 
     const isZh = req.body.language === "zh" || isChinese(examName) || isChinese(subject) || true;
     const prompt = `You are an expert academic curriculum analyzer, knowledge tree architect, and exam preparation strategist.
@@ -1057,8 +1084,13 @@ TREE HIERARCHY RULES:
 4. Ensure comprehensive exam weight distribution (weights summing to roughly 100%) and realistic estimated study hours.
 ${isZh ? "CRITICAL: Output ALL titles, descriptions, subtopic titles, key points, and formula notes in natural, academic Simplified Chinese (简体中文)." : ""}
 
-Documents content:
-${aggregatedContent.slice(0, 50000)}
+CHAPTER FRAMEWORK (extracted TOC from the student's uploaded materials — build the tree STRICTLY along these chapters):
+${skeletonText}
+
+REPRESENTATIVE EXCERPTS (sampled from the START / MIDDLE / END of each material, so later chapters are not missed — use these to infer sub-points under each chapter):
+${samplesText || "（无可读文本片段）"}
+
+IMPORTANT: Do NOT invent chapters that do not appear in the framework/excerpts. Every major unit must correspond to a chapter actually present in the student's materials.
 
 Output a clean JSON object containing:
 - summary: A concise 2-sentence summary of the whole knowledge tree scope and highest-yield focus branches.
@@ -1218,11 +1250,14 @@ Respond with ONLY valid JSON. Do not include markdown code fences or any text ou
     );
 
     // Schedule Engine: 补齐所有日历日的任务（已有的 AI 任务原样保留，不覆盖）
+    const pastExams = (materials || []).filter((m: any) => m.type === "past_exam");
     const enrichedTasks = allocateTasksAcrossAllCalendarDays(
       rawResult.tasks || [],
       topics || [],
       preferences,
-      isZh
+      isZh,
+      allChunks,
+      pastExams
     );
 
     const totalCalculatedHours = Math.round(
@@ -1247,7 +1282,9 @@ function allocateTasksAcrossAllCalendarDays(
   existingTasks: any[],
   topics: any[],
   preferences: any,
-  isZh: boolean
+  isZh: boolean,
+  allChunks: DocumentChunk[] = [],
+  pastExams: any[] = []
 ): any[] {
   const start = new Date(preferences.startDate || new Date().toISOString().split("T")[0]);
   const exam = new Date(preferences.examDate || new Date(start.getTime() + 86400000 * 21).toISOString().split("T")[0]);
@@ -1277,6 +1314,25 @@ function allocateTasksAcrossAllCalendarDays(
 
   const finalTasks: any[] = [];
   const maxDays = diffDays;
+
+  // —— 把用户实际上传的真题卷子，均匀铺到后段模考日上（点名具体哪一份，而非泛泛"仿真卷"）——
+  const mockOffsets: number[] = [];
+  for (let d = 0; d < maxDays; d++) {
+    const ratio = d / maxDays;
+    if (ratio >= 0.70 && ratio < 0.90 && d % 3 === 0) mockOffsets.push(d);
+  }
+  const paperByOffset = new Map<number, { name: string; ordinal: number; total: number }>();
+  const P = pastExams.length;
+  if (P > 0 && mockOffsets.length > 0) {
+    for (let p = 0; p < P; p++) {
+      const slot = P === 1
+        ? Math.floor(mockOffsets.length / 2)
+        : Math.round((p / (P - 1)) * (mockOffsets.length - 1));
+      const off = mockOffsets[Math.max(0, Math.min(mockOffsets.length - 1, slot))];
+      const nm = String(pastExams[p].name || `真题卷${p + 1}`).replace(/\.[^/.]+$/, "");
+      paperByOffset.set(off, { name: nm, ordinal: p + 1, total: P });
+    }
+  }
 
   for (let dayOffset = 0; dayOffset < maxDays; dayOffset++) {
     const curDate = new Date(start.getTime() + dayOffset * 86400000);
@@ -1328,9 +1384,18 @@ function allocateTasksAcrossAllCalendarDays(
       const isMock = phaseCategory === "mock_exam";
       const salt = "gen"; // 确定性 id，便于回归测试
 
+      // 这一天对应的真实真题卷子（若用户上传过 past_exam）
+      const paperInfo = paperByOffset.get(dayOffset);
+      // 从用户实际上传资料里检索与本主题相关的真实片段，避免凭空捏造来源
+      const anchorChunk = allChunks.length
+        ? retrieveTopChunksForQuery(`${topic.title} ${(topic.subtopics || []).join(" ")}`, allChunks, { topK: 1 })[0]
+        : undefined;
+
       const title = isZh
         ? isMock
-          ? `全真模考：${preferences.examName} 仿真模拟卷自测`
+          ? (paperInfo
+              ? `全真模考：《${paperInfo.name}》（第${paperInfo.ordinal}次模考 / 共${paperInfo.total}份真题，严格计时）`
+              : `全真模考：${preferences.examName} 仿真模拟卷自测`)
           : phaseCategory === "practice_problems"
           ? `专题精炼：${topic.title} 典型高频大题攻坚`
           : phaseCategory === "active_recall"
@@ -1339,7 +1404,9 @@ function allocateTasksAcrossAllCalendarDays(
           ? `考前急救：${topic.title} 易混淆考点与公式速查`
           : `考点研读：${topic.title} 概念精讲与逻辑梳理`
         : isMock
-        ? `Timed Mock: ${preferences.examName} Practice Exam`
+        ? (paperInfo
+            ? `Timed Mock: ${paperInfo.name} (Paper ${paperInfo.ordinal} of ${paperInfo.total}, timed)`
+            : `Timed Mock: ${preferences.examName} Practice Exam`)
         : phaseCategory === "practice_problems"
         ? `Practice Drill: ${topic.title} Problem Solving`
         : phaseCategory === "active_recall"
@@ -1391,20 +1458,28 @@ function allocateTasksAcrossAllCalendarDays(
           ? `匹配【${preferences.targetScoreOrGrade || "高分通关"}】目标，根据日历科学排定任务`
           : `Scheduled to achieve ${preferences.targetScoreOrGrade || "Target Score"}`,
         ragSource: {
-          documentName: `${preferences.subject || "专业课"}-核心讲义与真题.pdf`,
-          documentType: isMock ? "past_exam" : "notes",
-          sectionTitle: `${topic.title} · 重点考点`,
-          pageOrChapter: `第 ${(dayOffset % 5) + 1} 单元`,
-          excerptSnippet: isZh
+          documentName: anchorChunk?.materialName || `${preferences.subject || "专业课"}-核心讲义与真题.pdf`,
+          documentType: anchorChunk?.materialType || (isMock ? "past_exam" : "notes"),
+          sectionTitle: anchorChunk?.sectionTitle || `${topic.title} · 重点考点`,
+          pageOrChapter: anchorChunk ? `《${anchorChunk.materialName}》` : `第 ${(dayOffset % 5) + 1} 单元`,
+          excerptSnippet: anchorChunk
+            ? anchorChunk.content.slice(0, 120)
+            : isZh
             ? `【讲义重点】本节重点考核「${topic.title}」的定理推导与典型题型解法，需严格掌握解题步骤与边界约束。`
             : `[Core Notes] Key principles for ${topic.title}. Verify boundary conditions before applying formulas.`,
-          keyConcepts: [topic.title, "核心定义", "题型模板", "避坑指南"],
-          relevanceReason: isZh ? "命中了考纲核心考点与历年真题" : "Matched core syllabus topic",
+          keyConcepts: anchorChunk?.keywords?.length
+            ? anchorChunk.keywords.slice(0, 4)
+            : [topic.title, "核心定义", "题型模板", "避坑指南"],
+          relevanceReason: anchorChunk
+            ? `从你上传的《${anchorChunk.materialName}》中检索到的相关章节`
+            : isZh ? "命中了考纲核心考点与历年真题" : "Matched core syllabus topic",
         },
         formulaOrRules: isZh
           ? [`${topic.title} 核心控制方程与计算准则`, `边界约束: 变量取值区间需满足定理定义域`]
           : [`Governing equations for ${topic.title}`, `Boundary conditions verified`],
-        practiceQuestionRef: isMock ? `《历年真题期末卷》全套` : `《期末习题精选》第 ${(dayOffset % 4) + 1} 题`,
+        practiceQuestionRef: isMock
+          ? (paperInfo ? `《${paperInfo.name}》全卷（第${paperInfo.ordinal}/${paperInfo.total}次模考）` : `《历年真题期末卷》全套`)
+          : (paperInfo ? `《${paperInfo.name}》相关章节大题精练` : `《期末习题精选》第 ${(dayOffset % 4) + 1} 题`),
       });
     }
   }
