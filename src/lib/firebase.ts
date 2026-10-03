@@ -7,6 +7,7 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   updateProfile,
   User as FirebaseUser
 } from "firebase/auth";
@@ -118,6 +119,15 @@ export async function registerWithEmail(email: string, password: string, display
     return result.user;
   } catch (error: any) {
     console.warn("Firebase email register response:", error?.code || error?.message);
+    throw error;
+  }
+}
+
+export async function resetPasswordWithEmail(email: string): Promise<void> {
+  try {
+    await sendPasswordResetEmail(auth, email);
+  } catch (error: any) {
+    console.warn("Firebase password reset response:", error?.code || error?.message);
     throw error;
   }
 }

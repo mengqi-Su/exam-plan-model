@@ -18,6 +18,12 @@ import {
   LogIn,
   LogOut,
   ChevronRight,
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
 import { useI18n, Language } from "../lib/i18n";
 import {
@@ -26,17 +32,47 @@ import {
   ExamStudyPlan,
 } from "../types";
 import {
-  DEMO_ACCOUNTS,
   APP_VERSION_DATA,
 } from "../lib/storage";
 import {
   loginWithGoogle,
   loginWithEmail,
   registerWithEmail,
+  resetPasswordWithEmail,
   logoutUser,
   uploadLocalPlansToCloud,
   saveUserProfileToCloud
 } from "../lib/firebase";
+
+function getAuthErrorMessage(err: any, lang: Language): string {
+  const code = err?.code || "";
+  const msg = err?.message || "";
+  if (code === "auth/invalid-credential" || code === "auth/wrong-password") {
+    return lang === "zh" ? "账号或密码不正确，请核对后重试。" : "Invalid email or password.";
+  }
+  if (code === "auth/user-not-found") {
+    return lang === "zh" ? "未找到该邮箱对应的账号，请先点击「注册新账号」。" : "No account found with this email. Please sign up.";
+  }
+  if (code === "auth/email-already-in-use") {
+    return lang === "zh" ? "该邮箱已被注册，请直接切换至「登录现有账号」。" : "This email is already registered. Please sign in.";
+  }
+  if (code === "auth/weak-password") {
+    return lang === "zh" ? "密码强度不足，请至少设置 6 位字符。" : "Password is too weak. Please use at least 6 characters.";
+  }
+  if (code === "auth/invalid-email") {
+    return lang === "zh" ? "请输入有效的邮箱地址。" : "Please enter a valid email address.";
+  }
+  if (code === "auth/too-many-requests") {
+    return lang === "zh" ? "登录尝试过于频繁，请稍候片刻再试。" : "Too many requests. Please try again later.";
+  }
+  if (code === "auth/network-request-failed") {
+    return lang === "zh" ? "网络连接异常，请检查网络后重试。" : "Network error, please check connection.";
+  }
+  if (code === "auth/popup-closed-by-user") {
+    return lang === "zh" ? "已取消 Google 授权登录。" : "Google sign-in was cancelled.";
+  }
+  return msg || (lang === "zh" ? "认证失败，请重试。" : "Authentication failed.");
+}
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -49,6 +85,7 @@ interface SettingsModalProps {
   plans: ExamStudyPlan[];
   onImportPlans?: (importedPlans: ExamStudyPlan[]) => void;
   onResetPlans?: () => void;
+  onLogout?: () => void;
 }
 
 export function SettingsModal({
@@ -62,6 +99,7 @@ export function SettingsModal({
   plans,
   onImportPlans,
   onResetPlans,
+  onLogout,
 }: SettingsModalProps) {
   const { t, language, setLanguage } = useI18n();
   const [activeTab, setActiveTab] = useState<"account" | "language" | "version">(
@@ -71,15 +109,31 @@ export function SettingsModal({
   const [editingProfile, setEditingProfile] = useState<UserProfile>({ ...userProfile });
   const [isEditing, setIsEditing] = useState(false);
 
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
-  const [loginName, setLoginName] = useState("");
-  const [loginMode, setLoginMode] = useState<"login" | "register">("login");
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [registerName, setRegisterName] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
+  const [registerConfirmPassword, setRegisterConfirmPassword] = useState("");
+  const [registerInstitution, setRegisterInstitution] = useState("");
+  const [registerMajor, setRegisterMajor] = useState("");
+
+  const [authErrorMsg, setAuthErrorMsg] = useState<string | null>(null);
+  const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+
+  // Password reset state
+  const [showForgotDialog, setShowForgotDialog] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [isSendingForgot, setIsSendingForgot] = useState(false);
+
   const [notificationMsg, setNotificationMsg] = useState<string | null>(null);
   const [isLoggingInWithGoogle, setIsLoggingInWithGoogle] = useState(false);
   const [isSyncingCloud, setIsSyncingCloud] = useState(false);
   const [isPopupBlocked, setIsPopupBlocked] = useState(false);
-  const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
 
   if (!isOpen) return null;
 
@@ -94,61 +148,31 @@ export function SettingsModal({
     showToast(language === "zh" ? "个人资料已更新" : "Profile updated successfully");
   };
 
-  const handleQuickLogin = (demo: typeof DEMO_ACCOUNTS[0]) => {
-    const updated: UserProfile = {
-      ...userProfile,
-      id: demo.id,
-      name: demo.name,
-      email: demo.email,
-      avatar: demo.avatar,
-      institution: demo.institution,
-      major: demo.major,
-      targetDegreeOrGoal: demo.targetDegreeOrGoal,
-      membershipTier: demo.membershipTier,
-      totalStudyMinutes: demo.totalStudyMinutes,
-      studyStreakDays: demo.studyStreakDays,
-      completedExamsCount: demo.completedExamsCount,
-      isLoggedIn: true,
-    };
-    setEditingProfile(updated);
-    onUpdateUserProfile(updated);
-    showToast(
-      language === "zh"
-        ? `已成功登录为 ${demo.name}`
-        : `Signed in as ${demo.name}`
-    );
-  };
-
-  const handleCustomLogin = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginEmail.trim()) return;
-    setIsSubmittingEmail(true);
-    const name = loginName.trim() || loginEmail.split("@")[0] || "Student";
+    if (!loginEmail.trim()) {
+      setAuthErrorMsg(language === "zh" ? "请输入登录邮箱" : "Please enter email");
+      return;
+    }
+    if (!loginPassword) {
+      setAuthErrorMsg(language === "zh" ? "请输入登录密码" : "Please enter password");
+      return;
+    }
+
+    setAuthErrorMsg(null);
+    setAuthSuccessMsg(null);
+    setIsSubmittingAuth(true);
 
     try {
-
-      let user;
-      try {
-        user = await loginWithEmail(loginEmail.trim(), loginPassword || "StudyMaster123!");
-      } catch (signInErr: any) {
-        if (signInErr.code === "auth/user-not-found" || signInErr.code === "auth/invalid-credential") {
-          user = await registerWithEmail(loginEmail.trim(), loginPassword || "StudyMaster123!", name);
-        } else {
-          throw signInErr;
-        }
-      }
-
+      const user = await loginWithEmail(loginEmail.trim(), loginPassword);
       const updated: UserProfile = {
         ...userProfile,
         id: user.uid,
-        name: user.displayName || name,
+        name: user.displayName || loginEmail.split("@")[0] || "Student",
         email: user.email || loginEmail.trim(),
-        avatar: "📚",
-        institution: "University Academic Center",
-        major: "Exam Candidate",
-        targetDegreeOrGoal: "General Exam Preparation",
-        membershipTier: "Pro Student",
+        avatar: user.photoURL || "🎓",
         isLoggedIn: true,
+        membershipTier: "Pro Student",
       };
       setEditingProfile(updated);
       onUpdateUserProfile(updated);
@@ -158,26 +182,89 @@ export function SettingsModal({
         await uploadLocalPlansToCloud(user.uid, plans);
       }
 
-      showToast(language === "zh" ? `已成功登录云端账号：${updated.name}！` : `Signed in as ${updated.name} with Cloud sync!`);
+      showToast(language === "zh" ? `欢迎回来，${updated.name}！云端数据已同步。` : `Signed in as ${updated.name}`);
     } catch (err: any) {
+      setAuthErrorMsg(getAuthErrorMessage(err, language));
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  };
 
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!registerEmail.trim()) {
+      setAuthErrorMsg(language === "zh" ? "请输入注册邮箱" : "Please enter email");
+      return;
+    }
+    if (!registerPassword) {
+      setAuthErrorMsg(language === "zh" ? "请设置密码" : "Please enter password");
+      return;
+    }
+    if (registerPassword.length < 6) {
+      setAuthErrorMsg(language === "zh" ? "密码长度至少需要 6 位字符" : "Password must be at least 6 characters");
+      return;
+    }
+    if (registerPassword !== registerConfirmPassword) {
+      setAuthErrorMsg(language === "zh" ? "两次输入的密码不一致，请重新核对" : "Passwords do not match");
+      return;
+    }
+
+    setAuthErrorMsg(null);
+    setAuthSuccessMsg(null);
+    setIsSubmittingAuth(true);
+
+    try {
+      const displayName = registerName.trim() || registerEmail.split("@")[0] || "Student";
+      const user = await registerWithEmail(registerEmail.trim(), registerPassword, displayName);
       const updated: UserProfile = {
         ...userProfile,
-        id: `user-${Date.now()}`,
-        name: name,
-        email: loginEmail.trim(),
-        avatar: "📚",
-        institution: "University Academic Center",
-        major: "Custom Program",
+        id: user.uid,
+        name: displayName,
+        email: user.email || registerEmail.trim(),
+        avatar: "🎓",
+        institution: registerInstitution.trim() || undefined,
+        major: registerMajor.trim() || undefined,
         targetDegreeOrGoal: "General Exam Preparation",
-        membershipTier: "Pro Student",
         isLoggedIn: true,
+        membershipTier: "Pro Student",
+        memberSince: new Date().toISOString().slice(0, 10),
       };
       setEditingProfile(updated);
       onUpdateUserProfile(updated);
-      showToast(language === "zh" ? `欢迎回来，${name}！` : `Welcome, ${name}!`);
+
+      await saveUserProfileToCloud(user.uid, updated);
+      if (plans.length > 0) {
+        await uploadLocalPlansToCloud(user.uid, plans);
+      }
+
+      showToast(language === "zh" ? `注册成功！欢迎加入，${displayName}` : `Registered successfully! Welcome, ${displayName}`);
+    } catch (err: any) {
+      setAuthErrorMsg(getAuthErrorMessage(err, language));
     } finally {
-      setIsSubmittingEmail(false);
+      setIsSubmittingAuth(false);
+    }
+  };
+
+  const handleSendForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) {
+      setAuthErrorMsg(language === "zh" ? "请输入需要重置密码的邮箱" : "Please enter email");
+      return;
+    }
+    setIsSendingForgot(true);
+    setAuthErrorMsg(null);
+    try {
+      await resetPasswordWithEmail(forgotEmail.trim());
+      setAuthSuccessMsg(
+        language === "zh"
+          ? `密码重置邮件已发送至 ${forgotEmail.trim()}，请查阅邮件完成重置。`
+          : `Password reset email sent to ${forgotEmail.trim()}.`
+      );
+      setShowForgotDialog(false);
+    } catch (err: any) {
+      setAuthErrorMsg(getAuthErrorMessage(err, language));
+    } finally {
+      setIsSendingForgot(false);
     }
   };
 
@@ -185,6 +272,8 @@ export function SettingsModal({
     try {
       setIsLoggingInWithGoogle(true);
       setIsPopupBlocked(false);
+      setAuthErrorMsg(null);
+      setAuthSuccessMsg(null);
       const user = await loginWithGoogle();
       const updated: UserProfile = {
         ...userProfile,
@@ -206,26 +295,22 @@ export function SettingsModal({
 
       showToast(
         language === "zh"
-          ? `Google 账号 ${user.displayName || user.email} 已成功登录并同步！`
-          : `Signed in as ${user.displayName || user.email} with Cloud Sync!`
+          ? `Google 账号 ${updated.name} 已成功登录并同步！`
+          : `Signed in as ${updated.name} with Cloud Sync!`
       );
     } catch (err: any) {
       const errStr = String(err?.message || err?.code || "");
       if (errStr.includes("popup-blocked") || err?.code === "auth/popup-blocked") {
         setIsPopupBlocked(true);
-        showToast(
+        setAuthErrorMsg(
           language === "zh"
-            ? "浏览器拦截了弹出授权窗口，请点击下方提示在新标签页打开，或直接使用邮箱登录"
+            ? "浏览器拦截了弹出授权窗口，请在下方点击在新标签页打开，或直接使用邮箱密码登录。"
             : "Browser popup was blocked in this preview iframe. Please open in a new tab or use email."
         );
       } else if (err?.code === "auth/popup-closed-by-user") {
-        showToast(language === "zh" ? "登录已取消" : "Sign in cancelled");
+        setAuthErrorMsg(language === "zh" ? "登录已取消" : "Sign in cancelled");
       } else {
-        showToast(
-          language === "zh"
-            ? `登录提示: ${err.message || "请稍后重试"}`
-            : `Login note: ${err.message || "Please try again"}`
-        );
+        setAuthErrorMsg(getAuthErrorMessage(err, language));
       }
     } finally {
       setIsLoggingInWithGoogle(false);
@@ -260,11 +345,25 @@ export function SettingsModal({
     }
     const updated: UserProfile = {
       ...userProfile,
+      id: "",
+      name: language === "zh" ? "备考学员" : "Student",
+      email: "",
+      avatar: "🎓",
+      institution: "",
+      major: "",
+      targetDegreeOrGoal: "",
       isLoggedIn: false,
+      membershipTier: "Free",
+      totalStudyMinutes: 0,
+      studyStreakDays: 0,
+      completedExamsCount: 0,
     };
     setEditingProfile(updated);
     onUpdateUserProfile(updated);
-    showToast(language === "zh" ? "已安全退出登录" : "Signed out successfully");
+    if (onLogout) {
+      onLogout();
+    }
+    showToast(language === "zh" ? "已安全退出登录，个人备考数据与云端同步已清理" : "Signed out, personal data cleared");
   };
 
   const handleExportJson = () => {
@@ -594,139 +693,388 @@ export function SettingsModal({
                     )}
                   </div>
                 ) : (
-
-                  <div className="p-5 border border-[#111111] bg-white space-y-4">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">[AUTH]</span>
-                        <span className="font-bold text-xs uppercase text-[#111111]">
-                          {language === "zh" ? "登录账号开启云端备考同步" : "Sign In for Cloud Sync"}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-[#666666] mt-1">
-                        {language === "zh"
-                          ? "接入真实 Google 账号与 Firebase 云端数据库，多设备实时同步备考计划、复习进度与知识库。"
-                          : "Connect your real Google Account via Firebase Firestore to sync your syllabus and tasks across all devices."}
-                      </p>
+                  <div className="space-y-4">
+                    {/* Mode Switcher Tabs */}
+                    <div className="flex border border-[#111111] overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthMode("login");
+                          setAuthErrorMsg(null);
+                          setAuthSuccessMsg(null);
+                        }}
+                        className={`flex-1 py-2.5 text-xs font-bold uppercase transition-all cursor-pointer border-r border-[#111111] flex items-center justify-center space-x-1.5 ${
+                          authMode === "login"
+                            ? "bg-[#111111] text-white"
+                            : "bg-[#faf9f6] text-[#666666] hover:bg-[#e4e1d8] hover:text-[#111111]"
+                        }`}
+                      >
+                        <LogIn className="w-3.5 h-3.5" />
+                        <span>{language === "zh" ? "登录现有账号" : "SIGN IN"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthMode("register");
+                          setAuthErrorMsg(null);
+                          setAuthSuccessMsg(null);
+                        }}
+                        className={`flex-1 py-2.5 text-xs font-bold uppercase transition-all cursor-pointer flex items-center justify-center space-x-1.5 ${
+                          authMode === "register"
+                            ? "bg-[#111111] text-white"
+                            : "bg-[#faf9f6] text-[#666666] hover:bg-[#e4e1d8] hover:text-[#111111]"
+                        }`}
+                      >
+                        <User className="w-3.5 h-3.5" />
+                        <span>{language === "zh" ? "注册新账号" : "CREATE ACCOUNT"}</span>
+                      </button>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={handleGoogleLogin}
-                      disabled={isLoggingInWithGoogle}
-                      className="w-full py-2.5 px-4 bg-white hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] text-xs font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      <span>
-                        {isLoggingInWithGoogle
-                          ? (language === "zh" ? "正在连接 Google 授权..." : "Signing in with Google...")
-                          : (language === "zh" ? "[使用 Google 账号登录 (云端)]" : "[CONTINUE WITH GOOGLE]")}
-                      </span>
-                    </button>
-
-                    {isPopupBlocked && (
-                      <div className="p-3 border border-[#111111] bg-[#fafafa] text-xs space-y-2 text-[#111111]">
-                        <div className="font-bold text-[#d44c47]">
-                          [!] {language === "zh" ? "浏览器拦截了弹出授权窗口" : "Popup blocked by browser"}
+                    <div className="p-5 border border-[#111111] bg-white space-y-4">
+                      {/* One-click Google Login */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-mono uppercase text-[#777777] font-bold">
+                            [FAST OAUTH // 快速验证]
+                          </span>
                         </div>
-                        <p className="text-[11px] leading-relaxed text-[#666666]">
-                          {language === "zh"
-                            ? "当前应用在内嵌预览窗口中运行，浏览器安全策略拦截了 Google 弹窗。您可以点击下方在新标签页中打开应用完成登录，或者直接在下方使用邮箱免弹窗快速登录。"
-                            : "The preview iframe prevented the Google popup from opening. You can open the app in a new tab or sign in with email below."}
-                        </p>
                         <button
                           type="button"
-                          onClick={() => window.open(window.location.href, "_blank")}
-                          className="w-full py-1.5 px-3 bg-[#111111] text-white border border-[#111111] font-bold text-xs cursor-pointer"
+                          onClick={handleGoogleLogin}
+                          disabled={isLoggingInWithGoogle}
+                          className="w-full py-2.5 px-4 bg-white hover:bg-[#fafafa] text-[#111111] border border-[#111111] text-xs font-bold flex items-center justify-center space-x-2 transition-all cursor-pointer shadow-xs active:translate-y-0.5 disabled:opacity-50"
                         >
-                          <span>{language === "zh" ? "[在新标签页打开并登录 ↗]" : "[OPEN IN NEW TAB & SIGN IN ↗]"}</span>
+                          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                            <path
+                              fill="#4285F4"
+                              d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                            />
+                            <path
+                              fill="#34A853"
+                              d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.36 24 12 24z"
+                            />
+                            <path
+                              fill="#FBBC05"
+                              d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+                            />
+                            <path
+                              fill="#EA4335"
+                              d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.36 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                            />
+                          </svg>
+                          <span>
+                            {isLoggingInWithGoogle
+                              ? (language === "zh" ? "正在连接 Google 授权..." : "Connecting to Google...")
+                              : (language === "zh" ? "使用 Google 账号一键登录" : "Continue with Google")}
+                          </span>
                         </button>
                       </div>
-                    )}
 
-                    <div className="relative flex py-1 items-center">
-                      <div className="flex-grow border-t border-[#111111]"></div>
-                      <span className="flex-shrink mx-3 text-[10px] font-bold text-[#666666] uppercase">
-                        {language === "zh" ? "或使用邮箱登录" : "OR EMAIL"}
-                      </span>
-                      <div className="flex-grow border-t border-[#111111]"></div>
+                      {/* Iframe popup blocked notice */}
+                      {isPopupBlocked && (
+                        <div className="p-3 border border-[#111111] bg-[#fafafa] text-xs space-y-2 text-[#111111]">
+                          <div className="font-bold text-[#d44c47] flex items-center space-x-1">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            <span>[!] {language === "zh" ? "浏览器拦截了弹出授权窗口" : "Popup blocked by browser"}</span>
+                          </div>
+                          <p className="text-[11px] leading-relaxed text-[#666666]">
+                            {language === "zh"
+                              ? "当前应用在内嵌预览窗口中运行，浏览器安全策略拦截了 Google 弹窗。您可以点击下方在新标签页中打开应用完成登录，或者直接在下方使用邮箱免弹窗直接登录。"
+                              : "The preview iframe prevented the Google popup from opening. You can open the app in a new tab or sign in with email below."}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => window.open(window.location.href, "_blank")}
+                            className="w-full py-1.5 px-3 bg-[#111111] text-white border border-[#111111] font-bold text-xs cursor-pointer flex items-center justify-center space-x-1"
+                          >
+                            <span>{language === "zh" ? "[在新标签页打开并登录 ↗]" : "[OPEN IN NEW TAB & SIGN IN ↗]"}</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Divider */}
+                      <div className="relative flex py-1 items-center">
+                        <div className="flex-grow border-t border-[#dedad1]"></div>
+                        <span className="flex-shrink mx-3 text-[10px] font-mono font-bold text-[#777777] uppercase">
+                          {language === "zh" ? "或使用邮箱与密码" : "OR EMAIL & PASSWORD"}
+                        </span>
+                        <div className="flex-grow border-t border-[#dedad1]"></div>
+                      </div>
+
+                      {/* Error message */}
+                      {authErrorMsg && (
+                        <div className="p-3 border border-[#d44c47] bg-[#fdf2f2] text-xs text-[#d44c47] flex items-start space-x-2">
+                          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                          <span className="leading-tight">{authErrorMsg}</span>
+                        </div>
+                      )}
+
+                      {/* Success message */}
+                      {authSuccessMsg && (
+                        <div className="p-3 border border-[#22c55e] bg-[#f0fdf4] text-xs text-[#15803d] flex items-start space-x-2">
+                          <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                          <span className="leading-tight">{authSuccessMsg}</span>
+                        </div>
+                      )}
+
+                      {/* Login Form */}
+                      {authMode === "login" && (
+                        <form onSubmit={handleSignIn} className="space-y-3">
+                          <div>
+                            <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
+                              {language === "zh" ? "登录邮箱" : "EMAIL ADDRESS"}
+                            </label>
+                            <div className="relative">
+                              <Mail className="w-3.5 h-3.5 text-[#888888] absolute left-3 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="email"
+                                required
+                                value={loginEmail}
+                                onChange={(e) => setLoginEmail(e.target.value)}
+                                placeholder="student@example.com"
+                                className="w-full pl-9 pr-3 py-2 border border-[#111111] text-xs text-[#111111] bg-white focus:outline-none focus:ring-1 focus:ring-[#111111]"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-[10px] font-bold uppercase text-[#666666]">
+                                {language === "zh" ? "登录密码" : "PASSWORD"}
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowForgotDialog(!showForgotDialog);
+                                  setForgotEmail(loginEmail);
+                                }}
+                                className="text-[10px] text-[#666666] hover:text-[#111111] underline cursor-pointer"
+                              >
+                                {language === "zh" ? "忘记密码？" : "Forgot Password?"}
+                              </button>
+                            </div>
+                            <div className="relative">
+                              <Lock className="w-3.5 h-3.5 text-[#888888] absolute left-3 top-1/2 -translate-y-1/2" />
+                              <input
+                                type={showPassword ? "text" : "password"}
+                                required
+                                value={loginPassword}
+                                onChange={(e) => setLoginPassword(e.target.value)}
+                                placeholder="••••••••"
+                                className="w-full pl-9 pr-9 py-2 border border-[#111111] text-xs text-[#111111] bg-white focus:outline-none focus:ring-1 focus:ring-[#111111]"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#888888] hover:text-[#111111] p-1 cursor-pointer"
+                              >
+                                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Forgot password dialog */}
+                          {showForgotDialog && (
+                            <div className="p-3 bg-[#faf9f6] border border-[#dedad1] space-y-2">
+                              <div className="text-[11px] font-bold text-[#111111]">
+                                {language === "zh" ? "重置登录密码" : "Reset Password"}
+                              </div>
+                              <p className="text-[10px] text-[#666666]">
+                                {language === "zh" ? "输入您的注册邮箱，系统将发送密码重置安全链接。" : "Enter your email to receive a password reset link."}
+                              </p>
+                              <div className="flex space-x-2">
+                                <input
+                                  type="email"
+                                  value={forgotEmail}
+                                  onChange={(e) => setForgotEmail(e.target.value)}
+                                  placeholder="student@example.com"
+                                  className="flex-1 px-2.5 py-1.5 border border-[#111111] text-xs bg-white focus:outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleSendForgot}
+                                  disabled={isSendingForgot}
+                                  className="px-3 py-1.5 bg-[#111111] text-white text-xs font-bold hover:bg-[#333333] cursor-pointer disabled:opacity-50"
+                                >
+                                  {isSendingForgot ? "..." : (language === "zh" ? "发送" : "Send")}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          <button
+                            type="submit"
+                            disabled={isSubmittingAuth}
+                            className="w-full py-2.5 bg-[#111111] hover:bg-[#333333] text-white border border-[#111111] text-xs font-bold transition-all cursor-pointer shadow-xs active:translate-y-0.5 disabled:opacity-50 flex items-center justify-center space-x-1.5"
+                          >
+                            <LogIn className="w-3.5 h-3.5" />
+                            <span>
+                              {isSubmittingAuth
+                                ? (language === "zh" ? "正在验证登录..." : "SIGNING IN...")
+                                : (language === "zh" ? "登录账号并开启同步" : "SIGN IN & SYNC")}
+                            </span>
+                          </button>
+
+                          <div className="text-center pt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAuthMode("register");
+                                setAuthErrorMsg(null);
+                                setAuthSuccessMsg(null);
+                              }}
+                              className="text-[11px] text-[#666666] hover:text-[#111111] underline cursor-pointer"
+                            >
+                              {language === "zh" ? "还没有账号？立即免费注册 →" : "Don't have an account? Sign up now →"}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+
+                      {/* Register Form */}
+                      {authMode === "register" && (
+                        <form onSubmit={handleRegister} className="space-y-3">
+                          <div>
+                            <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
+                              {language === "zh" ? "学员姓名 / 昵称" : "NAME / NICKNAME"}
+                            </label>
+                            <div className="relative">
+                              <User className="w-3.5 h-3.5 text-[#888888] absolute left-3 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="text"
+                                required
+                                value={registerName}
+                                onChange={(e) => setRegisterName(e.target.value)}
+                                placeholder={language === "zh" ? "如：李华 / Alex" : "e.g. Alex Chen"}
+                                className="w-full pl-9 pr-3 py-2 border border-[#111111] text-xs text-[#111111] bg-white focus:outline-none focus:ring-1 focus:ring-[#111111]"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
+                              {language === "zh" ? "注册邮箱" : "EMAIL ADDRESS"}
+                            </label>
+                            <div className="relative">
+                              <Mail className="w-3.5 h-3.5 text-[#888888] absolute left-3 top-1/2 -translate-y-1/2" />
+                              <input
+                                type="email"
+                                required
+                                value={registerEmail}
+                                onChange={(e) => setRegisterEmail(e.target.value)}
+                                placeholder="student@example.com"
+                                className="w-full pl-9 pr-3 py-2 border border-[#111111] text-xs text-[#111111] bg-white focus:outline-none focus:ring-1 focus:ring-[#111111]"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
+                                {language === "zh" ? "设置密码 (至少 6 位)" : "PASSWORD (MIN 6 CHARS)"}
+                              </label>
+                              <div className="relative">
+                                <Lock className="w-3.5 h-3.5 text-[#888888] absolute left-3 top-1/2 -translate-y-1/2" />
+                                <input
+                                  type={showPassword ? "text" : "password"}
+                                  required
+                                  minLength={6}
+                                  value={registerPassword}
+                                  onChange={(e) => setRegisterPassword(e.target.value)}
+                                  placeholder="••••••••"
+                                  className="w-full pl-9 pr-9 py-2 border border-[#111111] text-xs text-[#111111] bg-white focus:outline-none focus:ring-1 focus:ring-[#111111]"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowPassword(!showPassword)}
+                                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#888888] hover:text-[#111111] p-1 cursor-pointer"
+                                >
+                                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                </button>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
+                                {language === "zh" ? "确认密码" : "CONFIRM PASSWORD"}
+                              </label>
+                              <div className="relative">
+                                <Lock className="w-3.5 h-3.5 text-[#888888] absolute left-3 top-1/2 -translate-y-1/2" />
+                                <input
+                                  type={showPassword ? "text" : "password"}
+                                  required
+                                  minLength={6}
+                                  value={registerConfirmPassword}
+                                  onChange={(e) => setRegisterConfirmPassword(e.target.value)}
+                                  placeholder="••••••••"
+                                  className={`w-full pl-9 pr-3 py-2 border text-xs text-[#111111] bg-white focus:outline-none ${
+                                    registerConfirmPassword && registerPassword !== registerConfirmPassword
+                                      ? "border-[#d44c47]"
+                                      : "border-[#111111]"
+                                  }`}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
+                                {language === "zh" ? "目标院校 / 机构 (选填)" : "INSTITUTION (OPTIONAL)"}
+                              </label>
+                              <input
+                                type="text"
+                                value={registerInstitution}
+                                onChange={(e) => setRegisterInstitution(e.target.value)}
+                                placeholder={language === "zh" ? "如：清华大学 / 北京大学" : "e.g. University Dept"}
+                                className="w-full px-3 py-2 border border-[#dedad1] focus:border-[#111111] text-xs text-[#111111] bg-white focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
+                                {language === "zh" ? "专业 / 考试类型 (选填)" : "MAJOR / GOAL (OPTIONAL)"}
+                              </label>
+                              <input
+                                type="text"
+                                value={registerMajor}
+                                onChange={(e) => setRegisterMajor(e.target.value)}
+                                placeholder={language === "zh" ? "如：计算机 / 考研统考" : "e.g. Computer Science"}
+                                className="w-full px-3 py-2 border border-[#dedad1] focus:border-[#111111] text-xs text-[#111111] bg-white focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            type="submit"
+                            disabled={isSubmittingAuth}
+                            className="w-full py-2.5 bg-[#111111] hover:bg-[#333333] text-white border border-[#111111] text-xs font-bold transition-all cursor-pointer shadow-xs active:translate-y-0.5 disabled:opacity-50 flex items-center justify-center space-x-1.5"
+                          >
+                            <User className="w-3.5 h-3.5" />
+                            <span>
+                              {isSubmittingAuth
+                                ? (language === "zh" ? "正在创建账号..." : "CREATING ACCOUNT...")
+                                : (language === "zh" ? "立即注册并创建学员档案" : "REGISTER & CREATE PROFILE")}
+                            </span>
+                          </button>
+
+                          <div className="text-center pt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAuthMode("login");
+                                setAuthErrorMsg(null);
+                                setAuthSuccessMsg(null);
+                              }}
+                              className="text-[11px] text-[#666666] hover:text-[#111111] underline cursor-pointer"
+                            >
+                              {language === "zh" ? "已有账号？直接登录 →" : "Already have an account? Sign in →"}
+                            </button>
+                          </div>
+                        </form>
+                      )}
                     </div>
-
-                    <form onSubmit={handleCustomLogin} className="space-y-3">
-                      <div>
-                        <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
-                          {t("userEmailLabel")}
-                        </label>
-                        <input
-                          type="email"
-                          required
-                          value={loginEmail}
-                          onChange={(e) => setLoginEmail(e.target.value)}
-                          placeholder="user@domain.com"
-                          className="w-full px-3 py-1.5 border border-[#111111] text-xs text-[#111111] bg-white focus:outline-none"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold uppercase text-[#666666] block mb-1">
-                          {language === "zh" ? "登录密码" : "PASSWORD"}
-                        </label>
-                        <input
-                          type="password"
-                          required
-                          value={loginPassword}
-                          onChange={(e) => setLoginPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="w-full px-3 py-1.5 border border-[#111111] text-xs text-[#111111] bg-white focus:outline-none"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={isSubmittingEmail}
-                        className="w-full py-2 bg-[#111111] hover:bg-[#333333] text-white border border-[#111111] text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
-                      >
-                        {isSubmittingEmail
-                          ? (language === "zh" ? "正在登录..." : "SIGNING IN...")
-                          : `[${t("userLoginBtn")}]`}
-                      </button>
-                    </form>
                   </div>
                 )}
-
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-1.5 text-xs font-bold uppercase text-[#111111]">
-                    <span>[DEMO ACCOUNTS]</span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {DEMO_ACCOUNTS.map((demo) => {
-                      const isCurrent = userProfile.isLoggedIn && userProfile.id === demo.id;
-                      return (
-                        <button
-                          key={demo.id}
-                          onClick={() => handleQuickLogin(demo)}
-                          className={`p-3 border text-left transition-all cursor-pointer ${
-                            isCurrent
-                              ? "bg-[#111111] text-white border-[#111111]"
-                              : "bg-white border-[#111111] hover:bg-[#ededed]"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="font-bold text-xs uppercase">{demo.name}</span>
-                            {isCurrent && (
-                              <span className="text-[9px] font-bold border border-white px-1">
-                                [ACTIVE]
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[10px] opacity-75 truncate">
-                            {demo.major}
-                          </div>
-                          <div className="text-[10px] opacity-75 font-mono mt-1">
-                            {demo.studyStreakDays}D STREAK // {(demo.totalStudyMinutes / 60).toFixed(0)}H
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
               </div>
             )}
 

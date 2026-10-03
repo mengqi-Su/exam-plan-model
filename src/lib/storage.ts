@@ -857,6 +857,12 @@ function generateSample21DaysTasks(startDateStr: string, examDateStr: string, fo
 
 export function loadSavedPlans(): ExamStudyPlan[] {
   try {
+    const userProfile = loadUserProfile();
+    if (!userProfile.isLoggedIn) {
+      localStorage.removeItem(STORAGE_KEY_PLANS);
+      localStorage.removeItem(STORAGE_KEY_ACTIVE_ID);
+      return [];
+    }
     const raw = localStorage.getItem(STORAGE_KEY_PLANS);
     if (!raw) {
       return [];
@@ -865,7 +871,13 @@ export function loadSavedPlans(): ExamStudyPlan[] {
 
     if (Array.isArray(parsed)) {
       // Remove any legacy sample plan so user starts with a clean slate
-      const realPlans = parsed.filter((p) => p.id !== "sample-plan-cs301");
+      const realPlans = parsed.filter(
+        (p) =>
+          p.id !== "sample-plan-cs301" &&
+          !p.id?.startsWith("sample-") &&
+          !p.examName?.includes("CS 301") &&
+          !p.examName?.includes("高级算法与数据结构")
+      );
       if (realPlans.length !== parsed.length) {
         localStorage.setItem(STORAGE_KEY_PLANS, JSON.stringify(realPlans));
         if (localStorage.getItem(STORAGE_KEY_ACTIVE_ID) === "sample-plan-cs301") {
@@ -890,8 +902,13 @@ export function savePlans(plans: ExamStudyPlan[]) {
 }
 
 export function getActivePlanId(): string {
+  const userProfile = loadUserProfile();
+  if (!userProfile.isLoggedIn) {
+    localStorage.removeItem(STORAGE_KEY_ACTIVE_ID);
+    return "";
+  }
   const activeId = localStorage.getItem(STORAGE_KEY_ACTIVE_ID);
-  if (!activeId || activeId === "sample-plan-cs301") {
+  if (!activeId || activeId === "sample-plan-cs301" || activeId.startsWith("sample-")) {
     return "";
   }
   return activeId;
@@ -902,6 +919,11 @@ export function setActivePlanId(id: string) {
 }
 
 export function loadUploadedMaterials(): StudyMaterial[] {
+  const userProfile = loadUserProfile();
+  if (!userProfile.isLoggedIn) {
+    localStorage.removeItem(STORAGE_KEY_MATERIALS);
+    return [];
+  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY_MATERIALS);
     return raw ? JSON.parse(raw) : [];
@@ -920,69 +942,49 @@ export function saveUploadedMaterials(materials: StudyMaterial[]) {
 
 const STORAGE_KEY_USER = "exam_planner_user_profile_v1";
 
-export const DEFAULT_USER_PROFILE = {
-  id: "user-default-101",
-  name: "Alex Chen",
-  email: "alex.chen@university.edu",
+export const DEFAULT_USER_PROFILE: UserProfile = {
+  id: "",
+  name: "",
+  email: "",
   avatar: "🎓",
-  institution: "Computer Science & Engineering Dept",
-  major: "Computer Science",
-  targetDegreeOrGoal: "Fall Final Exams & GRE prep",
-  isLoggedIn: true,
-  memberSince: "2026-01-15",
-  membershipTier: "Pro Student" as const,
-  totalStudyMinutes: 2460,
-  studyStreakDays: 12,
-  completedExamsCount: 3,
+  institution: "",
+  major: "",
+  targetDegreeOrGoal: "",
+  isLoggedIn: false,
+  memberSince: new Date().toISOString().slice(0, 10),
+  membershipTier: "Free",
+  totalStudyMinutes: 0,
+  studyStreakDays: 0,
+  completedExamsCount: 0,
 };
-
-export const DEMO_ACCOUNTS = [
-  {
-    id: "user-alex",
-    name: "Alex Chen (陈博宇)",
-    email: "alex.chen@cs.edu",
-    avatar: "🎓",
-    institution: "School of Computing",
-    major: "Computer Science",
-    targetDegreeOrGoal: "期末算法统考 90+ 与 保研冲刺",
-    membershipTier: "Pro Student" as const,
-    totalStudyMinutes: 2460,
-    studyStreakDays: 12,
-    completedExamsCount: 3,
-  },
-  {
-    id: "user-sarah",
-    name: "Sarah Li (李晓萱)",
-    email: "sarah.li@med.edu",
-    avatar: "🔬",
-    institution: "School of Medicine",
-    major: "Clinical Medicine & Physiology",
-    targetDegreeOrGoal: "生理学综合统考 A 等级",
-    membershipTier: "Master Scholar" as const,
-    totalStudyMinutes: 3890,
-    studyStreakDays: 24,
-    completedExamsCount: 5,
-  },
-  {
-    id: "user-david",
-    name: "David Zhang (张浩然)",
-    email: "david.zhang@econ.edu",
-    avatar: "📊",
-    institution: "School of Economics & Finance",
-    major: "Quantitative Finance",
-    targetDegreeOrGoal: "CFA 一级 & 计量经济学期末",
-    membershipTier: "Pro Student" as const,
-    totalStudyMinutes: 1720,
-    studyStreakDays: 7,
-    completedExamsCount: 2,
-  },
-];
 
 export function loadUserProfile(): UserProfile {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_USER);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      // Remove any unauthenticated, invalid, or legacy demo accounts
+      if (
+        !parsed.isLoggedIn ||
+        !parsed.email ||
+        parsed.id === "user-default-101" ||
+        parsed.id === "user-alex" ||
+        parsed.id === "user-sarah" ||
+        parsed.id === "user-david" ||
+        parsed.id?.startsWith("user-demo") ||
+        parsed.email?.includes("alex.chen") ||
+        parsed.email?.includes("sarah.li") ||
+        parsed.email?.includes("david.zhang") ||
+        parsed.name === "Alex Chen" ||
+        parsed.name === "陈博宇" ||
+        parsed.name === "李晓萱" ||
+        parsed.name === "张浩然" ||
+        parsed.name === "备考学员"
+      ) {
+        localStorage.removeItem(STORAGE_KEY_USER);
+        return DEFAULT_USER_PROFILE;
+      }
+      return parsed;
     }
     return DEFAULT_USER_PROFILE;
   } catch (e) {
@@ -995,6 +997,18 @@ export function saveUserProfile(profile: UserProfile) {
     localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(profile));
   } catch (e) {
     console.error("Failed to save user profile", e);
+  }
+}
+
+export function clearUserSessionData() {
+  try {
+    localStorage.removeItem(STORAGE_KEY_PLANS);
+    localStorage.removeItem(STORAGE_KEY_ACTIVE_ID);
+    localStorage.removeItem(STORAGE_KEY_MATERIALS);
+    localStorage.removeItem(STORAGE_KEY_DAILY_MEMOS);
+    localStorage.removeItem(STORAGE_KEY_USER);
+  } catch (e) {
+    console.error("Failed to clear user session data", e);
   }
 }
 

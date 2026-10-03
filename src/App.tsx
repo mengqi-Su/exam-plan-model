@@ -22,7 +22,9 @@ import {
   loadAppSettings,
   saveAppSettings,
   loadUserProfile,
-  saveUserProfile
+  saveUserProfile,
+  clearUserSessionData,
+  DEFAULT_USER_PROFILE
 } from "./lib/storage";
 import {
   auth,
@@ -53,14 +55,14 @@ export default function App() {
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
-
         const updatedProfile: UserProfile = {
-          ...userProfile,
+          ...DEFAULT_USER_PROFILE,
           id: user.uid,
           name: user.displayName || user.email?.split("@")[0] || "Scholar",
           email: user.email || "",
           avatar: user.photoURL || "🎓",
           isLoggedIn: true,
+          membershipTier: "Pro Student",
         };
         setUserProfile(updatedProfile);
         saveUserProfile(updatedProfile);
@@ -76,18 +78,38 @@ export default function App() {
         });
 
         unsubscribePlans = subscribeToUserPlans(user.uid, (cloudPlans) => {
-          if (cloudPlans && cloudPlans.length > 0) {
+          if (cloudPlans) {
             setPlans(cloudPlans);
-            if (!activePlanId || !cloudPlans.some(p => p.id === activePlanId)) {
-              setActivePlanIdState(cloudPlans[0].id);
-              setActivePlanId(cloudPlans[0].id);
+            savePlans(cloudPlans);
+            if (cloudPlans.length > 0) {
+              setActivePlanIdState((prev) => {
+                if (!prev || !cloudPlans.some((p) => p.id === prev)) {
+                  setActivePlanId(cloudPlans[0].id);
+                  return cloudPlans[0].id;
+                }
+                return prev;
+              });
+            } else {
+              setActivePlanIdState("");
+              setActivePlanId("");
             }
           }
         });
       } else {
-
         if (unsubscribePlans) unsubscribePlans();
         if (unsubscribeProfile) unsubscribeProfile();
+
+        setUserProfile((prev) => {
+          if (prev.isLoggedIn) {
+            clearUserSessionData();
+            setPlans([]);
+            savePlans([]);
+            setActivePlanIdState("");
+            setActivePlanId("");
+            return DEFAULT_USER_PROFILE;
+          }
+          return prev;
+        });
       }
     });
 
@@ -144,6 +166,17 @@ export default function App() {
     setActivePlanIdState("");
     setActivePlanId("");
     savePlans([]);
+  };
+
+  const handleLogout = () => {
+    setUserProfile(DEFAULT_USER_PROFILE);
+    saveUserProfile(DEFAULT_USER_PROFILE);
+    setPlans([]);
+    savePlans([]);
+    setActivePlanIdState("");
+    setActivePlanId("");
+    clearUserSessionData();
+    setCurrentTab("dashboard");
   };
 
   const activePlan = React.useMemo(() => {
@@ -385,6 +418,7 @@ export default function App() {
         plans={plans}
         onImportPlans={(importedPlans) => setPlans(importedPlans)}
         onResetPlans={handleResetPlans}
+        onLogout={handleLogout}
       />
     </div>
   );
