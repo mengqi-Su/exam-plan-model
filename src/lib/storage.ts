@@ -859,29 +859,25 @@ export function loadSavedPlans(): ExamStudyPlan[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PLANS);
     if (!raw) {
-      const sample = getSamplePlan();
-      localStorage.setItem(STORAGE_KEY_PLANS, JSON.stringify([sample]));
-      localStorage.setItem(STORAGE_KEY_ACTIVE_ID, sample.id);
-      return [sample];
+      return [];
     }
     const parsed: ExamStudyPlan[] = JSON.parse(raw);
 
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      const needsSampleRefresh = parsed.some(
-        (p) => p.id === "sample-plan-cs301" && ((p.tasks || []).length < 15 || p.examName.includes("Final") || (p.tasks && p.tasks[0]?.title.includes("Red-Black")))
-      );
-      if (needsSampleRefresh) {
-        const sample = getSamplePlan();
-        const updated = parsed.map((p) => (p.id === "sample-plan-cs301" ? sample : p));
-        localStorage.setItem(STORAGE_KEY_PLANS, JSON.stringify(updated));
-        return updated;
+    if (Array.isArray(parsed)) {
+      // Remove any legacy sample plan so user starts with a clean slate
+      const realPlans = parsed.filter((p) => p.id !== "sample-plan-cs301");
+      if (realPlans.length !== parsed.length) {
+        localStorage.setItem(STORAGE_KEY_PLANS, JSON.stringify(realPlans));
+        if (localStorage.getItem(STORAGE_KEY_ACTIVE_ID) === "sample-plan-cs301") {
+          localStorage.removeItem(STORAGE_KEY_ACTIVE_ID);
+        }
       }
-      return parsed;
+      return realPlans;
     }
-    return [getSamplePlan()];
+    return [];
   } catch (e) {
     console.error("Failed to load plans from localStorage", e);
-    return [getSamplePlan()];
+    return [];
   }
 }
 
@@ -894,7 +890,11 @@ export function savePlans(plans: ExamStudyPlan[]) {
 }
 
 export function getActivePlanId(): string {
-  return localStorage.getItem(STORAGE_KEY_ACTIVE_ID) || "sample-plan-cs301";
+  const activeId = localStorage.getItem(STORAGE_KEY_ACTIVE_ID);
+  if (!activeId || activeId === "sample-plan-cs301") {
+    return "";
+  }
+  return activeId;
 }
 
 export function setActivePlanId(id: string) {

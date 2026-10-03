@@ -11,7 +11,7 @@ import { MasterCalendarView } from "./components/MasterCalendarView";
 import { CourseDetailPage } from "./components/CourseDetailPage";
 import { SettingsModal } from "./components/SettingsModal";
 import { DeleteConfirmModal } from "./components/DeleteConfirmModal";
-import { ChevronLeft, LayoutDashboard, Calendar } from "lucide-react";
+import { ChevronLeft, LayoutDashboard, Calendar, Plus } from "lucide-react";
 import { ExamStudyPlan, StudyMaterial, SyllabusTopic, AppSettings, UserProfile } from "./types";
 import {
   loadSavedPlans,
@@ -22,8 +22,7 @@ import {
   loadAppSettings,
   saveAppSettings,
   loadUserProfile,
-  saveUserProfile,
-  SAMPLE_PLANS
+  saveUserProfile
 } from "./lib/storage";
 import {
   auth,
@@ -105,8 +104,8 @@ export default function App() {
   const [syllabusDocName, setSyllabusDocName] = useState<string>("");
   const [currentTopics, setCurrentTopics] = useState<SyllabusTopic[]>([]);
   const [materialsSummary, setMaterialsSummary] = useState<string>("");
-  const [examName, setExamName] = useState<string>("CS 301：高级算法与数据结构期末考试");
-  const [subject, setSubject] = useState<string>("计算机科学");
+  const [examName, setExamName] = useState<string>("");
+  const [subject, setSubject] = useState<string>("");
 
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return new Date().toISOString().split("T")[0];
@@ -141,11 +140,10 @@ export default function App() {
   };
 
   const handleResetPlans = () => {
-    setPlans(SAMPLE_PLANS);
-    if (SAMPLE_PLANS.length > 0) {
-      setActivePlanIdState(SAMPLE_PLANS[0].id);
-      setActivePlanId(SAMPLE_PLANS[0].id);
-    }
+    setPlans([]);
+    setActivePlanIdState("");
+    setActivePlanId("");
+    savePlans([]);
   };
 
   const activePlan = React.useMemo(() => {
@@ -330,16 +328,41 @@ export default function App() {
             />
           )}
 
-          {(currentTab === "course" || currentTab === "todo" || currentTab === "realtime" || currentTab === "materials") && activePlan && (
-            <CourseDetailPage
-              plan={activePlan}
-              plans={plans}
-              onUpdatePlan={handleUpdatePlan}
-              onDeletePlan={handleDeletePlan}
-              onRequestDeletePlan={(p) => setPlanToDelete(p)}
-              onNavigateToTab={handleNavigateToTab}
-              initialDrawer={currentTab === "realtime" ? "progress" : currentTab === "materials" ? "syllabus" : null}
-            />
+          {(currentTab === "course" || currentTab === "todo" || currentTab === "realtime" || currentTab === "materials") && (
+            activePlan ? (
+              <CourseDetailPage
+                plan={activePlan}
+                plans={plans}
+                onUpdatePlan={handleUpdatePlan}
+                onDeletePlan={handleDeletePlan}
+                onRequestDeletePlan={(p) => setPlanToDelete(p)}
+                onNavigateToTab={handleNavigateToTab}
+                initialDrawer={currentTab === "realtime" ? "progress" : currentTab === "materials" ? "syllabus" : null}
+              />
+            ) : (
+              <div className="max-w-xl mx-auto mt-16 p-8 bg-white border border-[#111111] shadow-xs text-center font-mono space-y-4 animate-fadeIn">
+                <div className="w-12 h-12 bg-[#FCD33B] border border-[#111111] flex items-center justify-center mx-auto shadow-xs">
+                  <LayoutDashboard className="w-6 h-6 text-[#111111]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#111111]">
+                    暂无可查看的备考科目 // NO ACTIVE SUBJECT
+                  </h3>
+                  <p className="text-xs text-[#666666] mt-1.5 leading-relaxed max-w-md mx-auto">
+                    您还没有添加任何备考科目。请先点击下方按钮新建您的首门备考计划，生成每日科学复习任务与考纲知识库。
+                  </p>
+                </div>
+                <div className="pt-2">
+                  <button
+                    onClick={handleNewPlan}
+                    className="inline-flex items-center space-x-2 px-5 py-2.5 bg-[#111111] text-white text-xs font-bold rounded-lg hover:bg-[#333333] transition-colors cursor-pointer shadow-xs active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>新建备考科目 (Create Subject)</span>
+                  </button>
+                </div>
+              </div>
+            )
           )}
         </main>
       </div>

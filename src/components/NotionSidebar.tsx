@@ -119,7 +119,6 @@ export function NotionSidebar({
               : "hover:bg-[#e4e1d8] text-[#333333]"
           }`}
         >
-          <span className="text-[10px] font-mono opacity-70">01</span>
           <LayoutDashboard className="w-3.5 h-3.5" />
           <span className="flex-1 truncate uppercase tracking-wider">{language === "zh" ? "科目看板" : "DASHBOARD"}</span>
         </button>
@@ -132,21 +131,8 @@ export function NotionSidebar({
               : "hover:bg-[#e4e1d8] text-[#333333]"
           }`}
         >
-          <span className="text-[10px] font-mono opacity-70">02</span>
           <Calendar className="w-3.5 h-3.5" />
           <span className="flex-1 truncate uppercase tracking-wider">{language === "zh" ? "全科日历" : "CALENDAR"}</span>
-        </button>
-
-        <button
-          onClick={onNewPlan}
-          className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs border border-dashed border-[#111111]/30 hover:border-[#111111] rounded-lg ${
-            currentTab === "add_subject"
-              ? "bg-[#111111] text-white font-semibold shadow-xs"
-              : "hover:bg-[#e4e1d8] text-[#111111]"
-          }`}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span className="flex-1 truncate uppercase tracking-wider">{language === "zh" ? "新建科目" : "NEW SUBJECT"}</span>
         </button>
       </div>
 
@@ -207,6 +193,24 @@ export function NotionSidebar({
             </div>
           );
         })}
+
+        {plans.length === 0 && (
+          <p className="text-[11px] text-[#777777] px-2 py-1 font-mono">
+            {language === "zh" ? "暂无科目" : "No subjects yet"}
+          </p>
+        )}
+
+        <button
+          onClick={onNewPlan}
+          className={`w-full flex items-center space-x-2 px-2.5 py-2 mt-1 text-left transition-all cursor-pointer font-sans text-xs border border-dashed border-[#111111]/30 hover:border-[#111111] rounded-lg ${
+            currentTab === "add_subject"
+              ? "bg-[#111111] text-white font-semibold shadow-xs"
+              : "hover:bg-[#e4e1d8] text-[#111111]"
+          }`}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span className="flex-1 truncate uppercase tracking-wider">{language === "zh" ? "新建科目" : "NEW SUBJECT"}</span>
+        </button>
       </div>
 
       <div className="p-2.5 border-t border-[#111111] bg-[#faf9f6]">

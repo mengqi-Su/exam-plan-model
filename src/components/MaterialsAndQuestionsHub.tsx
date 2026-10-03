@@ -68,7 +68,7 @@ export function MaterialsAndQuestionsHub({
 
   const [activeQuizMaterial, setActiveQuizMaterial] = useState<StudyMaterial | null>(null);
 
-  const materials: StudyMaterial[] = plan.materials || INITIAL_SAMPLE_DOCUMENTS;
+  const materials: StudyMaterial[] = plan.materials || [];
 
   const questionPapers = materials.filter(
     (m) => m.categoryGroup === "exam_question" || m.type === "past_exam" || m.name.includes("真题") || m.name.includes("试卷") || m.name.includes("Exam") || m.name.includes("Quiz")

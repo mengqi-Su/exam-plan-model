@@ -125,17 +125,37 @@ export function CourseAccordionGallery({
 
   if (!plans || plans.length === 0) {
     return (
-      <div
-        onClick={onAddNewSubject}
-        className="p-12 bg-[#faf9f6] border-2 border-dashed border-[#111111] text-center font-mono text-xs cursor-pointer hover:bg-[#f0eee6] transition-all flex flex-col items-center justify-center space-y-3"
-      >
-        <div className="w-10 h-10 bg-[#111111] text-white flex items-center justify-center font-bold">
-          <Plus className="w-5 h-5" />
+      <div className="p-8 sm:p-12 bg-white border border-[#111111] shadow-xs font-mono text-xs flex flex-col items-center justify-center text-center space-y-5 animate-fadeIn">
+        <div className="w-14 h-14 bg-[#FCD33B] border border-[#111111] flex items-center justify-center font-bold shadow-xs">
+          <BookOpen className="w-7 h-7 text-[#111111]" />
         </div>
-        <div>
-          <h4 className="font-bold text-sm text-[#111111]">
-            [{language === "zh" ? "暂无在考科目 · 点击新建首门备考计划" : "NO SUBJECTS · CLICK TO ADD FIRST COURSE"}]
-          </h4>
+        <div className="space-y-2 max-w-lg">
+          <div className="text-[10px] font-bold tracking-widest text-[#888888] uppercase">
+            // WORKSPACE INITIALIZER
+          </div>
+          <h3 className="font-bold text-lg sm:text-xl text-[#111111]">
+            {language === "zh" ? "欢迎开启备战计划 · 暂无备考科目" : "Welcome · No Active Exam Subjects"}
+          </h3>
+          <p className="text-xs text-[#666666] leading-relaxed">
+            {language === "zh"
+              ? "点击下方按钮新建您的第一门备考科目，支持上传考试大纲、PDF/讲义笔记，系统将通过智能分析自动生成每日学习计划与真题自测题库。"
+              : "Create your first exam study subject. Upload your syllabus or notes, and the system will intelligently generate adaptive daily tasks and mastery quizzes."}
+          </p>
+        </div>
+
+        <button
+          onClick={onAddNewSubject}
+          className="inline-flex items-center space-x-2 px-6 py-3 bg-[#111111] text-white font-bold text-xs rounded-lg hover:bg-[#333333] transition-all cursor-pointer shadow-xs active:scale-95"
+        >
+          <Plus className="w-4 h-4" />
+          <span>{language === "zh" ? "+ 新建首门备考计划 (Create Exam Plan)" : "+ Add First Course Plan"}</span>
+        </button>
+
+        <div className="pt-2 border-t border-[#dedad1] w-full max-w-md flex items-center justify-center space-x-2 text-[11px] text-[#777777]">
+          <span>{language === "zh" ? "支持快速预设与自定义：" : "Quick Starter Templates:"}</span>
+          <span className="px-1.5 py-0.5 bg-[#fafafa] border border-[#dedad1] text-[#333333]">高等数学</span>
+          <span className="px-1.5 py-0.5 bg-[#fafafa] border border-[#dedad1] text-[#333333]">计算机网络</span>
+          <span className="px-1.5 py-0.5 bg-[#fafafa] border border-[#dedad1] text-[#333333]">大学英语</span>
         </div>
       </div>
     );

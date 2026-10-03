@@ -403,9 +403,13 @@ export function MasterDashboard({
           <div className="py-10 text-center space-y-2 bg-[#fafafa] border border-dashed border-[#111111]/40">
             <CheckCircle2 className="w-8 h-8 text-[#888888] mx-auto" />
             <p className="text-xs text-[#666666] font-mono">
-              {language === "zh"
-                ? `[${selectedDate}] 暂无任何科目的排程复习任务。`
-                : `NO STUDY TASKS SCHEDULED FOR [${selectedDate}].`}
+              {plans.length === 0
+                ? (language === "zh"
+                    ? "尚未添加备考科目。点击上方「新建备考计划」添加首门科目，系统将自动排程每日待办。"
+                    : "No exam subjects added yet. Create a subject above to generate your daily adaptive tasks.")
+                : (language === "zh"
+                    ? `[${selectedDate}] 暂无任何科目的排程复习任务。`
+                    : `NO STUDY TASKS SCHEDULED FOR [${selectedDate}].`)}
             </p>
           </div>
         ) : (
