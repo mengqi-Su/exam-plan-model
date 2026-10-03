@@ -197,7 +197,7 @@ export function DailyTodoList({
           <div className="flex items-center space-x-1">
             <button
               onClick={() => handleShiftDate(-1)}
-              className="p-1.5 border border-[#111111] hover:bg-[#ededed] text-[#111111] transition-colors cursor-pointer"
+              className="p-1.5 border border-[#111111] hover:bg-[#ededed] text-[#111111] transition-colors cursor-pointer rounded-lg shadow-xs"
               title={t("previousDay")}
             >
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -205,14 +205,14 @@ export function DailyTodoList({
 
             <button
               onClick={handleJumpToToday}
-              className="px-2.5 py-1 text-xs font-mono font-bold hover:bg-[#111111] hover:text-white text-[#111111] transition-colors border border-[#111111] cursor-pointer"
+              className="px-2.5 py-1 text-xs font-mono font-bold hover:bg-[#111111] hover:text-white text-[#111111] transition-colors border border-[#111111] cursor-pointer rounded-lg shadow-xs"
             >
               [{language === "zh" ? "今日" : "TODAY"}]
             </button>
 
             <button
               onClick={() => handleShiftDate(1)}
-              className="p-1.5 border border-[#111111] hover:bg-[#ededed] text-[#111111] transition-colors cursor-pointer"
+              className="p-1.5 border border-[#111111] hover:bg-[#ededed] text-[#111111] transition-colors cursor-pointer rounded-lg shadow-xs"
               title={t("nextDay")}
             >
               <ChevronRight className="w-3.5 h-3.5" />
@@ -224,16 +224,16 @@ export function DailyTodoList({
               type="date"
               value={selectedDate}
               onChange={(e) => onSelectDate(e.target.value)}
-              className="text-xs font-mono text-[#111111] bg-white border border-[#111111] px-2 py-1 focus:outline-none cursor-pointer"
+              className="text-xs font-mono text-[#111111] bg-white border border-[#111111] px-2 py-1 focus:outline-none cursor-pointer rounded-lg shadow-xs"
             />
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
 
-          <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-white border border-[#111111] text-xs font-mono text-[#111111]">
+          <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-white border border-[#111111] text-xs font-mono text-[#111111] rounded-lg shadow-xs">
             <span
-              className="w-2.5 h-2.5 border border-[#111111] shrink-0"
+              className="w-2.5 h-2.5 border border-[#111111] shrink-0 rounded-xs"
               style={{ backgroundColor: getPaletteByString(plan.id || plan.examName).accentColor }}
             />
             <span className="font-bold">
@@ -245,7 +245,7 @@ export function DailyTodoList({
             </span>
           </div>
 
-          <div className="flex items-center space-x-1 text-xs font-mono text-[#111111] bg-white border border-[#111111] px-2 py-1">
+          <div className="flex items-center space-x-1 text-xs font-mono text-[#111111] bg-white border border-[#111111] px-2 py-1 rounded-lg shadow-xs">
             <Filter className="w-3 h-3" />
             <select
               value={filterCategory}

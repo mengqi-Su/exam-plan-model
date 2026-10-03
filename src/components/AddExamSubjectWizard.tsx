@@ -140,7 +140,7 @@ export function AddExamSubjectWizard({
   const [dailySchedules, setDailySchedules] = useState<DaySchedulePreference[]>(DEFAULT_WEEK_SCHEDULE);
   const [selectedWeakTopics, setSelectedWeakTopics] = useState<string[]>([]);
   const [additionalNotes, setAdditionalNotes] = useState("");
-  const [userNeedFocusArea, setUserNeedFocusArea] = useState("heavy_calculation");
+  const [userNeedFocusArea, setUserNeedFocusArea] = useState<UserStudyPreferences["userNeedFocusArea"]>("heavy_calculation");
   const [customPromptRequirement, setCustomPromptRequirement] = useState("");
 
   const orderedDayOfWeeks = [1, 2, 3, 4, 5, 6, 0];

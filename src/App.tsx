@@ -46,7 +46,7 @@ export default function App() {
   const [appSettings, setAppSettings] = useState<AppSettings>(() => loadAppSettings());
   const [userProfile, setUserProfile] = useState<UserProfile>(() => loadUserProfile());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"general" | "account" | "language" | "version">("general");
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"account" | "language" | "version">("account");
 
   useEffect(() => {
     let unsubscribePlans: (() => void) | null = null;
@@ -135,7 +135,7 @@ export default function App() {
     }
   };
 
-  const handleOpenSettings = (tab: "general" | "account" | "language" | "version" = "general") => {
+  const handleOpenSettings = (tab: "account" | "language" | "version" = "account") => {
     setSettingsInitialTab(tab);
     setIsSettingsOpen(true);
   };

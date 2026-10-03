@@ -240,14 +240,12 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
             <div>
               <div className="flex items-baseline space-x-3">
                 <h2
-                  className="text-3xl sm:text-4xl lg:text-5xl font-serif text-[#111111] tracking-tight leading-none"
-                  style={{ fontFamily: "'Instrument Serif', 'Playfair Display', serif" }}
+                  className="text-3xl sm:text-4xl lg:text-5xl font-bold font-sans text-[#111111] tracking-tight leading-none"
                 >
                   {language === "zh" ? "知识库" : "Knowledge"}
                 </h2>
                 <span
-                  className="text-3xl sm:text-4xl lg:text-5xl font-serif text-[#999999] tracking-tight leading-none"
-                  style={{ fontFamily: "'Instrument Serif', 'Playfair Display', serif" }}
+                  className="text-3xl sm:text-4xl lg:text-5xl font-bold font-sans text-[#999999] tracking-tight leading-none"
                 >
                   {language === "zh" ? "分类档案" : "Archive"}
                 </span>
@@ -319,14 +317,12 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                       <div className="flex items-start justify-between">
                         <div>
                           <h3
-                            className="text-4xl sm:text-5xl lg:text-6xl font-serif text-[#111111] font-normal tracking-tight leading-none select-none"
-                            style={{ fontFamily: "'Instrument Serif', 'Playfair Display', serif" }}
+                            className="text-3xl sm:text-4xl lg:text-5xl font-bold font-sans text-[#111111] tracking-tight leading-none select-none"
                           >
                             {folder.nameZh}
                           </h3>
                           <span
-                            className="block text-base sm:text-lg font-serif italic text-[#111111]/70 tracking-normal mt-1"
-                            style={{ fontFamily: "'Instrument Serif', 'Playfair Display', serif" }}
+                            className="block text-xs sm:text-sm font-mono uppercase tracking-wider text-[#111111]/70 mt-1"
                           >
                             {folder.nameEn}
                           </span>
@@ -387,14 +383,12 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                       <div className="flex items-start justify-between">
                         <div>
                           <h3
-                            className="text-4xl sm:text-5xl lg:text-6xl font-serif text-[#111111] font-normal tracking-tight leading-none select-none"
-                            style={{ fontFamily: "'Instrument Serif', 'Playfair Display', serif" }}
+                            className="text-3xl sm:text-4xl lg:text-5xl font-bold font-sans text-[#111111] tracking-tight leading-none select-none"
                           >
                             {folder.nameZh}
                           </h3>
                           <span
-                            className="block text-base sm:text-lg font-serif italic text-[#111111]/70 tracking-normal mt-1"
-                            style={{ fontFamily: "'Instrument Serif', 'Playfair Display', serif" }}
+                            className="block text-xs sm:text-sm font-mono uppercase tracking-wider text-[#111111]/70 mt-1"
                           >
                             {folder.nameEn}
                           </span>
@@ -458,14 +452,12 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                       <div className="flex items-start justify-between">
                         <div>
                           <h3
-                            className="text-4xl sm:text-5xl lg:text-6xl font-serif text-[#111111] font-normal tracking-tight leading-none select-none"
-                            style={{ fontFamily: "'Instrument Serif', 'Playfair Display', serif" }}
+                            className="text-3xl sm:text-4xl lg:text-5xl font-bold font-sans text-[#111111] tracking-tight leading-none select-none"
                           >
                             {folder.nameZh}
                           </h3>
                           <span
-                            className="block text-base sm:text-lg font-serif italic text-[#111111]/70 tracking-normal mt-1"
-                            style={{ fontFamily: "'Instrument Serif', 'Playfair Display', serif" }}
+                            className="block text-xs sm:text-sm font-mono uppercase tracking-wider text-[#111111]/70 mt-1"
                           >
                             {folder.nameEn}
                           </span>
@@ -526,14 +518,12 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                       <div className="flex items-start justify-between">
                         <div>
                           <h3
-                            className="text-4xl sm:text-5xl lg:text-6xl font-serif text-[#111111] font-normal tracking-tight leading-none select-none"
-                            style={{ fontFamily: "'Instrument Serif', 'Playfair Display', serif" }}
+                            className="text-3xl sm:text-4xl lg:text-5xl font-bold font-sans text-[#111111] tracking-tight leading-none select-none"
                           >
                             {folder.nameZh}
                           </h3>
                           <span
-                            className="block text-base sm:text-lg font-serif italic text-[#111111]/70 tracking-normal mt-1"
-                            style={{ fontFamily: "'Instrument Serif', 'Playfair Display', serif" }}
+                            className="block text-xs sm:text-sm font-mono uppercase tracking-wider text-[#111111]/70 mt-1"
                           >
                             {folder.nameEn}
                           </span>
@@ -608,7 +598,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                     }}
                   >
                     <span className="text-[10px] opacity-70">{f.code}</span>
-                    <span className="font-serif text-sm font-normal">
+                    <span className="font-sans text-xs font-bold">
                       {f.nameZh}
                     </span>
                     <span className="text-[10px] px-1 py-0.2 bg-[#111111] text-white">

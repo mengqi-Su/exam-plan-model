@@ -40,7 +40,7 @@ interface NotionPageHeaderProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   userProfile?: UserProfile;
-  onOpenSettings?: (tab?: "general" | "account" | "language" | "version") => void;
+  onOpenSettings?: (tab?: "account" | "language" | "version") => void;
 }
 
 export function NotionPageHeader({

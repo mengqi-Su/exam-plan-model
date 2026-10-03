@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Inter', 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Inter', 'Noto Sans SC', ui-monospace, monospace;
+  --font-sans: 'Google Sans', 'Product Sans', 'Roboto', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Roboto Mono', 'Noto Sans SC', ui-monospace, monospace;
 }
 
 @layer base {
@@ -21,11 +21,11 @@
   }
 
   *, *::before, *::after {
-    font-family: 'Inter', 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: 'Google Sans', 'Product Sans', 'Roboto', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
 
   html, body, button, input, select, textarea, h1, h2, h3, h4, h5, h6, p, span, div {
-    font-family: 'Inter', 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: 'Google Sans', 'Product Sans', 'Roboto', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     letter-spacing: -0.012em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -38,8 +38,30 @@
   }
 
   .font-mono, code, kbd, samp, pre {
-    font-family: 'JetBrains Mono', 'Inter', 'Noto Sans SC', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-family: 'Roboto Mono', 'Noto Sans SC', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
     letter-spacing: -0.02em;
+  }
+
+  button {
+    border-radius: 0.5rem !important;
+  }
+
+  button.rounded-l-lg {
+    border-top-left-radius: 0.5rem !important;
+    border-bottom-left-radius: 0.5rem !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+  }
+
+  button.rounded-r-lg {
+    border-top-right-radius: 0.5rem !important;
+    border-bottom-right-radius: 0.5rem !important;
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+  }
+
+  button.rounded-full {
+    border-radius: 9999px !important;
   }
 }
 
@@ -53,7 +75,7 @@
 }
 
 .editorial-tag {
-  font-family: 'JetBrains Mono', 'Inter', 'Noto Sans SC', monospace;
+  font-family: 'Roboto Mono', 'Roboto', 'Noto Sans SC', monospace;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -67,7 +89,7 @@
 }
 
 .editorial-tag-invert {
-  font-family: 'JetBrains Mono', 'Inter', 'Noto Sans SC', monospace;
+  font-family: 'Roboto Mono', 'Roboto', 'Noto Sans SC', monospace;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -81,7 +103,7 @@
 }
 
 .editorial-tag-accent {
-  font-family: 'JetBrains Mono', 'Inter', 'Noto Sans SC', monospace;
+  font-family: 'Roboto Mono', 'Roboto', 'Noto Sans SC', monospace;
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;

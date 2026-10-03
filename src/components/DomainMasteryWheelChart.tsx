@@ -39,6 +39,7 @@ export function DomainMasteryWheelChart({
           completedTasks: 3,
           progressPercent: 75,
           avgRating: 4.5,
+          estimatedHours: 6,
         },
         {
           id: "def-2",
@@ -51,6 +52,7 @@ export function DomainMasteryWheelChart({
           completedTasks: 4,
           progressPercent: 67,
           avgRating: 4.0,
+          estimatedHours: 8,
         },
         {
           id: "def-3",
@@ -63,6 +65,7 @@ export function DomainMasteryWheelChart({
           completedTasks: 2,
           progressPercent: 40,
           avgRating: 3.5,
+          estimatedHours: 6,
         },
         {
           id: "def-4",
@@ -75,6 +78,7 @@ export function DomainMasteryWheelChart({
           completedTasks: 1,
           progressPercent: 33,
           avgRating: 3.0,
+          estimatedHours: 4,
         },
       ];
     }

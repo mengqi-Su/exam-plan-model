@@ -49,7 +49,7 @@ interface NotionSidebarProps {
   onTabChange: (tab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "add_subject", planId?: string) => void;
   onOpenRebalanceModal: () => void;
   userProfile?: UserProfile;
-  onOpenSettings?: (tab?: "general" | "account" | "language" | "version") => void;
+  onOpenSettings?: (tab?: "account" | "language" | "version") => void;
 }
 
 export function NotionSidebar({
@@ -113,9 +113,9 @@ export function NotionSidebar({
       <div className="p-2 space-y-1 border-b border-[#dedad1]">
         <button
           onClick={() => onTabChange("dashboard")}
-          className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs ${
+          className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs rounded-lg ${
             currentTab === "dashboard"
-              ? "bg-[#111111] text-white font-semibold"
+              ? "bg-[#111111] text-white font-semibold shadow-xs"
               : "hover:bg-[#e4e1d8] text-[#333333]"
           }`}
         >
@@ -126,9 +126,9 @@ export function NotionSidebar({
 
         <button
           onClick={() => onTabChange("master_calendar")}
-          className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs ${
+          className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs rounded-lg ${
             currentTab === "master_calendar"
-              ? "bg-[#111111] text-white font-semibold"
+              ? "bg-[#111111] text-white font-semibold shadow-xs"
               : "hover:bg-[#e4e1d8] text-[#333333]"
           }`}
         >
@@ -139,9 +139,9 @@ export function NotionSidebar({
 
         <button
           onClick={onNewPlan}
-          className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs border border-dashed border-[#111111]/30 hover:border-[#111111] ${
+          className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs border border-dashed border-[#111111]/30 hover:border-[#111111] rounded-lg ${
             currentTab === "add_subject"
-              ? "bg-[#111111] text-white font-semibold"
+              ? "bg-[#111111] text-white font-semibold shadow-xs"
               : "hover:bg-[#e4e1d8] text-[#111111]"
           }`}
         >
@@ -165,7 +165,7 @@ export function NotionSidebar({
           return (
             <div
               key={p.id}
-              className={`group flex items-center justify-between w-full transition-all border ${
+              className={`group flex items-center justify-between w-full transition-all border rounded-lg ${
                 isActivePlan
                   ? "bg-white border-[#111111] font-semibold text-[#111111] shadow-xs"
                   : "border-transparent hover:border-[#dedad1] hover:bg-[#e4e1d8] text-[#333333]"
@@ -177,10 +177,10 @@ export function NotionSidebar({
                   onSelectPlan(p.id);
                   onTabChange("course", p.id);
                 }}
-                className="flex-1 flex items-center space-x-2 px-2 py-1.5 text-left truncate cursor-pointer min-w-0"
+                className="flex-1 flex items-center space-x-2 px-2 py-1.5 text-left truncate cursor-pointer min-w-0 rounded-lg"
               >
                 <span
-                  className="w-4 h-4 text-[9px] font-mono font-bold flex items-center justify-center border border-[#111111] shrink-0"
+                  className="w-4 h-4 text-[9px] font-mono font-bold flex items-center justify-center border border-[#111111] shrink-0 rounded-xs"
                   style={{ backgroundColor: palette.accentColor, color: palette.id === "dark-slate" ? "#FFFFFF" : "#111111" }}
                 >
                   {idx + 1}
@@ -198,7 +198,7 @@ export function NotionSidebar({
                       onDeletePlan(p.id);
                     }
                   }}
-                  className="opacity-0 group-hover:opacity-100 p-1 mr-1 text-[#777777] hover:text-[#d44c47] transition-all shrink-0 cursor-pointer"
+                  className="opacity-0 group-hover:opacity-100 p-1 mr-1 text-[#777777] hover:text-[#d44c47] transition-all shrink-0 cursor-pointer rounded-md"
                   title={language === "zh" ? "删除此课程" : "Delete Course"}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -209,46 +209,15 @@ export function NotionSidebar({
         })}
       </div>
 
-      <div className="p-2.5 border-t border-[#111111] space-y-1.5 text-xs bg-[#faf9f6]">
-
-        {userProfile && onOpenSettings && (
-          <button
-            onClick={() => onOpenSettings("account")}
-            className="w-full flex items-center justify-between p-2 bg-white border border-[#dedad1] hover:border-[#111111] text-left transition-all group cursor-pointer"
-          >
-            <div className="flex items-center space-x-2 min-w-0">
-              <div className="w-5 h-5 bg-[#111111] text-white flex items-center justify-center text-[10px] shrink-0 font-mono">
-                {userProfile.isLoggedIn ? (userProfile.name[0] || "U").toUpperCase() : "G"}
-              </div>
-              <div className="min-w-0">
-                <span className="font-sans text-[11px] font-bold text-[#111111] block truncate">
-                  {userProfile.isLoggedIn ? userProfile.name : (language === "zh" ? "访客用户" : "Guest Scholar")}
-                </span>
-              </div>
-            </div>
-            <span className="font-mono text-[9px] text-[#777777] group-hover:text-[#111111]">
-              [PROFILE]
-            </span>
-          </button>
-        )}
-
-        <div className="flex items-center space-x-1 pt-1 font-mono text-[11px]">
-          <button
-            onClick={() => onOpenSettings ? onOpenSettings("general") : null}
-            className="flex-1 flex items-center justify-center space-x-1 py-1.5 bg-white border border-[#dedad1] hover:border-[#111111] text-[#111111] transition-all cursor-pointer"
-          >
-            <Settings className="w-3 h-3" />
-            <span>CONFIG</span>
-          </button>
-
-          <button
-            onClick={() => onOpenSettings ? onOpenSettings("language") : setLanguage(language === "zh" ? "en" : "zh")}
-            className="flex-1 flex items-center justify-center space-x-1 py-1.5 bg-white border border-[#dedad1] hover:border-[#111111] text-[#111111] transition-all cursor-pointer"
-          >
-            <Languages className="w-3 h-3" />
-            <span>{language === "zh" ? "ZH / EN" : "EN / ZH"}</span>
-          </button>
-        </div>
+      <div className="p-2.5 border-t border-[#111111] bg-[#faf9f6]">
+        <button
+          onClick={() => onOpenSettings ? onOpenSettings("account") : null}
+          className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-white border border-[#111111] hover:bg-[#111111] hover:text-white text-[#111111] transition-all cursor-pointer font-sans text-xs font-medium tracking-wide shadow-xs group rounded-lg active:scale-95"
+          title={language === "zh" ? "设置" : "Setting"}
+        >
+          <Settings className="w-3.5 h-3.5 group-hover:rotate-45 transition-transform duration-200" />
+          <span>{language === "zh" ? "设置" : "Setting"}</span>
+        </button>
       </div>
     </aside>
   );

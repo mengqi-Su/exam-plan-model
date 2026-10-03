@@ -6,10 +6,6 @@ import {
   Languages,
   Info,
   Check,
-  Bell,
-  Volume2,
-  Calendar,
-  Clock,
   RotateCcw,
   Download,
   Upload,
@@ -45,7 +41,7 @@ import {
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: "general" | "account" | "language" | "version";
+  initialTab?: "account" | "language" | "version";
   settings: AppSettings;
   onUpdateSettings: (newSettings: AppSettings) => void;
   userProfile: UserProfile;
@@ -58,7 +54,7 @@ interface SettingsModalProps {
 export function SettingsModal({
   isOpen,
   onClose,
-  initialTab = "general",
+  initialTab = "account",
   settings,
   onUpdateSettings,
   userProfile,
@@ -68,7 +64,9 @@ export function SettingsModal({
   onResetPlans,
 }: SettingsModalProps) {
   const { t, language, setLanguage } = useI18n();
-  const [activeTab, setActiveTab] = useState<"general" | "account" | "language" | "version">(initialTab);
+  const [activeTab, setActiveTab] = useState<"account" | "language" | "version">(
+    (initialTab as any) === "general" ? "account" : initialTab
+  );
 
   const [editingProfile, setEditingProfile] = useState<UserProfile>({ ...userProfile });
   const [isEditing, setIsEditing] = useState(false);
@@ -335,8 +333,8 @@ export function SettingsModal({
               </h2>
               <p className="text-[11px] text-[#666666]">
                 {language === "zh"
-                  ? "管理备考偏好、学员账号、多语言与系统环境"
-                  : "Manage preferences, student profiles, localization, and system state"}
+                  ? "管理学员账号、多语言切换与系统环境"
+                  : "Manage student profiles, localization, and system state"}
               </p>
             </div>
           </div>
@@ -360,17 +358,6 @@ export function SettingsModal({
         <div className="flex flex-1 overflow-hidden">
 
           <div className="w-48 bg-[#fafafa] border-r border-[#111111] p-3 space-y-1 shrink-0 overflow-y-auto font-mono">
-            <button
-              onClick={() => setActiveTab("general")}
-              className={`w-full flex items-center space-x-2 px-3 py-2 text-xs font-bold transition-colors text-left cursor-pointer border ${
-                activeTab === "general"
-                  ? "bg-[#111111] text-white border-[#111111]"
-                  : "bg-white text-[#666666] border-[#e5e5e5] hover:border-[#111111] hover:text-[#111111]"
-              }`}
-            >
-              <span className="truncate">{t("settingsTabGeneral")}</span>
-            </button>
-
             <button
               onClick={() => setActiveTab("account")}
               className={`w-full flex items-center space-x-2 px-3 py-2 text-xs font-bold transition-colors text-left cursor-pointer border ${
@@ -412,216 +399,6 @@ export function SettingsModal({
           </div>
 
           <div className="flex-1 p-6 overflow-y-auto bg-white space-y-6 font-mono">
-
-            {activeTab === "general" && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] mb-1">
-                    {t("settingsTabGeneral")}
-                  </h3>
-                  <p className="text-[11px] text-[#666666]">
-                    {language === "zh"
-                      ? "定制每日专注节奏、音效提醒与备考重排策略。"
-                      : "Configure Pomodoro focus rhythms, audio notifications, and adaptive rebalance algorithms."}
-                  </p>
-                </div>
-
-                <div className="p-4 border border-[#111111] bg-white space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-[#111111]" />
-                      <span className="text-xs font-bold uppercase text-[#111111]">
-                        {t("settingsFocusDuration")}
-                      </span>
-                    </div>
-                    <span className="text-xs font-bold text-[#111111]">
-                      {settings.defaultFocusDuration} {language === "zh" ? "分钟 / 节" : "MINS / SESSION"}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[25, 45, 60, 90].map((mins) => (
-                      <button
-                        key={mins}
-                        onClick={() => {
-                          const upd = { ...settings, defaultFocusDuration: mins };
-                          onUpdateSettings(upd);
-                          showToast(t("settingsSavedSuccess"));
-                        }}
-                        className={`py-2 text-xs font-bold border transition-all cursor-pointer ${
-                          settings.defaultFocusDuration === mins
-                            ? "bg-[#111111] text-white border-[#111111]"
-                            : "bg-white text-[#666666] border-[#111111] hover:bg-[#ededed] hover:text-[#111111]"
-                        }`}
-                      >
-                        {mins}M
-                        {mins === 25 && " (POMO)"}
-                        {mins === 45 && " (STD)"}
-                        {mins === 60 && " (DEEP)"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="p-4 border border-[#111111] bg-white flex items-center justify-between">
-                    <div className="flex items-start space-x-3">
-                      <Volume2 className="w-4 h-4 text-[#111111] mt-0.5" />
-                      <div>
-                        <div className="text-xs font-bold uppercase text-[#111111]">
-                          {t("settingsSoundAlerts")}
-                        </div>
-                        <div className="text-[11px] text-[#666666]">
-                          {t("settingsSoundAlertsDesc")}
-                        </div>
-                      </div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={settings.enableSoundAlerts}
-                      onChange={(e) => {
-                        const upd = { ...settings, enableSoundAlerts: e.target.checked };
-                        onUpdateSettings(upd);
-                        showToast(t("settingsSavedSuccess"));
-                      }}
-                      className="w-4 h-4 accent-[#111111] cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="p-4 border border-[#111111] bg-white flex items-center justify-between">
-                    <div className="flex items-start space-x-3">
-                      <Bell className="w-4 h-4 text-[#111111] mt-0.5" />
-                      <div>
-                        <div className="text-xs font-bold uppercase text-[#111111]">
-                          {t("settingsDailyReminders")}
-                        </div>
-                        <div className="text-[11px] text-[#666666]">
-                          {t("settingsDailyRemindersDesc")}
-                        </div>
-                      </div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={settings.enableDailyReminders}
-                      onChange={(e) => {
-                        const upd = { ...settings, enableDailyReminders: e.target.checked };
-                        onUpdateSettings(upd);
-                        showToast(t("settingsSavedSuccess"));
-                      }}
-                      className="w-4 h-4 accent-[#111111] cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <div className="p-4 border border-[#111111] bg-white space-y-3">
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <RotateCcw className="w-4 h-4 text-[#111111]" />
-                      <span className="text-xs font-bold uppercase text-[#111111]">
-                        {t("settingsRebalanceSens")}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-[#666666] mt-0.5">
-                      {t("settingsRebalanceSensDesc")}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {[
-                      { id: "high", label: t("settingsSensHigh") },
-                      { id: "balanced", label: t("settingsSensBalanced") },
-                      { id: "conservative", label: t("settingsSensConservative") },
-                    ].map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => {
-                          const upd = {
-                            ...settings,
-                            rebalanceSensitivity: item.id as any,
-                          };
-                          onUpdateSettings(upd);
-                          showToast(t("settingsSavedSuccess"));
-                        }}
-                        className={`p-2.5 text-left text-xs border transition-all cursor-pointer ${
-                          settings.rebalanceSensitivity === item.id
-                            ? "bg-[#111111] text-white border-[#111111]"
-                            : "bg-white border-[#111111] text-[#666666] hover:bg-[#ededed] hover:text-[#111111]"
-                        }`}
-                      >
-                        <div className="font-bold flex items-center justify-between">
-                          <span>
-                            {item.id === "high"
-                              ? (language === "zh" ? "[高敏感度]" : "[HIGH]")
-                              : item.id === "balanced"
-                              ? (language === "zh" ? "[标准平衡]" : "[BALANCED]")
-                              : (language === "zh" ? "[保守平稳]" : "[BUFFERED]")}
-                          </span>
-                          {settings.rebalanceSensitivity === item.id && (
-                            <span className="text-xs font-bold">[✓]</span>
-                          )}
-                        </div>
-                        <div className="text-[10px] opacity-80 mt-1 line-clamp-2">
-                          {item.label}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="p-4 border border-[#111111] bg-white space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <Database className="w-4 h-4 text-[#111111]" />
-                    <span className="text-xs font-bold uppercase text-[#111111]">
-                      {t("settingsDataManage")}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    <button
-                      onClick={handleExportJson}
-                      className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#111111] hover:bg-[#ededed] text-xs font-bold text-[#111111] transition-colors cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>[{t("settingsExportJson")}]</span>
-                    </button>
-
-                    <label className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#111111] hover:bg-[#ededed] text-xs font-bold text-[#111111] transition-colors cursor-pointer">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>[{t("settingsImportJson")}]</span>
-                      <input
-                        type="file"
-                        accept=".json"
-                        onChange={handleImportJsonFile}
-                        className="hidden"
-                      />
-                    </label>
-
-                    {onResetPlans && (
-                      <button
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              language === "zh"
-                                ? "确定要重置备考计划为官方示范数据吗？"
-                                : "Reset all plans to sample datasets?"
-                            )
-                          ) {
-                            onResetPlans();
-                            showToast(
-                              language === "zh"
-                                ? "已重置为官方示范计划"
-                                : "Reset to sample plans"
-                            );
-                          }
-                        }}
-                        className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#111111] hover:bg-[#ededed] text-xs font-bold text-[#111111] transition-colors cursor-pointer"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        <span>[{t("settingsResetSample")}]</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
 
             {activeTab === "account" && (
               <div className="space-y-6">
@@ -1128,6 +905,60 @@ export function SettingsModal({
                       <span className="text-[#666666]">{t("versionDiagSync")}</span>
                       <span className="font-bold text-[#111111]">[OK]</span>
                     </div>
+                  </div>
+                </div>
+
+                <div className="p-4 border border-[#111111] bg-white space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Database className="w-4 h-4 text-[#111111]" />
+                    <span className="text-xs font-bold uppercase text-[#111111]">
+                      {t("settingsDataManage")}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      onClick={handleExportJson}
+                      className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#111111] hover:bg-[#ededed] text-xs font-bold text-[#111111] transition-colors cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>[{t("settingsExportJson")}]</span>
+                    </button>
+
+                    <label className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#111111] hover:bg-[#ededed] text-xs font-bold text-[#111111] transition-colors cursor-pointer">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>[{t("settingsImportJson")}]</span>
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={handleImportJsonFile}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {onResetPlans && (
+                      <button
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              language === "zh"
+                                ? "确定要重置备考计划为官方示范数据吗？"
+                                : "Reset all plans to sample datasets?"
+                            )
+                          ) {
+                            onResetPlans();
+                            showToast(
+                              language === "zh"
+                                ? "已重置为官方示范计划"
+                                : "Reset to sample plans"
+                            );
+                          }
+                        }}
+                        className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#111111] hover:bg-[#ededed] text-xs font-bold text-[#111111] transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>[{t("settingsResetSample")}]</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
