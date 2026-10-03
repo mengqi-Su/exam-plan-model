@@ -26,16 +26,6 @@ import {
   clearUserSessionData,
   DEFAULT_USER_PROFILE
 } from "./lib/storage";
-import {
-  auth,
-  savePlanToCloud,
-  deletePlanFromCloud,
-  saveUserProfileToCloud,
-  subscribeToUserPlans,
-  subscribeToUserProfile,
-  uploadLocalPlansToCloud
-} from "./lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
 
 export default function App() {
   const [plans, setPlans] = useState<ExamStudyPlan[]>(() => loadSavedPlans());
@@ -48,77 +38,6 @@ export default function App() {
   const [userProfile, setUserProfile] = useState<UserProfile>(() => loadUserProfile());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<"account" | "language" | "version">("account");
-
-  useEffect(() => {
-    let unsubscribePlans: (() => void) | null = null;
-    let unsubscribeProfile: (() => void) | null = null;
-
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const updatedProfile: UserProfile = {
-          ...DEFAULT_USER_PROFILE,
-          id: user.uid,
-          name: user.displayName || user.email?.split("@")[0] || "Scholar",
-          email: user.email || "",
-          avatar: user.photoURL || "🎓",
-          isLoggedIn: true,
-          membershipTier: "Pro Student",
-        };
-        setUserProfile(updatedProfile);
-        saveUserProfile(updatedProfile);
-
-        unsubscribeProfile = subscribeToUserProfile(user.uid, (cloudProfile) => {
-          if (cloudProfile) {
-            setUserProfile((prev) => ({
-              ...prev,
-              ...cloudProfile,
-              isLoggedIn: true,
-            }));
-          }
-        });
-
-        unsubscribePlans = subscribeToUserPlans(user.uid, (cloudPlans) => {
-          if (cloudPlans) {
-            setPlans(cloudPlans);
-            savePlans(cloudPlans);
-            if (cloudPlans.length > 0) {
-              setActivePlanIdState((prev) => {
-                if (!prev || !cloudPlans.some((p) => p.id === prev)) {
-                  setActivePlanId(cloudPlans[0].id);
-                  return cloudPlans[0].id;
-                }
-                return prev;
-              });
-            } else {
-              setActivePlanIdState("");
-              setActivePlanId("");
-            }
-          }
-        });
-      } else {
-        if (unsubscribePlans) unsubscribePlans();
-        if (unsubscribeProfile) unsubscribeProfile();
-
-        setUserProfile((prev) => {
-          if (prev.isLoggedIn) {
-            clearUserSessionData();
-            setPlans([]);
-            savePlans([]);
-            setActivePlanIdState("");
-            setActivePlanId("");
-            return DEFAULT_USER_PROFILE;
-          }
-          return prev;
-        });
-      }
-    });
-
-    return () => {
-      unsubscribeAuth();
-      if (unsubscribePlans) unsubscribePlans();
-      if (unsubscribeProfile) unsubscribeProfile();
-    };
-  }, []);
 
   const [courseStep, setCourseStep] = useState<"syllabus" | "config">("syllabus");
 
@@ -149,11 +68,6 @@ export default function App() {
   const handleUpdateUserProfile = (newProfile: UserProfile) => {
     setUserProfile(newProfile);
     saveUserProfile(newProfile);
-    if (auth.currentUser) {
-      saveUserProfileToCloud(auth.currentUser.uid, newProfile).catch((e) =>
-        console.error("Failed to save profile to cloud:", e)
-      );
-    }
   };
 
   const handleOpenSettings = (tab: "account" | "language" | "version" = "account") => {
@@ -203,11 +117,6 @@ export default function App() {
     setPlans((prev) =>
       prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p))
     );
-    if (auth.currentUser) {
-      savePlanToCloud(auth.currentUser.uid, updatedPlan).catch((e) =>
-        console.error("Failed to sync plan to cloud:", e)
-      );
-    }
   };
 
   const handleDeletePlan = (planId: string) => {
@@ -229,11 +138,6 @@ export default function App() {
       }
       return next;
     });
-    if (auth.currentUser) {
-      deletePlanFromCloud(auth.currentUser.uid, planId).catch((e) =>
-        console.error("Failed to delete plan from cloud:", e)
-      );
-    }
   };
 
   const handlePlanGenerated = (newPlan: ExamStudyPlan) => {
@@ -243,12 +147,6 @@ export default function App() {
     setActivePlanId(newPlan.id);
     setCurrentTab("dashboard");
     setSelectedDate(newPlan.startDate || new Date().toISOString().split("T")[0]);
-
-    if (auth.currentUser) {
-      savePlanToCloud(auth.currentUser.uid, newPlan).catch((e) =>
-        console.error("Failed to save new plan to cloud:", e)
-      );
-    }
   };
 
   const handleNavigateToTab = (tab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject", planId?: string) => {

@@ -857,12 +857,6 @@ function generateSample21DaysTasks(startDateStr: string, examDateStr: string, fo
 
 export function loadSavedPlans(): ExamStudyPlan[] {
   try {
-    const userProfile = loadUserProfile();
-    if (!userProfile.isLoggedIn) {
-      localStorage.removeItem(STORAGE_KEY_PLANS);
-      localStorage.removeItem(STORAGE_KEY_ACTIVE_ID);
-      return [];
-    }
     const raw = localStorage.getItem(STORAGE_KEY_PLANS);
     if (!raw) {
       return [];
@@ -902,11 +896,6 @@ export function savePlans(plans: ExamStudyPlan[]) {
 }
 
 export function getActivePlanId(): string {
-  const userProfile = loadUserProfile();
-  if (!userProfile.isLoggedIn) {
-    localStorage.removeItem(STORAGE_KEY_ACTIVE_ID);
-    return "";
-  }
   const activeId = localStorage.getItem(STORAGE_KEY_ACTIVE_ID);
   if (!activeId || activeId === "sample-plan-cs301" || activeId.startsWith("sample-")) {
     return "";
@@ -919,11 +908,6 @@ export function setActivePlanId(id: string) {
 }
 
 export function loadUploadedMaterials(): StudyMaterial[] {
-  const userProfile = loadUserProfile();
-  if (!userProfile.isLoggedIn) {
-    localStorage.removeItem(STORAGE_KEY_MATERIALS);
-    return [];
-  }
   try {
     const raw = localStorage.getItem(STORAGE_KEY_MATERIALS);
     return raw ? JSON.parse(raw) : [];
@@ -942,15 +926,16 @@ export function saveUploadedMaterials(materials: StudyMaterial[]) {
 
 const STORAGE_KEY_USER = "exam_planner_user_profile_v1";
 
+// 本地访客模式：无需登录，默认即为已登录的本地访客，数据保存在当前浏览器
 export const DEFAULT_USER_PROFILE: UserProfile = {
-  id: "",
-  name: "",
+  id: "local-guest",
+  name: "本地访客",
   email: "",
   avatar: "🎓",
   institution: "",
   major: "",
   targetDegreeOrGoal: "",
-  isLoggedIn: false,
+  isLoggedIn: true,
   memberSince: new Date().toISOString().slice(0, 10),
   membershipTier: "Free",
   totalStudyMinutes: 0,
@@ -963,10 +948,10 @@ export function loadUserProfile(): UserProfile {
     const raw = localStorage.getItem(STORAGE_KEY_USER);
     if (raw) {
       const parsed = JSON.parse(raw);
-      // Remove any unauthenticated, invalid, or legacy demo accounts
+      // 仅清理遗留的演示账号；游客模式下其余档案一律保留并视为已登录（本地访客）
       if (
-        !parsed.isLoggedIn ||
-        !parsed.email ||
+        !parsed ||
+        typeof parsed !== "object" ||
         parsed.id === "user-default-101" ||
         parsed.id === "user-alex" ||
         parsed.id === "user-sarah" ||
@@ -984,7 +969,7 @@ export function loadUserProfile(): UserProfile {
         localStorage.removeItem(STORAGE_KEY_USER);
         return DEFAULT_USER_PROFILE;
       }
-      return parsed;
+      return { ...parsed, isLoggedIn: true };
     }
     return DEFAULT_USER_PROFILE;
   } catch (e) {
