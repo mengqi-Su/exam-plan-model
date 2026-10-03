@@ -11,12 +11,12 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@google/genai": "^2.4.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "canvas-confetti": "^1.9.4",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "express-rate-limit": "^6.7.0",
     "firebase": "^12.17.1",
     "lucide-react": "^0.546.0",
     "mammoth": "^1.12.1",

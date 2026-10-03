@@ -2,96 +2,142 @@ import express from "express";
 import path from "path";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI, Type } from "@google/genai";
 import * as pdfParseModule from "pdf-parse";
 import mammoth from "mammoth";
+import rateLimit from "express-rate-limit";
 
 const pdfParse = (pdfParseModule as any).default || pdfParseModule;
 
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+// 收紧请求体上限：base64 上传仍够用，但避免 50MB 的滥用面
+app.use(express.json({ limit: "15mb" }));
+app.use(express.urlencoded({ limit: "15mb", extended: true }));
 
-let aiClient: GoogleGenAI | null = null;
-function getAI(): GoogleGenAI | null {
-  if (!aiClient) {
-    const key = process.env.GEMINI_API_KEY;
-    if (key && key !== "MY_GEMINI_API_KEY") {
-      try {
-        aiClient = new GoogleGenAI({
-          apiKey: key,
-          httpOptions: {
-            headers: {
-              "User-Agent": "aistudio-build",
-            },
-          },
-        });
-      } catch (err) {
-        console.warn("Failed to initialize GoogleGenAI client:", err);
-        aiClient = null;
-      }
-    }
+// 简单请求日志：method url 耗时
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} ${res.statusCode} ${Date.now() - start}ms`);
+  });
+  next();
+});
+
+// 对 AI 相关接口做基础限流，防刷配额（暂不做鉴权）
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 15,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: { code: "RATE_LIMITED", message: "请求过于频繁，请稍后再试" } },
+});
+
+const DEEPSEEK_BASE_URL = "https://api.deepseek.com";
+const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat";
+
+function getDeepSeekKey(): string | null {
+  const key = process.env.DEEPSEEK_API_KEY;
+  if (key && key !== "MY_DEEPSEEK_API_KEY") return key;
+  return null;
+}
+
+// 启动时环境变量校验
+if (!getDeepSeekKey()) {
+  console.warn("[ENV] DEEPSEEK_API_KEY 未配置或为占位符，AI 接口将全部走本地 fallback（模板结果）。");
+}
+
+async function chatCompletion(messages: { role: string; content: string }[], json: boolean): Promise<string> {
+  const key = getDeepSeekKey();
+  if (!key) throw new Error("DEEPSEEK_API_KEY not configured");
+  const body: any = {
+    model: DEEPSEEK_MODEL,
+    messages,
+    stream: false,
+  };
+  if (json) body.response_format = { type: "json_object" };
+  const res = await fetch(`${DEEPSEEK_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    const err: any = new Error(`DeepSeek API error ${res.status}: ${errText.slice(0, 500)}`);
+    err.status = res.status;
+    throw err;
   }
-  return aiClient;
+  const data = await res.json();
+  const text = data?.choices?.[0]?.message?.content;
+  if (typeof text !== "string" || !text.trim()) {
+    throw new Error("Empty response from DeepSeek");
+  }
+  return text.trim();
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function generateWithRetryAndFallback<T>(
-  buildParams: (modelName: string) => any,
-  parseResult: (text: string) => T,
-  fallbackGenerator: () => T
-): Promise<T> {
-  const client = getAI();
-  if (!client) {
-
-    return fallbackGenerator();
+// 剥离 markdown 代码块围栏后再解析，避免模型输出 ```json 导致整体降级
+function safeParseJSON(text: string): any {
+  let cleaned = text.trim();
+  const fence = cleaned.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fence) cleaned = fence[1].trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const first = cleaned.indexOf("{");
+    const last = cleaned.lastIndexOf("}");
+    if (first !== -1 && last !== -1 && last > first) {
+      return JSON.parse(cleaned.slice(first, last + 1));
+    }
+    throw new Error("Model output is not valid JSON");
   }
+}
 
-  const models = ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-flash-latest"];
+// 本地时区的“今天”（避免 UTC 偏差一天）
+function localToday(): string {
+  const d = new Date();
+  const p = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
 
-  for (const model of models) {
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        const params = buildParams(model);
-        const response = await client.models.generateContent(params);
-        const text = response.text || "";
-        if (!text.trim()) {
-          throw new Error("Empty response received from AI model");
-        }
-        const parsed = parseResult(text);
-        return parsed;
-      } catch (err: any) {
-        const status = err?.status || err?.code || err?.statusCode;
-        const msg = String(err?.message || "");
-
-        const is503HighDemand =
-          status === 503 ||
-          msg.includes("503") ||
-          msg.includes("high demand") ||
-          msg.includes("UNAVAILABLE");
-
-        const isRateLimit =
-          status === 429 ||
-          msg.includes("429") ||
-          msg.includes("RESOURCE_EXHAUSTED");
-
-        if (attempt === 1 && (is503HighDemand || isRateLimit)) {
-
-          await sleep(400);
-          continue;
-        }
-
-        break;
+async function generateWithRetryAndFallback<T>(
+  buildMessages: () => { system?: string; user: string },
+  parseResult: (text: string) => T,
+  fallbackGenerator: () => T,
+  options: { json?: boolean } = {}
+): Promise<{ data: T; aiGenerated: boolean }> {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const { system, user } = buildMessages();
+      const messages: { role: string; content: string }[] = [];
+      if (system) messages.push({ role: "system", content: system });
+      messages.push({ role: "user", content: user });
+      const text = await chatCompletion(messages, !!options.json);
+      const parsed = parseResult(text);
+      return { data: parsed, aiGenerated: true };
+    } catch (err: any) {
+      const status = err?.status || err?.code || err?.statusCode;
+      const msg = String(err?.message || "");
+      const isRateLimit = status === 429 || /429|rate\s*limit/i.test(msg);
+      const isQuota =
+        status === 402 ||
+        (status === 403 && /insufficient|quota|balance/i.test(msg)) ||
+        /402|insufficient|quota|balance/i.test(msg);
+      if ((isRateLimit || isQuota) && attempt < 3) {
+        await sleep(500 * attempt * attempt); // 指数退避
+        continue;
       }
+      console.warn(`[AI] attempt ${attempt} failed (status=${status}): ${msg}`);
+      break;
     }
   }
-
-  return fallbackGenerator();
+  return { data: fallbackGenerator(), aiGenerated: false };
 }
 
 interface DocumentChunk {
@@ -873,8 +919,7 @@ async function parseUploadedDocument(
   language: string = "zh"
 ): Promise<{ text: string; pageCount?: number }> {
   const isZh = language === "zh" || isChinese(fileName);
-  const cleanBase64 = base64Data.replace(/^data:.*?;base64,/, "");
-  const buffer = Buffer.from(cleanBase64, "base64");
+  const buffer = Buffer.from(base64Data.replace(/^data:.*?;base64,/, ""), "base64");
   const ext = path.extname(fileName).toLowerCase();
 
   if (
@@ -898,7 +943,7 @@ async function parseUploadedDocument(
         return { text: result.value.trim() };
       }
     } catch (e) {
-      console.warn("Mammoth DOCX parsing failed, escalating to Gemini multimodal parser", e);
+      console.warn("Mammoth DOCX parsing failed", e);
     }
   }
 
@@ -936,47 +981,25 @@ async function parseUploadedDocument(
         }
       }
     } catch (e) {
-      console.warn("Local PDF text extraction error, escalating to Gemini OCR/fallback parser", e);
+      console.warn("Local PDF text extraction error", e);
     }
   }
 
+  // DeepSeek 对话接口为纯文本，不支持图片/PDF 多模态。本地解析失败时：
+  // 若能读出可读文本则返回，否则给出明确提示，而不是把乱码当解析结果。
   try {
-    const mime = fileType || (ext === ".pdf" ? "application/pdf" : ext === ".png" ? "image/png" : "image/jpeg");
-    const prompt = isZh
-      ? `你是一位专业的高校备考与教辅文档解析专家。请将上传的文档或试卷内容完整、准确、结构化地转录为清晰易读的文本/Markdown格式。
-要求：
-1. 完整保留所有章节大纲、考点要求、题目序号、核心公式与要点。
-2. 保持排版层级清晰，禁止输出不可读的乱码或丢失核心考点。
-3. 如果是试卷或习题，请完整保留题目要求与选项。`
-      : `You are an expert academic document parsing specialist. Transcribe all text, syllabus outlines, chapters, formulas, and questions from this uploaded document accurately into clean, readable Markdown format. Preserve structural hierarchy and all key concepts verbatim.`;
-
-    const result = await generateWithRetryAndFallback(
-      (modelName) => ({
-        model: modelName,
-        contents: [
-          {
-            inlineData: {
-              data: cleanBase64,
-              mimeType: mime.startsWith("image/") || mime === "application/pdf" ? mime : "application/pdf",
-            },
-          },
-          prompt,
-        ],
-      }),
-      (text) => text,
-      () => {
-        const textFallback = buffer.toString("utf-8").replace(/[^\x20-\x7E\u4e00-\u9fa5\n\r\t]/g, " ");
-        return textFallback.trim() || `[已成功上传 ${fileName}，内容已录入]`;
-      }
-    );
-
-    return { text: result };
-  } catch (err) {
-    console.error("AI document extraction failed:", err);
-    return {
-      text: `[已接收 ${fileName} 文件（${Math.round(buffer.length / 1024)} KB）。请继续提取考纲或生成练习题]`,
-    };
+    const rawText = buffer.toString("utf-8");
+    const printable = (rawText.match(/[\x20-\x7E\u4e00-\u9fa5\n\r\t]/g) || []).length;
+    const ratio = rawText.length > 0 ? printable / rawText.length : 0;
+    if (ratio > 0.6) {
+      return { text: rawText.trim() };
+    }
+  } catch (e) {
+    console.warn("UTF-8 decode failed for binary buffer", e);
   }
+  return {
+    text: `[未能自动提取 ${fileName} 的文本内容。当前 AI（DeepSeek）不支持直接解析图片/扫描 PDF，请在输入框中粘贴文本，或上传可解析的纯文本/Word/文字型 PDF。]`,
+  };
 }
 
 app.get("/api/health", (req, res) => {
@@ -1010,7 +1033,7 @@ app.post("/api/parse-document", async (req, res) => {
   }
 });
 
-app.post("/api/extract-syllabus", async (req, res) => {
+app.post("/api/extract-syllabus", aiLimiter, async (req, res) => {
   try {
     const { materials, examName, subject } = req.body;
 
@@ -1055,64 +1078,17 @@ Output a clean JSON object containing:
     - difficulty: "easy" | "medium" | "hard"
     - examFrequency: "high" | "medium" | "low"
     - formulaOrTrap: brief tip, formula, or common mistake to watch out for
-  - estimatedHours: realistic hours needed (e.g. 4 to 15)`;
+  - estimatedHours: realistic hours needed (e.g. 4 to 15)
 
-    const result = await generateWithRetryAndFallback(
-      (modelName) => ({
-        model: modelName,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              summary: { type: Type.STRING },
-              topics: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    id: { type: Type.STRING },
-                    title: { type: Type.STRING },
-                    category: { type: Type.STRING },
-                    description: { type: Type.STRING },
-                    weightPercentage: { type: Type.NUMBER },
-                    difficulty: { type: Type.STRING },
-                    userKnowledgeLevel: { type: Type.STRING },
-                    subtopics: {
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING },
-                    },
-                    subtopicTree: {
-                      type: Type.ARRAY,
-                      items: {
-                        type: Type.OBJECT,
-                        properties: {
-                          id: { type: Type.STRING },
-                          title: { type: Type.STRING },
-                          keyPoints: {
-                            type: Type.ARRAY,
-                            items: { type: Type.STRING },
-                          },
-                          difficulty: { type: Type.STRING },
-                          examFrequency: { type: Type.STRING },
-                          formulaOrTrap: { type: Type.STRING },
-                        },
-                        required: ["title"],
-                      },
-                    },
-                    estimatedHours: { type: Type.NUMBER },
-                  },
-                  required: ["id", "title", "difficulty", "subtopics", "estimatedHours"],
-                },
-              },
-            },
-            required: ["summary", "topics"],
-          },
-        },
+Respond with ONLY valid JSON. Do not include markdown code fences or any text outside the JSON object.`;
+
+    const { data, aiGenerated } = await generateWithRetryAndFallback(
+      () => ({
+        system: "You are an expert academic curriculum analyzer. Always respond with only valid JSON.",
+        user: prompt,
       }),
       (text) => {
-        const parsed = JSON.parse(text);
+        const parsed = safeParseJSON(text);
         if (parsed.topics && Array.isArray(parsed.topics)) {
           parsed.topics.forEach((t: any, idx: number) => {
             if (!t.id) t.id = `topic-${idx + 1}`;
@@ -1131,20 +1107,21 @@ Output a clean JSON object containing:
         }
         return parsed;
       },
-      () => fallbackExtractSyllabus(materials, examName, subject, isZh ? "zh" : "en")
+      () => fallbackExtractSyllabus(materials, examName, subject, isZh ? "zh" : "en"),
+      { json: true }
     );
 
-    res.json(result);
+    res.json({ ...data, aiGenerated });
   } catch (error: any) {
     console.error("Error extracting syllabus:", error);
 
     const isZh = isChinese(req.body?.examName) || isChinese(req.body?.subject) || true;
     const fallback = fallbackExtractSyllabus(req.body.materials || [], req.body.examName, req.body.subject, isZh ? "zh" : "en");
-    res.json(fallback);
+    res.json({ ...fallback, aiGenerated: false });
   }
 });
 
-app.post("/api/generate-plan", async (req, res) => {
+app.post("/api/generate-plan", aiLimiter, async (req, res) => {
   try {
     const { topics, preferences, materials, materialsSummary } = req.body;
 
@@ -1226,100 +1203,21 @@ RAG GROUNDING REQUIREMENTS:
      - pageOrChapter: e.g. "第 2 章", "真题大题第3题"
      - excerptSnippet: quote or direct summary from the document (50-150 chars)
      - keyConcepts: array of 2-4 keywords
-     - relevanceReason: why this document chunk was chosen for this task`;
+     - relevanceReason: why this document chunk was chosen for this task
 
-    const rawResult = await generateWithRetryAndFallback(
-      (modelName) => ({
-        model: modelName,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              phases: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    id: { type: Type.STRING },
-                    name: { type: Type.STRING },
-                    description: { type: Type.STRING },
-                    startDate: { type: Type.STRING },
-                    endDate: { type: Type.STRING },
-                    focus: { type: Type.STRING },
-                  },
-                  required: ["id", "name", "description", "startDate", "endDate", "focus"],
-                },
-              },
-              tasks: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    id: { type: Type.STRING },
-                    title: { type: Type.STRING },
-                    description: { type: Type.STRING },
-                    category: { type: Type.STRING },
-                    topicTitle: { type: Type.STRING },
-                    date: { type: Type.STRING },
-                    startTime: { type: Type.STRING },
-                    endTime: { type: Type.STRING },
-                    durationMinutes: { type: Type.NUMBER },
-                    priority: { type: Type.STRING },
-                    status: { type: Type.STRING },
-                    keyObjectives: {
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING },
-                    },
-                    activeRecallPrompt: { type: Type.STRING },
-                    groundedUserNeed: { type: Type.STRING },
-                    formulaOrRules: {
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING },
-                    },
-                    ragSource: {
-                      type: Type.OBJECT,
-                      properties: {
-                        documentName: { type: Type.STRING },
-                        documentType: { type: Type.STRING },
-                        sectionTitle: { type: Type.STRING },
-                        pageOrChapter: { type: Type.STRING },
-                        excerptSnippet: { type: Type.STRING },
-                        keyConcepts: {
-                          type: Type.ARRAY,
-                          items: { type: Type.STRING },
-                        },
-                        relevanceReason: { type: Type.STRING },
-                      },
-                      required: ["documentName", "excerptSnippet"],
-                    },
-                  },
-                  required: [
-                    "id",
-                    "title",
-                    "description",
-                    "category",
-                    "topicTitle",
-                    "date",
-                    "durationMinutes",
-                    "priority",
-                    "status",
-                    "keyObjectives",
-                  ],
-                },
-              },
-              totalPlannedHours: { type: Type.NUMBER },
-            },
-            required: ["phases", "tasks", "totalPlannedHours"],
-          },
-        },
+Respond with ONLY valid JSON. Do not include markdown code fences or any text outside the JSON object.`;
+
+    const { data: rawResult, aiGenerated } = await generateWithRetryAndFallback(
+      () => ({
+        system: "You are a master learning scientist and study schedule architect. Always respond with only valid JSON.",
+        user: prompt,
       }),
-      (text) => JSON.parse(text),
-      () => fallbackGeneratePlan(topics, preferences)
+      (text) => safeParseJSON(text),
+      () => fallbackGeneratePlan(topics, preferences),
+      { json: true }
     );
 
-    // Schedule Engine: Guarantee full day-by-day task allocation to every single day from startDate to examDate
+    // Schedule Engine: 补齐所有日历日的任务（已有的 AI 任务原样保留，不覆盖）
     const enrichedTasks = allocateTasksAcrossAllCalendarDays(
       rawResult.tasks || [],
       topics || [],
@@ -1337,7 +1235,7 @@ RAG GROUNDING REQUIREMENTS:
       totalPlannedHours: totalCalculatedHours || rawResult.totalPlannedHours || 25,
     };
 
-    res.json(sanitizedResult);
+    res.json({ ...sanitizedResult, aiGenerated });
   } catch (error: any) {
     console.error("Error generating study plan:", error);
     const fallback = fallbackGeneratePlan(req.body.topics || [], req.body.preferences || {});
@@ -1378,7 +1276,7 @@ function allocateTasksAcrossAllCalendarDays(
   });
 
   const finalTasks: any[] = [];
-  const maxDays = Math.min(diffDays, 60);
+  const maxDays = diffDays;
 
   for (let dayOffset = 0; dayOffset < maxDays; dayOffset++) {
     const curDate = new Date(start.getTime() + dayOffset * 86400000);
@@ -1397,16 +1295,12 @@ function allocateTasksAcrossAllCalendarDays(
     const currentDayTasks = tasksByDate.get(dateStr) || [];
 
     if (currentDayTasks.length > 0) {
-      // If tasks exist for this day, ensure each has id and times
+      // 已有的（多为 AI 生成的）任务：原样保留，只补缺失的 id 与状态，不覆盖/不重置时间
       currentDayTasks.forEach((t, idx) => {
-        const salt = Math.random().toString(36).slice(2, 6);
         finalTasks.push({
           ...t,
-          id: t.id ? `${t.id}-${salt}` : `task-${dateStr}-${salt}-${idx + 1}`,
+          id: t.id || `task-${dateStr}-${idx}`,
           date: dateStr,
-          startTime: t.startTime || (scheduleConfig?.preferredTimeSlot === "morning" ? "09:00" : scheduleConfig?.preferredTimeSlot === "afternoon" ? "14:30" : "19:00"),
-          endTime: t.endTime || (scheduleConfig?.preferredTimeSlot === "morning" ? "10:30" : scheduleConfig?.preferredTimeSlot === "afternoon" ? "16:00" : "20:30"),
-          durationMinutes: t.durationMinutes || preferences.sessionLengthMinutes || 45,
           status: t.status || "pending",
         });
       });
@@ -1432,7 +1326,7 @@ function allocateTasksAcrossAllCalendarDays(
 
       const topic = safeTopics[dayOffset % safeTopics.length];
       const isMock = phaseCategory === "mock_exam";
-      const salt = Math.random().toString(36).slice(2, 6);
+      const salt = "gen"; // 确定性 id，便于回归测试
 
       const title = isZh
         ? isMock
@@ -1518,7 +1412,7 @@ function allocateTasksAcrossAllCalendarDays(
   return finalTasks;
 }
 
-app.post("/api/rag-ask", async (req, res) => {
+app.post("/api/rag-ask", aiLimiter, async (req, res) => {
   try {
     const { query, topicTitle, taskTitle, materials } = req.body;
     if (!query) {
@@ -1547,10 +1441,10 @@ Instructions:
 4. Provide a quick 1-step action the student should take right now to master this concept.
 Output your response in Simplified Chinese (简体中文).`;
 
-    const result = await generateWithRetryAndFallback(
-      (modelName) => ({
-        model: modelName,
-        contents: prompt,
+    const { data: result, aiGenerated } = await generateWithRetryAndFallback(
+      () => ({
+        system: "You are an AI Academic Tutor. Answer helpfully, ground answers in the cited excerpts, and cite sources.",
+        user: prompt,
       }),
       (text) => ({
         answer: text,
@@ -1570,7 +1464,7 @@ Output your response in Simplified Chinese (简体中文).`;
       })
     );
 
-    res.json(result);
+    res.json({ ...result, aiGenerated });
   } catch (error: any) {
     console.error("Error in /api/rag-ask:", error);
     res.json({
@@ -1580,7 +1474,7 @@ Output your response in Simplified Chinese (简体中文).`;
   }
 });
 
-app.post("/api/rebalance-plan", async (req, res) => {
+app.post("/api/rebalance-plan", aiLimiter, async (req, res) => {
   try {
     const { currentPlan, currentDate, reason } = req.body;
 
@@ -1588,7 +1482,7 @@ app.post("/api/rebalance-plan", async (req, res) => {
       return res.status(400).json({ error: "Missing current plan data" });
     }
 
-    const todayStr = currentDate || new Date().toISOString().split("T")[0];
+    const todayStr = currentDate || localToday();
 
     const isZh = req.body.language === "zh" || isChinese(currentPlan.examName) || isChinese(currentPlan.subject) || true;
     const prompt = `You are an adaptive study coach.
@@ -1611,67 +1505,32 @@ INSTRUCTIONS:
    - Reschedule them intelligently across remaining days from ${todayStr} up to ${currentPlan.examDate}.
    - Balance daily study load without exceeding daily available study hours.
    - If time is tight, merge low-priority tasks into high-yield review sessions and mark their priority appropriately.
-3. Return the complete updated tasks array with updated dates, startTimes, endTimes, and prioritized sequence.`;
+3. Return the complete updated tasks array with updated dates, startTimes, endTimes, and prioritized sequence.
 
-    const result = await generateWithRetryAndFallback(
-      (modelName) => ({
-        model: modelName,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              rebalanceSummary: { type: Type.STRING },
-              tasks: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    id: { type: Type.STRING },
-                    title: { type: Type.STRING },
-                    description: { type: Type.STRING },
-                    category: { type: Type.STRING },
-                    topicTitle: { type: Type.STRING },
-                    date: { type: Type.STRING },
-                    startTime: { type: Type.STRING },
-                    endTime: { type: Type.STRING },
-                    durationMinutes: { type: Type.NUMBER },
-                    priority: { type: Type.STRING },
-                    status: { type: Type.STRING },
-                    keyObjectives: {
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING },
-                    },
-                    activeRecallPrompt: { type: Type.STRING },
-                    notes: { type: Type.STRING },
-                    confidenceRating: { type: Type.NUMBER },
-                  },
-                  required: ["id", "title", "category", "topicTitle", "date", "durationMinutes", "priority", "status"],
-                },
-              },
-            },
-            required: ["rebalanceSummary", "tasks"],
-          },
-        },
+Respond with ONLY valid JSON. Do not include markdown code fences or any text outside the JSON object.`;
+
+    const { data: result, aiGenerated } = await generateWithRetryAndFallback(
+      () => ({
+        system: "You are an adaptive study coach. Always respond with only valid JSON.",
+        user: prompt,
       }),
-      (text) => JSON.parse(text),
-      () => fallbackRebalancePlan(currentPlan, todayStr, reason)
+      (text) => safeParseJSON(text),
+      () => fallbackRebalancePlan(currentPlan, todayStr, reason),
+      { json: true }
     );
 
     const sanitized = {
       ...result,
       tasks: (result.tasks || []).map((t: any, idx: number) => {
-        const dateStr = t.date || new Date().toISOString().split("T")[0];
-        const salt = Math.random().toString(36).slice(2, 6);
+        const dateStr = t.date || localToday();
         return {
           ...t,
-          id: t.id || `task-${dateStr}-${salt}-${idx}`,
+          id: t.id || `task-${dateStr}-${idx}`,
         };
       }),
     };
 
-    res.json(sanitized);
+    res.json({ ...sanitized, aiGenerated });
   } catch (error: any) {
     console.error("Error rebalancing plan:", error);
     const fallback = fallbackRebalancePlan(req.body.currentPlan, req.body.currentDate, req.body.reason);
@@ -1679,7 +1538,7 @@ INSTRUCTIONS:
   }
 });
 
-app.post("/api/generate-quiz", async (req, res) => {
+app.post("/api/generate-quiz", aiLimiter, async (req, res) => {
   try {
     const { topicTitle, taskTitle, keyObjectives, language } = req.body;
     const isZh = language === "zh" || isChinese(topicTitle) || isChinese(taskTitle) || true;
@@ -1690,45 +1549,21 @@ Task: ${taskTitle}
 Key Objectives: ${Array.isArray(keyObjectives) ? keyObjectives.join(", ") : ""}
 ${isZh ? "CRITICAL: Output all questions, options, and explanations in Simplified Chinese (简体中文)." : ""}
 
-For each question, provide 4 multiple choice options, the exact correct answer, and a clear educational explanation to reinforce memory.`;
+For each question, provide 4 multiple choice options, the exact correct answer, and a clear educational explanation to reinforce memory.
 
-    const result = await generateWithRetryAndFallback(
-      (modelName) => ({
-        model: modelName,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              questions: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    id: { type: Type.STRING },
-                    question: { type: Type.STRING },
-                    options: {
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING },
-                    },
-                    correctAnswer: { type: Type.STRING },
-                    explanation: { type: Type.STRING },
-                    topicTitle: { type: Type.STRING },
-                  },
-                  required: ["id", "question", "options", "correctAnswer", "explanation"],
-                },
-              },
-            },
-            required: ["questions"],
-          },
-        },
+Respond with ONLY valid JSON. Do not include markdown code fences or any text outside the JSON object.`;
+
+    const { data: result, aiGenerated } = await generateWithRetryAndFallback(
+      () => ({
+        system: "You are an educational quiz generator. Always respond with only valid JSON.",
+        user: prompt,
       }),
-      (text) => JSON.parse(text),
-      () => fallbackGenerateQuiz(topicTitle, taskTitle, isZh ? "zh" : "en")
+      (text) => safeParseJSON(text),
+      () => fallbackGenerateQuiz(topicTitle, taskTitle, isZh ? "zh" : "en"),
+      { json: true }
     );
 
-    res.json(result);
+    res.json({ ...result, aiGenerated });
   } catch (error: any) {
     console.error("Error generating quiz:", error);
     const fallback = fallbackGenerateQuiz(req.body.topicTitle, req.body.taskTitle);
