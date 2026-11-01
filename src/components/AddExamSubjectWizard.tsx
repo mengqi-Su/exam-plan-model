@@ -12,6 +12,7 @@ import {
   FileText,
   Loader2,
   Plus,
+  Sliders,
   Sparkles,
   Trash2,
   Upload,
@@ -28,6 +29,8 @@ import { useI18n } from "../lib/i18n";
 import { parseDocumentFile } from "../lib/documentParser";
 import { MAX_AI_MATERIALS, prepareMaterialsForAI, readApiError } from "../lib/aiClient";
 import { daysBetween, toLocalDateString } from "../lib/date";
+import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
+import { RulerTimePicker } from "./RulerTimePicker";
 
 interface AddExamSubjectWizardProps {
   onPlanCreated: (newPlan: ExamStudyPlan, notice?: string | null) => void;
@@ -99,6 +102,9 @@ export function AddExamSubjectWizard({
   const [examTime, setExamTime] = useState("");
   const [targetScore, setTargetScore] = useState("");
   const [dailyHoursInput, setDailyHoursInput] = useState("2");
+  const [dailySchedules, setDailySchedules] = useState<DaySchedulePreference[]>(DEFAULT_WEEK_SCHEDULE);
+  const [advancedTouched, setAdvancedTouched] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [requirements, setRequirements] = useState("");
 
   const [courseDocuments, setCourseDocuments] = useState<StudyMaterial[]>([]);
@@ -140,6 +146,9 @@ export function AddExamSubjectWizard({
   const parsedDailyHours = Number(dailyHoursInput);
   const dailyHoursValid =
     Number.isFinite(parsedDailyHours) && parsedDailyHours >= 0.5 && parsedDailyHours <= 12;
+  const hoursReady = advancedTouched
+    ? dailySchedules.some((d) => d.enabled && d.availableHours > 0)
+    : dailyHoursValid;
 
   const daysDiff = useMemo(() => {
     if (!examDate) return null;
@@ -161,7 +170,7 @@ export function AddExamSubjectWizard({
     !!startDate &&
     !!examDate &&
     daysBetween(startDate, examDate) >= 0 &&
-    dailyHoursValid;
+    hoursReady;
   const materialsReady = courseDocuments.length > 0 && !isParsingFiles;
 
   const steps = [
@@ -199,6 +208,57 @@ export function AddExamSubjectWizard({
       preferredTimeSlot: "flexible" as const,
       enabled: true,
     }));
+
+  const effectiveSchedules = advancedTouched ? dailySchedules : buildDailySchedules(parsedDailyHours);
+
+  const weeklyTotalHours = useMemo(
+    () => dailySchedules.reduce((acc, d) => (d.enabled ? acc + d.availableHours : acc), 0),
+    [dailySchedules]
+  );
+
+  const advancedTotalHours = useMemo(() => {
+    if (daysDiff === null || daysDiff < 0) return 0;
+    const start = new Date(startDate);
+    let total = 0;
+    for (let i = 0; i < daysDiff; i++) {
+      const dow = new Date(start.getTime() + i * 86400000).getDay();
+      const sched = dailySchedules.find((s) => s.dayOfWeek === dow);
+      if (sched && sched.enabled) total += sched.availableHours;
+    }
+    return Math.round(total * 10) / 10;
+  }, [startDate, daysDiff, dailySchedules]);
+
+  const handleUpdateDayHours = (dayOfWeek: number, hours: number) => {
+    const clamped = Math.max(0, Math.min(12, Math.round(hours * 2) / 2));
+    setAdvancedTouched(true);
+    setDailySchedules((prev) =>
+      prev.map((d) => (d.dayOfWeek === dayOfWeek ? { ...d, availableHours: clamped, enabled: clamped > 0 } : d))
+    );
+  };
+
+  const handleToggleDayEnabled = (dayOfWeek: number) => {
+    setAdvancedTouched(true);
+    setDailySchedules((prev) =>
+      prev.map((d) => {
+        if (d.dayOfWeek !== dayOfWeek) return d;
+        const nextEnabled = !d.enabled;
+        return { ...d, enabled: nextEnabled, availableHours: nextEnabled && d.availableHours === 0 ? 2.5 : d.availableHours };
+      })
+    );
+  };
+
+  const handleApplyWeeklyPreset = (type: "weekday_weekend" | "balanced_3h" | "intensive_5h" | "light_1_5h") => {
+    setAdvancedTouched(true);
+    setDailySchedules((prev) =>
+      prev.map((d) => {
+        const isWeekend = d.dayOfWeek === 0 || d.dayOfWeek === 6;
+        if (type === "weekday_weekend") return { ...d, availableHours: isWeekend ? 5 : 2.5, enabled: true };
+        if (type === "balanced_3h") return { ...d, availableHours: 3, enabled: true };
+        if (type === "intensive_5h") return { ...d, availableHours: 5, enabled: true };
+        return { ...d, availableHours: isWeekend ? 2.5 : 1.5, enabled: true };
+      })
+    );
+  };
 
   const invalidateAiResult = () => {
     setTopics([]);
@@ -388,7 +448,6 @@ export function AddExamSubjectWizard({
   };
 
   const requestPlan = async (activeTopics: SyllabusTopic[]): Promise<ExamStudyPlan> => {
-    const hours = Number(dailyHoursInput);
     const preferences: UserStudyPreferences = {
       examName: examName.trim(),
       subject: subject.trim() || tt("综合学科", "General"),
@@ -396,7 +455,7 @@ export function AddExamSubjectWizard({
       examTime: examTime || "09:00",
       startDate,
       targetScoreOrGrade: targetScore.trim(),
-      dailySchedules: buildDailySchedules(hours),
+      dailySchedules: effectiveSchedules,
       studyPace: defaultStudyPace,
       sessionLengthMinutes: 45,
       includePracticeExams: false,
@@ -472,7 +531,7 @@ export function AddExamSubjectWizard({
   const handleGenerate = async () => {
     if (workingRef.current || isParsingFiles) return;
 
-    if (!examName.trim() || !startDate || !examDate || daysBetween(startDate, examDate) < 0 || !dailyHoursValid) {
+    if (!examName.trim() || !startDate || !examDate || daysBetween(startDate, examDate) < 0 || !hoursReady) {
       setError({ message: tt("请先完善考试信息。", "Complete the exam details first.") });
       setStep(1);
       return;
@@ -705,6 +764,33 @@ export function AddExamSubjectWizard({
               </div>
             </label>
 
+            <div className="border border-[#111111] bg-[#fafafa] sm:col-span-2">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((prev) => !prev)}
+                aria-expanded={showAdvanced}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 font-mono text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <Sliders className="h-3.5 w-3.5" />
+                  {tt("高级设置", "ADVANCED")}
+                </span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
+              </button>
+              {showAdvanced && (
+                <div className="border-t border-[#111111] bg-white p-3 sm:p-4">
+                  <RulerTimePicker
+                    language={language}
+                    dailySchedules={dailySchedules}
+                    onUpdateDayHours={handleUpdateDayHours}
+                    onToggleDayEnabled={handleToggleDayEnabled}
+                    onApplyPreset={handleApplyWeeklyPreset}
+                    daysDiff={daysDiff ?? 0}
+                  />
+                </div>
+              )}
+            </div>
+
             <label>
               <span className={labelClass}>{tt("考试时间（可选）", "EXAM TIME (OPTIONAL)")}</span>
               <div className="relative">
@@ -743,19 +829,33 @@ export function AddExamSubjectWizard({
             </label>
           </fieldset>
 
-          {daysDiff !== null && daysDiff >= 0 && dailyHoursValid && (
+          {daysDiff !== null && daysDiff >= 0 && hoursReady && (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[#111111] bg-[#fafafa] px-4 py-2.5 font-mono text-[11px] sm:px-5">
               <span>
                 {tt("备考周期", "SPAN")} <strong>{daysDiff}</strong> {tt("天", "days")}
               </span>
               <span className="text-[#bbb]">/</span>
-              <span>
-                {tt("每天", "PER DAY")} <strong>{parsedDailyHours}</strong>h
-              </span>
-              <span className="text-[#bbb]">/</span>
-              <span>
-                {tt("预计总复习量", "TOTAL")} <strong>{totalPlannedHours}</strong>h
-              </span>
+              {advancedTouched ? (
+                <>
+                  <span>
+                    {tt("周总学时", "WEEKLY")} <strong>{weeklyTotalHours}</strong>h
+                  </span>
+                  <span className="text-[#bbb]">/</span>
+                  <span>
+                    {tt("全程预计", "TOTAL")} <strong>{advancedTotalHours}</strong>h
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span>
+                    {tt("每天", "PER DAY")} <strong>{parsedDailyHours}</strong>h
+                  </span>
+                  <span className="text-[#bbb]">/</span>
+                  <span>
+                    {tt("预计总复习量", "TOTAL")} <strong>{totalPlannedHours}</strong>h
+                  </span>
+                </>
+              )}
             </div>
           )}
         </section>
