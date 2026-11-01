@@ -4,10 +4,18 @@ import { MasterDashboard } from "./components/MasterDashboard";
 import { CourseDetailPage } from "./components/CourseDetailPage";
 import { AddExamSubjectWizard } from "./components/AddExamSubjectWizard";
 import { MasterCalendarView } from "./components/MasterCalendarView";
+import { TodayFocusView } from "./components/TodayFocusView";
 import { SettingsModal } from "./components/SettingsModal";
 import { DeleteConfirmModal } from "./components/DeleteConfirmModal";
-import { LayoutDashboard, Plus, AlertTriangle } from "lucide-react";
-import { ExamStudyPlan, AppSettings } from "./types";
+import {
+  AlertTriangle,
+  Calendar,
+  LayoutDashboard,
+  Plus,
+  Settings,
+  Sun,
+} from "lucide-react";
+import { AppSettings, AppTab, ExamStudyPlan } from "./types";
 import {
   loadSavedPlans,
   savePlans,
@@ -20,8 +28,6 @@ import {
 import { toLocalDateString } from "./lib/date";
 import { useI18n } from "./lib/i18n";
 
-type AppTab = "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject";
-
 export default function App() {
   const { language } = useI18n();
   const [plans, setPlans] = useState<ExamStudyPlan[]>([]);
@@ -29,7 +35,7 @@ export default function App() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [appNotice, setAppNotice] = useState<string | null>(null);
   const [activePlanId, setActivePlanIdState] = useState<string>(() => getActivePlanId());
-  const [currentTab, setCurrentTab] = useState<AppTab>("dashboard");
+  const [currentTab, setCurrentTab] = useState<AppTab>("today");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const [appSettings, setAppSettings] = useState<AppSettings>(() => loadAppSettings());
@@ -96,7 +102,7 @@ export default function App() {
     setPlans([]);
     setActivePlanIdState("");
     setActivePlanId("");
-    setCurrentTab("dashboard");
+    setCurrentTab("today");
   };
 
   const handleImportPlans = (importedPlans: ExamStudyPlan[], importedSettings?: AppSettings) => {
@@ -151,7 +157,7 @@ export default function App() {
         } else {
           setActivePlanIdState("");
           setActivePlanId("");
-          setCurrentTab("dashboard");
+          setCurrentTab("today");
         }
       }
       return next;
@@ -163,7 +169,7 @@ export default function App() {
     setActivePlanIdState(newPlan.id);
     setActivePlanId(newPlan.id);
     setAppNotice(notice || null);
-    setCurrentTab("dashboard");
+    setCurrentTab("today");
     setSelectedDate(newPlan.startDate || toLocalDateString());
   };
 
@@ -171,7 +177,23 @@ export default function App() {
     if (planId) {
       handleSelectPlan(planId);
     }
+    if (tab === "today") {
+      setSelectedDate(toLocalDateString());
+    }
     setCurrentTab(tab);
+  };
+
+  const mobileNavItems = [
+    { id: "today" as AppTab, label: language === "zh" ? "今日" : "Today", icon: Sun },
+    { id: "dashboard" as AppTab, label: language === "zh" ? "科目" : "Subjects", icon: LayoutDashboard },
+    { id: "master_calendar" as AppTab, label: language === "zh" ? "日历" : "Calendar", icon: Calendar },
+  ];
+
+  const isMobileNavActive = (tab: AppTab) => {
+    if (tab === "dashboard") {
+      return ["dashboard", "course", "todo", "realtime", "materials", "add_subject"].includes(currentTab);
+    }
+    return currentTab === tab;
   };
 
   if (!isHydrated) {
@@ -208,10 +230,39 @@ export default function App() {
           isSidebarOpen ? "md:ml-64" : "ml-0"
         }`}
       >
+        <div className="md:hidden sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[#111111] bg-[#faf9f6] px-3 py-2">
+          <button
+            onClick={() => handleNavigateToTab("today")}
+            className="flex items-center gap-2 cursor-pointer"
+            aria-label={language === "zh" ? "回到今日" : "Back to today"}
+          >
+            <span className="w-6 h-6 bg-[#111111] text-white flex items-center justify-center text-[10px] font-mono font-bold">
+              EP
+            </span>
+            <span className="text-xs font-bold tracking-tight">EXAM PLAN AI</span>
+          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleNewPlan}
+              className="p-2 min-w-9 min-h-9 border border-[#111111] bg-white text-[#111111] hover:bg-[#f2f0ea] cursor-pointer"
+              aria-label={language === "zh" ? "新建备考科目" : "Create subject"}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => handleOpenSettings("data")}
+              className="p-2 min-w-9 min-h-9 border border-[#111111] bg-white text-[#111111] hover:bg-[#f2f0ea] cursor-pointer"
+              aria-label={language === "zh" ? "打开设置" : "Open settings"}
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
         {saveError && (
-          <div className="sticky top-0 z-30 flex items-start justify-between gap-3 bg-[#FCD33B] border-b border-[#111111] px-4 py-2 text-[11px] font-mono text-[#111111]">
+          <div className="sticky top-0 z-30 flex items-start justify-between gap-3 bg-[#FCD33B] border-b border-[#111111] px-4 py-2 text-[12px] text-[#111111]">
             <span className="flex items-center gap-2">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{saveError}</span>
             </span>
             <button
@@ -223,9 +274,9 @@ export default function App() {
           </div>
         )}
         {appNotice && (
-          <div className="sticky top-0 z-30 flex items-start justify-between gap-3 bg-[#FCD33B] border-b border-[#111111] px-4 py-2 text-[11px] font-mono text-[#111111]">
+          <div className="sticky top-0 z-30 flex items-start justify-between gap-3 bg-[#FCD33B] border-b border-[#111111] px-4 py-2 text-[12px] text-[#111111]">
             <span className="flex items-center gap-2">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{appNotice}</span>
             </span>
             <button
@@ -236,14 +287,25 @@ export default function App() {
             </button>
           </div>
         )}
-        <main className="flex-1 pb-16">
+        <main className="flex-1 pb-24 md:pb-16">
+          {currentTab === "today" && (
+            <TodayFocusView
+              plans={plans}
+              onNavigateToTab={handleNavigateToTab}
+              onUpdatePlan={handleUpdatePlan}
+              onAddNewSubject={handleNewPlan}
+              onNotice={setAppNotice}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+            />
+          )}
+
           {currentTab === "dashboard" && (
             <MasterDashboard
               plans={plans}
               activePlan={activePlan}
               onSelectPlan={handleSelectPlan}
               onNavigateToTab={handleNavigateToTab}
-              onUpdatePlan={handleUpdatePlan}
               onDeletePlan={handleDeletePlan}
               onRequestDeletePlan={(p) => setPlanToDelete(p)}
               onAddNewSubject={handleNewPlan}
@@ -290,7 +352,7 @@ export default function App() {
             <AddExamSubjectWizard
               existingPlans={plans}
               onPlanCreated={handlePlanGenerated}
-              onCancel={() => setCurrentTab("dashboard")}
+              onCancel={() => setCurrentTab("today")}
             />
           )}
 
@@ -335,6 +397,37 @@ export default function App() {
             ))}
         </main>
       </div>
+
+      <nav
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#faf9f6] border-t border-[#111111] grid grid-cols-4"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        aria-label={language === "zh" ? "移动端主导航" : "Mobile navigation"}
+      >
+        {mobileNavItems.map((item) => {
+          const Icon = item.icon;
+          const active = isMobileNavActive(item.id);
+          return (
+            <button
+              key={item.id}
+              onClick={() => handleNavigateToTab(item.id)}
+              aria-current={active ? "page" : undefined}
+              className={`flex flex-col items-center justify-center gap-0.5 min-h-[54px] text-[11px] font-semibold transition-colors cursor-pointer ${
+                active ? "bg-[#111111] text-white" : "text-[#333333] hover:bg-[#efede6]"
+              }`}
+            >
+              <Icon className="w-[18px] h-[18px]" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+        <button
+          onClick={() => handleOpenSettings("preferences")}
+          className="flex flex-col items-center justify-center gap-0.5 min-h-[54px] text-[11px] font-semibold text-[#333333] hover:bg-[#efede6] transition-colors cursor-pointer"
+        >
+          <Settings className="w-[18px] h-[18px]" />
+          <span>{language === "zh" ? "设置" : "Settings"}</span>
+        </button>
+      </nav>
 
       <DeleteConfirmModal
         isOpen={!!planToDelete}

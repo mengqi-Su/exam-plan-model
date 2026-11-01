@@ -1,40 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
-  BookOpen,
   Calendar,
-  CheckSquare,
-  ChevronRight,
-  ChevronDown,
-  FileText,
-  Folder,
-  GraduationCap,
-  Plus,
-  Search,
-  Settings,
-  Sparkles,
-  Trash2,
-  Zap,
-  PanelLeftClose,
-  PanelLeft,
-  ExternalLink,
-  Download,
-  RefreshCw,
-  Star,
-  Clock,
-  HelpCircle,
-  Languages,
-  LayoutDashboard,
-  Layers,
-  BarChart3,
-  Sliders,
-  Info,
   HardDrive,
+  LayoutDashboard,
+  PanelLeft,
+  PanelLeftClose,
+  Plus,
+  Settings,
   ShieldCheck,
+  Sun,
+  Trash2,
 } from "lucide-react";
-import { ExamStudyPlan } from "../types";
-import { downloadICSFile } from "../lib/calendarExport";
+import { AppTab, ExamStudyPlan } from "../types";
 import { useI18n } from "../lib/i18n";
-import { APP_VERSION_DATA } from "../lib/storage";
 import { getPaletteByIndex } from "../lib/themePalettes";
 
 interface NotionSidebarProps {
@@ -46,8 +24,8 @@ interface NotionSidebarProps {
   onNewPlan: () => void;
   onDeletePlan?: (planId: string) => void;
   onRequestDeletePlan?: (plan: ExamStudyPlan) => void;
-  currentTab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject";
-  onTabChange: (tab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "add_subject", planId?: string) => void;
+  currentTab: AppTab;
+  onTabChange: (tab: AppTab, planId?: string) => void;
   onOpenSettings?: (tab?: "data" | "preferences" | "language" | "version") => void;
 }
 
@@ -64,15 +42,16 @@ export function NotionSidebar({
   onTabChange,
   onOpenSettings,
 }: NotionSidebarProps) {
-  const { t, language, setLanguage } = useI18n();
+  const { language } = useI18n();
 
   if (!isOpen) {
     return (
-      <div className="fixed top-3 left-3 z-40">
+      <div className="hidden md:block fixed top-3 left-3 z-40">
         <button
           onClick={onToggle}
-          className="p-1.5 rounded-md hover:bg-[#efefed] text-[#787774] hover:text-[#37352f] transition-colors border border-[#e9e9e7] bg-white shadow-xs"
-          title="Open Notion Sidebar"
+          className="p-2 min-w-9 min-h-9 rounded-md hover:bg-[#efefed] text-[#787774] hover:text-[#37352f] transition-colors border border-[#e9e9e7] bg-white shadow-xs"
+          title={language === "zh" ? "展开侧栏" : "Open sidebar"}
+          aria-label={language === "zh" ? "展开侧栏" : "Open sidebar"}
         >
           <PanelLeft className="w-4 h-4" />
         </button>
@@ -81,7 +60,10 @@ export function NotionSidebar({
   }
 
   return (
-    <aside className="w-64 bg-[#f2f0ea] border-r border-[#111111] flex flex-col h-screen fixed top-0 left-0 z-40 select-none text-[13px] text-[#111111] font-sans">
+    <aside
+      className="hidden md:flex w-64 bg-[#f2f0ea] border-r border-[#111111] flex-col h-screen fixed top-0 left-0 z-40 select-none text-[13px] text-[#111111] font-sans"
+      aria-label={language === "zh" ? "主导航侧栏" : "Main navigation"}
+    >
 
       <div className="p-3.5 flex items-center justify-between border-b border-[#111111] bg-[#faf9f6]">
         <div className="flex items-center space-x-2.5 min-w-0">
@@ -100,14 +82,29 @@ export function NotionSidebar({
 
         <button
           onClick={onToggle}
-          className="p-1 text-[#666666] hover:text-[#111111] hover:bg-[#e4e1d8] transition-colors border border-transparent hover:border-[#111111] cursor-pointer"
-          title="Collapse Sidebar"
+          className="p-2 min-w-9 min-h-9 text-[#666666] hover:text-[#111111] hover:bg-[#e4e1d8] transition-colors border border-transparent hover:border-[#111111] cursor-pointer"
+          title={language === "zh" ? "收起侧栏" : "Collapse sidebar"}
+          aria-label={language === "zh" ? "收起侧栏" : "Collapse sidebar"}
         >
           <PanelLeftClose className="w-4 h-4" />
         </button>
       </div>
 
       <div className="p-2 space-y-1 border-b border-[#dedad1]">
+        <button
+          onClick={() => onTabChange("today")}
+          className={`w-full flex items-center space-x-2 px-2.5 py-2.5 text-left transition-all cursor-pointer font-sans text-[13px] rounded-lg ${
+            currentTab === "today"
+              ? "bg-[#111111] text-white font-semibold shadow-xs"
+              : "hover:bg-[#e4e1d8] text-[#333333]"
+          }`}
+          aria-current={currentTab === "today" ? "page" : undefined}
+        >
+          <Sun className="w-4 h-4" />
+          <span className="flex-1 truncate">{language === "zh" ? "今日" : "Today"}</span>
+          <span className="font-mono text-[10px] opacity-60">01</span>
+        </button>
+
         <button
           onClick={() => onTabChange("dashboard")}
           className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs rounded-lg ${
@@ -116,8 +113,9 @@ export function NotionSidebar({
               : "hover:bg-[#e4e1d8] text-[#333333]"
           }`}
         >
-          <LayoutDashboard className="w-3.5 h-3.5" />
-          <span className="flex-1 truncate uppercase tracking-wider">{language === "zh" ? "科目看板" : "DASHBOARD"}</span>
+          <LayoutDashboard className="w-4 h-4" />
+          <span className="flex-1 truncate">{language === "zh" ? "科目看板" : "Subjects"}</span>
+          <span className="font-mono text-[10px] opacity-60">02</span>
         </button>
 
         <button
@@ -128,8 +126,9 @@ export function NotionSidebar({
               : "hover:bg-[#e4e1d8] text-[#333333]"
           }`}
         >
-          <Calendar className="w-3.5 h-3.5" />
-          <span className="flex-1 truncate uppercase tracking-wider">{language === "zh" ? "全科日历" : "CALENDAR"}</span>
+          <Calendar className="w-4 h-4" />
+          <span className="flex-1 truncate">{language === "zh" ? "全科日历" : "Calendar"}</span>
+          <span className="font-mono text-[10px] opacity-60">03</span>
         </button>
       </div>
 
@@ -142,7 +141,9 @@ export function NotionSidebar({
         </div>
 
         {plans.map((p, idx) => {
-          const isActivePlan = activePlan?.id === p.id && currentTab !== "dashboard" && currentTab !== "master_calendar" && currentTab !== "add_subject";
+          const isActivePlan =
+            activePlan?.id === p.id &&
+            ["course", "todo", "realtime", "materials"].includes(currentTab);
           const palette = getPaletteByIndex(idx);
 
           return (
@@ -181,8 +182,9 @@ export function NotionSidebar({
                       onDeletePlan(p.id);
                     }
                   }}
-                  className="opacity-0 group-hover:opacity-100 p-1 mr-1 text-[#777777] hover:text-[#d44c47] transition-all shrink-0 cursor-pointer rounded-md"
-                  title={language === "zh" ? "删除此课程" : "Delete Course"}
+                  className="opacity-0 group-hover:opacity-100 p-2 mr-1 text-[#777777] hover:text-[#d44c47] transition-all shrink-0 cursor-pointer rounded-md"
+                  title={language === "zh" ? "删除此科目" : "Delete subject"}
+                  aria-label={language === "zh" ? `删除科目 ${p.examName}` : `Delete subject ${p.examName}`}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>

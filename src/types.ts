@@ -1,5 +1,15 @@
 export type MaterialCategory = 'course_syllabus' | 'exam_question' | 'study_material';
 
+export type AppTab =
+  | 'today'
+  | 'dashboard'
+  | 'master_calendar'
+  | 'todo'
+  | 'realtime'
+  | 'course'
+  | 'materials'
+  | 'add_subject';
+
 export interface DaySchedulePreference {
   dayOfWeek: number;
   dayName: string;

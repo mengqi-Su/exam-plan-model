@@ -10,14 +10,13 @@ import {
   ArrowUpRight,
   Plus,
 } from "lucide-react";
-import { ExamStudyPlan } from "../types";
-import { downloadICSFile } from "../lib/calendarExport";
+import { AppTab, ExamStudyPlan } from "../types";
 
 interface CourseAccordionGalleryProps {
   plans: ExamStudyPlan[];
   activePlan: ExamStudyPlan | null;
   onSelectPlan: (planId: string) => void;
-  onNavigateToTab: (tab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "add_subject", planId?: string) => void;
+  onNavigateToTab: (tab: AppTab, planId?: string) => void;
   onDeletePlan?: (planId: string) => void;
   onRequestDeletePlan?: (plan: ExamStudyPlan) => void;
   onAddNewSubject?: () => void;
@@ -183,10 +182,26 @@ export function CourseAccordionGallery({
           return (
             <div
               key={plan.id}
+              role="button"
+              tabIndex={0}
+              aria-expanded={isExpanded}
+              aria-label={
+                language === "zh"
+                  ? `${plan.examName}，${isExpanded ? "收起" : "展开"}科目`
+                  : `${plan.examName}, ${isExpanded ? "collapse" : "expand"} subject`
+              }
               onMouseEnter={() => setActiveHoverId(plan.id)}
               onClick={() => {
                 setSelectedId(plan.id);
                 onSelectPlan(plan.id);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelectedId(plan.id);
+                  setActiveHoverId(plan.id);
+                  onSelectPlan(plan.id);
+                }
               }}
               style={{
                 flex: isExpanded ? "5" : "1",
@@ -315,10 +330,20 @@ export function CourseAccordionGallery({
 
         {onAddNewSubject && (
           <div
+            role="button"
+            tabIndex={0}
+            aria-label={language === "zh" ? "新建备考科目" : "Create new subject"}
             onMouseEnter={() => setActiveHoverId("add_new")}
             onClick={() => {
               setSelectedId("add_new");
               onAddNewSubject();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setSelectedId("add_new");
+                onAddNewSubject();
+              }
             }}
             style={{
               flex: isAddNewExpanded ? "5" : "1",
@@ -390,7 +415,15 @@ export function CourseAccordionGallery({
 
         {onAddNewSubject && (
           <div
+            role="button"
+            tabIndex={0}
             onClick={onAddNewSubject}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onAddNewSubject();
+              }
+            }}
             className="p-4 bg-[#faf9f6] hover:bg-[#f0eee6] border-2 border-dashed border-[#111111] font-mono cursor-pointer transition-colors flex items-center justify-between"
           >
             <div className="flex items-center space-x-2">
@@ -422,9 +455,19 @@ export function CourseAccordionGallery({
             >
 
               <div
+                role="button"
+                tabIndex={0}
+                aria-expanded={isExpanded}
                 onClick={() => {
                   setSelectedId(isExpanded ? "add_new" : plan.id);
                   onSelectPlan(plan.id);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedId(isExpanded ? "add_new" : plan.id);
+                    onSelectPlan(plan.id);
+                  }
                 }}
                 className="p-3.5 flex items-center justify-between gap-2.5 cursor-pointer"
               >

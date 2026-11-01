@@ -4,9 +4,8 @@ import {
   Play,
   Trash2,
   Calendar as CalendarIcon,
-  Plus,
+  BookOpen,
   FileText,
-  Sparkles,
 } from "lucide-react";
 import { StudyTask, ExamStudyPlan } from "../types";
 import { generateGoogleCalendarUrl } from "../lib/calendarExport";
@@ -185,8 +184,6 @@ export function PinnedRoadmapTodoList({
   onDeleteTask,
   onStartTimer,
   onStartRag,
-  onAddNewTask,
-  selectedDate,
 }: PinnedRoadmapTodoListProps) {
   const { t, language } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -269,12 +266,12 @@ export function PinnedRoadmapTodoList({
     >
       {/* Top Header Bar */}
       <div className="flex items-center justify-between pb-4 mb-6 border-b border-[#111111]">
-        <div className="flex items-center space-x-2 font-mono">
+        <div className="flex items-center space-x-2">
           <span className="w-2.5 h-2.5 bg-[#FCD33B] border border-[#111111] inline-block" />
-          <h2 className="text-xs font-bold uppercase tracking-wider text-[#111111]">
-            {language === "zh" ? "今日待办轨迹" : "DAILY ROADMAP"}
+          <h2 className="text-sm font-bold text-[#111111]">
+            {language === "zh" ? "任务路线" : "STUDY ROADMAP"}
           </h2>
-          <span className="text-xs font-bold text-[#111111] bg-white border border-[#111111] px-2 py-0.2">
+          <span className="font-mono text-xs font-bold text-[#111111] bg-white border border-[#111111] px-2 py-0.5">
             {tasks.filter((t) => t.status === "completed").length} / {tasks.length}
           </span>
         </div>
@@ -344,13 +341,15 @@ export function PinnedRoadmapTodoList({
                 }}
               >
                 {/* 3D Pushpin Centered Top */}
-                <div
+                <button
+                  type="button"
                   className="pin-anchor absolute -top-3.5 left-1/2 -translate-x-1/2 z-30 cursor-pointer transition-transform duration-200 group-hover:scale-110 active:scale-95"
                   onClick={() => onToggleComplete(task.id)}
                   title={isCompleted ? t("pending") : t("completed")}
+                  aria-label={isCompleted ? t("pending") : t("completed")}
                 >
                   <JellyPushpin theme={theme} size={26} />
-                </div>
+                </button>
 
                 {/* Card Top Block in One of the 4 App Theme Colors */}
                 <div
@@ -384,12 +383,13 @@ export function PinnedRoadmapTodoList({
                       {/* Complete Checkbox */}
                       <button
                         onClick={() => onToggleComplete(task.id)}
-                        className={`w-6 h-6 border-2 flex items-center justify-center transition-all cursor-pointer ${
+                        className={`w-7 h-7 border-2 flex items-center justify-center transition-all cursor-pointer ${
                           isCompleted
                             ? "bg-[#111111] border-[#111111] text-white scale-105"
                             : "bg-white border-[#111111] text-transparent hover:text-gray-400"
                         }`}
                         title={isCompleted ? t("completed") : t("pending")}
+                        aria-label={isCompleted ? t("completed") : t("pending")}
                       >
                         <Check className="w-3.5 h-3.5 stroke-[3]" />
                       </button>
@@ -413,7 +413,7 @@ export function PinnedRoadmapTodoList({
                   {/* Task Description */}
                   {task.description && (
                     <p
-                      className={`text-xs text-[#333333] leading-relaxed ${
+                      className={`text-[13px] text-[#333333] leading-relaxed ${
                         isCompleted ? "line-through text-gray-400" : ""
                       }`}
                     >
@@ -425,7 +425,7 @@ export function PinnedRoadmapTodoList({
                   {task.keyObjectives && task.keyObjectives.length > 0 && (
                     <div className="space-y-1 pt-0.5">
                       {task.keyObjectives.map((obj, i) => (
-                        <div key={i} className="flex items-start space-x-1.5 text-xs text-[#444444]">
+                        <div key={i} className="flex items-start space-x-1.5 text-[13px] leading-relaxed text-[#444444]">
                           <span className="w-1.5 h-1.5 bg-[#111111] mt-1.5 shrink-0" />
                           <span className={isCompleted ? "line-through text-gray-400" : ""}>
                             {obj}
@@ -438,22 +438,24 @@ export function PinnedRoadmapTodoList({
                   {/* Notes Drawer */}
                   {activeNotesId === task.id && (
                     <div className="pt-2 border-t border-[#111111]/20 space-y-1.5">
-                      <div className="flex items-center justify-between text-[10px] font-mono font-bold text-[#666666]">
-                        <span>{language === "zh" ? "随堂笔记" : "NOTES"}</span>
+                      <div className="flex items-center justify-between text-[11px] font-bold text-[#666666]">
+                        <span>{language === "zh" ? "任务笔记" : "TASK NOTES"}</span>
                         <button
                           onClick={() => setActiveNotesId(null)}
-                          className="text-gray-400 hover:text-[#111111] text-xs cursor-pointer"
+                          className="p-1 text-gray-500 hover:text-[#111111] cursor-pointer"
+                          aria-label={language === "zh" ? "关闭笔记" : "Close notes"}
                         >
                           ✕
                         </button>
                       </div>
                       <textarea
-                        rows={2}
+                        rows={3}
                         value={task.notes || ""}
                         onChange={(e) => onSaveNotes(task.id, e.target.value)}
-                        placeholder={language === "zh" ? "输入笔记..." : "Add notes..."}
-                        className="w-full bg-[#FAF9F6] border border-[#111111] p-2 text-xs text-[#111111] placeholder-gray-400 focus:outline-none font-mono leading-relaxed"
+                        placeholder={language === "zh" ? "记录卡点、易错点或下一步..." : "Capture blockers, traps, or the next step..."}
+                        className="w-full bg-[#FAF9F6] border border-[#111111] p-2.5 text-[13px] text-[#111111] placeholder-gray-400 focus:outline-none leading-relaxed"
                         autoFocus
+                        aria-label={language === "zh" ? "任务笔记" : "Task notes"}
                       />
                     </div>
                   )}
@@ -466,12 +468,14 @@ export function PinnedRoadmapTodoList({
                         <button
                           key={star}
                           onClick={() => onUpdateConfidence(task.id, star as any)}
-                          className={`p-0.5 transition-colors cursor-pointer text-xs ${
+                          className={`p-1 min-w-6 min-h-6 transition-colors cursor-pointer text-sm ${
                             (task.confidenceRating || 0) >= star
                               ? "text-[#FCD33B] drop-shadow-xs font-bold"
                               : "text-gray-300 hover:text-amber-400"
                           }`}
                           title={`${star} / 5`}
+                          aria-label={language === "zh" ? `掌握程度 ${star} 星` : `Confidence ${star} of 5`}
+                          aria-pressed={(task.confidenceRating || 0) >= star}
                         >
                           ★
                         </button>
@@ -483,52 +487,53 @@ export function PinnedRoadmapTodoList({
                       {/* Focus Timer */}
                       <button
                         onClick={() => onStartTimer(task)}
-                        className="p-1 border border-transparent hover:border-[#111111] hover:bg-[#FAF9F6] text-[#333333] transition-colors cursor-pointer"
+                        className="p-2 min-w-8 min-h-8 border border-transparent hover:border-[#111111] hover:bg-[#FAF9F6] text-[#333333] transition-colors cursor-pointer"
                         title={t("startFocusTimer")}
+                        aria-label={t("startFocusTimer")}
                       >
-                        <Play className="w-3.5 h-3.5" />
+                        <Play className="w-4 h-4" />
                       </button>
 
-                      {/* Ask the uploaded materials */}
                       <button
                         onClick={() => onStartRag(task)}
-                        className="p-1 border border-transparent hover:border-[#111111] hover:bg-[#FAF9F6] text-[#333333] transition-colors cursor-pointer"
-                        title={language === "zh" ? "资料问答" : "Ask materials"}
+                        className="p-2 min-w-8 min-h-8 border border-transparent hover:border-[#111111] hover:bg-[#FAF9F6] text-[#333333] transition-colors cursor-pointer"
+                        title={language === "zh" ? "向资料提问" : "Ask your materials"}
+                        aria-label={language === "zh" ? "向资料提问" : "Ask your materials"}
                       >
-                        <Sparkles className="w-3.5 h-3.5" />
+                        <BookOpen className="w-4 h-4" />
                       </button>
 
-                      {/* Notes */}
                       <button
                         onClick={() => setActiveNotesId(activeNotesId === task.id ? null : task.id)}
-                        className={`p-1 border transition-colors cursor-pointer ${
+                        className={`p-2 min-w-8 min-h-8 border transition-colors cursor-pointer ${
                           task.notes
                             ? "border-[#111111] bg-[#FCD33B] text-[#111111]"
                             : "border-transparent hover:border-[#111111] text-[#333333] hover:bg-[#FAF9F6]"
                         }`}
-                        title={t("viewNotes")}
+                        title={language === "zh" ? "任务笔记" : "Task notes"}
+                        aria-label={language === "zh" ? "任务笔记" : "Task notes"}
                       >
-                        <FileText className="w-3.5 h-3.5" />
+                        <FileText className="w-4 h-4" />
                       </button>
 
-                      {/* Google Calendar */}
                       <a
                         href={generateGoogleCalendarUrl(task, plan)}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-1 border border-transparent hover:border-[#111111] hover:bg-[#FAF9F6] text-[#333333] transition-colors cursor-pointer"
+                        className="p-2 min-w-8 min-h-8 border border-transparent hover:border-[#111111] hover:bg-[#FAF9F6] text-[#333333] transition-colors cursor-pointer"
                         title={t("addToGCal")}
+                        aria-label={t("addToGCal")}
                       >
-                        <CalendarIcon className="w-3.5 h-3.5" />
+                        <CalendarIcon className="w-4 h-4" />
                       </a>
 
-                      {/* Delete */}
                       <button
                         onClick={() => onDeleteTask(task.id)}
-                        className="p-1 border border-transparent hover:border-red-600 hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
+                        className="p-2 min-w-8 min-h-8 border border-transparent hover:border-red-600 hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
                         title={t("delete")}
+                        aria-label={t("delete")}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>

@@ -18,6 +18,16 @@
     --palette-concrete: #D8D8D8;
     --palette-stone: #B5B5B5;
     --palette-slate: #282828;
+
+    /* Semantic roles: success / warning / danger / info */
+    --semantic-success: #3F6B4F;
+    --semantic-success-bg: #EEF4EF;
+    --semantic-warning: #8A5A00;
+    --semantic-warning-bg: #FFF6DD;
+    --semantic-danger: #B42318;
+    --semantic-danger-bg: #FDF0EE;
+    --semantic-info: #1D4ED8;
+    --semantic-info-bg: #EEF3FE;
   }
 
   *, *::before, *::after {
@@ -34,7 +44,32 @@
   body {
     color: #111111;
     background-color: #f8f7f4;
+    font-size: 14px;
+    line-height: 1.6;
+    text-rendering: optimizeLegibility;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  :focus-visible {
+    outline: 2px solid #111111;
+    outline-offset: 2px;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline-offset: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   .font-mono, code, kbd, samp, pre {

@@ -108,16 +108,18 @@ export function TaskFocusTimerModal({
           <div className="flex items-center space-x-1">
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
-              className="p-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] transition-colors cursor-pointer text-xs"
+              className="p-2 min-w-9 min-h-9 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] transition-colors cursor-pointer text-xs"
               title={soundEnabled ? (language === "zh" ? "关闭提示音" : "Mute Bell") : (language === "zh" ? "开启提示音" : "Enable Sound")}
+              aria-label={soundEnabled ? (language === "zh" ? "关闭提示音" : "Mute bell") : (language === "zh" ? "开启提示音" : "Enable sound")}
             >
-              {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5 text-[#999999]" />}
+              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-[#999999]" />}
             </button>
             <button
               onClick={onClose}
-              className="p-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] transition-colors cursor-pointer"
+              className="p-2 min-w-9 min-h-9 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-[#111111] transition-colors cursor-pointer"
+              aria-label={language === "zh" ? "关闭专注计时" : "Close focus timer"}
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
