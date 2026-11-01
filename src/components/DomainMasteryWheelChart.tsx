@@ -485,7 +485,7 @@ export function DomainMasteryWheelChart({
             {language === "zh" ? "AI 掌握度自适应评分" : "Mastery Confidence"}:
           </span>
           <span className="font-bold text-[#111111]">
-            {activeItem.avgRating ? `${activeItem.avgRating.toFixed(1)} / 5.0 ★` : (language === "zh" ? "待首次自测" : "Pending Quiz")}
+            {activeItem.avgRating ? `${activeItem.avgRating.toFixed(1)} / 5.0 ★` : (language === "zh" ? "待首次评分" : "Not rated yet")}
           </span>
         </div>
       </div>

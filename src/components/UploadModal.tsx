@@ -34,6 +34,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
     const newAttachedMaterials: StudyMaterial[] = [];
     let combinedContent = currentSyllabusContent ? currentSyllabusContent + "\n\n" : "";
+    let hadError = false;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -67,6 +68,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         newAttachedMaterials.push(materialItem);
         combinedContent += `=== ${file.name} ===\n${text}\n\n`;
       } catch (err: any) {
+        hadError = true;
         setErrorMessage(`${file.name}: ${err?.message || (language === "zh" ? "解析失败" : "Error")}`);
       }
     }
@@ -76,7 +78,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
     if (newAttachedMaterials.length > 0) {
       onUploadSuccess(newAttachedMaterials, combinedContent.trim());
-      onClose();
+      if (!hadError) onClose();
     }
   };
 
@@ -128,7 +130,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             id="modal-file-upload-input"
             type="file"
             multiple
-            accept=".pdf,.docx,.doc,.txt,.md,.ppt,.pptx"
+            accept=".pdf,.docx,.pptx,.txt,.md,.markdown,.csv,.json,.rtf"
             onChange={(e) => handleFiles(e.target.files)}
             className="hidden"
           />
@@ -146,7 +148,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 : (language === "zh" ? "点击选择 或 拖入文件" : "Click or drop files")}
             </p>
             <p className="text-[10px] text-[#666666]">
-              PDF / DOCX / PPT / TXT / MD
+              {language === "zh" ? "PDF / DOCX / PPTX / TXT / MD · 单文件 ≤ 10 MB" : "PDF / DOCX / PPTX / TXT / MD · max 10 MB each"}
             </p>
           </div>
         </div>

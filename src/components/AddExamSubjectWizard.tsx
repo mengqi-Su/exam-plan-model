@@ -32,15 +32,17 @@ import {
   SyllabusTopic,
   UserStudyPreferences
 } from "../types";
-import { DEFAULT_WEEK_SCHEDULE, SAMPLE_MATERIALS } from "../lib/storage";
+import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
 import { useI18n } from "../lib/i18n";
 import { parseDocumentFile } from "../lib/documentParser";
 import { fallbackExtractSyllabusClient, fallbackGeneratePlanClient } from "../lib/fallbackPlanner";
+import { prepareMaterialsForAI, getAiFallbackNotice, readApiError } from "../lib/aiClient";
+import { addDays, daysBetween, parseLocalDate, toLocalDateString } from "../lib/date";
 import { RulerTimePicker } from "./RulerTimePicker";
 import { HierarchicalTopicTreeView } from "./HierarchicalTopicTreeView";
 
 interface AddExamSubjectWizardProps {
-  onPlanCreated: (newPlan: ExamStudyPlan) => void;
+  onPlanCreated: (newPlan: ExamStudyPlan, notice?: string | null) => void;
   onCancel: () => void;
   existingPlans: ExamStudyPlan[];
 }
@@ -101,20 +103,14 @@ export function AddExamSubjectWizard({
   const [subject, setSubject] = useState("");
   const [targetScore, setTargetScore] = useState("A (90%+ / 优秀)");
 
-  const defaultExamDate = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 21);
-    return d.toISOString().split("T")[0];
-  }, []);
+  const defaultExamDate = useMemo(() => addDays(toLocalDateString(), 21), []);
 
-  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
+  const [startDate, setStartDate] = useState(() => toLocalDateString());
   const [examDate, setExamDate] = useState(defaultExamDate);
   const [examTime, setExamTime] = useState("09:00");
 
   const daysDiff = useMemo(() => {
-    const s = new Date(startDate);
-    const e = new Date(examDate);
-    const diff = Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24));
+    const diff = daysBetween(startDate, examDate);
     return diff > 0 ? diff : 1;
   }, [startDate, examDate]);
 
@@ -129,6 +125,7 @@ export function AddExamSubjectWizard({
   const [isParsingFiles, setIsParsingFiles] = useState(false);
   const [parsingStatus, setParsingStatus] = useState("");
   const [extractError, setExtractError] = useState<string | null>(null);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
 
   const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
 
@@ -160,11 +157,9 @@ export function AddExamSubjectWizard({
   }, [dailySchedules]);
 
   const totalPlannedStudyHours = useMemo(() => {
-    const start = new Date(startDate);
     let total = 0;
     for (let i = 0; i < daysDiff; i++) {
-      const cur = new Date(start.getTime() + i * 86400000);
-      const dayOfWeek = cur.getDay();
+      const dayOfWeek = parseLocalDate(addDays(startDate, i)).getDay();
       const sched = dailySchedules.find((s) => s.dayOfWeek === dayOfWeek);
       if (sched && sched.enabled) {
         total += sched.availableHours;
@@ -347,6 +342,11 @@ export function AddExamSubjectWizard({
 
     setIsExtracting(true);
     setExtractError(null);
+    setAiNotice(null);
+
+    const safeExamName = examName || (language === "zh" ? "新考试科目" : "New Exam");
+    const safeSubject = subject || (language === "zh" ? "综合学科" : "General");
+    let notice: string | null = null;
 
     try {
       let data: any = null;
@@ -355,23 +355,42 @@ export function AddExamSubjectWizard({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            materials: courseDocuments,
-            examName: examName || "新考试科目",
-            subject: subject || "综合学科",
+            materials: prepareMaterialsForAI(courseDocuments),
+            examName: safeExamName,
+            subject: safeSubject,
             language,
           }),
         });
 
         if (res.ok) {
           data = await res.json();
+          notice = getAiFallbackNotice(data.meta, language);
+        } else {
+          const apiError = await readApiError(res, language);
+          notice =
+            language === "zh"
+              ? `${apiError.message} 已改用本地模板提炼考点。`
+              : `${apiError.message} A local topic template was used instead.`;
         }
       } catch (fetchErr) {
         console.warn("Network error during syllabus extraction:", fetchErr);
+        notice =
+          language === "zh"
+            ? "无法连接 AI 服务，已改用本地模板提炼考点。"
+            : "Could not reach the AI service. A local topic template was used instead.";
       }
 
       if (!data || !data.topics || data.topics.length === 0) {
-        data = fallbackExtractSyllabusClient(courseDocuments, examName || "新考试科目", subject || "综合学科", language);
+        data = fallbackExtractSyllabusClient(courseDocuments, safeExamName, safeSubject, language);
+        if (!notice) {
+          notice =
+            language === "zh"
+              ? "AI 未返回有效考点，已改用本地模板。"
+              : "AI returned no usable topics. A local template was used instead.";
+        }
       }
+
+      setAiNotice(notice);
 
       if (data.topics && Array.isArray(data.topics) && data.topics.length > 0) {
         setTopics(data.topics);
@@ -379,9 +398,14 @@ export function AddExamSubjectWizard({
       }
     } catch (err: any) {
       console.error("Extraction error handled:", err);
-      const fallback = fallbackExtractSyllabusClient(courseDocuments, examName || "新考试科目", subject || "综合学科", language);
+      const fallback = fallbackExtractSyllabusClient(courseDocuments, safeExamName, safeSubject, language);
       setTopics(fallback.topics);
       setSelectedWeakTopics(fallback.topics.filter((t: any) => t.difficulty === "hard").map((t: any) => t.title));
+      setAiNotice(
+        language === "zh"
+          ? "考点提取失败，已改用本地模板。"
+          : "Topic extraction failed. A local template was used instead."
+      );
     } finally {
       setIsExtracting(false);
     }
@@ -424,6 +448,7 @@ export function AddExamSubjectWizard({
 
     setIsGenerating(true);
     setGenerateError(null);
+    setAiNotice(null);
 
     const preferences: UserStudyPreferences = {
       examName,
@@ -450,6 +475,7 @@ export function AddExamSubjectWizard({
 
     try {
       let data: any = null;
+      let notice: string | null = null;
       try {
         const res = await fetch("/api/generate-plan", {
           method: "POST",
@@ -457,21 +483,41 @@ export function AddExamSubjectWizard({
           body: JSON.stringify({
             topics,
             preferences,
-            materials: courseDocuments,
+            materials: prepareMaterialsForAI(courseDocuments),
             materialsSummary: materialsSummaryText,
+            language,
           }),
         });
 
         if (res.ok) {
           data = await res.json();
+          notice = getAiFallbackNotice(data.meta, language);
+        } else {
+          const apiError = await readApiError(res, language);
+          notice =
+            language === "zh"
+              ? `${apiError.message} 已改用本地规划模板。`
+              : `${apiError.message} A local planning template was used instead.`;
         }
       } catch (fetchErr) {
         console.warn("Network error during plan generation:", fetchErr);
+        notice =
+          language === "zh"
+            ? "无法连接 AI 服务，已改用本地规划模板。"
+            : "Could not reach the AI service. A local planning template was used instead.";
       }
 
       if (!data || !data.tasks || data.tasks.length === 0) {
         data = fallbackGeneratePlanClient(topics, preferences);
+        if (!notice) {
+          notice =
+            language === "zh"
+              ? "AI 未返回有效的学习计划，已改用本地规划模板。"
+              : "AI returned no usable study plan. A local planning template was used instead.";
+        }
       }
+
+      setAiNotice(notice);
 
       const newPlanId = `plan-${Date.now()}`;
       const generatedTasks = data.tasks || [];
@@ -497,10 +543,15 @@ export function AddExamSubjectWizard({
         materialsSummary: data.summary || materialsSummaryText,
       };
 
-      onPlanCreated(newPlan);
+      onPlanCreated(newPlan, notice);
     } catch (err: any) {
       console.error("Plan creation fallback handling:", err);
       const safeData = fallbackGeneratePlanClient(topics, preferences);
+      const fallbackNotice =
+        language === "zh"
+          ? "规划生成失败，已改用本地规划模板。你可以在设置中检查 AI 状态。"
+          : "Plan generation failed. A local planning template was used instead.";
+      setAiNotice(fallbackNotice);
       const newPlan: ExamStudyPlan = {
         id: `plan-${Date.now()}`,
         examName,
@@ -518,7 +569,7 @@ export function AddExamSubjectWizard({
         tasks: safeData.tasks,
         materialsSummary: materialsSummaryText,
       };
-      onPlanCreated(newPlan);
+      onPlanCreated(newPlan, fallbackNotice);
     } finally {
       setIsGenerating(false);
     }
@@ -599,15 +650,43 @@ export function AddExamSubjectWizard({
         </button>
       </div>
 
-      {generateError && (
-        <div className="p-3 bg-[#fafafa] border border-[#111111] text-[#111111] text-xs flex items-center justify-between font-bold">
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 shrink-0 text-[#111111]" />
-            <span>[ERROR: {generateError}]</span>
-          </div>
-          <button onClick={() => setGenerateError(null)} className="text-xs hover:underline cursor-pointer">
-            [{language === "zh" ? "关闭" : "DISMISS"}]
-          </button>
+      {(generateError || extractError || aiNotice) && (
+        <div className="space-y-2">
+          {generateError && (
+            <div className="p-3 bg-[#fafafa] border border-[#111111] text-[#111111] text-xs flex items-center justify-between font-bold">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-[#111111]" />
+                <span>[ERROR: {generateError}]</span>
+              </div>
+              <button onClick={() => setGenerateError(null)} className="text-xs hover:underline cursor-pointer">
+                [{language === "zh" ? "关闭" : "DISMISS"}]
+              </button>
+            </div>
+          )}
+
+          {extractError && (
+            <div className="p-3 bg-[#fafafa] border border-[#111111] text-[#111111] text-xs flex items-center justify-between font-bold">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-[#111111]" />
+                <span>[ERROR: {extractError}]</span>
+              </div>
+              <button onClick={() => setExtractError(null)} className="text-xs hover:underline cursor-pointer">
+                [{language === "zh" ? "关闭" : "DISMISS"}]
+              </button>
+            </div>
+          )}
+
+          {aiNotice && (
+            <div className="p-3 bg-[#fafafa] border border-[#111111] text-[#111111] text-xs flex items-center justify-between font-bold">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-[#111111]" />
+                <span>[{language === "zh" ? "提示" : "NOTICE"}: {aiNotice}]</span>
+              </div>
+              <button onClick={() => setAiNotice(null)} className="text-xs hover:underline cursor-pointer">
+                [{language === "zh" ? "关闭" : "DISMISS"}]
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -871,8 +950,8 @@ export function AddExamSubjectWizard({
               </span>
               <span className="text-[11px] text-[#666666] group-hover:text-[#e5e5e5] mt-1">
                 {language === "zh"
-                  ? "支持 PDF、Word (.docx)、TXT、Markdown，单门课程可同时包含大纲、讲义、真题等多个文件"
-                  : "Supports PDF, Word (.docx), TXT, Markdown. All files belong to this course."}
+                  ? "支持 PDF、DOCX、PPTX、TXT、Markdown、CSV、JSON，单文件 ≤ 10 MB；单门课程可同时包含大纲、讲义、真题等多个文件"
+                  : "Supports PDF, DOCX, PPTX, TXT, Markdown, CSV, JSON (max 10 MB each). All files belong to this course."}
               </span>
             </label>
 

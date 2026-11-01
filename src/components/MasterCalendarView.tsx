@@ -8,7 +8,6 @@ import {
   Clock,
   Filter,
   Layers,
-  Sparkles,
   Play,
   Target,
   Search,
@@ -21,12 +20,12 @@ import { useI18n } from "../lib/i18n";
 import { getPaletteByString, getPaletteByIndex } from "../lib/themePalettes";
 import { getDailyMemos } from "../lib/storage";
 import { DailyMoodMemoPad } from "./DailyMoodMemoPad";
+import { parseLocalDate, toLocalDateString } from "../lib/date";
 
 interface MasterCalendarViewProps {
   plans: ExamStudyPlan[];
   onToggleTaskStatus: (planId: string, taskId: string) => void;
   onStartFocusTimer: (task: StudyTask, planId: string) => void;
-  onStartQuiz: (task: StudyTask, planId: string) => void;
   onSelectDate?: (dateStr: string) => void;
   selectedDate?: string;
 }
@@ -44,14 +43,13 @@ export function MasterCalendarView({
   plans,
   onToggleTaskStatus,
   onStartFocusTimer,
-  onStartQuiz,
   onSelectDate,
   selectedDate: propSelectedDate,
 }: MasterCalendarViewProps) {
   const { t, language } = useI18n();
 
   const [currentMonthDate, setCurrentMonthDate] = useState<Date>(() => {
-    return propSelectedDate ? new Date(propSelectedDate) : new Date();
+    return propSelectedDate ? parseLocalDate(propSelectedDate) : new Date();
   });
 
   const [courseFilter, setCourseFilter] = useState<string>("all");
@@ -61,7 +59,7 @@ export function MasterCalendarView({
   const [keyword, setKeyword] = useState<string>("");
 
   const [activeDayDate, setActiveDayDate] = useState<string>(() => {
-    return propSelectedDate || new Date().toISOString().split("T")[0];
+    return propSelectedDate || toLocalDateString();
   });
 
   const [dailyMemos, setDailyMemos] = useState<Record<string, DailyMemoNote>>(() => getDailyMemos());
@@ -70,7 +68,7 @@ export function MasterCalendarView({
     setDailyMemos(getDailyMemos());
   };
 
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayStr = useMemo(() => toLocalDateString(), []);
 
   const getPlanPalette = (planId: string) => {
     const idx = plans.findIndex((p) => p.id === planId);
@@ -144,7 +142,7 @@ export function MasterCalendarView({
   const handleJumpToToday = () => {
     const now = new Date();
     setCurrentMonthDate(now);
-    const today = now.toISOString().split("T")[0];
+    const today = toLocalDateString(now);
     setActiveDayDate(today);
     if (onSelectDate) onSelectDate(today);
   };
@@ -159,7 +157,7 @@ export function MasterCalendarView({
     for (let i = startDayOfWeek - 1; i >= 0; i--) {
       const dayNum = daysInPrevMonth - i;
       const prevDate = new Date(year, month - 1, dayNum);
-      const dateStr = prevDate.toISOString().split("T")[0];
+      const dateStr = toLocalDateString(prevDate);
       prevMonthFiller.push({ dateStr, dayNum, isCurrentMonth: false });
     }
 
@@ -179,7 +177,7 @@ export function MasterCalendarView({
     const nextMonthFiller: Array<{ dateStr: string; dayNum: number; isCurrentMonth: boolean }> = [];
     for (let d = 1; d <= totalSlots - totalFilled; d++) {
       const nextDate = new Date(year, month + 1, d);
-      const dateStr = nextDate.toISOString().split("T")[0];
+      const dateStr = toLocalDateString(nextDate);
       nextMonthFiller.push({ dateStr, dayNum: d, isCurrentMonth: false });
     }
 
@@ -536,15 +534,6 @@ export function MasterCalendarView({
                       </div>
 
                       <div className="flex items-center justify-end space-x-1.5 pt-1 border-t border-[#111111]">
-                        {task.activeRecallPrompt && (
-                          <button
-                            onClick={() => onStartQuiz(task, plan.id)}
-                            className="px-2 py-0.5 text-[10px] bg-white hover:bg-[#111111] hover:text-white text-[#111111] border border-[#111111] font-bold transition-colors flex items-center space-x-1 cursor-pointer"
-                          >
-                            <Sparkles className="w-2.5 h-2.5" />
-                            <span>[{language === "zh" ? "测验" : "QUIZ"}]</span>
-                          </button>
-                        )}
                         <button
                           onClick={() => onStartFocusTimer(task, plan.id)}
                           className="px-2 py-0.5 text-[10px] bg-[#111111] hover:bg-[#333333] text-white border border-[#111111] font-bold transition-colors flex items-center space-x-1 cursor-pointer"

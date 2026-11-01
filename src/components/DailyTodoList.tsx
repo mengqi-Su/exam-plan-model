@@ -13,11 +13,11 @@ import confetti from "canvas-confetti";
 import { ExamStudyPlan, StudyTask, TaskCategory } from "../types";
 import { playCompletionChime } from "../lib/audio";
 import { TaskFocusTimerModal } from "./TaskFocusTimerModal";
-import { QuizModal } from "./QuizModal";
 import { RagKnowledgeModal } from "./RagKnowledgeModal";
 import { PinnedRoadmapTodoList } from "./PinnedRoadmapTodoList";
 import { useI18n } from "../lib/i18n";
 import { getPaletteByString } from "../lib/themePalettes";
+import { addDays, toLocalDateString } from "../lib/date";
 
 interface DailyTodoListProps {
   plan: ExamStudyPlan;
@@ -37,7 +37,6 @@ export function DailyTodoList({
   const { t, language } = useI18n();
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [activeTimerTask, setActiveTimerTask] = useState<StudyTask | null>(null);
-  const [activeQuizTask, setActiveQuizTask] = useState<StudyTask | null>(null);
   const [activeRagTask, setActiveRagTask] = useState<StudyTask | null>(null);
   const [isAddingInline, setIsAddingInline] = useState(false);
 
@@ -70,16 +69,11 @@ export function DailyTodoList({
   const completionPercent = dayTasks.length > 0 ? Math.round((completedCount / dayTasks.length) * 100) : 0;
 
   const handleShiftDate = (days: number) => {
-    const [y, m, d] = selectedDate.split("-").map(Number);
-    const curr = new Date(y, m - 1, d);
-    curr.setDate(curr.getDate() + days);
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    onSelectDate(`${curr.getFullYear()}-${pad(curr.getMonth() + 1)}-${pad(curr.getDate())}`);
+    onSelectDate(addDays(selectedDate, days));
   };
 
   const handleJumpToToday = () => {
-    const today = new Date().toISOString().split("T")[0];
-    onSelectDate(today);
+    onSelectDate(toLocalDateString());
   };
 
   const handleToggleComplete = (taskId: string) => {
@@ -412,7 +406,6 @@ export function DailyTodoList({
           onSaveNotes={handleSaveNotes}
           onDeleteTask={handleDeleteTask}
           onStartTimer={(task) => setActiveTimerTask(task)}
-          onStartQuiz={(task) => setActiveQuizTask(task)}
           onStartRag={(task) => setActiveRagTask(task)}
           onAddNewTask={() => setIsAddingInline(true)}
           selectedDate={selectedDate}
@@ -438,17 +431,6 @@ export function DailyTodoList({
               return t;
             });
             onUpdatePlan({ ...plan, tasks: nextTasks });
-          }}
-        />
-      )}
-
-      {activeQuizTask && (
-        <QuizModal
-          task={activeQuizTask}
-          isOpen={!!activeQuizTask}
-          onClose={() => setActiveQuizTask(null)}
-          onMasteryUpdated={(rating) => {
-            handleUpdateConfidence(activeQuizTask.id, rating);
           }}
         />
       )}

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { StudyTask, ExamStudyPlan } from "../types";
 import { useI18n } from "../lib/i18n";
+import { readApiError } from "../lib/aiClient";
 
 interface RagKnowledgeModalProps {
   task: StudyTask;
@@ -60,8 +61,16 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to query RAG knowledge base");
+      if (!res.ok) {
+        const apiError = await readApiError(res, language);
+        throw new Error(apiError.message);
+      }
       const data = await res.json();
+      if (!data?.answer || typeof data.answer !== "string") {
+        throw new Error(
+          isZh ? "AI 服务未返回有效回答，请稍后重试。" : "The AI service returned no usable answer. Please try again."
+        );
+      }
 
       setChatHistory((prev) => [
         ...prev,
@@ -77,17 +86,9 @@ export function RagKnowledgeModal({ task, plan, isOpen, onClose }: RagKnowledgeM
         {
           sender: "ai",
           text: isZh
-            ? `基于已解析的备考资料，针对「${task.topicTitle}」的解析：\n\n1. **核心要点**：本考点在讲义中属于高频考查知识，需熟练掌握定义与基本方程推导。\n2. **解题规范**：注意严格检验前提条件，避免在特殊边界情况下失分。\n3. **真题建议**：建议回顾对应题型的标准作答格式。`
-            : `Grounded in your materials for ${task.topicTitle}: review core formulas and boundary conditions before solving practice sets.`,
-          citations: rag
-            ? [
-                {
-                  documentName: rag.documentName,
-                  sectionTitle: rag.sectionTitle || "",
-                  excerpt: rag.excerptSnippet,
-                },
-              ]
-            : [],
+            ? `本次提问未能获得可靠回答：${err?.message || "请稍后重试。"}\n\n资料原文仍可在上方查看，你可以直接依据讲义片段复习。`
+            : `This question could not be answered reliably: ${err?.message || "Please try again later."}\n\nYou can still review the material excerpt shown above.`,
+          citations: [],
         },
       ]);
     } finally {

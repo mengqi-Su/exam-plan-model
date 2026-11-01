@@ -2,11 +2,11 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   Check,
   Play,
-  Sparkles,
   Trash2,
   Calendar as CalendarIcon,
   Plus,
   FileText,
+  Sparkles,
 } from "lucide-react";
 import { StudyTask, ExamStudyPlan } from "../types";
 import { generateGoogleCalendarUrl } from "../lib/calendarExport";
@@ -20,7 +20,6 @@ interface PinnedRoadmapTodoListProps {
   onSaveNotes: (taskId: string, notes: string) => void;
   onDeleteTask: (taskId: string) => void;
   onStartTimer: (task: StudyTask) => void;
-  onStartQuiz: (task: StudyTask) => void;
   onStartRag: (task: StudyTask) => void;
   onAddNewTask: () => void;
   selectedDate: string;
@@ -185,7 +184,6 @@ export function PinnedRoadmapTodoList({
   onSaveNotes,
   onDeleteTask,
   onStartTimer,
-  onStartQuiz,
   onStartRag,
   onAddNewTask,
   selectedDate,
@@ -491,11 +489,11 @@ export function PinnedRoadmapTodoList({
                         <Play className="w-3.5 h-3.5" />
                       </button>
 
-                      {/* AI Quiz */}
+                      {/* Ask the uploaded materials */}
                       <button
-                        onClick={() => onStartQuiz(task)}
+                        onClick={() => onStartRag(task)}
                         className="p-1 border border-transparent hover:border-[#111111] hover:bg-[#FAF9F6] text-[#333333] transition-colors cursor-pointer"
-                        title={t("generateQuiz")}
+                        title={language === "zh" ? "资料问答" : "Ask materials"}
                       >
                         <Sparkles className="w-3.5 h-3.5" />
                       </button>

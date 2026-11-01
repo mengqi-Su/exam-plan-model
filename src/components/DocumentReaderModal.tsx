@@ -28,7 +28,6 @@ interface DocumentReaderModalProps {
   doc: StudyMaterial | null;
   isOpen: boolean;
   onClose: () => void;
-  onLaunchQuiz?: (doc: StudyMaterial) => void;
   onScheduleDoc?: (doc: StudyMaterial) => void;
 }
 
@@ -39,7 +38,6 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
   doc,
   isOpen,
   onClose,
-  onLaunchQuiz,
   onScheduleDoc,
 }) => {
   const { language } = useI18n();
@@ -662,20 +660,6 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
 
           {/* Right Main Functional CTAs */}
           <div className="flex items-center space-x-2">
-            {/* Launch AI Quiz */}
-            {onLaunchQuiz && (
-              <button
-                onClick={() => {
-                  onClose();
-                  onLaunchQuiz(doc);
-                }}
-                className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#FCD33B] hover:bg-[#EBC229] text-[#111111] font-bold border border-[#111111] transition-all cursor-pointer shadow-xs active:scale-95"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{language === "zh" ? "根据此文档出题自测" : "LAUNCH AI QUIZ"}</span>
-              </button>
-            )}
-
             {/* Close Button */}
             <button
               onClick={onClose}

@@ -27,11 +27,11 @@ import {
   Layers,
   BarChart3,
   Sliders,
-  User,
   Info,
-  LogIn,
+  HardDrive,
+  ShieldCheck,
 } from "lucide-react";
-import { ExamStudyPlan, UserProfile } from "../types";
+import { ExamStudyPlan } from "../types";
 import { downloadICSFile } from "../lib/calendarExport";
 import { useI18n } from "../lib/i18n";
 import { APP_VERSION_DATA } from "../lib/storage";
@@ -48,9 +48,7 @@ interface NotionSidebarProps {
   onRequestDeletePlan?: (plan: ExamStudyPlan) => void;
   currentTab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject";
   onTabChange: (tab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "add_subject", planId?: string) => void;
-  onOpenRebalanceModal: () => void;
-  userProfile?: UserProfile;
-  onOpenSettings?: (tab?: "account" | "language" | "version") => void;
+  onOpenSettings?: (tab?: "data" | "preferences" | "language" | "version") => void;
 }
 
 export function NotionSidebar({
@@ -64,8 +62,6 @@ export function NotionSidebar({
   onRequestDeletePlan,
   currentTab,
   onTabChange,
-  onOpenRebalanceModal,
-  userProfile,
   onOpenSettings,
 }: NotionSidebarProps) {
   const { t, language, setLanguage } = useI18n();
@@ -215,55 +211,36 @@ export function NotionSidebar({
       </div>
 
       <div className="p-2.5 border-t border-[#111111] bg-[#faf9f6] space-y-1.5">
-        {userProfile?.isLoggedIn ? (
-          <button
-            onClick={() => (onOpenSettings ? onOpenSettings("account") : null)}
-            className="w-full flex items-center justify-between p-2 bg-white border border-[#111111] hover:bg-[#fafafa] text-[#111111] transition-all cursor-pointer rounded-lg text-left shadow-xs group"
-          >
-            <div className="flex items-center space-x-2 min-w-0">
-              <div className="w-6 h-6 bg-[#111111] text-white rounded-full flex items-center justify-center text-[10px] font-bold overflow-hidden shrink-0">
-                {userProfile.avatar?.startsWith("http") ? (
-                  <img
-                    src={userProfile.avatar}
-                    alt={userProfile.name}
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  userProfile.name?.charAt(0) || "U"
-                )}
+        <button
+          onClick={() => (onOpenSettings ? onOpenSettings("data") : null)}
+          className="w-full flex items-center justify-between p-2 bg-white border border-[#111111] hover:bg-[#fafafa] text-[#111111] transition-all cursor-pointer rounded-lg text-left shadow-xs group"
+        >
+          <div className="flex items-center space-x-2 min-w-0">
+            <div className="w-6 h-6 bg-[#FCD33B] border border-[#111111] flex items-center justify-center shrink-0">
+              <HardDrive className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold truncate">
+                {language === "zh" ? "本地模式" : "LOCAL MODE"}
               </div>
-              <div className="min-w-0">
-                <div className="text-xs font-bold truncate">{userProfile.name}</div>
-                <div className="text-[9px] text-[#15803d] flex items-center space-x-1 font-mono">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]"></span>
-                  <span>{language === "zh" ? "云端同步中" : "Synced"}</span>
-                </div>
+              <div className="text-[9px] text-[#666666] flex items-center space-x-1 font-mono">
+                <ShieldCheck className="w-2.5 h-2.5" />
+                <span>{language === "zh" ? "数据仅保存在此浏览器" : "Stored in this browser only"}</span>
               </div>
             </div>
-            <Settings className="w-3.5 h-3.5 text-[#666666] group-hover:rotate-45 transition-transform shrink-0" />
-          </button>
-        ) : (
-          <>
-            <button
-              onClick={() => (onOpenSettings ? onOpenSettings("account") : null)}
-              className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-[#111111] hover:bg-[#333333] text-white transition-all cursor-pointer font-sans text-xs font-bold tracking-wide shadow-xs group rounded-lg active:scale-95"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>{language === "zh" ? "登录 / 注册" : "SIGN IN / SIGN UP"}</span>
-            </button>
-            <button
-              onClick={() => (onOpenSettings ? onOpenSettings("language") : null)}
-              className="w-full flex items-center justify-between py-1.5 px-2 text-[#666666] hover:text-[#111111] transition-all cursor-pointer font-sans text-[11px]"
-            >
-              <span className="flex items-center space-x-1.5">
-                <Settings className="w-3 h-3" />
-                <span>{language === "zh" ? "系统偏好设置" : "Preferences"}</span>
-              </span>
-              <span className="font-mono text-[10px] opacity-70">[{language.toUpperCase()}]</span>
-            </button>
-          </>
-        )}
+          </div>
+          <Settings className="w-3.5 h-3.5 text-[#666666] group-hover:rotate-45 transition-transform shrink-0" />
+        </button>
+        <button
+          onClick={() => (onOpenSettings ? onOpenSettings("preferences") : null)}
+          className="w-full flex items-center justify-between py-1.5 px-2 text-[#666666] hover:text-[#111111] transition-all cursor-pointer font-sans text-[11px]"
+        >
+          <span className="flex items-center space-x-1.5">
+            <Settings className="w-3 h-3" />
+            <span>{language === "zh" ? "偏好设置" : "Preferences"}</span>
+          </span>
+          <span className="font-mono text-[10px] opacity-70">[{language.toUpperCase()}]</span>
+        </button>
       </div>
     </aside>
   );

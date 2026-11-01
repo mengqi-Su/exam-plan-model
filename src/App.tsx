@@ -1,182 +1,127 @@
 import React, { useState, useEffect } from "react";
 import { NotionSidebar } from "./components/NotionSidebar";
-import { NotionPageHeader } from "./components/NotionPageHeader";
 import { MasterDashboard } from "./components/MasterDashboard";
-import { CourseKnowledgeHub } from "./components/CourseKnowledgeHub";
-import { PlanPreferencesForm } from "./components/PlanPreferencesForm";
-import { DailyTodoList } from "./components/DailyTodoList";
-import { RealTimeManager } from "./components/RealTimeManager";
+import { CourseDetailPage } from "./components/CourseDetailPage";
 import { AddExamSubjectWizard } from "./components/AddExamSubjectWizard";
 import { MasterCalendarView } from "./components/MasterCalendarView";
-import { CourseDetailPage } from "./components/CourseDetailPage";
 import { SettingsModal } from "./components/SettingsModal";
 import { DeleteConfirmModal } from "./components/DeleteConfirmModal";
-import { ChevronLeft, LayoutDashboard, Calendar, Plus } from "lucide-react";
-import { ExamStudyPlan, StudyMaterial, SyllabusTopic, AppSettings, UserProfile } from "./types";
+import { LayoutDashboard, Plus, AlertTriangle } from "lucide-react";
+import { ExamStudyPlan, AppSettings } from "./types";
 import {
   loadSavedPlans,
   savePlans,
   getActivePlanId,
   setActivePlanId,
-  DEFAULT_WEEK_SCHEDULE,
   loadAppSettings,
   saveAppSettings,
-  loadUserProfile,
-  saveUserProfile,
-  clearUserSessionData,
-  DEFAULT_USER_PROFILE
+  clearPlannerData,
 } from "./lib/storage";
-import {
-  auth,
-  savePlanToCloud,
-  deletePlanFromCloud,
-  saveUserProfileToCloud,
-  subscribeToUserPlans,
-  subscribeToUserProfile,
-  uploadLocalPlansToCloud
-} from "./lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { toLocalDateString } from "./lib/date";
+import { useI18n } from "./lib/i18n";
+
+type AppTab = "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject";
 
 export default function App() {
-  const [plans, setPlans] = useState<ExamStudyPlan[]>(() => loadSavedPlans());
+  const { language } = useI18n();
+  const [plans, setPlans] = useState<ExamStudyPlan[]>([]);
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [appNotice, setAppNotice] = useState<string | null>(null);
   const [activePlanId, setActivePlanIdState] = useState<string>(() => getActivePlanId());
-  const [currentTab, setCurrentTab] = useState<"dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject">("dashboard");
+  const [currentTab, setCurrentTab] = useState<AppTab>("dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
 
   const [appSettings, setAppSettings] = useState<AppSettings>(() => loadAppSettings());
-  const [userProfile, setUserProfile] = useState<UserProfile>(() => loadUserProfile());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"account" | "language" | "version">("account");
+  const [settingsInitialTab, setSettingsInitialTab] = useState<"data" | "preferences" | "language" | "version">("data");
 
   useEffect(() => {
-    let unsubscribePlans: (() => void) | null = null;
-    let unsubscribeProfile: (() => void) | null = null;
-
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const updatedProfile: UserProfile = {
-          ...DEFAULT_USER_PROFILE,
-          id: user.uid,
-          name: user.displayName || user.email?.split("@")[0] || "Scholar",
-          email: user.email || "",
-          avatar: user.photoURL || "🎓",
-          isLoggedIn: true,
-          membershipTier: "Pro Student",
-        };
-        setUserProfile(updatedProfile);
-        saveUserProfile(updatedProfile);
-
-        unsubscribeProfile = subscribeToUserProfile(user.uid, (cloudProfile) => {
-          if (cloudProfile) {
-            setUserProfile((prev) => ({
-              ...prev,
-              ...cloudProfile,
-              isLoggedIn: true,
-            }));
-          }
+    let cancelled = false;
+    loadSavedPlans()
+      .then((loadedPlans) => {
+        if (cancelled) return;
+        setPlans(loadedPlans);
+        setActivePlanIdState((prev) => {
+          if (prev && loadedPlans.some((p) => p.id === prev)) return prev;
+          const nextId = loadedPlans[0]?.id || "";
+          setActivePlanId(nextId);
+          return nextId;
         });
-
-        unsubscribePlans = subscribeToUserPlans(user.uid, (cloudPlans) => {
-          if (cloudPlans) {
-            setPlans(cloudPlans);
-            savePlans(cloudPlans);
-            if (cloudPlans.length > 0) {
-              setActivePlanIdState((prev) => {
-                if (!prev || !cloudPlans.some((p) => p.id === prev)) {
-                  setActivePlanId(cloudPlans[0].id);
-                  return cloudPlans[0].id;
-                }
-                return prev;
-              });
-            } else {
-              setActivePlanIdState("");
-              setActivePlanId("");
-            }
-          }
-        });
-      } else {
-        if (unsubscribePlans) unsubscribePlans();
-        if (unsubscribeProfile) unsubscribeProfile();
-
-        setUserProfile((prev) => {
-          if (prev.isLoggedIn) {
-            clearUserSessionData();
-            setPlans([]);
-            savePlans([]);
-            setActivePlanIdState("");
-            setActivePlanId("");
-            return DEFAULT_USER_PROFILE;
-          }
-          return prev;
-        });
-      }
-    });
-
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error("Failed to load local plans", err);
+          setSaveError(
+            language === "zh"
+              ? "读取本地备考数据失败，请检查浏览器存储权限。"
+              : "Failed to read local planner data. Check your browser storage permissions."
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsHydrated(true);
+      });
     return () => {
-      unsubscribeAuth();
-      if (unsubscribePlans) unsubscribePlans();
-      if (unsubscribeProfile) unsubscribeProfile();
+      cancelled = true;
     };
   }, []);
 
-  const [courseStep, setCourseStep] = useState<"syllabus" | "config">("syllabus");
+  useEffect(() => {
+    if (!isHydrated) return;
+    const timer = window.setTimeout(() => {
+      savePlans(plans)
+        .then(() => setSaveError(null))
+        .catch((err: Error) => setSaveError(err.message));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [plans, isHydrated]);
 
-  const [syllabusContent, setSyllabusContent] = useState<string>("");
-  const [syllabusDocName, setSyllabusDocName] = useState<string>("");
-  const [currentTopics, setCurrentTopics] = useState<SyllabusTopic[]>([]);
-  const [materialsSummary, setMaterialsSummary] = useState<string>("");
-  const [examName, setExamName] = useState<string>("");
-  const [subject, setSubject] = useState<string>("");
-
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    return new Date().toISOString().split("T")[0];
-  });
-
-  const [isRebalanceModalOpen, setIsRebalanceModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>(() => toLocalDateString());
 
   const [planToDelete, setPlanToDelete] = useState<ExamStudyPlan | null>(null);
-
-  useEffect(() => {
-    savePlans(plans);
-  }, [plans]);
 
   const handleUpdateSettings = (newSettings: AppSettings) => {
     setAppSettings(newSettings);
     saveAppSettings(newSettings);
   };
 
-  const handleUpdateUserProfile = (newProfile: UserProfile) => {
-    setUserProfile(newProfile);
-    saveUserProfile(newProfile);
-    if (auth.currentUser) {
-      saveUserProfileToCloud(auth.currentUser.uid, newProfile).catch((e) =>
-        console.error("Failed to save profile to cloud:", e)
-      );
-    }
-  };
-
-  const handleOpenSettings = (tab: "account" | "language" | "version" = "account") => {
+  const handleOpenSettings = (tab: "data" | "preferences" | "language" | "version" = "data") => {
     setSettingsInitialTab(tab);
     setIsSettingsOpen(true);
   };
 
-  const handleResetPlans = () => {
+  const handleClearAllData = async () => {
+    await clearPlannerData();
     setPlans([]);
     setActivePlanIdState("");
     setActivePlanId("");
-    savePlans([]);
+    setCurrentTab("dashboard");
   };
 
-  const handleLogout = () => {
-    setUserProfile(DEFAULT_USER_PROFILE);
-    saveUserProfile(DEFAULT_USER_PROFILE);
-    setPlans([]);
-    savePlans([]);
-    setActivePlanIdState("");
-    setActivePlanId("");
-    clearUserSessionData();
-    setCurrentTab("dashboard");
+  const handleImportPlans = (importedPlans: ExamStudyPlan[], importedSettings?: AppSettings) => {
+    if (!Array.isArray(importedPlans)) return;
+    const validPlans = importedPlans.filter(
+      (p): p is ExamStudyPlan =>
+        !!p && typeof p.id === "string" && typeof p.examName === "string" && Array.isArray(p.tasks)
+    );
+    if (validPlans.length === 0) return;
+    setPlans((prev) => {
+      const merged = [...prev];
+      validPlans.forEach((imported) => {
+        const index = merged.findIndex((p) => p.id === imported.id);
+        if (index >= 0) merged[index] = imported;
+        else merged.unshift(imported);
+      });
+      return merged;
+    });
+    if (!activePlanId) {
+      setActivePlanIdState(validPlans[0].id);
+      setActivePlanId(validPlans[0].id);
+    }
+    if (importedSettings) {
+      handleUpdateSettings({ ...appSettings, ...importedSettings });
+    }
   };
 
   const activePlan = React.useMemo(() => {
@@ -186,13 +131,6 @@ export default function App() {
   const handleSelectPlan = (planId: string) => {
     setActivePlanIdState(planId);
     setActivePlanId(planId);
-    const target = plans.find((p) => p.id === planId);
-    if (target) {
-      setExamName(target.examName);
-      setSubject(target.subject);
-      setCurrentTopics(target.topics || []);
-      setMaterialsSummary(target.materialsSummary || "");
-    }
   };
 
   const handleNewPlan = () => {
@@ -200,14 +138,7 @@ export default function App() {
   };
 
   const handleUpdatePlan = (updatedPlan: ExamStudyPlan) => {
-    setPlans((prev) =>
-      prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p))
-    );
-    if (auth.currentUser) {
-      savePlanToCloud(auth.currentUser.uid, updatedPlan).catch((e) =>
-        console.error("Failed to sync plan to cloud:", e)
-      );
-    }
+    setPlans((prev) => prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p)));
   };
 
   const handleDeletePlan = (planId: string) => {
@@ -217,10 +148,6 @@ export default function App() {
         if (next.length > 0) {
           setActivePlanIdState(next[0].id);
           setActivePlanId(next[0].id);
-          setExamName(next[0].examName);
-          setSubject(next[0].subject);
-          setCurrentTopics(next[0].topics || []);
-          setMaterialsSummary(next[0].materialsSummary || "");
         } else {
           setActivePlanIdState("");
           setActivePlanId("");
@@ -229,59 +156,43 @@ export default function App() {
       }
       return next;
     });
-    if (auth.currentUser) {
-      deletePlanFromCloud(auth.currentUser.uid, planId).catch((e) =>
-        console.error("Failed to delete plan from cloud:", e)
-      );
-    }
   };
 
-  const handlePlanGenerated = (newPlan: ExamStudyPlan) => {
-    const nextPlans = [newPlan, ...plans.filter((p) => p.id !== newPlan.id)];
-    setPlans(nextPlans);
+  const handlePlanGenerated = (newPlan: ExamStudyPlan, notice?: string | null) => {
+    setPlans((prev) => [newPlan, ...prev.filter((p) => p.id !== newPlan.id)]);
     setActivePlanIdState(newPlan.id);
     setActivePlanId(newPlan.id);
+    setAppNotice(notice || null);
     setCurrentTab("dashboard");
-    setSelectedDate(newPlan.startDate || new Date().toISOString().split("T")[0]);
-
-    if (auth.currentUser) {
-      savePlanToCloud(auth.currentUser.uid, newPlan).catch((e) =>
-        console.error("Failed to save new plan to cloud:", e)
-      );
-    }
+    setSelectedDate(newPlan.startDate || toLocalDateString());
   };
 
-  const handleNavigateToTab = (tab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject", planId?: string) => {
+  const handleNavigateToTab = (tab: AppTab, planId?: string) => {
     if (planId) {
       handleSelectPlan(planId);
     }
     setCurrentTab(tab);
-    if (tab === "course") {
-      const target = planId ? plans.find((p) => p.id === planId) : activePlan;
-      if (target) {
-        setCurrentTopics(target.topics || []);
-        setExamName(target.examName);
-        setSubject(target.subject);
-        setMaterialsSummary(target.materialsSummary || "");
-        setCourseStep("syllabus");
-      }
-    }
   };
+
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-[#f8f7f4] text-[#111111] flex items-center justify-center font-mono text-xs">
+        <div className="flex items-center space-x-2">
+          <span className="w-2 h-2 bg-[#111111] animate-pulse" />
+          <span>{language === "zh" ? "正在读取本地备考数据..." : "Loading local planner data..."}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8f7f4] text-[#111111] flex antialiased selection:bg-[#111111] selection:text-white font-sans">
-
       <NotionSidebar
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         plans={plans}
         activePlan={activePlan}
-        onSelectPlan={(id) => {
-          handleSelectPlan(id);
-          if (currentTab === "dashboard") {
-
-          }
-        }}
+        onSelectPlan={handleSelectPlan}
         onNewPlan={handleNewPlan}
         onDeletePlan={handleDeletePlan}
         onRequestDeletePlan={(p) => setPlanToDelete(p)}
@@ -289,10 +200,6 @@ export default function App() {
         onTabChange={(tab, planId) => {
           handleNavigateToTab(tab, planId);
         }}
-        onOpenRebalanceModal={() => {
-          setCurrentTab("realtime");
-        }}
-        userProfile={userProfile}
         onOpenSettings={handleOpenSettings}
       />
 
@@ -301,6 +208,34 @@ export default function App() {
           isSidebarOpen ? "md:ml-64" : "ml-0"
         }`}
       >
+        {saveError && (
+          <div className="sticky top-0 z-30 flex items-start justify-between gap-3 bg-[#FCD33B] border-b border-[#111111] px-4 py-2 text-[11px] font-mono text-[#111111]">
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span>{saveError}</span>
+            </span>
+            <button
+              onClick={() => handleOpenSettings("data")}
+              className="shrink-0 underline font-bold cursor-pointer"
+            >
+              {language === "zh" ? "导出备份" : "EXPORT BACKUP"}
+            </button>
+          </div>
+        )}
+        {appNotice && (
+          <div className="sticky top-0 z-30 flex items-start justify-between gap-3 bg-[#FCD33B] border-b border-[#111111] px-4 py-2 text-[11px] font-mono text-[#111111]">
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span>{appNotice}</span>
+            </span>
+            <button
+              onClick={() => setAppNotice(null)}
+              className="shrink-0 underline font-bold cursor-pointer"
+            >
+              {language === "zh" ? "知道了" : "DISMISS"}
+            </button>
+          </div>
+        )}
         <main className="flex-1 pb-16">
           {currentTab === "dashboard" && (
             <MasterDashboard
@@ -320,27 +255,25 @@ export default function App() {
               <MasterCalendarView
                 plans={plans}
                 onToggleTaskStatus={(planId, taskId) => {
-                  const targetPlan = plans.find((p) => p.id === planId);
-                  if (!targetPlan) return;
-                  const updatedTasks = targetPlan.tasks.map((t) =>
-                    t.id === taskId
-                      ? {
-                          ...t,
-                          status: (t.status === "completed" ? "pending" : "completed") as any,
-                          completedAt: t.status === "completed" ? undefined : new Date().toISOString(),
-                        }
-                      : t
+                  setPlans((prev) =>
+                    prev.map((plan) => {
+                      if (plan.id !== planId) return plan;
+                      return {
+                        ...plan,
+                        tasks: plan.tasks.map((t) =>
+                          t.id === taskId
+                            ? {
+                                ...t,
+                                status: t.status === "completed" ? "pending" : "completed",
+                                completedAt: t.status === "completed" ? undefined : new Date().toISOString(),
+                              }
+                            : t
+                        ),
+                      };
+                    })
                   );
-                  handleUpdatePlan({ ...targetPlan, tasks: updatedTasks });
                 }}
                 onStartFocusTimer={(task, planId) => {
-                  const targetPlan = plans.find((p) => p.id === planId);
-                  if (targetPlan) {
-                    handleSelectPlan(planId);
-                    setCurrentTab("course");
-                  }
-                }}
-                onStartQuiz={(task, planId) => {
                   const targetPlan = plans.find((p) => p.id === planId);
                   if (targetPlan) {
                     handleSelectPlan(planId);
@@ -361,8 +294,8 @@ export default function App() {
             />
           )}
 
-          {(currentTab === "course" || currentTab === "todo" || currentTab === "realtime" || currentTab === "materials") && (
-            activePlan ? (
+          {(currentTab === "course" || currentTab === "todo" || currentTab === "realtime" || currentTab === "materials") &&
+            (activePlan ? (
               <CourseDetailPage
                 plan={activePlan}
                 plans={plans}
@@ -379,10 +312,14 @@ export default function App() {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-[#111111]">
-                    暂无可查看的备考科目 // NO ACTIVE SUBJECT
+                    {language === "zh"
+                      ? "暂无可查看的备考科目 // NO ACTIVE SUBJECT"
+                      : "NO ACTIVE SUBJECT"}
                   </h3>
                   <p className="text-xs text-[#666666] mt-1.5 leading-relaxed max-w-md mx-auto">
-                    您还没有添加任何备考科目。请先点击下方按钮新建您的首门备考计划，生成每日科学复习任务与考纲知识库。
+                    {language === "zh"
+                      ? "您还没有添加任何备考科目。请先点击下方按钮新建您的首门备考计划，生成每日科学复习任务与考纲知识库。"
+                      : "You have no exam subjects yet. Create your first study plan to generate daily tasks and a syllabus knowledge base."}
                   </p>
                 </div>
                 <div className="pt-2">
@@ -391,12 +328,11 @@ export default function App() {
                     className="inline-flex items-center space-x-2 px-5 py-2.5 bg-[#111111] text-white text-xs font-bold rounded-lg hover:bg-[#333333] transition-colors cursor-pointer shadow-xs active:scale-95"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>新建备考科目 (Create Subject)</span>
+                    <span>{language === "zh" ? "新建备考科目 (Create Subject)" : "CREATE SUBJECT"}</span>
                   </button>
                 </div>
               </div>
-            )
-          )}
+            ))}
         </main>
       </div>
 
@@ -413,12 +349,9 @@ export default function App() {
         initialTab={settingsInitialTab}
         settings={appSettings}
         onUpdateSettings={handleUpdateSettings}
-        userProfile={userProfile}
-        onUpdateUserProfile={handleUpdateUserProfile}
         plans={plans}
-        onImportPlans={(importedPlans) => setPlans(importedPlans)}
-        onResetPlans={handleResetPlans}
-        onLogout={handleLogout}
+        onImportPlans={handleImportPlans}
+        onClearAllData={handleClearAllData}
       />
     </div>
   );

@@ -54,7 +54,6 @@ export interface StudyMaterial {
   topicTag?: string;
   difficulty?: 'easy' | 'medium' | 'hard';
   yearOrTerm?: string;
-  questionCount?: number;
   summaryNotes?: string;
   keyTraps?: string[];
   chunksCount?: number;
@@ -145,15 +144,6 @@ export interface ExamStudyPlan {
   materials?: StudyMaterial[];
 }
 
-export interface ActiveRecallQuizQuestion {
-  id: string;
-  question: string;
-  options?: string[];
-  correctAnswer: string;
-  explanation: string;
-  topicTitle: string;
-}
-
 export interface PlanAnalytics {
   totalTasks: number;
   completedTasks: number;
@@ -166,22 +156,6 @@ export interface PlanAnalytics {
   averageMasteryScore: number;
 }
 
-export interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  avatar: string;
-  institution?: string;
-  major?: string;
-  targetDegreeOrGoal?: string;
-  isLoggedIn: boolean;
-  memberSince: string;
-  membershipTier: 'Free' | 'Pro Student' | 'Master Scholar';
-  totalStudyMinutes: number;
-  studyStreakDays: number;
-  completedExamsCount: number;
-}
-
 export interface AppSettings {
   defaultFocusDuration: number;
   enableSoundAlerts: boolean;
@@ -190,7 +164,6 @@ export interface AppSettings {
   dateFormat: 'YYYY-MM-DD' | 'MM/DD/YYYY' | 'DD/MM/YYYY';
   rebalanceSensitivity: 'high' | 'balanced' | 'conservative';
   defaultStudyPace: 'balanced' | 'intensive_crash' | 'deep_mastery' | 'spaced_repetition';
-  autoSaveCloud: boolean;
   themeMode: 'light' | 'dark' | 'system';
 }
 

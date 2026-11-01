@@ -140,7 +140,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
         {/* Action Buttons */}
         <div className="flex items-center justify-between pt-1 border-t border-[#111111]/20">
           <span className="text-[10px] text-[#666666]">
-            {language === "zh" ? "* 支持保存后随时生成自测题与考点摘要" : "* Instant AI quiz & summary enabled"}
+            {language === "zh" ? "* 笔记将保存至当前科目，供后续规划与复习参考" : "* Saved to this subject for planning reference"}
           </span>
           <div className="flex items-center space-x-2">
             <button

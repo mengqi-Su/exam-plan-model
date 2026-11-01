@@ -138,8 +138,8 @@ export function CourseAccordionGallery({
           </h3>
           <p className="text-xs text-[#666666] leading-relaxed">
             {language === "zh"
-              ? "点击下方按钮新建您的第一门备考科目，支持上传考试大纲、PDF/讲义笔记，系统将通过智能分析自动生成每日学习计划与真题自测题库。"
-              : "Create your first exam study subject. Upload your syllabus or notes, and the system will intelligently generate adaptive daily tasks and mastery quizzes."}
+              ? "点击下方按钮新建您的第一门备考科目，支持上传考试大纲、PDF/讲义笔记，系统将通过智能分析自动生成每日学习计划与阶段复习节奏。"
+              : "Create your first exam study subject. Upload your syllabus or notes to generate an adaptive daily study plan and milestone roadmap."}
           </p>
         </div>
 

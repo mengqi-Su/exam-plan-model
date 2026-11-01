@@ -36,15 +36,16 @@ import {
   RefreshCw
 } from "lucide-react";
 import { SyllabusTopic, StudyMaterial, ExamStudyPlan, UserStudyPreferences, DaySchedulePreference } from "../types";
-import { SAMPLE_MATERIALS, INITIAL_SAMPLE_DOCUMENTS, DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
+import { INITIAL_SAMPLE_DOCUMENTS, DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
 import { useI18n } from "../lib/i18n";
 import { parseDocumentFile } from "../lib/documentParser";
-import { QuizModal } from "./QuizModal";
 import { TabbedFolderArchive } from "./TabbedFolderArchive";
 import { UploadModal } from "./UploadModal";
 import { NoteModal } from "./NoteModal";
 import { DocumentReaderModal } from "./DocumentReaderModal";
 import { fallbackExtractSyllabusClient, fallbackGeneratePlanClient } from "../lib/fallbackPlanner";
+import { prepareMaterialsForAI, getAiFallbackNotice, readApiError } from "../lib/aiClient";
+import { addDays, toLocalDateString } from "../lib/date";
 import { HierarchicalTopicTreeView } from "./HierarchicalTopicTreeView";
 
 interface CourseKnowledgeHubProps {
@@ -114,12 +115,10 @@ export function CourseKnowledgeHub({
   const [newTopicHours, setNewTopicHours] = useState(4);
   const [newTopicSubtopics, setNewTopicSubtopics] = useState("");
 
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayStr = useMemo(() => toLocalDateString(), []);
   const defaultExamDate = useMemo(() => {
     if (plan?.examDate) return plan.examDate;
-    const d = new Date();
-    d.setDate(d.getDate() + 21);
-    return d.toISOString().split("T")[0];
+    return addDays(toLocalDateString(), 21);
   }, [plan?.examDate]);
 
   const [startDate, setStartDate] = useState(plan?.startDate || todayStr);
@@ -142,9 +141,9 @@ export function CourseKnowledgeHub({
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [planGenerateError, setPlanGenerateError] = useState<string | null>(null);
   const [planSuccessNotice, setPlanSuccessNotice] = useState(false);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
 
   const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
-  const [activeQuizMaterial, setActiveQuizMaterial] = useState<StudyMaterial | null>(null);
 
   const materials: StudyMaterial[] = useMemo(() => {
     if (plan?.materials && plan.materials.length > 0) {
@@ -295,6 +294,12 @@ export function CourseKnowledgeHub({
     setIsExtracting(true);
     setExtractError(null);
     setExtractionSuccess(false);
+    setAiNotice(null);
+
+    const materialsForAI = materials.length > 0
+      ? prepareMaterialsForAI(materials)
+      : [{ id: "pasted-note", name: "课程资料", type: "notes", content: sourceContent.slice(0, 120_000) }];
+    let notice: string | null = null;
 
     try {
       let data: any = null;
@@ -303,7 +308,7 @@ export function CourseKnowledgeHub({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            materials: materials.length > 0 ? materials : [{ name: "课程资料", content: sourceContent, type: "notes" }],
+            materials: materialsForAI,
             examName: examName || (language === "zh" ? "即将到来的期末考试" : "Upcoming Exam"),
             subject: subject || (language === "zh" ? "综合学科" : "General"),
             language,
@@ -312,9 +317,20 @@ export function CourseKnowledgeHub({
 
         if (res.ok) {
           data = await res.json();
+          notice = getAiFallbackNotice(data.meta, language);
+        } else {
+          const apiError = await readApiError(res, language);
+          notice =
+            language === "zh"
+              ? `${apiError.message} 已改用本地模板提炼考点。`
+              : `${apiError.message} A local topic template was used instead.`;
         }
       } catch (fetchErr) {
         console.warn("Network fetch error, using local fallback syllabus parser:", fetchErr);
+        notice =
+          language === "zh"
+            ? "无法连接 AI 服务，已改用本地模板提炼考点。"
+            : "Could not reach the AI service. A local topic template was used instead.";
       }
 
       if (!data || !data.topics || data.topics.length === 0) {
@@ -324,7 +340,15 @@ export function CourseKnowledgeHub({
           subject || (language === "zh" ? "综合学科" : "General"),
           language
         );
+        if (!notice) {
+          notice =
+            language === "zh"
+              ? "AI 未返回有效考点，已改用本地模板。"
+              : "AI returned no usable topics. A local template was used instead.";
+        }
       }
+
+      setAiNotice(notice);
 
       if (data.summary) {
         onMaterialsSummaryChange(data.summary);
@@ -346,6 +370,11 @@ export function CourseKnowledgeHub({
       const fallback = fallbackExtractSyllabusClient([], examName || "期末考试", subject || "综合学科", language);
       onTopicsChange(fallback.topics);
       onMaterialsSummaryChange(fallback.summary);
+      setAiNotice(
+        language === "zh"
+          ? "考点提取失败，已改用本地模板。"
+          : "Topic extraction failed. A local template was used instead."
+      );
       setExtractionSuccess(true);
       setTimeout(() => setExtractionSuccess(false), 4000);
     } finally {
@@ -398,6 +427,7 @@ export function CourseKnowledgeHub({
     setIsGeneratingPlan(true);
     setPlanGenerateError(null);
     setPlanSuccessNotice(false);
+    setAiNotice(null);
 
     const preferences: UserStudyPreferences = {
       examName: examName || (language === "zh" ? "期末/资格考试" : "Final Exam"),
@@ -418,6 +448,7 @@ export function CourseKnowledgeHub({
 
     try {
       let data: any = null;
+      let notice: string | null = null;
       try {
         const res = await fetch("/api/generate-plan", {
           method: "POST",
@@ -460,14 +491,33 @@ export function CourseKnowledgeHub({
 
         if (res.ok) {
           data = await res.json();
+          notice = getAiFallbackNotice(data.meta, language);
+        } else {
+          const apiError = await readApiError(res, language);
+          notice =
+            language === "zh"
+              ? `${apiError.message} 已改用本地规划模板。`
+              : `${apiError.message} A local planning template was used instead.`;
         }
       } catch (fetchErr) {
         console.warn("Network fetch error for generate-plan, generating local plan:", fetchErr);
+        notice =
+          language === "zh"
+            ? "无法连接 AI 服务，已改用本地规划模板。"
+            : "Could not reach the AI service. A local planning template was used instead.";
       }
 
       if (!data || !data.tasks || data.tasks.length === 0) {
         data = fallbackGeneratePlanClient(topics, preferences);
+        if (!notice) {
+          notice =
+            language === "zh"
+              ? "AI 未返回有效的学习计划，已改用本地规划模板。"
+              : "AI returned no usable study plan. A local planning template was used instead.";
+        }
       }
+
+      setAiNotice(notice);
 
       const newPlan: ExamStudyPlan = {
         id: plan?.id || `plan-${Date.now()}`,
@@ -516,6 +566,11 @@ export function CourseKnowledgeHub({
       if (onUpdatePlan) {
         onUpdatePlan(safePlan);
       }
+      setAiNotice(
+        language === "zh"
+          ? "规划生成失败，已改用本地规划模板。你可以在设置中检查 AI 状态。"
+          : "Plan generation failed. A local planning template was used instead."
+      );
       setPlanSuccessNotice(true);
       setTimeout(() => setPlanSuccessNotice(false), 5000);
     } finally {
@@ -569,13 +624,24 @@ export function CourseKnowledgeHub({
         </div>
       )}
 
+      {aiNotice && (
+        <div className="flex items-center justify-between space-x-2 p-3 bg-white border border-[#111111] text-[#111111] text-xs font-bold">
+          <div className="flex items-center space-x-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>[{language === "zh" ? "提示" : "NOTICE"}] {aiNotice}</span>
+          </div>
+          <button onClick={() => setAiNotice(null)} className="hover:underline cursor-pointer">
+            [{language === "zh" ? "关闭" : "DISMISS"}]
+          </button>
+        </div>
+      )}
+
       <section className="space-y-4">
         {/* 1. Main Knowledge Base Archive View */}
         <div className="pt-1">
           <TabbedFolderArchive
             materials={materials}
             onPreviewDoc={(doc) => setPreviewDoc(doc)}
-            onQuizDoc={(doc) => setActiveQuizMaterial(doc)}
             onDeleteDoc={(docId) => handleDeleteDoc(docId)}
             onOpenUpload={(folderType) => {
               if (folderType) setActiveFolderDocType(folderType);
@@ -745,28 +811,7 @@ export function CourseKnowledgeHub({
         doc={previewDoc}
         isOpen={Boolean(previewDoc)}
         onClose={() => setPreviewDoc(null)}
-        onLaunchQuiz={(doc) => setActiveQuizMaterial(doc)}
       />
-
-      {activeQuizMaterial && (
-        <QuizModal
-          task={{
-            id: `task-quiz-${activeQuizMaterial.id}`,
-            title: `${activeQuizMaterial.name} 随堂自测`,
-            description: activeQuizMaterial.summaryNotes || "知识库资料自测",
-            category: "active_recall",
-            topicTitle: activeQuizMaterial.topicTag || activeQuizMaterial.name,
-            date: todayStr,
-            durationMinutes: 15,
-            priority: "medium",
-            status: "pending",
-            keyObjectives: [activeQuizMaterial.name],
-            notes: activeQuizMaterial.content.slice(0, 1000),
-          }}
-          isOpen={Boolean(activeQuizMaterial)}
-          onClose={() => setActiveQuizMaterial(null)}
-        />
-      )}
     </div>
   );
 }

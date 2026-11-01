@@ -14,6 +14,7 @@ import { DailyTodoList } from "./DailyTodoList";
 import { RealTimeManager } from "./RealTimeManager";
 import { CourseKnowledgeHub } from "./CourseKnowledgeHub";
 import { getPaletteByString } from "../lib/themePalettes";
+import { toLocalDateString } from "../lib/date";
 
 interface CourseDetailPageProps {
   plan: ExamStudyPlan;
@@ -40,7 +41,7 @@ export function CourseDetailPage({
   const [activeDrawer, setActiveDrawer] = useState<"progress" | "syllabus" | null>(initialDrawer);
   const [isHoveringRightZone, setIsHoveringRightZone] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
-    return new Date().toISOString().split("T")[0];
+    return toLocalDateString();
   });
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -323,8 +324,6 @@ export function CourseDetailPage({
                         onNavigateToTab(tab);
                       }
                     }}
-                    isRebalanceModalOpen={false}
-                    onCloseRebalanceModal={() => {}}
                   />
                 </div>
               ) : (

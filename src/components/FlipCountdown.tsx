@@ -95,15 +95,14 @@ export const FlipGroup: React.FC<{ value: number; label: string }> = ({
   value,
   label,
 }) => {
-  const str = String(Math.max(0, value)).padStart(2, "0");
-  const d1 = str[0];
-  const d2 = str[1];
+  const digits = String(Math.max(0, value)).padStart(2, "0").split("");
 
   return (
     <div className="flex flex-col items-center space-y-1">
       <div className="flex items-center space-x-1">
-        <FlipDigitCard digit={d1} />
-        <FlipDigitCard digit={d2} />
+        {digits.map((digit, index) => (
+          <FlipDigitCard key={index} digit={digit} />
+        ))}
       </div>
       <span className="text-[9px] font-bold uppercase tracking-widest text-[#888888] font-sans">
         {label}

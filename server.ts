@@ -5,16 +5,272 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import * as pdfParseModule from "pdf-parse";
 import mammoth from "mammoth";
+import { inflateRawSync } from "zlib";
 
 const pdfParse = (pdfParseModule as any).default || pdfParseModule;
 
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+// Uploads are capped well below the previous 50 MB limit. A 10 MB file expands
+// to roughly 13.4 MB as base64, which still fits in the JSON body budget.
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_FILE_NAME_LENGTH = 200;
+const MAX_MATERIALS = 24;
+const MAX_MATERIAL_CHARS = 120_000;
+const MAX_QUERY_CHARS = 2_000;
+const MAX_TASKS_PER_PLAN = 600;
+
+app.disable("x-powered-by");
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  next();
+});
+app.use(
+  [
+    "/api/parse-document",
+    "/api/extract-syllabus",
+    "/api/generate-plan",
+    "/api/rag-ask",
+    "/api/rebalance-plan",
+  ],
+  rateLimitAiRoutes
+);
+app.use(express.json({ limit: "16mb" }));
+
+interface RateBucket {
+  count: number;
+  resetAt: number;
+}
+
+const rateBuckets = new Map<string, RateBucket>();
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX_REQUESTS = 20;
+let lastRateSweep = Date.now();
+
+function rateLimitAiRoutes(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const now = Date.now();
+
+  if (now - lastRateSweep > RATE_WINDOW_MS * 5) {
+    lastRateSweep = now;
+    for (const [key, bucket] of rateBuckets) {
+      if (bucket.resetAt <= now) rateBuckets.delete(key);
+    }
+  }
+
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  const bucket = rateBuckets.get(ip);
+
+  if (!bucket || bucket.resetAt <= now) {
+    rateBuckets.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return next();
+  }
+
+  bucket.count += 1;
+  if (bucket.count > RATE_MAX_REQUESTS) {
+    const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+    res.setHeader("Retry-After", String(retryAfter));
+    return res.status(429).json({
+      error: "请求过于频繁，请稍后再试。",
+      code: "RATE_LIMITED",
+      retryAfterSeconds: retryAfter,
+    });
+  }
+
+  next();
+}
+
+class ApiInputError extends Error {
+  status: number;
+  code: string;
+
+  constructor(message: string, status = 400, code = "BAD_REQUEST") {
+    super(message);
+    this.name = "ApiInputError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+class AiUnavailableError extends Error {
+  code = "AI_UNAVAILABLE";
+
+  constructor(message = "AI 服务暂时不可用，请稍后重试。") {
+    super(message);
+    this.name = "AiUnavailableError";
+  }
+}
+
+function clampText(value: unknown, maxLength: number): string {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, maxLength);
+}
+
+function resolveIsChinese(language: unknown, ...texts: Array<string | undefined>): boolean {
+  if (language === "zh") return true;
+  if (language === "en") return false;
+  return texts.some((text) => isChinese(text || ""));
+}
+
+function toLocalDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseLocalDate(dateString: string): Date {
+  const [year, month, day] = (dateString || "").split("-").map(Number);
+  if (!year || !month || !day) return new Date(NaN);
+  return new Date(year, month - 1, day);
+}
+
+function addDaysToDateString(dateString: string, days: number): string {
+  const date = parseLocalDate(dateString);
+  if (Number.isNaN(date.getTime())) return dateString;
+  date.setDate(date.getDate() + days);
+  return toLocalDateString(date);
+}
+
+function daysBetweenDateStrings(startDate: string, endDate: string): number {
+  const start = parseLocalDate(startDate);
+  const end = parseLocalDate(endDate);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+  return Math.round((end.getTime() - start.getTime()) / 86400000);
+}
+
+interface ClientMaterial {
+  id: string;
+  name: string;
+  type: string;
+  content: string;
+}
+
+function sanitizeMaterials(
+  raw: unknown,
+  maxDocs = MAX_MATERIALS,
+  maxChars = MAX_MATERIAL_CHARS
+): ClientMaterial[] {
+  if (!Array.isArray(raw)) return [];
+  if (raw.length > maxDocs) {
+    throw new ApiInputError(`一次最多上传 ${maxDocs} 份资料，请分批处理。`, 413, "TOO_MANY_MATERIALS");
+  }
+
+  return raw
+    .map((material: any, index: number) => ({
+      id: clampText(material?.id, 120) || `material-${index + 1}`,
+      name: clampText(material?.name, MAX_FILE_NAME_LENGTH) || `Document ${index + 1}`,
+      type: clampText(material?.type, 40) || "notes",
+      content: clampText(material?.content, maxChars),
+    }))
+    .filter((material) => material.content.length > 0);
+}
+
+function sanitizeTopics(raw: unknown): any[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(0, 40).map((topic: any, index: number) => ({
+    id: clampText(topic?.id, 120) || `topic-${index + 1}`,
+    title: clampText(topic?.title, 300) || `Topic ${index + 1}`,
+    category: clampText(topic?.category, 120),
+    description: clampText(topic?.description, 2_000),
+    weightPercentage: Number(topic?.weightPercentage) || 0,
+    difficulty: clampText(topic?.difficulty, 20) || "medium",
+    userKnowledgeLevel: clampText(topic?.userKnowledgeLevel, 20) || "intermediate",
+    subtopics: Array.isArray(topic?.subtopics)
+      ? topic.subtopics.slice(0, 30).map((item: unknown) => clampText(item, 300)).filter(Boolean)
+      : [],
+    subtopicTree: Array.isArray(topic?.subtopicTree)
+      ? topic.subtopicTree.slice(0, 30).map((node: any, nodeIndex: number) => ({
+          id: clampText(node?.id, 120) || `sub-${index + 1}-${nodeIndex + 1}`,
+          title: clampText(node?.title, 300),
+          keyPoints: Array.isArray(node?.keyPoints)
+            ? node.keyPoints.slice(0, 10).map((item: unknown) => clampText(item, 500)).filter(Boolean)
+            : [],
+          difficulty: clampText(node?.difficulty, 20) || "medium",
+          examFrequency: clampText(node?.examFrequency, 20) || "medium",
+          formulaOrTrap: clampText(node?.formulaOrTrap, 1_000),
+        }))
+      : undefined,
+    estimatedHours: Number(topic?.estimatedHours) || 0,
+  }));
+}
+
+function sanitizePreferences(raw: any): any {
+  const startDate = clampText(raw?.startDate, 20);
+  const examDate = clampText(raw?.examDate, 20);
+  if (!startDate || Number.isNaN(parseLocalDate(startDate).getTime())) {
+    throw new ApiInputError("开始日期格式无效，应为 YYYY-MM-DD。", 400, "INVALID_START_DATE");
+  }
+  if (!examDate || Number.isNaN(parseLocalDate(examDate).getTime())) {
+    throw new ApiInputError("考试日期格式无效，应为 YYYY-MM-DD。", 400, "INVALID_EXAM_DATE");
+  }
+  if (daysBetweenDateStrings(startDate, examDate) < 0) {
+    throw new ApiInputError("考试日期不能早于开始日期。", 400, "INVALID_DATE_RANGE");
+  }
+
+  return {
+    examName: clampText(raw?.examName, 200),
+    subject: clampText(raw?.subject, 200),
+    startDate,
+    examDate,
+    examTime: clampText(raw?.examTime, 10) || "09:00",
+    targetScoreOrGrade: clampText(raw?.targetScoreOrGrade, 200),
+    userNeedFocusArea: clampText(raw?.userNeedFocusArea, 120),
+    customPromptRequirement: clampText(raw?.customPromptRequirement, 2_000),
+    additionalNotes: clampText(raw?.additionalNotes, 2_000),
+    weakTopicsFocus: Array.isArray(raw?.weakTopicsFocus)
+      ? raw.weakTopicsFocus.slice(0, 30).map((item: unknown) => clampText(item, 300)).filter(Boolean)
+      : [],
+    dailySchedules: Array.isArray(raw?.dailySchedules) ? raw.dailySchedules.slice(0, 7) : [],
+    studyPace: clampText(raw?.studyPace, 40) || "balanced",
+    sessionLengthMinutes: Math.min(240, Math.max(10, Number(raw?.sessionLengthMinutes) || 45)),
+    includePracticeExams: Boolean(raw?.includePracticeExams),
+    includeBufferDays: Boolean(raw?.includeBufferDays),
+    bufferDaysCount: Math.min(14, Math.max(0, Number(raw?.bufferDaysCount) || 0)),
+    language: raw?.language === "en" ? "en" : raw?.language === "zh" ? "zh" : undefined,
+  };
+}
+
+function sanitizePlanForRebalance(currentPlan: any): any {
+  if (!currentPlan || typeof currentPlan !== "object") {
+    throw new ApiInputError("缺少当前计划数据。", 400, "MISSING_PLAN");
+  }
+  if (!Array.isArray(currentPlan.tasks)) {
+    throw new ApiInputError("当前计划缺少任务列表。", 400, "MISSING_TASKS");
+  }
+  if (currentPlan.tasks.length > MAX_TASKS_PER_PLAN) {
+    throw new ApiInputError("计划任务数量过多，无法重排。", 413, "TOO_MANY_TASKS");
+  }
+
+  return {
+    ...currentPlan,
+    examName: clampText(currentPlan.examName, 200),
+    subject: clampText(currentPlan.subject, 200),
+    examDate: clampText(currentPlan.examDate, 20),
+    tasks: currentPlan.tasks.map((task: any) => ({
+      ...task,
+      id: clampText(task?.id, 120),
+      title: clampText(task?.title, 300),
+      description: clampText(task?.description, 2_000),
+      category: clampText(task?.category, 40),
+      topicTitle: clampText(task?.topicTitle, 300),
+      date: clampText(task?.date, 20),
+      startTime: clampText(task?.startTime, 10),
+      endTime: clampText(task?.endTime, 10),
+      priority: clampText(task?.priority, 20),
+      status: clampText(task?.status, 20),
+      keyObjectives: Array.isArray(task?.keyObjectives)
+        ? task.keyObjectives.slice(0, 10).map((item: unknown) => clampText(item, 300))
+        : [],
+      activeRecallPrompt: clampText(task?.activeRecallPrompt, 1_000),
+      notes: clampText(task?.notes, 2_000),
+    })),
+  };
+}
 
 let aiClient: GoogleGenAI | null = null;
 function getAI(): GoogleGenAI | null {
@@ -26,7 +282,7 @@ function getAI(): GoogleGenAI | null {
           apiKey: key,
           httpOptions: {
             headers: {
-              "User-Agent": "aistudio-build",
+              "User-Agent": "exam-plan-ai",
             },
           },
         });
@@ -41,33 +297,85 @@ function getAI(): GoogleGenAI | null {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const AI_MODELS = ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-flash-latest"];
+
+interface AiCallOutcome<T> {
+  value: T;
+  source: "ai" | "fallback";
+  fallbackReason?: "no_api_key" | "ai_error" | "ai_timeout";
+}
+
+interface AiRunOptions {
+  perCallTimeoutMs?: number;
+  overallBudgetMs?: number;
+  label?: string;
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(Object.assign(new Error(`${label} timed out after ${timeoutMs}ms`), { code: "AI_TIMEOUT" }));
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
 async function generateWithRetryAndFallback<T>(
   buildParams: (modelName: string) => any,
   parseResult: (text: string) => T,
-  fallbackGenerator: () => T
-): Promise<T> {
+  fallbackGenerator: () => T,
+  options: AiRunOptions = {}
+): Promise<AiCallOutcome<T>> {
+  const startedAt = Date.now();
   const client = getAI();
-  if (!client) {
 
-    return fallbackGenerator();
+  if (!client) {
+    console.warn(`[AI${options.label ? ` ${options.label}` : ""}] GEMINI_API_KEY is not configured; using local fallback.`);
+    return { value: fallbackGenerator(), source: "fallback", fallbackReason: "no_api_key" };
   }
 
-  const models = ["gemini-3.7-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-flash-latest"];
+  const perCallTimeoutMs = options.perCallTimeoutMs ?? 40_000;
+  const overallBudgetMs = options.overallBudgetMs ?? 75_000;
+  let lastError: unknown = null;
+  let timedOut = false;
 
-  for (const model of models) {
+  for (const model of AI_MODELS) {
     for (let attempt = 1; attempt <= 2; attempt++) {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed >= overallBudgetMs) {
+        timedOut = true;
+        break;
+      }
+
       try {
         const params = buildParams(model);
-        const response = await client.models.generateContent(params);
+        const remainingMs = Math.max(5_000, Math.min(perCallTimeoutMs, overallBudgetMs - elapsed));
+        const response = await withTimeout(
+          client.models.generateContent(params),
+          remainingMs,
+          `${options.label || "AI"} (${model})`
+        );
         const text = response.text || "";
         if (!text.trim()) {
           throw new Error("Empty response received from AI model");
         }
-        const parsed = parseResult(text);
-        return parsed;
+        return { value: parseResult(text), source: "ai" };
       } catch (err: any) {
+        lastError = err;
         const status = err?.status || err?.code || err?.statusCode;
         const msg = String(err?.message || "");
+        const isTimeout = err?.code === "AI_TIMEOUT";
+        if (isTimeout) timedOut = true;
 
         const is503HighDemand =
           status === 503 ||
@@ -80,8 +388,7 @@ async function generateWithRetryAndFallback<T>(
           msg.includes("429") ||
           msg.includes("RESOURCE_EXHAUSTED");
 
-        if (attempt === 1 && (is503HighDemand || isRateLimit)) {
-
+        if (attempt === 1 && !isTimeout && (is503HighDemand || isRateLimit)) {
           await sleep(400);
           continue;
         }
@@ -89,9 +396,19 @@ async function generateWithRetryAndFallback<T>(
         break;
       }
     }
+
+    if (timedOut && Date.now() - startedAt >= overallBudgetMs) break;
   }
 
-  return fallbackGenerator();
+  console.warn(
+    `[AI${options.label ? ` ${options.label}` : ""}] falling back after error:`,
+    lastError instanceof Error ? lastError.message : lastError
+  );
+  return {
+    value: fallbackGenerator(),
+    source: "fallback",
+    fallbackReason: timedOut ? "ai_timeout" : "ai_error",
+  };
 }
 
 interface DocumentChunk {
@@ -463,22 +780,22 @@ function fallbackExtractSyllabus(materials: any[], examName: string, subject: st
 }
 
 function fallbackGeneratePlan(topics: any[], preferences: any) {
-  const isZh = preferences.language === "zh" || isChinese(preferences.examName) || isChinese(preferences.subject) || true;
-  const startDate = new Date(preferences.startDate);
-  const examDate = new Date(preferences.examDate);
-  const daysTotal = Math.max(1, Math.ceil((examDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+  const isZh = resolveIsChinese(preferences.language, preferences.examName, preferences.subject);
+  const startStr = preferences.startDate || toLocalDateString();
+  const examStr = preferences.examDate || addDaysToDateString(startStr, 14);
+  const daysTotal = Math.max(1, daysBetweenDateStrings(startStr, examStr));
 
-  const phase1End = new Date(startDate.getTime() + Math.floor(daysTotal * 0.35) * 86400000).toISOString().split("T")[0];
-  const phase2End = new Date(startDate.getTime() + Math.floor(daysTotal * 0.70) * 86400000).toISOString().split("T")[0];
-  const phase3End = new Date(startDate.getTime() + Math.floor(daysTotal * 0.90) * 86400000).toISOString().split("T")[0];
-  const phase4End = preferences.examDate;
+  const phase1End = addDaysToDateString(startStr, Math.floor(daysTotal * 0.35));
+  const phase2End = addDaysToDateString(startStr, Math.floor(daysTotal * 0.70));
+  const phase3End = addDaysToDateString(startStr, Math.floor(daysTotal * 0.90));
+  const phase4End = examStr;
 
   const phasesZh = [
     {
       id: "phase-1",
       name: "第 1 阶段：考纲通读与概念夯实",
       description: "全面通读核心教材与讲义，梳理知识框架，完成定义与公式的理解。",
-      startDate: preferences.startDate,
+      startDate: startStr,
       endDate: phase1End,
       focus: "构建知识网络，完成所有基础考点的首轮精读与笔记整理。",
     },
@@ -513,7 +830,7 @@ function fallbackGeneratePlan(topics: any[], preferences: any) {
       id: "phase-1",
       name: "Phase 1: Foundation & Conceptual Mastery",
       description: "First pass of all core lecture materials, definitions, and active note synthesizing.",
-      startDate: preferences.startDate,
+      startDate: startStr,
       endDate: phase1End,
       focus: "Comprehensive coverage of foundational definitions and key mechanisms.",
     },
@@ -557,9 +874,8 @@ function fallbackGeneratePlan(topics: any[], preferences: any) {
   let totalHours = 0;
 
   for (let i = 0; i < daysTotal; i++) {
-    const current = new Date(startDate.getTime() + i * 86400000);
-    const dateStr = current.toISOString().split("T")[0];
-    const dayOfWeek = current.getDay();
+    const dateStr = addDaysToDateString(startStr, i);
+    const dayOfWeek = parseLocalDate(dateStr).getDay();
     const sched: any = scheduleMap.get(dayOfWeek) || { enabled: true, availableHours: 2, preferredTimeSlot: "evening" };
 
     if (!sched.enabled || sched.availableHours <= 0) continue;
@@ -743,20 +1059,21 @@ function fallbackGeneratePlan(topics: any[], preferences: any) {
 }
 
 function fallbackRebalancePlan(currentPlan: any, currentDate: string, reason: string) {
-  const isZh = isChinese(currentPlan?.examName) || isChinese(currentPlan?.subject) || true;
-  const today = currentDate || new Date().toISOString().split("T")[0];
-  const examDate = currentPlan.examDate;
+  const isZh = resolveIsChinese(currentPlan?.language, currentPlan?.examName, currentPlan?.subject);
+  const today = currentDate || toLocalDateString();
+  const examDate =
+    currentPlan?.examDate && !Number.isNaN(parseLocalDate(currentPlan.examDate).getTime())
+      ? currentPlan.examDate
+      : addDaysToDateString(today, 14);
 
   const completedTasks = currentPlan.tasks.filter((t: any) => t.status === "completed");
   const pendingTasks = currentPlan.tasks.filter((t: any) => t.status !== "completed");
 
-  const startD = new Date(today);
-  const endD = new Date(examDate);
-  const remainingDays = Math.max(1, Math.ceil((endD.getTime() - startD.getTime()) / (1000 * 60 * 60 * 24)));
+  const remainingDays = Math.max(1, daysBetweenDateStrings(today, examDate));
 
   const updatedPending = pendingTasks.map((task: any, idx: number) => {
     const dayOffset = idx % remainingDays;
-    const targetDate = new Date(startD.getTime() + dayOffset * 86400000).toISOString().split("T")[0];
+    const targetDate = addDaysToDateString(today, dayOffset);
     return {
       ...task,
       date: targetDate,
@@ -773,97 +1090,177 @@ function fallbackRebalancePlan(currentPlan: any, currentDate: string, reason: st
   };
 }
 
-function fallbackGenerateQuiz(topicTitle: string, taskTitle: string, lang: string = "zh") {
-  const isZh = lang === "zh" || isChinese(topicTitle) || isChinese(taskTitle) || true;
-  if (isZh) {
-    return {
-      questions: [
-        {
-          id: `q-${Date.now()}-1`,
-          question: `在复习掌握「${topicTitle || "当前考点"}」时，最根本的学习目标是什么？`,
-          options: [
-            "深刻理解底层概念定义、理论机制与推导逻辑",
-            "仅死记硬背表面结论，不关注推导过程",
-            "直接跳过题目条件快速猜测最终答案",
-            "只在考前粗略浏览章节小结",
-          ],
-          correctAnswer: "深刻理解底层概念定义、理论机制与推导逻辑",
-          explanation: "只有透彻理解核心原理与推导逻辑，才能在面对灵活多变的应用题与综合大题时自如应对。",
-          topicTitle: topicTitle || "核心考点",
-        },
-        {
-          id: `q-${Date.now()}-2`,
-          question: `针对「${topicTitle || "当前考点"}」的典型复杂题目，最科学的解题步骤是什么？`,
-          options: [
-            "跳过审题直接套用固定数值公式",
-            "拆解题设已知条件与未知量，分步列出控制方程与定理",
-            "遇到计算量大的步骤直接放弃",
-            "不检查边界条件直接下结论",
-          ],
-          correctAnswer: "拆解题设已知条件与未知量，分步列出控制方程与定理",
-          explanation: "系统化的审题拆解和严谨的分步推导能够避免粗心失误，确保解题逻辑完整无遗漏。",
-          topicTitle: topicTitle || "核心考点",
-        },
-        {
-          id: `q-${Date.now()}-3`,
-          question: `为了避免遗忘曲线对「${topicTitle || "关键知识点"}」的影响，以下哪种主动回忆方法最为高效？`,
-          options: [
-            "被动机械地反复默读同一段课本内容",
-            "合上书本尝试向他人复述该知识点核心脉络，并自我检验错漏",
-            "用不同荧光笔在教材上大面积划线",
-            "只在临考前一小时突击扫视笔记",
-          ],
-          correctAnswer: "合上书本尝试向他人复述该知识点核心脉络，并自我检验错漏",
-          explanation: "费曼学习法与主动检索练习（Active Retrieval）能有效激活深度记忆突触，精准暴露知识盲区。",
-          topicTitle: topicTitle || "核心考点",
-        },
-      ],
-    };
+class DocumentParseError extends Error {
+  status: number;
+  code: string;
+
+  constructor(status: number, code: string, message: string) {
+    super(message);
+    this.name = "DocumentParseError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+const TEXT_EXTENSIONS = new Set([".txt", ".md", ".markdown", ".json", ".csv", ".rtf"]);
+const LEGACY_OFFICE_EXTENSIONS = new Set([".doc", ".ppt"]);
+const SUPPORTED_EXTENSIONS = new Set([".pdf", ".docx", ".pptx", ...TEXT_EXTENSIONS]);
+
+function decodeXmlEntities(value: string): string {
+  return value
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+    .replace(/&amp;/g, "&");
+}
+
+/**
+ * Minimal ZIP reader used only to pull `ppt/slides/slideN.xml` out of a PPTX
+ * file. It deliberately refuses ZIP64 entries and caps decompressed output so a
+ * malicious archive cannot exhaust server memory.
+ */
+function extractPptxText(buffer: Buffer): string {
+  if (buffer.length < 22) throw new Error("File is too small to be a PPTX archive");
+
+  let eocdOffset = -1;
+  const minimumOffset = Math.max(0, buffer.length - 65_557);
+  for (let i = buffer.length - 22; i >= minimumOffset; i--) {
+    if (buffer.readUInt32LE(i) === 0x06054b50) {
+      eocdOffset = i;
+      break;
+    }
+  }
+  if (eocdOffset < 0) throw new Error("ZIP central directory not found");
+
+  const entryCount = buffer.readUInt16LE(eocdOffset + 10);
+  const centralDirectoryOffset = buffer.readUInt32LE(eocdOffset + 16);
+  const centralDirectorySize = buffer.readUInt32LE(eocdOffset + 12);
+  if (centralDirectoryOffset === 0xffffffff || centralDirectorySize === 0xffffffff) {
+    throw new Error("ZIP64 archives are not supported");
+  }
+  if (centralDirectoryOffset + centralDirectorySize > buffer.length) {
+    throw new Error("Corrupt ZIP central directory");
   }
 
-  return {
-    questions: [
-      {
-        id: `q-${Date.now()}-1`,
-        question: `What is the primary objective when mastering ${topicTitle || "this topic"}?`,
-        options: [
-          "Understanding foundational principles and theoretical derivations",
-          "Memorizing surface keywords without understanding mechanics",
-          "Skipping straight to final answers without checking assumptions",
-          "Only reviewing high-level chapter summaries",
-        ],
-        correctAnswer: "Understanding foundational principles and theoretical derivations",
-        explanation: "Mastery requires deep conceptual comprehension so principles can be adapted to novel exam scenarios.",
-        topicTitle: topicTitle || "Core Curriculum",
-      },
-      {
-        id: `q-${Date.now()}-2`,
-        question: `When tackling complex multi-step problems in ${topicTitle || "this area"}, what is the most effective approach?`,
-        options: [
-          "Guessing the intermediate values",
-          "Decomposing the problem into sub-steps and stating known constraints",
-          "Assuming boundary conditions never apply",
-          "Working backwards only when an error occurs",
-        ],
-        correctAnswer: "Decomposing the problem into sub-steps and stating known constraints",
-        explanation: "Systematic decomposition ensures all constraints and governing formulas are applied correctly.",
-        topicTitle: topicTitle || "Core Curriculum",
-      },
-      {
-        id: `q-${Date.now()}-3`,
-        question: `How can active recall be best utilized for retaining ${topicTitle || "key formulas and definitions"}?`,
-        options: [
-          "Passively re-reading notes several times in a row",
-          "Self-testing without looking at notes and explaining the concept aloud",
-          "Highlighting lines with different colors",
-          "Reviewing only immediately before the exam starts",
-        ],
-        correctAnswer: "Self-testing without looking at notes and explaining the concept aloud",
-        explanation: "Retrieval practice strengthens synaptic pathways and reveals knowledge gaps far better than passive reading.",
-        topicTitle: topicTitle || "Core Curriculum",
-      },
-    ],
-  };
+  const slides: Array<{ index: number; xml: string }> = [];
+  let cursor = centralDirectoryOffset;
+  const safeEntryCount = Math.min(entryCount, 4_000);
+
+  for (let i = 0; i < safeEntryCount; i++) {
+    if (cursor + 46 > buffer.length || buffer.readUInt32LE(cursor) !== 0x02014b50) break;
+
+    const method = buffer.readUInt16LE(cursor + 10);
+    const compressedSize = buffer.readUInt32LE(cursor + 20);
+    const uncompressedSize = buffer.readUInt32LE(cursor + 24);
+    const nameLength = buffer.readUInt16LE(cursor + 28);
+    const extraLength = buffer.readUInt16LE(cursor + 30);
+    const commentLength = buffer.readUInt16LE(cursor + 32);
+    const localHeaderOffset = buffer.readUInt32LE(cursor + 42);
+
+    if (cursor + 46 + nameLength > buffer.length) break;
+    const name = buffer.toString("utf8", cursor + 46, cursor + 46 + nameLength);
+    cursor += 46 + nameLength + extraLength + commentLength;
+
+    const match = /^ppt\/slides\/slide(\d+)\.xml$/.exec(name);
+    if (!match) continue;
+    if (compressedSize === 0xffffffff || uncompressedSize === 0xffffffff) continue;
+    if (compressedSize > 8 * 1024 * 1024 || uncompressedSize > 8 * 1024 * 1024) continue;
+    if (localHeaderOffset + 30 > buffer.length || buffer.readUInt32LE(localHeaderOffset) !== 0x04034b50) continue;
+
+    const localNameLength = buffer.readUInt16LE(localHeaderOffset + 26);
+    const localExtraLength = buffer.readUInt16LE(localHeaderOffset + 28);
+    const dataStart = localHeaderOffset + 30 + localNameLength + localExtraLength;
+    const dataEnd = dataStart + compressedSize;
+    if (dataEnd > buffer.length) continue;
+
+    const compressed = buffer.subarray(dataStart, dataEnd);
+    let xmlBuffer: Buffer;
+    if (method === 0) {
+      xmlBuffer = Buffer.from(compressed);
+    } else if (method === 8) {
+      try {
+        xmlBuffer = inflateRawSync(compressed, {
+          maxOutputLength: Math.max(uncompressedSize, 1),
+        } as any);
+      } catch {
+        continue;
+      }
+    } else {
+      continue;
+    }
+
+    slides.push({ index: Number(match[1]), xml: xmlBuffer.toString("utf8") });
+  }
+
+  slides.sort((a, b) => a.index - b.index);
+
+  const chunks: string[] = [];
+  let totalChars = 0;
+  for (const slide of slides) {
+    const text = decodeXmlEntities(
+      slide.xml
+        .replace(/<a:br\b[^>]*\/>/g, "\n")
+        .replace(/<\/a:p>/g, "\n")
+        .replace(/<[^>]+>/g, "")
+    )
+      .split("\n")
+      .map((line) => line.replace(/\s+/g, " ").trim())
+      .filter(Boolean)
+      .join("\n");
+    if (!text) continue;
+    chunks.push(text);
+    totalChars += text.length;
+    if (totalChars >= MAX_MATERIAL_CHARS) break;
+  }
+
+  return chunks.join("\n\n").slice(0, MAX_MATERIAL_CHARS);
+}
+
+async function transcribePdfWithAI(cleanBase64: string, language: string): Promise<string> {
+  const client = getAI();
+  if (!client) {
+    throw new DocumentParseError(
+      422,
+      "SCANNED_PDF_AI_REQUIRED",
+      "该 PDF 未检测到可提取文字（可能是扫描件）。请上传带文字层的 PDF、DOCX 或 PPTX。"
+    );
+  }
+
+  const isZh = language !== "en";
+  const prompt = isZh
+    ? `你是一位专业的高校备考与教辅文档解析专家。请将本 PDF 的内容完整、准确、结构化地转录为清晰易读的 Markdown 文本。
+要求：
+1. 完整保留章节大纲、考点要求、题目序号、核心公式与要点。
+2. 保持排版层级清晰，禁止输出乱码或丢失核心考点。
+3. 如果是试卷或习题，请完整保留题目要求与选项。`
+    : `You are an expert academic document parsing specialist. Transcribe all text, syllabus outlines, chapters, formulas, and questions from this PDF accurately into clean, readable Markdown. Preserve structural hierarchy and every key concept.`;
+
+  const startedAt = Date.now();
+  for (const model of AI_MODELS) {
+    if (Date.now() - startedAt > 60_000) break;
+    try {
+      const response = await withTimeout(
+        client.models.generateContent({
+          model,
+          contents: [
+            { inlineData: { data: cleanBase64, mimeType: "application/pdf" } },
+            prompt,
+          ],
+        }),
+        30_000,
+        `PDF OCR (${model})`
+      );
+      const text = (response.text || "").trim();
+      if (text.length > 20) return text;
+    } catch (err) {
+      console.warn("[PDF OCR] model failed:", err instanceof Error ? err.message : err);
+    }
+  }
+
+  throw new DocumentParseError(502, "AI_PARSE_FAILED", "AI 解析服务暂时不可用，请稍后重试或上传可复制文字的 PDF。");
 }
 
 async function parseUploadedDocument(
@@ -871,160 +1268,201 @@ async function parseUploadedDocument(
   fileType: string,
   base64Data: string,
   language: string = "zh"
-): Promise<{ text: string; pageCount?: number }> {
-  const isZh = language === "zh" || isChinese(fileName);
-  const cleanBase64 = base64Data.replace(/^data:.*?;base64,/, "");
-  const buffer = Buffer.from(cleanBase64, "base64");
-  const ext = path.extname(fileName).toLowerCase();
+): Promise<{ text: string; pageCount?: number; source: "local" | "ai" }> {
+  const isZh = language !== "en";
+  const safeFileName = path.basename(fileName || "document").slice(0, MAX_FILE_NAME_LENGTH);
+  const ext = path.extname(safeFileName).toLowerCase();
+  const cleanBase64 = (base64Data || "").replace(/^data:.*?;base64,/, "");
 
-  if (
-    fileType.startsWith("text/") ||
-    [".txt", ".md", ".markdown", ".json", ".csv", ".rtf"].includes(ext)
-  ) {
-    try {
-      const text = buffer.toString("utf-8");
-      if (text.trim().length > 0) {
-        return { text };
-      }
-    } catch (e) {
-      console.warn("UTF-8 decode failed, falling back to parser", e);
+  if (!cleanBase64) {
+    throw new DocumentParseError(400, "MISSING_FILE_DATA", isZh ? "缺少文件内容。" : "Missing file data.");
+  }
+
+  if (Math.floor((cleanBase64.length * 3) / 4) > MAX_UPLOAD_BYTES) {
+    throw new DocumentParseError(
+      413,
+      "FILE_TOO_LARGE",
+      isZh ? "文件超过 10 MB 上限，请压缩或拆分后再上传。" : "File exceeds the 10 MB limit."
+    );
+  }
+
+  if (LEGACY_OFFICE_EXTENSIONS.has(ext)) {
+    throw new DocumentParseError(
+      415,
+      "LEGACY_OFFICE_UNSUPPORTED",
+      isZh
+        ? `暂不支持旧版 ${ext.toUpperCase()} 格式，请另存为 ${ext === ".doc" ? ".docx" : ".pptx"} 或 PDF 后重新上传。`
+        : `Legacy ${ext.toUpperCase()} files are not supported. Please save as ${ext === ".doc" ? ".docx" : ".pptx"} or PDF.`
+    );
+  }
+
+  if (!SUPPORTED_EXTENSIONS.has(ext) && !fileType.startsWith("text/")) {
+    throw new DocumentParseError(
+      415,
+      "UNSUPPORTED_FORMAT",
+      isZh
+        ? "不支持此文件格式。请上传 PDF、DOCX、PPTX、TXT、Markdown、CSV 或 JSON 文件。"
+        : "Unsupported file type. Upload PDF, DOCX, PPTX, TXT, Markdown, CSV, or JSON."
+    );
+  }
+
+  const buffer = Buffer.from(cleanBase64, "base64");
+  if (buffer.length === 0) {
+    throw new DocumentParseError(422, "EMPTY_FILE", isZh ? "文件内容为空。" : "The file is empty.");
+  }
+
+  if (TEXT_EXTENSIONS.has(ext) || fileType.startsWith("text/")) {
+    let text = buffer.toString("utf-8").replace(/^\uFEFF/, "");
+    if (ext === ".rtf") {
+      text = text
+        .replace(/\\'[0-9a-f]{2}/gi, " ")
+        .replace(/\\[a-z]+-?\d* ?/gi, " ")
+        .replace(/[{}]/g, " ");
     }
+    const trimmed = text.trim();
+    if (trimmed.length === 0) {
+      throw new DocumentParseError(422, "EMPTY_DOCUMENT", isZh ? "未能从文件中读取到文字内容。" : "No readable text found in the file.");
+    }
+    return { text: trimmed, source: "local" };
   }
 
   if (ext === ".docx" || fileType.includes("wordprocessingml")) {
     try {
       const result = await mammoth.extractRawText({ buffer });
-      if (result.value && result.value.trim().length > 10) {
-        return { text: result.value.trim() };
-      }
-    } catch (e) {
-      console.warn("Mammoth DOCX parsing failed, escalating to Gemini multimodal parser", e);
+      const text = (result.value || "").trim();
+      if (text.length > 10) return { text, source: "local" };
+    } catch (err) {
+      console.warn("DOCX parsing failed:", err);
     }
+    throw new DocumentParseError(
+      422,
+      "DOCX_PARSE_FAILED",
+      isZh ? "无法读取该 DOCX 文件，请确认文件未损坏后重试。" : "Could not read this DOCX file. Please verify it is not corrupted."
+    );
+  }
+
+  if (ext === ".pptx" || fileType.includes("presentationml")) {
+    try {
+      const text = extractPptxText(buffer);
+      if (text.length > 10) return { text, source: "local" };
+    } catch (err) {
+      console.warn("PPTX parsing failed:", err);
+    }
+    throw new DocumentParseError(
+      422,
+      "PPTX_NO_TEXT",
+      isZh
+        ? "未能从 PPTX 中提取文字（可能全部为图片）。请导出为 PDF 或补充文字版讲义。"
+        : "No text could be extracted from this PPTX (it may be image-only). Please export it as PDF or upload text-based notes."
+    );
   }
 
   if (ext === ".pdf" || fileType === "application/pdf") {
     try {
       if (typeof pdfParse === "function") {
         const data = await (pdfParse as any)(buffer);
-        if (data && data.text && data.text.trim().length > 20) {
-          return {
-            text: data.text.trim(),
-            pageCount: data.numpages,
-          };
+        if (data && typeof data.text === "string" && data.text.trim().length > 20) {
+          return { text: data.text.trim(), pageCount: data.numpages, source: "local" };
         }
       } else {
         const { PDFParse } = pdfParseModule as any;
         if (PDFParse) {
           const parser = new PDFParse({ data: buffer });
           const textResult = await parser.getText();
-          const text = typeof textResult === "string" ? textResult : (textResult?.text || "");
-          let pageCount = undefined;
+          const text = typeof textResult === "string" ? textResult : textResult?.text || "";
+          let pageCount: number | undefined;
           try {
             const info = await parser.getInfo();
             pageCount = info?.pages || info?.numPages || info?.pageCount;
-          } catch (e) {}
+          } catch {
+            pageCount = undefined;
+          }
           try {
             await parser.destroy?.();
-          } catch (e) {}
-
+          } catch {
+            // ignore cleanup errors
+          }
           if (text && text.trim().length > 20) {
-            return {
-              text: text.trim(),
-              pageCount,
-            };
+            return { text: text.trim(), pageCount, source: "local" };
           }
         }
       }
-    } catch (e) {
-      console.warn("Local PDF text extraction error, escalating to Gemini OCR/fallback parser", e);
+    } catch (err) {
+      console.warn("Local PDF text extraction failed:", err);
     }
+
+    const text = await transcribePdfWithAI(cleanBase64, language);
+    return { text, source: "ai" };
   }
 
-  try {
-    const mime = fileType || (ext === ".pdf" ? "application/pdf" : ext === ".png" ? "image/png" : "image/jpeg");
-    const prompt = isZh
-      ? `你是一位专业的高校备考与教辅文档解析专家。请将上传的文档或试卷内容完整、准确、结构化地转录为清晰易读的文本/Markdown格式。
-要求：
-1. 完整保留所有章节大纲、考点要求、题目序号、核心公式与要点。
-2. 保持排版层级清晰，禁止输出不可读的乱码或丢失核心考点。
-3. 如果是试卷或习题，请完整保留题目要求与选项。`
-      : `You are an expert academic document parsing specialist. Transcribe all text, syllabus outlines, chapters, formulas, and questions from this uploaded document accurately into clean, readable Markdown format. Preserve structural hierarchy and all key concepts verbatim.`;
-
-    const result = await generateWithRetryAndFallback(
-      (modelName) => ({
-        model: modelName,
-        contents: [
-          {
-            inlineData: {
-              data: cleanBase64,
-              mimeType: mime.startsWith("image/") || mime === "application/pdf" ? mime : "application/pdf",
-            },
-          },
-          prompt,
-        ],
-      }),
-      (text) => text,
-      () => {
-        const textFallback = buffer.toString("utf-8").replace(/[^\x20-\x7E\u4e00-\u9fa5\n\r\t]/g, " ");
-        return textFallback.trim() || `[已成功上传 ${fileName}，内容已录入]`;
-      }
-    );
-
-    return { text: result };
-  } catch (err) {
-    console.error("AI document extraction failed:", err);
-    return {
-      text: `[已接收 ${fileName} 文件（${Math.round(buffer.length / 1024)} KB）。请继续提取考纲或生成练习题]`,
-    };
-  }
+  throw new DocumentParseError(
+    415,
+    "UNSUPPORTED_FORMAT",
+    isZh ? "不支持此文件格式。" : "Unsupported file type."
+  );
 }
 
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    aiConfigured: Boolean(getAI()),
+  });
 });
 
 app.post("/api/parse-document", async (req, res) => {
   try {
-    const { fileName, fileType, base64Data, language } = req.body;
+    const { fileName, fileType, base64Data, language } = req.body || {};
     if (!base64Data || !fileName) {
-      return res.status(400).json({ error: "Missing file data" });
+      return res.status(400).json({ error: "缺少文件内容。", code: "MISSING_FILE_DATA" });
     }
 
     const parsed = await parseUploadedDocument(
-      fileName,
-      fileType || "application/pdf",
-      base64Data,
-      language || "zh"
+      String(fileName),
+      typeof fileType === "string" ? fileType : "",
+      String(base64Data),
+      language === "en" ? "en" : "zh"
     );
 
     res.json({
       success: true,
-      fileName,
+      fileName: path.basename(String(fileName)).slice(0, MAX_FILE_NAME_LENGTH),
       text: parsed.text,
       pageCount: parsed.pageCount,
       length: parsed.text.length,
+      meta: { source: parsed.source },
     });
   } catch (err: any) {
+    if (err instanceof DocumentParseError) {
+      return res.status(err.status).json({ error: err.message, code: err.code });
+    }
     console.error("Error in /api/parse-document:", err);
-    res.status(500).json({ error: err.message || "Failed to parse document" });
+    res.status(500).json({ error: "文档解析服务异常，请稍后重试。", code: "PARSE_FAILED" });
   }
 });
 
 app.post("/api/extract-syllabus", async (req, res) => {
   try {
-    const { materials, examName, subject } = req.body;
+    const { materials, examName, subject } = req.body || {};
 
-    if (!materials || !Array.isArray(materials) || materials.length === 0) {
-      return res.status(400).json({ error: "No materials provided" });
+    if (!Array.isArray(materials) || materials.length === 0) {
+      return res.status(400).json({ error: "请先上传至少一份课程资料。", code: "MISSING_MATERIALS" });
     }
 
-    const aggregatedContent = materials
-      .map((m: any, idx: number) => `--- DOCUMENT ${idx + 1}: ${m.name} (${m.type}) ---\n${m.content}`)
+    const safeMaterials = sanitizeMaterials(materials);
+    if (safeMaterials.length === 0) {
+      return res.status(400).json({ error: "资料内容为空，请重新上传。", code: "EMPTY_MATERIALS" });
+    }
+
+    const safeExamName = clampText(examName, 200) || "Upcoming Exam";
+    const safeSubject = clampText(subject, 200) || "General";
+    const aggregatedContent = safeMaterials
+      .map((m, idx) => `--- DOCUMENT ${idx + 1}: ${m.name} (${m.type}) ---\n${m.content}`)
       .join("\n\n");
 
-    const isZh = req.body.language === "zh" || isChinese(examName) || isChinese(subject) || true;
+    const isZh = resolveIsChinese(req.body?.language, safeExamName, safeSubject);
     const prompt = `You are an expert academic curriculum analyzer, knowledge tree architect, and exam preparation strategist.
-Analyze the following exam study materials for the exam "${examName || 'Upcoming Exam'}" in subject "${subject || 'General'}".
+Analyze the following exam study materials for the exam "${safeExamName}" in subject "${safeSubject}".
 Extract a deep, multi-tier hierarchical syllabus tree (考点树状图体系).
 
 TREE HIERARCHY RULES:
@@ -1057,7 +1495,7 @@ Output a clean JSON object containing:
     - formulaOrTrap: brief tip, formula, or common mistake to watch out for
   - estimatedHours: realistic hours needed (e.g. 4 to 15)`;
 
-    const result = await generateWithRetryAndFallback(
+    const outcome = await generateWithRetryAndFallback(
       (modelName) => ({
         model: modelName,
         contents: prompt,
@@ -1131,30 +1569,37 @@ Output a clean JSON object containing:
         }
         return parsed;
       },
-      () => fallbackExtractSyllabus(materials, examName, subject, isZh ? "zh" : "en")
+      () => fallbackExtractSyllabus(safeMaterials, safeExamName, safeSubject, isZh ? "zh" : "en"),
+      { label: "extract-syllabus", perCallTimeoutMs: 35_000, overallBudgetMs: 60_000 }
     );
 
-    res.json(result);
+    res.json({
+      ...outcome.value,
+      meta: { source: outcome.source, fallbackReason: outcome.fallbackReason },
+    });
   } catch (error: any) {
+    if (error instanceof ApiInputError) {
+      return res.status(error.status).json({ error: error.message, code: error.code });
+    }
     console.error("Error extracting syllabus:", error);
-
-    const isZh = isChinese(req.body?.examName) || isChinese(req.body?.subject) || true;
-    const fallback = fallbackExtractSyllabus(req.body.materials || [], req.body.examName, req.body.subject, isZh ? "zh" : "en");
-    res.json(fallback);
+    res.status(502).json({ error: "考点提取失败，请稍后重试。", code: "SYLLABUS_EXTRACTION_FAILED" });
   }
 });
 
 app.post("/api/generate-plan", async (req, res) => {
   try {
-    const { topics, preferences, materials, materialsSummary } = req.body;
+    const body = req.body || {};
+    const preferences = sanitizePreferences(body.preferences);
+    const safeTopics = sanitizeTopics(body.topics);
+    const safeMaterials = sanitizeMaterials(body.materials || []);
 
-    if (!preferences || !preferences.examDate || !preferences.startDate) {
-      return res.status(400).json({ error: "Missing required preferences (examDate, startDate)" });
-    }
+    const isZh = resolveIsChinese(
+      preferences.language || body.language,
+      preferences.examName,
+      preferences.subject
+    );
 
-    const isZh = preferences.language === "zh" || isChinese(preferences.examName) || isChinese(preferences.subject) || true;
-
-    const allChunks = chunkAllMaterials(materials || []);
+    const allChunks = chunkAllMaterials(safeMaterials);
 
     const ragContextBlocks: string[] = [];
     const focusQuery = `${preferences.userNeedFocusArea || ""} ${preferences.customPromptRequirement || ""} ${preferences.weakTopicsFocus?.join(" ") || ""}`.trim();
@@ -1166,7 +1611,7 @@ app.post("/api/generate-plan", async (req, res) => {
       });
     }
 
-    (topics || []).slice(0, 8).forEach((t: any, idx: number) => {
+    safeTopics.slice(0, 8).forEach((t: any, idx: number) => {
       if (allChunks.length > 0) {
         const topChunks = retrieveTopChunksForQuery(t.title + " " + (t.subtopics?.join(" ") || ""), allChunks, { topK: 3 });
         topChunks.forEach((c, cIdx) => {
@@ -1200,7 +1645,7 @@ STUDENT PROFILE & PERSONALIZED STUDY NEEDS:
 ${preferences.dailySchedules?.map((d: any) => `  * ${d.dayName}: ${d.enabled ? `${d.availableHours}h (${d.preferredTimeSlot})` : "Rest / Off"}`).join("\n")}
 
 SYLLABUS TOPICS:
-${JSON.stringify(topics || [], null, 2)}
+${JSON.stringify(safeTopics, null, 2).slice(0, 40_000)}
 ${ragContextText}
 
 RAG GROUNDING REQUIREMENTS:
@@ -1228,7 +1673,7 @@ RAG GROUNDING REQUIREMENTS:
      - keyConcepts: array of 2-4 keywords
      - relevanceReason: why this document chunk was chosen for this task`;
 
-    const rawResult = await generateWithRetryAndFallback(
+    const outcome = await generateWithRetryAndFallback(
       (modelName) => ({
         model: modelName,
         contents: prompt,
@@ -1316,13 +1761,16 @@ RAG GROUNDING REQUIREMENTS:
         },
       }),
       (text) => JSON.parse(text),
-      () => fallbackGeneratePlan(topics, preferences)
+      () => fallbackGeneratePlan(safeTopics, preferences),
+      { label: "generate-plan", perCallTimeoutMs: 45_000, overallBudgetMs: 90_000 }
     );
+
+    const rawResult = outcome.value;
 
     // Schedule Engine: Guarantee full day-by-day task allocation to every single day from startDate to examDate
     const enrichedTasks = allocateTasksAcrossAllCalendarDays(
       rawResult.tasks || [],
-      topics || [],
+      safeTopics,
       preferences,
       isZh
     );
@@ -1337,11 +1785,16 @@ RAG GROUNDING REQUIREMENTS:
       totalPlannedHours: totalCalculatedHours || rawResult.totalPlannedHours || 25,
     };
 
-    res.json(sanitizedResult);
+    res.json({
+      ...sanitizedResult,
+      meta: { source: outcome.source, fallbackReason: outcome.fallbackReason },
+    });
   } catch (error: any) {
+    if (error instanceof ApiInputError) {
+      return res.status(error.status).json({ error: error.message, code: error.code });
+    }
     console.error("Error generating study plan:", error);
-    const fallback = fallbackGeneratePlan(req.body.topics || [], req.body.preferences || {});
-    res.json(fallback);
+    res.status(502).json({ error: "学习计划生成失败，请稍后重试。", code: "PLAN_GENERATION_FAILED" });
   }
 });
 
@@ -1351,12 +1804,9 @@ function allocateTasksAcrossAllCalendarDays(
   preferences: any,
   isZh: boolean
 ): any[] {
-  const start = new Date(preferences.startDate || new Date().toISOString().split("T")[0]);
-  const exam = new Date(preferences.examDate || new Date(start.getTime() + 86400000 * 21).toISOString().split("T")[0]);
-  const diffDays = Math.max(1, Math.ceil((exam.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
-
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  const formatDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const startStr = preferences.startDate || toLocalDateString();
+  const examStr = preferences.examDate || addDaysToDateString(startStr, 21);
+  const diffDays = Math.max(1, daysBetweenDateStrings(startStr, examStr));
 
   const safeTopics = topics && topics.length > 0
     ? topics
@@ -1381,9 +1831,8 @@ function allocateTasksAcrossAllCalendarDays(
   const maxDays = Math.min(diffDays, 60);
 
   for (let dayOffset = 0; dayOffset < maxDays; dayOffset++) {
-    const curDate = new Date(start.getTime() + dayOffset * 86400000);
-    const dateStr = formatDate(curDate);
-    const dayOfWeek = curDate.getDay();
+    const dateStr = addDaysToDateString(startStr, dayOffset);
+    const dayOfWeek = parseLocalDate(dateStr).getDay();
     const scheduleConfig = preferences.dailySchedules?.find((s: any) => s.dayOfWeek === dayOfWeek);
 
     // If day is disabled in user preferences, skip or keep existing
@@ -1520,13 +1969,19 @@ function allocateTasksAcrossAllCalendarDays(
 
 app.post("/api/rag-ask", async (req, res) => {
   try {
-    const { query, topicTitle, taskTitle, materials } = req.body;
+    const body = req.body || {};
+    const query = clampText(body.query, MAX_QUERY_CHARS);
     if (!query) {
-      return res.status(400).json({ error: "Missing query parameter" });
+      return res.status(400).json({ error: "请输入要查询的问题。", code: "MISSING_QUERY" });
     }
 
-    const allChunks = chunkAllMaterials(materials || []);
-    const searchQuery = `${query} ${topicTitle || ""} ${taskTitle || ""}`.trim();
+    const topicTitle = clampText(body.topicTitle, 300);
+    const taskTitle = clampText(body.taskTitle, 300);
+    const safeMaterials = sanitizeMaterials(body.materials || [], 20, 80_000);
+    const isZh = resolveIsChinese(body.language, query, topicTitle, taskTitle);
+
+    const allChunks = chunkAllMaterials(safeMaterials);
+    const searchQuery = `${query} ${topicTitle} ${taskTitle}`.trim();
     const retrievedChunks = retrieveTopChunksForQuery(searchQuery, allChunks, { topK: 5 });
 
     const contextText = retrievedChunks.length > 0
@@ -1535,19 +1990,19 @@ app.post("/api/rag-ask", async (req, res) => {
 
     const prompt = `You are an AI Academic Tutor answering a student's question based strictly on their uploaded study materials.
 Student Question: "${query}"
-Context / Task: Topic: "${topicTitle || 'General'}", Task: "${taskTitle || ''}"
+Context / Task: Topic: "${topicTitle || "General"}", Task: "${taskTitle}"
 
 Retrieved Document Excerpts:
 ${contextText}
 
 Instructions:
-1. Provide a direct, authoritative, and helpful answer grounded in the excerpts.
+1. Provide a direct, helpful answer grounded in the excerpts.
 2. Explicitly cite the document names and section titles where the information came from.
 3. List 1-2 key formulas, rules, or definitions mentioned in the excerpts.
-4. Provide a quick 1-step action the student should take right now to master this concept.
-Output your response in Simplified Chinese (简体中文).`;
+4. Provide a quick 1-step action the student should take right now.
+${isZh ? "Output your response in Simplified Chinese (简体中文)." : "Output your response in English."}`;
 
-    const result = await generateWithRetryAndFallback(
+    const outcome = await generateWithRetryAndFallback(
       (modelName) => ({
         model: modelName,
         contents: prompt,
@@ -1560,37 +2015,36 @@ Output your response in Simplified Chinese (简体中文).`;
           excerpt: c.content.slice(0, 180) + "...",
         })),
       }),
-      () => ({
-        answer: `基于您上传的备考资料，针对「${topicTitle || query}」的解析如下：\n\n1. **核心要点**：根据相关考纲与讲义，此知识点是高频考查单元，重点考查定理适用前提与计算推导。\n2. **解题避坑**：在做题时注意边界条件验证与中间变量舍入。\n3. **即刻行动**：建议立即打开讲义对照公式默写一次，并完成配套例题演练。`,
-        citations: retrievedChunks.slice(0, 3).map((c) => ({
-          documentName: c.materialName,
-          sectionTitle: c.sectionTitle,
-          excerpt: c.content.slice(0, 180) + "...",
-        })),
-      })
+      () => {
+        throw new AiUnavailableError();
+      },
+      { label: "rag-ask", perCallTimeoutMs: 30_000, overallBudgetMs: 50_000 }
     );
 
-    res.json(result);
+    res.json({ ...outcome.value, meta: { source: "ai" } });
   } catch (error: any) {
+    if (error instanceof AiUnavailableError) {
+      return res.status(503).json({
+        error: "AI 问答服务暂时不可用，请稍后重试。",
+        code: "AI_UNAVAILABLE",
+      });
+    }
     console.error("Error in /api/rag-ask:", error);
-    res.json({
-      answer: "已检索备考资料，建议重点复习该考点的核心公式与典型例题。",
-      citations: [],
-    });
+    res.status(500).json({ error: "问答服务异常，请稍后重试。", code: "RAG_FAILED" });
   }
 });
 
 app.post("/api/rebalance-plan", async (req, res) => {
   try {
-    const { currentPlan, currentDate, reason } = req.body;
+    const body = req.body || {};
+    const currentPlan = sanitizePlanForRebalance(body.currentPlan);
+    const requestedDate = clampText(body.currentDate, 20);
+    const todayStr = requestedDate && !Number.isNaN(parseLocalDate(requestedDate).getTime())
+      ? requestedDate
+      : toLocalDateString();
+    const reason = clampText(body.reason, 500);
 
-    if (!currentPlan || !currentPlan.tasks) {
-      return res.status(400).json({ error: "Missing current plan data" });
-    }
-
-    const todayStr = currentDate || new Date().toISOString().split("T")[0];
-
-    const isZh = req.body.language === "zh" || isChinese(currentPlan.examName) || isChinese(currentPlan.subject) || true;
+    const isZh = resolveIsChinese(body.language, currentPlan.examName, currentPlan.subject);
     const prompt = `You are an adaptive study coach.
 The student needs to dynamically reschedule their remaining exam study plan as of ${todayStr}.
 Reason / Trigger: ${reason || "Student missed past tasks or needs schedule rebalancing"}
@@ -1613,7 +2067,7 @@ INSTRUCTIONS:
    - If time is tight, merge low-priority tasks into high-yield review sessions and mark their priority appropriately.
 3. Return the complete updated tasks array with updated dates, startTimes, endTimes, and prioritized sequence.`;
 
-    const result = await generateWithRetryAndFallback(
+    const outcome = await generateWithRetryAndFallback(
       (modelName) => ({
         model: modelName,
         contents: prompt,
@@ -1656,88 +2110,39 @@ INSTRUCTIONS:
         },
       }),
       (text) => JSON.parse(text),
-      () => fallbackRebalancePlan(currentPlan, todayStr, reason)
+      () => fallbackRebalancePlan(currentPlan, todayStr, reason),
+      { label: "rebalance-plan", perCallTimeoutMs: 35_000, overallBudgetMs: 60_000 }
     );
 
+    const result = outcome.value;
     const sanitized = {
       ...result,
       tasks: (result.tasks || []).map((t: any, idx: number) => {
-        const dateStr = t.date || new Date().toISOString().split("T")[0];
+        const dateStr = t.date || toLocalDateString();
         const salt = Math.random().toString(36).slice(2, 6);
         return {
           ...t,
           id: t.id || `task-${dateStr}-${salt}-${idx}`,
         };
       }),
+      meta: { source: outcome.source, fallbackReason: outcome.fallbackReason },
     };
 
     res.json(sanitized);
   } catch (error: any) {
+    if (error instanceof ApiInputError) {
+      return res.status(error.status).json({ error: error.message, code: error.code });
+    }
     console.error("Error rebalancing plan:", error);
-    const fallback = fallbackRebalancePlan(req.body.currentPlan, req.body.currentDate, req.body.reason);
-    res.json(fallback);
-  }
-});
-
-app.post("/api/generate-quiz", async (req, res) => {
-  try {
-    const { topicTitle, taskTitle, keyObjectives, language } = req.body;
-    const isZh = language === "zh" || isChinese(topicTitle) || isChinese(taskTitle) || true;
-
-    const prompt = `Generate 3 high-yield active recall questions to test understanding of the following study session:
-Topic: ${topicTitle}
-Task: ${taskTitle}
-Key Objectives: ${Array.isArray(keyObjectives) ? keyObjectives.join(", ") : ""}
-${isZh ? "CRITICAL: Output all questions, options, and explanations in Simplified Chinese (简体中文)." : ""}
-
-For each question, provide 4 multiple choice options, the exact correct answer, and a clear educational explanation to reinforce memory.`;
-
-    const result = await generateWithRetryAndFallback(
-      (modelName) => ({
-        model: modelName,
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              questions: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    id: { type: Type.STRING },
-                    question: { type: Type.STRING },
-                    options: {
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING },
-                    },
-                    correctAnswer: { type: Type.STRING },
-                    explanation: { type: Type.STRING },
-                    topicTitle: { type: Type.STRING },
-                  },
-                  required: ["id", "question", "options", "correctAnswer", "explanation"],
-                },
-              },
-            },
-            required: ["questions"],
-          },
-        },
-      }),
-      (text) => JSON.parse(text),
-      () => fallbackGenerateQuiz(topicTitle, taskTitle, isZh ? "zh" : "en")
-    );
-
-    res.json(result);
-  } catch (error: any) {
-    console.error("Error generating quiz:", error);
-    const fallback = fallbackGenerateQuiz(req.body.topicTitle, req.body.taskTitle);
-    res.json(fallback);
+    res.status(500).json({ error: "计划重排失败，请稍后重试。", code: "REBALANCE_FAILED" });
   }
 });
 
 async function setupViteOrStatic() {
-  if (process.env.NODE_ENV !== "production") {
+  const isProductionRuntime =
+    process.env.NODE_ENV === "production" || /\.cjs$/i.test(process.argv[1] || "");
+
+  if (!isProductionRuntime) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -1750,6 +2155,27 @@ async function setupViteOrStatic() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
+
+  app.use((err: any, req: any, res: any, next: any) => {
+    if (res.headersSent) return next(err);
+
+    if (err?.type === "entity.too.large") {
+      return res.status(413).json({
+        error: "上传内容过大（上限 16 MB）。",
+        code: "PAYLOAD_TOO_LARGE",
+      });
+    }
+
+    if (err instanceof SyntaxError && "body" in err) {
+      return res.status(400).json({
+        error: "请求内容不是有效的 JSON。",
+        code: "INVALID_JSON",
+      });
+    }
+
+    console.error("Unhandled request error:", err);
+    res.status(500).json({ error: "服务器内部错误。", code: "INTERNAL_ERROR" });
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Exam Plan AI Server running on port ${PORT}`);

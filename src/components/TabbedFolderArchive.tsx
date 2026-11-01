@@ -173,7 +173,6 @@ function getDocExtensionBadge(doc: StudyMaterial): { ext: string; colorBg: strin
 interface TabbedFolderArchiveProps {
   materials: StudyMaterial[];
   onPreviewDoc: (doc: StudyMaterial) => void;
-  onQuizDoc: (doc: StudyMaterial) => void;
   onDeleteDoc: (docId: string) => void;
   onOpenUpload?: (folderType?: StudyMaterial["type"]) => void;
   onOpenPaste?: (folderType?: StudyMaterial["type"]) => void;
@@ -184,7 +183,6 @@ interface TabbedFolderArchiveProps {
 export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
   materials,
   onPreviewDoc,
-  onQuizDoc,
   onDeleteDoc,
   onOpenUpload,
   onOpenPaste,
@@ -252,8 +250,8 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
               </div>
               <p className="text-xs font-mono text-[#666666] mt-1.5">
                 {language === "zh"
-                  ? "共 4 个归档文件夹 • 点击任意文件夹进入查看文件与生成 AI 测验"
-                  : "4 PHYSICAL FOLDERS • CLICK ANY FOLDER TO EXPLORE FILES & QUIZZES"}
+                  ? "共 4 个归档文件夹 • 点击任意文件夹进入查看考纲、真题与笔记"
+                  : "4 PHYSICAL FOLDERS • CLICK ANY FOLDER TO EXPLORE SYLLABUS, EXAMS & NOTES"}
               </p>
             </div>
 

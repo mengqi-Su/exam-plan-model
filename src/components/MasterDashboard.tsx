@@ -28,9 +28,10 @@ import { downloadICSFile } from "../lib/calendarExport";
 import { playCompletionChime } from "../lib/audio";
 import { useI18n } from "../lib/i18n";
 import { TaskFocusTimerModal } from "./TaskFocusTimerModal";
-import { QuizModal } from "./QuizModal";
+import { RagKnowledgeModal } from "./RagKnowledgeModal";
 import { CourseAccordionGallery } from "./CourseAccordionGallery";
 import { PinnedRoadmapTodoList } from "./PinnedRoadmapTodoList";
+import { addDays, parseLocalDate, toLocalDateString } from "../lib/date";
 
 interface MasterDashboardProps {
   plans: ExamStudyPlan[];
@@ -60,20 +61,19 @@ export function MasterDashboard({
   const [sortOption, setSortOption] = useState<"urgent" | "progress" | "name">("urgent");
 
   const [selectedDate, setSelectedDate] = useState<string>(() => {
-    return new Date().toISOString().split("T")[0];
+    return toLocalDateString();
   });
 
   const [activeTimerTask, setActiveTimerTask] = useState<{ task: StudyTask; planId: string } | null>(null);
-  const [activeQuizTask, setActiveQuizTask] = useState<{ task: StudyTask; planId: string } | null>(null);
+  const [activeRagTask, setActiveRagTask] = useState<{ task: StudyTask; plan: ExamStudyPlan } | null>(null);
 
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayStr = useMemo(() => toLocalDateString(), []);
 
   const getDaysRemaining = (examDateStr?: string) => {
     if (!examDateStr) return null;
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    const [y, m, d] = examDateStr.split("-").map(Number);
-    const examDate = new Date(y, m - 1, d);
+    const examDate = parseLocalDate(examDateStr);
     const diffTime = examDate.getTime() - now.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
@@ -243,9 +243,7 @@ export function MasterDashboard({
   };
 
   const handleShiftDate = (days: number) => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() + days);
-    setSelectedDate(d.toISOString().split("T")[0]);
+    setSelectedDate(addDays(selectedDate, days));
   };
 
   return (
@@ -460,16 +458,10 @@ export function MasterDashboard({
                 setActiveTimerTask({ task, planId: matched.plan.id });
               }
             }}
-            onStartQuiz={(task) => {
-              const matched = crossSubjectDailyTasks.find((t) => t.task.id === task.id);
-              if (matched) {
-                setActiveQuizTask({ task, planId: matched.plan.id });
-              }
-            }}
             onStartRag={(task) => {
               const matched = crossSubjectDailyTasks.find((t) => t.task.id === task.id);
               if (matched) {
-                onSelectPlan(matched.plan.id);
+                setActiveRagTask({ task, plan: matched.plan });
               }
             }}
             onAddNewTask={() => {
@@ -491,23 +483,12 @@ export function MasterDashboard({
         />
       )}
 
-      {activeQuizTask && (
-        <QuizModal
-          task={activeQuizTask.task}
+      {activeRagTask && (
+        <RagKnowledgeModal
+          task={activeRagTask.task}
+          plan={activeRagTask.plan}
           isOpen={true}
-          onClose={() => setActiveQuizTask(null)}
-          onMasteryUpdated={(rating) => {
-            const targetPlan = plans.find((p) => p.id === activeQuizTask.planId);
-            if (targetPlan) {
-              const updated = {
-                ...targetPlan,
-                tasks: targetPlan.tasks.map((t) =>
-                  t.id === activeQuizTask.task.id ? { ...t, confidenceRating: rating } : t
-                ),
-              };
-              onUpdatePlan(updated);
-            }
-          }}
+          onClose={() => setActiveRagTask(null)}
         />
       )}
     </div>

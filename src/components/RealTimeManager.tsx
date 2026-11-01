@@ -28,6 +28,8 @@ import { playCompletionChime } from "../lib/audio";
 import { useI18n } from "../lib/i18n";
 import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
 import { fallbackGeneratePlanClient } from "../lib/fallbackPlanner";
+import { getAiFallbackNotice, readApiError } from "../lib/aiClient";
+import { addDays, toLocalDateString } from "../lib/date";
 import { RulerTimePicker } from "./RulerTimePicker";
 import { DomainMasteryWheelChart } from "./DomainMasteryWheelChart";
 import { PieChart, Table } from "lucide-react";
@@ -39,8 +41,6 @@ interface RealTimeManagerProps {
   onAddNewSubject?: () => void;
   onUpdatePlan: (updatedPlan: ExamStudyPlan) => void;
   onNavigateToTab: (tab: "todo" | "calendar" | "materials" | "add_subject" | "course") => void;
-  isRebalanceModalOpen: boolean;
-  onCloseRebalanceModal: () => void;
 }
 
 export function RealTimeManager({
@@ -50,17 +50,13 @@ export function RealTimeManager({
   onAddNewSubject,
   onUpdatePlan,
   onNavigateToTab,
-  isRebalanceModalOpen,
-  onCloseRebalanceModal,
 }: RealTimeManagerProps) {
   const { t, language } = useI18n();
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayStr = useMemo(() => toLocalDateString(), []);
 
   const defaultExamDate = useMemo(() => {
     if (plan?.examDate) return plan.examDate;
-    const d = new Date();
-    d.setDate(d.getDate() + 21);
-    return d.toISOString().split("T")[0];
+    return addDays(toLocalDateString(), 21);
   }, [plan?.examDate]);
 
   const [startDate, setStartDate] = useState(plan?.startDate || todayStr);
@@ -110,6 +106,7 @@ export function RealTimeManager({
   );
   const [rebalanceResultSummary, setRebalanceResultSummary] = useState<string | null>(null);
   const [rebalanceError, setRebalanceError] = useState<string | null>(null);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const update = () => {
@@ -150,6 +147,14 @@ export function RealTimeManager({
     return (plan.topics || []).reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
   }, [plan.topics]);
 
+  const overdueCount = useMemo(
+    () =>
+      (plan.tasks || []).filter(
+        (t) => t.date < todayStr && t.status !== "completed" && t.status !== "skipped"
+      ).length,
+    [plan.tasks, todayStr]
+  );
+
   const handleUpdateDayHours = (dayOfWeek: number, hours: number) => {
     setDailySchedules((prev) =>
       prev.map((s) => (s.dayOfWeek === dayOfWeek ? { ...s, availableHours: hours, enabled: hours > 0 } : s))
@@ -166,6 +171,7 @@ export function RealTimeManager({
     setIsGeneratingPlan(true);
     setPlanGenerateError(null);
     setPlanSuccessNotice(false);
+    setAiNotice(null);
 
     const preferences: UserStudyPreferences = {
       examName: plan.examName,
@@ -215,6 +221,7 @@ export function RealTimeManager({
 
     try {
       let data: any = null;
+      let notice: string | null = null;
       try {
         const res = await fetch("/api/generate-plan", {
           method: "POST",
@@ -229,14 +236,33 @@ export function RealTimeManager({
 
         if (res.ok) {
           data = await res.json();
+          notice = getAiFallbackNotice(data.meta, language);
+        } else {
+          const apiError = await readApiError(res, language);
+          notice =
+            language === "zh"
+              ? `${apiError.message} 已改用本地规划模板。`
+              : `${apiError.message} A local planning template was used instead.`;
         }
       } catch (fetchErr) {
         console.warn("Network fetch error for generate-plan, generating local plan:", fetchErr);
+        notice =
+          language === "zh"
+            ? "无法连接 AI 服务，已改用本地规划模板。"
+            : "Could not reach the AI service. A local planning template was used instead.";
       }
 
       if (!data || !data.tasks || data.tasks.length === 0) {
         data = fallbackGeneratePlanClient(topics, preferences);
+        if (!notice) {
+          notice =
+            language === "zh"
+              ? "AI 未返回有效的学习计划，已改用本地规划模板。"
+              : "AI returned no usable study plan. A local planning template was used instead.";
+        }
       }
+
+      setAiNotice(notice);
 
       const newPlan: ExamStudyPlan = {
         ...plan,
@@ -273,6 +299,11 @@ export function RealTimeManager({
         preferences,
       };
       onUpdatePlan(safePlan);
+      setAiNotice(
+        language === "zh"
+          ? "规划生成失败，已改用本地规划模板。你可以在设置中检查 AI 状态。"
+          : "Plan generation failed. A local planning template was used instead."
+      );
       setPlanSuccessNotice(true);
       setTimeout(() => setPlanSuccessNotice(false), 5000);
     } finally {
@@ -332,9 +363,11 @@ export function RealTimeManager({
     setIsRebalancing(true);
     setRebalanceError(null);
     setRebalanceResultSummary(null);
+    setAiNotice(null);
 
     try {
       let data: any = null;
+      let notice: string | null = null;
       try {
         const res = await fetch("/api/rebalance-plan", {
           method: "POST",
@@ -349,12 +382,29 @@ export function RealTimeManager({
 
         if (res.ok) {
           data = await res.json();
+          notice = getAiFallbackNotice(data.meta, language);
+        } else {
+          const apiError = await readApiError(res, language);
+          notice =
+            language === "zh"
+              ? `${apiError.message} 已改用本地排程规则。`
+              : `${apiError.message} A local scheduling rule was used instead.`;
         }
       } catch (fetchErr) {
         console.warn("Network error during rebalance fetch, using local scheduler:", fetchErr);
+        notice =
+          language === "zh"
+            ? "无法连接 AI 服务，已改用本地排程规则重排计划。"
+            : "Could not reach the AI service. A local scheduling rule was used instead.";
       }
 
       if (!data || !data.tasks || !Array.isArray(data.tasks)) {
+        if (!notice) {
+          notice =
+            language === "zh"
+              ? "AI 未返回有效排程，已改用本地排程规则。"
+              : "AI returned no usable schedule. A local scheduling rule was used instead.";
+        }
 
         const overdueTasks = (plan.tasks || []).filter(
           (t) => t.date < todayStr && t.status !== "completed" && t.status !== "skipped"
@@ -366,7 +416,7 @@ export function RealTimeManager({
           ...completedOrCurrent,
           ...overdueTasks.map((t, idx) => {
             const shiftDays = Math.floor(idx / 2);
-            const targetDate = new Date(Date.now() + shiftDays * 86400000).toISOString().split("T")[0];
+            const targetDate = addDays(todayStr, shiftDays);
             return {
               ...t,
               date: targetDate,
@@ -385,6 +435,7 @@ export function RealTimeManager({
       }
 
       if (data.tasks && Array.isArray(data.tasks)) {
+        setAiNotice(notice);
         onUpdatePlan({
           ...plan,
           tasks: data.tasks,
@@ -393,15 +444,15 @@ export function RealTimeManager({
         setRebalanceResultSummary(
           data.rebalanceSummary ||
             (language === "zh"
-              ? "学习计划已成功根据剩余天数平摊与动态重排！"
+              ? "学习计划已根据剩余天数平摊与动态重排！"
               : "Study plan successfully rebalanced across remaining days!")
         );
         playCompletionChime();
       }
     } catch (err: any) {
-      console.error("Rebalance handled:", err);
-      setRebalanceResultSummary(
-        language === "zh" ? "学习计划已根据当前备考节奏自动更新！" : "Study plan updated to match your current pace."
+      console.error("Rebalance failed:", err);
+      setRebalanceError(
+        language === "zh" ? "计划重排失败，请稍后重试。" : "Rebalance failed. Please try again later."
       );
     } finally {
       setIsRebalancing(false);
@@ -421,6 +472,21 @@ export function RealTimeManager({
           <button
             onClick={() => setPlanSuccessNotice(false)}
             className="px-2 py-0.5 border border-[#111111] text-[11px] hover:bg-[#111111] hover:text-white cursor-pointer"
+          >
+            [{language === "zh" ? "知道了" : "DISMISS"}]
+          </button>
+        </div>
+      )}
+
+      {aiNotice && (
+        <div className="p-3.5 bg-[#FCD33B] border border-[#111111] text-[#111111] font-mono text-xs flex items-center justify-between animate-fadeIn">
+          <div className="flex items-start space-x-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="font-bold leading-relaxed">{aiNotice}</span>
+          </div>
+          <button
+            onClick={() => setAiNotice(null)}
+            className="px-2 py-0.5 border border-[#111111] text-[11px] hover:bg-[#111111] hover:text-white cursor-pointer shrink-0 ml-3"
           >
             [{language === "zh" ? "知道了" : "DISMISS"}]
           </button>
@@ -550,9 +616,70 @@ export function RealTimeManager({
 
       <section className="space-y-3 font-mono">
         <div className="flex items-center space-x-2 pb-2 border-b border-[#111111]">
+          <RefreshCw className="w-4 h-4 text-[#111111]" />
+          <h2 className="text-xs font-bold uppercase text-[#111111]">
+            [2. {language === "zh" ? "计划动态重排" : "ADAPTIVE REBALANCE"}]
+          </h2>
+        </div>
+
+        <div className="bg-white border border-[#111111] p-4 space-y-3">
+          <p className="text-[11px] text-[#666666] leading-relaxed">
+            {language === "zh"
+              ? "当作息变动或出现积压任务时，可将未完成任务平摊到剩余备考时间。AI 不可用时会自动改用本地排程规则。"
+              : "Redistribute overdue tasks across the remaining study days. If AI is unavailable, local scheduling rules are used automatically."}
+          </p>
+
+          <textarea
+            value={rebalanceReason}
+            onChange={(e) => setRebalanceReason(e.target.value)}
+            rows={2}
+            placeholder={language === "zh" ? "说明本次调整原因（可选）" : "Why are you rebalancing? (optional)"}
+            className="w-full bg-[#faf9f6] border border-[#111111] px-3 py-2 text-xs text-[#111111] placeholder-[#999999] focus:outline-none resize-none"
+          />
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-[10px] font-bold text-[#666666] uppercase">
+              [{language === "zh" ? `积压任务 ${overdueCount} 项` : `${overdueCount} OVERDUE TASKS`}]
+            </span>
+            <button
+              onClick={handleTriggerRebalance}
+              disabled={isRebalancing}
+              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#111111] hover:bg-[#333333] disabled:opacity-50 text-white text-xs font-bold transition-colors cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRebalancing ? "animate-spin" : ""}`} />
+              <span>
+                {isRebalancing
+                  ? language === "zh"
+                    ? "正在重排..."
+                    : "REBALANCING..."
+                  : language === "zh"
+                    ? "重排剩余任务"
+                    : "REBALANCE TASKS"}
+              </span>
+            </button>
+          </div>
+
+          {rebalanceError && (
+            <div className="flex items-start space-x-2 p-2.5 bg-[#faf9f6] border border-[#111111] text-[11px] text-[#111111]">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>{rebalanceError}</span>
+            </div>
+          )}
+
+          {rebalanceResultSummary && (
+            <div className="flex items-start space-x-2 p-2.5 bg-[#faf9f6] border border-[#111111] text-[11px] text-[#111111]">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>{rebalanceResultSummary}</span>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-3 font-mono">
+        <div className="flex items-center space-x-2 pb-2 border-b border-[#111111]">
           <PieChart className="w-4 h-4 text-[#111111]" />
           <h2 className="text-xs font-bold uppercase text-[#111111]">
-            [2. {language === "zh" ? "考点知识掌握度追踪" : "TOPIC MASTERY TRACKER"}]
+            [3. {language === "zh" ? "考点知识掌握度追踪" : "TOPIC MASTERY TRACKER"}]
           </h2>
         </div>
 
