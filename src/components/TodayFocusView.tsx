@@ -292,10 +292,7 @@ export function TodayFocusView({
           {nextItem && (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-2 border-[#111111] bg-[#FCD33B] px-4 py-3.5 shadow-[4px_4px_0px_#111111]">
               <div className="min-w-0">
-                <div className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#7a5c00]">
-                  {isZh ? "接下来 · 主任务" : "NEXT UP · PRIMARY"}
-                </div>
-                <div className="mt-1 truncate text-sm font-bold text-[#111111]">
+                <div className="truncate text-sm font-bold text-[#111111]">
                   {nextItem.task.title}
                 </div>
                 <div className="mt-0.5 truncate font-mono text-[11px] text-[#5f4a00]">

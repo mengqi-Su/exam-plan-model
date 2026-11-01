@@ -278,9 +278,6 @@ export function CourseDetailPage({
             <h2 className="text-sm font-bold uppercase text-[#111111]">
               {language === "zh" ? "进度、阶段与动态重排" : "PROGRESS, PHASES & REBALANCE"}
             </h2>
-            <span className="ml-auto text-[10px] font-bold uppercase text-[#888888]">
-              {language === "zh" ? "主视图" : "PRIMARY"}
-            </span>
           </div>
           <RealTimeManager plan={plan} onUpdatePlan={onUpdatePlan} />
         </section>
@@ -300,9 +297,6 @@ export function CourseDetailPage({
             <span className="flex items-center gap-2 shrink-0 text-[10px] font-bold text-[#666666]">
               <span className="hidden sm:inline">
                 {stats.materialsCount} {language === "zh" ? "份资料" : "files"} · {stats.topicsCount} {language === "zh" ? "个考点" : "topics"}
-              </span>
-              <span className="text-[#888888]">
-                {showKnowledge ? (language === "zh" ? "收起" : "COLLAPSE") : (language === "zh" ? "展开管理" : "EXPAND")}
               </span>
               <ChevronDown className={`w-4 h-4 transition-transform ${showKnowledge ? "rotate-180" : ""}`} />
             </span>
