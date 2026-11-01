@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Play,
   Plus,
   Sun,
 } from "lucide-react";
@@ -160,6 +161,12 @@ export function TodayFocusView({
   const isToday = selectedDate === todayStr;
   const completedCount = dayItems.filter((item) => item.task.status === "completed").length;
 
+  // One primary focus: the next pending task, surfaced above the overview list.
+  const nextItem = useMemo(
+    () => dayItems.find((item) => item.task.status !== "completed") || null,
+    [dayItems]
+  );
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6 animate-fadeIn text-[#111111] font-mono">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-3 border-b border-[#111111]">
@@ -281,21 +288,47 @@ export function TodayFocusView({
           </div>
         </div>
       ) : (
-        <PinnedRoadmapTodoList
-          tasks={dayItems.map((item) => ({
-            ...item.task,
-            topicTitle: `[${item.plan.examName}] ${item.task.topicTitle || ""}`,
-          }))}
-          onToggleComplete={handleToggleComplete}
-          onUpdateConfidence={handleUpdateConfidence}
-          onSaveNotes={handleSaveNotes}
-          onDeleteTask={handleDeleteTask}
-          onStartTimer={(task) => {
-            const item = findItem(task.id);
-            if (item) setActiveTimer(item);
-          }}
-          selectedDate={selectedDate}
-        />
+        <div className="space-y-5">
+          {nextItem && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-2 border-[#111111] bg-[#FCD33B] px-4 py-3.5 shadow-[4px_4px_0px_#111111]">
+              <div className="min-w-0">
+                <div className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#7a5c00]">
+                  {isZh ? "接下来 · 主任务" : "NEXT UP · PRIMARY"}
+                </div>
+                <div className="mt-1 truncate text-sm font-bold text-[#111111]">
+                  {nextItem.task.title}
+                </div>
+                <div className="mt-0.5 truncate font-mono text-[11px] text-[#5f4a00]">
+                  [{nextItem.plan.examName}] {nextItem.task.topicTitle} · {nextItem.task.durationMinutes}{" "}
+                  {isZh ? "分钟" : "min"}
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveTimer(nextItem)}
+                className="shrink-0 inline-flex items-center justify-center gap-2 px-5 min-h-11 bg-[#111111] text-white text-[13px] font-bold hover:bg-[#333333] cursor-pointer"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                {isZh ? "开始专注" : "START FOCUS"}
+              </button>
+            </div>
+          )}
+
+          <PinnedRoadmapTodoList
+            tasks={dayItems.map((item) => ({
+              ...item.task,
+              topicTitle: `[${item.plan.examName}] ${item.task.topicTitle || ""}`,
+            }))}
+            onToggleComplete={handleToggleComplete}
+            onUpdateConfidence={handleUpdateConfidence}
+            onSaveNotes={handleSaveNotes}
+            onDeleteTask={handleDeleteTask}
+            onStartTimer={(task) => {
+              const item = findItem(task.id);
+              if (item) setActiveTimer(item);
+            }}
+            selectedDate={selectedDate}
+          />
+        </div>
       )}
 
       {activeTimer && (

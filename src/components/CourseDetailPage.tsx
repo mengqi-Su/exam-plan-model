@@ -3,6 +3,7 @@ import {
   ArrowRight,
   BookOpen,
   Calendar,
+  ChevronDown,
   Clock,
   FileText,
   Sun,
@@ -28,6 +29,9 @@ export function CourseDetailPage({
   onNavigateToTab,
 }: CourseDetailPageProps) {
   const { language } = useI18n();
+
+  // Secondary reference detail is disclosed on demand; progress stays primary.
+  const [showKnowledge, setShowKnowledge] = useState(false);
 
   const [countdown, setCountdown] = useState({
     days: 0,
@@ -269,27 +273,49 @@ export function CourseDetailPage({
         </div>
 
         <section className="space-y-4">
-          <div className="flex items-center space-x-2 pb-2 border-b border-[#111111] font-mono">
-            <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">01</span>
-            <h2 className="text-xs font-bold uppercase text-[#111111]">
+          <div className="flex items-center space-x-2 pb-2 border-b-2 border-[#111111] font-mono">
+            <span className="px-1.5 py-0.5 bg-[#FCD33B] border border-[#111111] text-[#111111] text-[10px] font-bold">01</span>
+            <h2 className="text-sm font-bold uppercase text-[#111111]">
               {language === "zh" ? "进度、阶段与动态重排" : "PROGRESS, PHASES & REBALANCE"}
             </h2>
+            <span className="ml-auto text-[10px] font-bold uppercase text-[#888888]">
+              {language === "zh" ? "主视图" : "PRIMARY"}
+            </span>
           </div>
           <RealTimeManager plan={plan} onUpdatePlan={onUpdatePlan} />
         </section>
 
-        <section className="space-y-4">
-          <div className="flex items-center space-x-2 pb-2 border-b border-[#111111] font-mono">
-            <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold">02</span>
-            <h2 className="text-xs font-bold uppercase text-[#111111]">
-              {language === "zh" ? "课程资料与考点体系" : "COURSE MATERIALS & TOPIC TREE"}
-            </h2>
-          </div>
-          <CourseKnowledgeHub
-            plan={plan}
-            onUpdatePlan={onUpdatePlan}
-            onRequestDeleteCourse={onRequestDeletePlan}
-          />
+        <section className="border border-[#111111] bg-white">
+          <button
+            onClick={() => setShowKnowledge((prev) => !prev)}
+            aria-expanded={showKnowledge}
+            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left font-mono hover:bg-[#fafafa] transition-colors cursor-pointer"
+          >
+            <span className="flex items-center space-x-2 min-w-0">
+              <span className="px-1.5 py-0.5 bg-white border border-[#111111] text-[#111111] text-[10px] font-bold">02</span>
+              <span className="text-xs font-bold uppercase text-[#111111] truncate">
+                {language === "zh" ? "课程资料与考点体系" : "COURSE MATERIALS & TOPIC TREE"}
+              </span>
+            </span>
+            <span className="flex items-center gap-2 shrink-0 text-[10px] font-bold text-[#666666]">
+              <span className="hidden sm:inline">
+                {stats.materialsCount} {language === "zh" ? "份资料" : "files"} · {stats.topicsCount} {language === "zh" ? "个考点" : "topics"}
+              </span>
+              <span className="text-[#888888]">
+                {showKnowledge ? (language === "zh" ? "收起" : "COLLAPSE") : (language === "zh" ? "展开管理" : "EXPAND")}
+              </span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showKnowledge ? "rotate-180" : ""}`} />
+            </span>
+          </button>
+          {showKnowledge && (
+            <div className="border-t border-[#111111] p-4 sm:p-5">
+              <CourseKnowledgeHub
+                plan={plan}
+                onUpdatePlan={onUpdatePlan}
+                onRequestDeleteCourse={onRequestDeletePlan}
+              />
+            </div>
+          )}
         </section>
       </main>
     </div>
