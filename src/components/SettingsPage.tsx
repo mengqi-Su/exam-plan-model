@@ -3,22 +3,11 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Check,
-  Clock,
-  Cpu,
-  Database,
+  ChevronDown,
   Download,
-  FileJson,
-  FolderOpen,
-  HardDrive,
-  Languages,
-  ListChecks,
-  RefreshCw,
-  Settings,
   ShieldCheck,
   Trash2,
   Upload,
-  Wifi,
-  WifiOff,
 } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import { AppSettings, DailyMemoNote, ExamStudyPlan } from "../types";
@@ -47,7 +36,7 @@ function formatBytes(bytes: number): string {
   return `${value.toFixed(value >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
 }
 
-function Toggle({
+function Switch({
   checked,
   onChange,
   ariaLabel,
@@ -63,35 +52,94 @@ function Toggle({
       aria-checked={checked}
       aria-label={ariaLabel}
       onClick={() => onChange(!checked)}
-      className={`relative w-10 h-6 border border-[#111111] transition-colors cursor-pointer shrink-0 ${
-        checked ? "bg-[#111111]" : "bg-white"
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 cursor-pointer ${
+        checked ? "bg-[#1c1b1a]" : "bg-[#ddd9d2]"
       }`}
     >
       <span
-        className={`absolute top-0.5 w-4 h-4 transition-all ${
-          checked ? "left-[20px] bg-white" : "left-0.5 bg-[#111111]"
+        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${
+          checked ? "translate-x-[22px]" : "translate-x-[2px]"
         }`}
       />
     </button>
   );
 }
 
-function SectionHeading({
-  index,
-  title,
-  description,
+function Segmented({
+  options,
+  value,
+  onSelect,
+  ariaLabel,
 }: {
-  index: string;
-  title: string;
-  description: string;
+  options: { value: string; label: string }[];
+  value: string;
+  onSelect: (value: string) => void;
+  ariaLabel: string;
 }) {
   return (
-    <div className="pb-2.5 border-b border-[#111111]">
-      <div className="flex items-baseline gap-2">
-        <span className="font-mono text-[10px] font-bold text-[#666666]">[{index}]</span>
-        <h2 className="text-sm font-bold text-[#111111]">{title}</h2>
+    <div role="radiogroup" aria-label={ariaLabel} className="inline-flex items-center rounded-lg bg-[#f1efe9] p-1">
+      {options.map((opt) => {
+        const active = opt.value === value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onSelect(opt.value)}
+            className={`rounded-md px-3 py-1.5 text-[13px] transition-all duration-150 cursor-pointer ${
+              active ? "bg-white font-medium text-[#1c1b1a] shadow-sm" : "text-[#8a8580] hover:text-[#1c1b1a]"
+            }`}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`rounded-xl border border-[#eae7e1] bg-white shadow-[0_1px_2px_rgba(28,27,26,0.04)] ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function SectionHeader({ id, title, description }: { id: string; title: string; description?: string }) {
+  return (
+    <div className="mb-3">
+      <h2 id={id} className="text-[15px] font-semibold tracking-tight text-[#1c1b1a]">
+        {title}
+      </h2>
+      {description && <p className="mt-1 text-[13px] leading-relaxed text-[#8a8580]">{description}</p>}
+    </div>
+  );
+}
+
+function Row({
+  title,
+  description,
+  children,
+  stack,
+}: {
+  title: React.ReactNode;
+  description?: string;
+  children: React.ReactNode;
+  stack?: boolean;
+}) {
+  return (
+    <div
+      className={`flex gap-4 px-5 py-4 ${
+        stack ? "flex-col items-start sm:flex-row sm:items-center sm:justify-between" : "items-center justify-between"
+      }`}
+    >
+      <div className="min-w-0">
+        <div className="text-[14px] font-medium text-[#1c1b1a]">{title}</div>
+        {description && <p className="mt-0.5 text-[13px] leading-snug text-[#8a8580]">{description}</p>}
       </div>
-      <p className="mt-1 text-[12px] leading-relaxed text-[#666666]">{description}</p>
+      <div className="shrink-0">{children}</div>
     </div>
   );
 }
@@ -249,425 +297,408 @@ export function SettingsPage({
     }
   };
 
+  const navItems = [
+    { id: "pref", label: isZh ? "学习偏好" : "Preferences" },
+    { id: "lang", label: isZh ? "界面语言" : "Language" },
+    { id: "data", label: isZh ? "数据管理" : "Data" },
+    { id: "about", label: isZh ? "关于" : "About" },
+  ];
+
+  const stats = [
+    { label: isZh ? "备考科目" : "Subjects", value: String(plans.length) },
+    { label: isZh ? "任务" : "Tasks", value: String(totalTasks) },
+    { label: isZh ? "资料" : "Files", value: String(totalMaterials) },
+    { label: isZh ? "占用空间" : "Storage", value: storageInfo ? formatBytes(storageInfo.usage) : "—" },
+  ];
+
+  const metaRows = [
+    { label: isZh ? "当前版本" : "Version", value: APP_VERSION_DATA.version },
+    { label: isZh ? "发布日期" : "Release date", value: APP_VERSION_DATA.buildDate },
+    { label: isZh ? "构建编号" : "Build", value: APP_VERSION_DATA.buildNumber },
+    { label: isZh ? "运行环境" : "Runtime", value: APP_VERSION_DATA.environment },
+  ];
+
+  const diagnostics = [
+    {
+      label: isZh ? "本地数据存储" : "Local storage",
+      value: isZh ? "IndexedDB · 已启用" : "IndexedDB · Active",
+      ok: true,
+    },
+    {
+      label: isZh ? "AI 规划服务" : "AI planner service",
+      value: isZh ? "服务端 Gemini · 按需调用" : "Server-side Gemini · On demand",
+      ok: true,
+    },
+    {
+      label: isZh ? "账号与云同步" : "Account & cloud",
+      value: isZh ? "已移除 · 无需登录" : "Removed · No sign-in",
+      ok: true,
+    },
+    {
+      label: isZh ? "网络状态" : "Network",
+      value: navigator.onLine
+        ? isZh
+          ? "在线 · AI 功能可用"
+          : "Online · AI available"
+        : isZh
+          ? "离线 · 仍可查看与编辑本地计划"
+          : "Offline · Local plans remain editable",
+      ok: navigator.onLine,
+    },
+  ];
+
+  const ghostButton =
+    "inline-flex items-center gap-2 rounded-lg border border-[#e5e2dc] bg-white px-4 py-2 text-[13px] font-medium text-[#1c1b1a] transition-colors hover:bg-[#faf9f6] cursor-pointer";
+
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-7 animate-fadeIn text-[#111111] font-mono">
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-3 border-b border-[#111111]">
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12 animate-fadeIn text-[#1c1b1a]">
+      <header className="mb-8 flex items-end justify-between gap-4">
         <div>
-          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#666666]">
-            WORKSPACE // {isZh ? "本机设置" : "LOCAL SETTINGS"}
-          </div>
-          <h1 className="mt-1 text-3xl sm:text-4xl font-bold tracking-tight flex items-center gap-2.5">
-            <Settings className="w-7 h-7" />
-            <span>{isZh ? "设置" : "Settings"}</span>
-          </h1>
-          <p className="mt-1 text-[13px] text-[#555555] leading-relaxed">
+          <h1 className="text-2xl font-semibold tracking-tight">{isZh ? "设置" : "Settings"}</h1>
+          <p className="mt-1 text-[13px] text-[#8a8580]">
             {isZh
-              ? "本地优先，无需账号。修改会立即保存在此浏览器。"
-              : "Local-first, no account. Changes save in this browser immediately."}
+              ? "本地优先，无需账号。更改会即时保存在此浏览器。"
+              : "Local-first, no account. Changes save instantly in this browser."}
           </p>
         </div>
-        <span className="shrink-0 border border-[#111111] bg-white px-2.5 py-1 font-mono text-[11px] font-bold">
+        <span className="shrink-0 rounded-full bg-[#f1efe9] px-3 py-1 text-[12px] font-medium tabular-nums text-[#6b6660]">
           {APP_VERSION_DATA.version}
         </span>
       </header>
 
+      <div className="lg:grid lg:grid-cols-[180px_minmax(0,1fr)] lg:gap-10">
+        <nav className="hidden lg:block" aria-label={isZh ? "设置导航" : "Settings navigation"}>
+          <div className="sticky top-24 space-y-1">
+            {navItems.map((item) => (
+              <a
+                key={item.id}
+                href={`#${item.id}`}
+                className="block rounded-md px-3 py-2 text-[13px] text-[#8a8580] transition-colors hover:bg-black/[0.03] hover:text-[#1c1b1a]"
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
+        </nav>
+
+        <div className="min-w-0 space-y-10">
+          {/* Preferences */}
+          <section id="pref" className="scroll-mt-24" aria-labelledby="settings-preferences-heading">
+            <SectionHeader
+              id="settings-preferences-heading"
+              title={isZh ? "学习偏好" : "Study preferences"}
+              description={
+                isZh
+                  ? "专注计时、提示音，以及新建科目时使用的复习节奏。"
+                  : "Focus timer, sound alerts, and the pace used for new subjects."
+              }
+            />
+            <Card>
+              <div className="divide-y divide-[#f0ede8]">
+                <Row
+                  stack
+                  title={isZh ? "专注计时初始时长" : "Focus timer duration"}
+                  description={isZh ? "打开任务计时器时从该时长开始。" : "The timer starts at this duration."}
+                >
+                  <Segmented
+                    ariaLabel={isZh ? "专注计时初始时长" : "Focus timer duration"}
+                    value={String(settings.defaultFocusDuration)}
+                    onSelect={(v) => updateSetting("defaultFocusDuration", Number(v))}
+                    options={[25, 45, 60, 90].map((m) => ({ value: String(m), label: `${m} min` }))}
+                  />
+                </Row>
+                <Row
+                  title={isZh ? "提示音" : "Sound alerts"}
+                  description={
+                    isZh ? "任务完成与计时结束时播放提示音。" : "Play a chime when tasks complete or the timer ends."
+                  }
+                >
+                  <Switch
+                    checked={settings.enableSoundAlerts}
+                    onChange={(next) => updateSetting("enableSoundAlerts", next)}
+                    ariaLabel={isZh ? "提示音" : "Sound alerts"}
+                  />
+                </Row>
+                <Row
+                  stack
+                  title={isZh ? "默认复习节奏" : "Default study pace"}
+                  description={isZh ? "新建科目时按该节奏生成复习计划。" : "New subjects generate their plan with this pace."}
+                >
+                  <div className="relative">
+                    <select
+                      value={settings.defaultStudyPace}
+                      onChange={(e) =>
+                        updateSetting("defaultStudyPace", e.target.value as AppSettings["defaultStudyPace"])
+                      }
+                      aria-label={isZh ? "默认复习节奏" : "Default study pace"}
+                      className="min-w-[180px] cursor-pointer appearance-none rounded-lg border border-[#e5e2dc] bg-white py-2 pl-3 pr-9 text-[13px] text-[#1c1b1a] focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-[#1c1b1a]"
+                    >
+                      <option value="spaced_repetition">{isZh ? "间隔复习" : "Spaced Repetition"}</option>
+                      <option value="balanced">{isZh ? "稳健平衡" : "Balanced"}</option>
+                      <option value="deep_mastery">{isZh ? "深度精通" : "Deep Mastery"}</option>
+                      <option value="intensive_crash">{isZh ? "考前冲刺" : "Intensive Sprint"}</option>
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a8580]" />
+                  </div>
+                </Row>
+              </div>
+            </Card>
+          </section>
+
+          {/* Language */}
+          <section id="lang" className="scroll-mt-24" aria-labelledby="settings-language-heading">
+            <SectionHeader
+              id="settings-language-heading"
+              title={isZh ? "界面语言" : "Language"}
+              description={isZh ? "仅影响本机界面显示。" : "Affects this browser only."}
+            />
+            <Card>
+              <Row stack title={isZh ? "显示语言" : "Display language"}>
+                <Segmented
+                  ariaLabel={isZh ? "显示语言" : "Display language"}
+                  value={language}
+                  onSelect={(v) => setLanguage(v as "zh" | "en")}
+                  options={[
+                    { value: "zh", label: "简体中文" },
+                    { value: "en", label: "English" },
+                  ]}
+                />
+              </Row>
+            </Card>
+          </section>
+
+          {/* Data */}
+          <section id="data" className="scroll-mt-24" aria-labelledby="settings-data-heading">
+            <SectionHeader
+              id="settings-data-heading"
+              title={isZh ? "数据管理" : "Data"}
+              description={
+                isZh
+                  ? "计划与资料保存在当前浏览器。只有在你主动使用 AI 时，所选内容才会发送给已配置的 AI 服务。"
+                  : "Plans live in this browser. Selected content is sent to the configured AI service only when you explicitly use AI."
+              }
+            />
+            <div className="space-y-4">
+              <Card className="overflow-hidden">
+                <div className="grid grid-cols-2 gap-px bg-[#f0ede8] sm:grid-cols-4">
+                  {stats.map((item) => (
+                    <div key={item.label} className="bg-white px-5 py-4">
+                      <div className="text-[12px] text-[#8a8580]">{item.label}</div>
+                      <div className="mt-1 text-xl font-semibold tabular-nums text-[#1c1b1a]">{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#f0ede8] px-5 py-3 text-[12px] text-[#8a8580]">
+                  <span>
+                    {storageInfo && storageInfo.quota > 0
+                      ? `${isZh ? "浏览器配额" : "Quota"}: ${formatBytes(storageInfo.quota)}`
+                      : isZh
+                        ? "浏览器未提供存储配额信息"
+                        : "Storage quota unavailable"}
+                  </span>
+                  <span>
+                    {isPersisted === null
+                      ? ""
+                      : isPersisted
+                        ? isZh
+                          ? "持久化存储：已启用"
+                          : "Persistence: on"
+                        : isZh
+                          ? "持久化存储：未启用"
+                          : "Persistence: off"}
+                  </span>
+                </div>
+              </Card>
+
+              <Card>
+                <div className="divide-y divide-[#f0ede8]">
+                  <Row
+                    stack
+                    title={isZh ? "备份与恢复" : "Backup & restore"}
+                    description={
+                      isZh
+                        ? "导出包含全部计划、资料、设置与每日随记；导入按计划 ID 合并，不会覆盖其他课程。"
+                        : "Export plans, materials, settings and memos. Import merges by plan ID without duplicating courses."
+                    }
+                  >
+                    <div className="flex flex-wrap gap-2">
+                      <button onClick={handleExport} className={ghostButton}>
+                        <Download className="h-4 w-4" />
+                        {isZh ? "导出" : "Export"}
+                      </button>
+                      <button onClick={() => fileInputRef.current?.click()} className={ghostButton}>
+                        <Upload className="h-4 w-4" />
+                        {isZh ? "导入" : "Import"}
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".json,application/json"
+                        onChange={handleImportFile}
+                        className="hidden"
+                      />
+                    </div>
+                  </Row>
+
+                  {importError && (
+                    <div className="px-5 py-3">
+                      <div className="flex items-start gap-2 rounded-lg bg-[#FDF0EE] px-3 py-2.5 text-[13px] leading-relaxed text-[#B42318]">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                        <span>{importError}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {!isPersisted && (
+                    <Row
+                      stack
+                      title={isZh ? "持久化存储" : "Persistent storage"}
+                      description={isZh ? "授权后浏览器不会自动清理本地数据。" : "Prevent the browser from auto-clearing local data."}
+                    >
+                      <button onClick={handleRequestPersistence} className={ghostButton}>
+                        <ShieldCheck className="h-4 w-4" />
+                        {isZh ? "申请权限" : "Request"}
+                      </button>
+                    </Row>
+                  )}
+                </div>
+              </Card>
+
+              <div className="flex items-start gap-2.5 rounded-xl border border-[#eae7e1] bg-[#faf9f6] px-4 py-3 text-[13px] leading-relaxed text-[#6b6660]">
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#8a8580]" />
+                <span>
+                  {isZh
+                    ? "本地模式，无需登录。清除浏览器站点数据或使用无痕模式会丢失计划，建议定期导出 JSON 备份。"
+                    : "Local mode, no sign-in. Clearing site data or using private browsing erases plans — export a JSON backup regularly."}
+                </span>
+              </div>
+
+              <Card className="border-[#f0d8d4]">
+                <Row
+                  stack
+                  title={<span className="text-[#B42318]">{isZh ? "清除全部本地数据" : "Clear all local data"}</span>}
+                  description={
+                    isZh
+                      ? "删除所有科目、任务、资料与每日随记，无法撤销。建议先导出备份。"
+                      : "Permanently deletes all subjects, tasks, materials and memos. Export a backup first."
+                  }
+                >
+                  <button
+                    onClick={handleConfirmClear}
+                    disabled={isClearing}
+                    className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer disabled:opacity-50 ${
+                      confirmClear
+                        ? "bg-[#B42318] text-white"
+                        : "border border-[#f0d0cc] bg-white text-[#B42318] hover:bg-[#FDF0EE]"
+                    }`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {isClearing
+                      ? isZh
+                        ? "正在清除…"
+                        : "Clearing…"
+                      : confirmClear
+                        ? isZh
+                          ? "再次点击确认清除"
+                          : "Click again to confirm"
+                        : isZh
+                          ? "清除数据"
+                          : "Clear data"}
+                  </button>
+                </Row>
+              </Card>
+            </div>
+          </section>
+
+          {/* About */}
+          <section id="about" className="scroll-mt-24" aria-labelledby="settings-about-heading">
+            <SectionHeader
+              id="settings-about-heading"
+              title={isZh ? "关于" : "About"}
+              description={APP_VERSION_DATA.releaseName}
+            />
+            <div className="space-y-4">
+              <Card>
+                <div className="divide-y divide-[#f0ede8]">
+                  {metaRows.map((item) => (
+                    <div key={item.label} className="flex items-center justify-between gap-4 px-5 py-3">
+                      <span className="text-[13px] text-[#8a8580]">{item.label}</span>
+                      <span className="break-all text-right text-[13px] font-medium tabular-nums text-[#1c1b1a]">
+                        {item.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card>
+                <div className="divide-y divide-[#f0ede8]">
+                  {diagnostics.map((item) => (
+                    <div key={item.label} className="flex items-center justify-between gap-4 px-5 py-3">
+                      <span className="flex items-center gap-2.5 text-[13px] text-[#1c1b1a]">
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${item.ok ? "bg-[#3F6B4F]" : "bg-[#B42318]"}`} />
+                        {item.label}
+                      </span>
+                      <span className="text-right text-[13px] text-[#8a8580]">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className="px-5 py-4">
+                <div className="mb-3 text-[13px] font-semibold text-[#1c1b1a]">{isZh ? "更新日志" : "Changelog"}</div>
+                <div className="space-y-4">
+                  {APP_VERSION_DATA.changelog.map((entry) => (
+                    <div key={entry.version}>
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span className="text-[14px] font-medium text-[#1c1b1a]">{entry.title}</span>
+                        <span className="text-[12px] tabular-nums text-[#a39e97]">
+                          {entry.version} · {entry.date}
+                        </span>
+                      </div>
+                      <ul className="mt-1.5 space-y-1">
+                        {entry.highlights.map((highlight) => (
+                          <li key={highlight} className="flex gap-2 text-[13px] leading-relaxed text-[#8a8580]">
+                            <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[#d8d4cc]" />
+                            <span>{highlight}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <div className="flex flex-col gap-3 rounded-xl border border-[#eae7e1] bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-[13px] leading-relaxed text-[#6b6660]">
+                  {isZh
+                    ? "这里只负责规划与执行安排；题库练习、模拟考试请前往 StarQuiz。"
+                    : "This app handles planning and execution. Practice and mock exams live in StarQuiz."}
+                </p>
+                <a
+                  href={STARQUIZ_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#1c1b1a] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#333333] cursor-pointer"
+                >
+                  {isZh ? "去 StarQuiz 刷题" : "Open StarQuiz"}
+                  <ArrowUpRight className="h-4 w-4" />
+                </a>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+
       {notification && (
         <div
           role="status"
-          className="flex items-center gap-2 border border-[#111111] bg-[#FCD33B] px-3.5 py-2.5 text-[12px] font-bold animate-fadeIn"
+          className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-lg bg-[#1c1b1a] px-4 py-2.5 text-[13px] font-medium text-white shadow-lg animate-fadeIn"
         >
-          <Check className="w-4 h-4 shrink-0" />
+          <Check className="h-4 w-4 shrink-0" />
           <span>{notification}</span>
         </div>
       )}
-
-      <section className="space-y-3" aria-labelledby="settings-preferences-heading">
-        <SectionHeading
-          index="01"
-          title={isZh ? "学习偏好" : "STUDY PREFERENCES"}
-          description={
-            isZh
-              ? "控制专注计时与提示音，以及新建科目时使用的复习节奏。"
-              : "Control the focus timer, sound alerts, and the pace used for new subjects."
-          }
-        />
-
-        <div className="grid md:grid-cols-2 gap-3.5">
-          <div className="border border-[#111111] bg-white p-4 space-y-4">
-            <div>
-              <div className="flex items-center space-x-1.5 text-[12.5px] font-bold mb-2">
-                <Clock className="w-3.5 h-3.5" />
-                <span id="settings-preferences-heading">{isZh ? "专注计时初始时长" : "FOCUS TIMER"}</span>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {[25, 45, 60, 90].map((minutes) => (
-                  <button
-                    key={minutes}
-                    onClick={() => updateSetting("defaultFocusDuration", minutes)}
-                    aria-pressed={settings.defaultFocusDuration === minutes}
-                    className={`py-2 min-h-10 font-mono text-[12px] font-bold border transition-colors cursor-pointer ${
-                      settings.defaultFocusDuration === minutes
-                        ? "bg-[#111111] text-white border-[#111111]"
-                        : "bg-white text-[#666666] border-[#e5e5e5] hover:border-[#111111] hover:text-[#111111]"
-                    }`}
-                  >
-                    {minutes} min
-                  </button>
-                ))}
-              </div>
-              <p className="mt-1.5 text-[11px] leading-relaxed text-[#777777]">
-                {isZh ? "打开任务计时器时从该时长开始。" : "The timer starts at this duration."}
-              </p>
-            </div>
-
-            <div className="flex items-start justify-between gap-4 pt-3 border-t border-[#e5e5e5]">
-              <div>
-                <div className="text-[13px] font-bold">{isZh ? "提示音" : "SOUND ALERTS"}</div>
-                <p className="text-[12px] text-[#666666] mt-0.5 leading-relaxed">
-                  {isZh ? "任务完成与计时结束时播放提示音。" : "Play a chime when tasks are checked off or the timer ends."}
-                </p>
-              </div>
-              <Toggle
-                checked={settings.enableSoundAlerts}
-                onChange={(next) => updateSetting("enableSoundAlerts", next)}
-                ariaLabel={isZh ? "提示音" : "Sound alerts"}
-              />
-            </div>
-          </div>
-
-          <div className="border border-[#111111] bg-white p-4">
-            <div className="flex items-center space-x-1.5 text-[12.5px] font-bold mb-2">
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>{isZh ? "默认复习节奏" : "DEFAULT STUDY PACE"}</span>
-            </div>
-            <select
-              value={settings.defaultStudyPace}
-              onChange={(e) =>
-                updateSetting("defaultStudyPace", e.target.value as AppSettings["defaultStudyPace"])
-              }
-              aria-label={isZh ? "默认复习节奏" : "Default study pace"}
-              className="w-full min-h-10 px-2.5 py-2 border border-[#111111] text-[13px] bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111111] cursor-pointer"
-            >
-              <option value="spaced_repetition">{isZh ? "间隔复习" : "Spaced Repetition"}</option>
-              <option value="balanced">{isZh ? "稳健平衡" : "Balanced"}</option>
-              <option value="deep_mastery">{isZh ? "深度精通" : "Deep Mastery"}</option>
-              <option value="intensive_crash">{isZh ? "考前冲刺" : "Intensive Sprint"}</option>
-            </select>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-[#777777]">
-              {isZh
-                ? "新建科目时按该节奏生成复习计划。"
-                : "New subjects generate their study plan with this pace."}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="space-y-3" aria-labelledby="settings-language-heading">
-        <SectionHeading
-          index="02"
-          title={isZh ? "界面语言" : "LANGUAGE"}
-          description={isZh ? "仅影响本机界面显示。" : "Affects this browser only."}
-        />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
-          {[
-            { id: "zh" as const, title: "简体中文", subtitle: "Simplified Chinese" },
-            { id: "en" as const, title: "English", subtitle: "English" },
-          ].map((option) => (
-            <button
-              key={option.id}
-              onClick={() => setLanguage(option.id)}
-              aria-pressed={language === option.id}
-              id={option.id === "zh" ? "settings-language-heading" : undefined}
-              className={`p-4 min-h-16 border text-left transition-colors cursor-pointer ${
-                language === option.id
-                  ? "border-[#111111] bg-[#111111] text-white"
-                  : "border-[#111111] bg-white hover:bg-[#f2f0ea]"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[14px] font-bold">{option.title}</span>
-                {language === option.id && <Check className="w-4 h-4" />}
-              </div>
-              <div className={`text-[12px] mt-1 ${language === option.id ? "text-white/70" : "text-[#666666]"}`}>
-                {option.subtitle}
-              </div>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-3" aria-labelledby="settings-data-heading">
-        <SectionHeading
-          index="03"
-          title={isZh ? "数据管理" : "DATA MANAGEMENT"}
-          description={
-            isZh
-              ? "计划与资料保存在当前浏览器。只有在你主动使用 AI 时，所选内容才会发送给已配置的 AI 服务。"
-              : "Plans live in this browser. Selected content is sent to the configured AI service only when you explicitly use AI."
-          }
-        />
-
-        <div className="border border-[#111111] bg-white p-4 space-y-4">
-          <div id="settings-data-heading" className="p-3 border border-[#111111] bg-[#FCD33B] flex items-start space-x-2.5">
-            <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
-            <div className="text-[12px] leading-relaxed">
-              <div className="font-bold mb-0.5">{isZh ? "本地模式 / 无需登录" : "LOCAL MODE / NO SIGN-IN"}</div>
-              <p>
-                {isZh
-                  ? "清除浏览器站点数据或使用无痕模式会丢失计划，建议定期导出 JSON 备份。"
-                  : "Clearing site data or using private browsing erases plans. Export a JSON backup regularly."}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[
-              { label: isZh ? "备考科目" : "SUBJECTS", value: plans.length, icon: <FolderOpen className="w-3.5 h-3.5" /> },
-              { label: isZh ? "任务总数" : "TASKS", value: totalTasks, icon: <ListChecks className="w-3.5 h-3.5" /> },
-              { label: isZh ? "资料总数" : "FILES", value: totalMaterials, icon: <FileJson className="w-3.5 h-3.5" /> },
-              {
-                label: isZh ? "占用空间" : "STORAGE",
-                value: storageInfo ? formatBytes(storageInfo.usage) : "—",
-                icon: <HardDrive className="w-3.5 h-3.5" />,
-              },
-            ].map((item) => (
-              <div key={item.label} className="p-2.5 bg-[#fafafa] border border-[#111111]">
-                <div className="text-[10px] text-[#666666] uppercase font-mono flex items-center space-x-1">
-                  {item.icon}
-                  <span className="truncate">{item.label}</span>
-                </div>
-                <div className="font-mono text-base font-bold mt-1">{item.value}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[#666666] font-mono border-b border-[#e5e5e5] pb-3">
-            <span>
-              {storageInfo && storageInfo.quota > 0
-                ? `${isZh ? "浏览器配额" : "QUOTA"}: ${formatBytes(storageInfo.quota)}`
-                : isZh
-                  ? "浏览器未提供存储配额信息"
-                  : "Storage quota unavailable"}
-            </span>
-            <span>
-              {isPersisted === null
-                ? ""
-                : isPersisted
-                  ? isZh
-                    ? "持久化存储：已启用"
-                    : "PERSISTENCE: ON"
-                  : isZh
-                    ? "持久化存储：未启用"
-                    : "PERSISTENCE: OFF"}
-            </span>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-3">
-            <button
-              onClick={handleExport}
-              className="flex items-start space-x-3 p-3 border border-[#111111] bg-white hover:bg-[#fafafa] transition-colors cursor-pointer text-left"
-            >
-              <Download className="w-4 h-4 mt-0.5 shrink-0" />
-              <span>
-                <span className="block text-[13px] font-bold">
-                  {isZh ? "导出备份 (.JSON)" : "EXPORT BACKUP (.JSON)"}
-                </span>
-                <span className="block text-[12px] text-[#666666] mt-0.5 leading-relaxed">
-                  {isZh ? "包含全部计划、资料、设置与每日随记" : "Plans, materials, settings and daily memos"}
-                </span>
-              </span>
-            </button>
-
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-start space-x-3 p-3 border border-[#111111] bg-white hover:bg-[#fafafa] transition-colors cursor-pointer text-left"
-            >
-              <Upload className="w-4 h-4 mt-0.5 shrink-0" />
-              <span>
-                <span className="block text-[13px] font-bold">
-                  {isZh ? "导入备份 (.JSON)" : "IMPORT BACKUP (.JSON)"}
-                </span>
-                <span className="block text-[12px] text-[#666666] mt-0.5 leading-relaxed">
-                  {isZh ? "按计划 ID 合并，不会覆盖其他课程" : "Merge by plan ID without duplicating courses"}
-                </span>
-              </span>
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json,application/json"
-              onChange={handleImportFile}
-              className="hidden"
-            />
-          </div>
-
-          {importError && (
-            <div className="p-3 border border-[#d44c47] bg-[#fdf2f2] text-[#a12d27] text-[13px] leading-relaxed flex items-start space-x-2">
-              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{importError}</span>
-            </div>
-          )}
-
-          {!isPersisted && (
-            <button
-              onClick={handleRequestPersistence}
-              className="w-full flex items-center justify-center space-x-2 px-3 min-h-10 border border-[#111111] bg-white hover:bg-[#fafafa] text-[12px] font-bold transition-colors cursor-pointer"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>{isZh ? "申请持久化存储，防止浏览器自动清理" : "REQUEST PERSISTENT STORAGE"}</span>
-            </button>
-          )}
-
-          <div className="pt-4 border-t border-[#111111] space-y-2">
-            <div className="font-mono text-[11px] uppercase font-bold text-[#d44c47]">
-              [{isZh ? "危险操作" : "DANGER ZONE"}]
-            </div>
-            <button
-              onClick={handleConfirmClear}
-              disabled={isClearing}
-              className={`w-full flex items-center justify-center space-x-2 px-3 min-h-10 text-[13px] font-bold border transition-colors cursor-pointer disabled:opacity-50 ${
-                confirmClear
-                  ? "bg-[#d44c47] text-white border-[#d44c47]"
-                  : "bg-white text-[#d44c47] border-[#d44c47] hover:bg-[#fdf2f2]"
-              }`}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>
-                {isClearing
-                  ? isZh
-                    ? "正在清除..."
-                    : "CLEARING..."
-                  : confirmClear
-                    ? isZh
-                      ? "再次点击确认：清除全部本地数据"
-                      : "CLICK AGAIN TO CONFIRM DELETION"
-                    : isZh
-                      ? "清除全部本地备考数据"
-                      : "CLEAR ALL LOCAL STUDY DATA"}
-              </span>
-            </button>
-            <p className="text-[12px] text-[#666666] leading-relaxed">
-              {isZh
-                ? "此操作会删除所有科目、任务、资料与每日随记，且无法撤销。请先导出备份。"
-                : "This permanently deletes all subjects, tasks, materials and memos. Export a backup first."}
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="space-y-3" aria-labelledby="settings-about-heading">
-        <SectionHeading
-          index="04"
-          title={isZh ? "关于与诊断" : "ABOUT & DIAGNOSTICS"}
-          description={APP_VERSION_DATA.releaseName}
-        />
-
-        <div className="grid grid-cols-2 gap-2 max-w-2xl">
-          {[
-            { label: isZh ? "当前版本" : "VERSION", value: APP_VERSION_DATA.version },
-            { label: isZh ? "发布日期" : "RELEASE DATE", value: APP_VERSION_DATA.buildDate },
-            { label: isZh ? "构建编号" : "BUILD", value: APP_VERSION_DATA.buildNumber },
-            { label: isZh ? "运行环境" : "RUNTIME", value: APP_VERSION_DATA.environment },
-          ].map((item) => (
-            <div key={item.label} className="p-2.5 border border-[#111111] bg-white">
-              <div className="font-mono text-[10px] text-[#666666] uppercase">{item.label}</div>
-              <div className="font-mono text-[12px] font-bold mt-0.5 break-all">{item.value}</div>
-            </div>
-          ))}
-        </div>
-
-        <div id="settings-about-heading" className="border border-[#111111] bg-white divide-y divide-[#e5e5e5]">
-          {[
-            {
-              icon: <Database className="w-3.5 h-3.5" />,
-              label: isZh ? "本地数据存储" : "LOCAL STORAGE",
-              value: isZh ? "IndexedDB · 已启用" : "IndexedDB · Active",
-              ok: true,
-            },
-            {
-              icon: <Cpu className="w-3.5 h-3.5" />,
-              label: isZh ? "AI 规划服务" : "AI PLANNER SERVICE",
-              value: isZh ? "服务端 Gemini · 按需调用" : "Server-side Gemini · On demand",
-              ok: true,
-            },
-            {
-              icon: <ShieldCheck className="w-3.5 h-3.5" />,
-              label: isZh ? "账号与云同步" : "ACCOUNT & CLOUD",
-              value: isZh ? "已移除 · 无需登录" : "Removed · No sign-in",
-              ok: true,
-            },
-            {
-              icon: navigator.onLine ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />,
-              label: isZh ? "网络状态" : "NETWORK",
-              value: navigator.onLine
-                ? isZh
-                  ? "在线 · AI 功能可用"
-                  : "Online · AI available"
-                : isZh
-                  ? "离线 · 仍可查看与编辑本地计划"
-                  : "Offline · Local plans remain editable",
-              ok: navigator.onLine,
-            },
-          ].map((item) => (
-            <div key={item.label} className="flex items-center justify-between gap-3 p-2.5">
-              <span className="flex items-center space-x-2 text-[13px]">
-                {item.icon}
-                <span>{item.label}</span>
-              </span>
-              <span className={`text-[11px] font-mono text-right ${item.ok ? "text-[#15803d]" : "text-[#d44c47]"}`}>
-                {item.value}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <div className="border border-[#111111] bg-white p-4">
-          <div className="font-mono text-[11px] uppercase font-bold text-[#666666] mb-2">
-            {isZh ? "更新日志" : "CHANGELOG"}
-          </div>
-          <div className="space-y-3">
-            {APP_VERSION_DATA.changelog.map((entry) => (
-              <div key={entry.version}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-[13px] font-bold">{entry.title}</span>
-                  <span className="font-mono text-[11px] text-[#666666]">
-                    {entry.version} · {entry.date}
-                  </span>
-                </div>
-                <ul className="mt-1.5 space-y-1">
-                  {entry.highlights.map((highlight) => (
-                    <li key={highlight} className="text-[12px] text-[#666666] leading-relaxed flex items-start space-x-1.5">
-                      <span className="shrink-0">-</span>
-                      <span>{highlight}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="p-3.5 border border-[#111111] bg-[#FAF9F6] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="flex items-start space-x-2 text-[13px] text-[#555555] leading-relaxed">
-            <Languages className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>
-              {isZh
-                ? "这里只负责规划与执行安排；题库练习、模拟考试请前往 StarQuiz。"
-                : "This app handles planning and execution. Practice and mock exams live in StarQuiz."}
-            </span>
-          </div>
-          <a
-            href={STARQUIZ_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 px-3 min-h-9 shrink-0 border border-[#111111] bg-[#111111] text-white text-[12px] font-bold hover:bg-[#333333]"
-          >
-            {isZh ? "去 StarQuiz 刷题" : "OPEN STARQUIZ"}
-            <ArrowUpRight className="w-3.5 h-3.5" />
-          </a>
-        </div>
-      </section>
     </div>
   );
 }
