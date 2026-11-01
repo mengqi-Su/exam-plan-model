@@ -5,7 +5,7 @@ import { CourseDetailPage } from "./components/CourseDetailPage";
 import { AddExamSubjectWizard } from "./components/AddExamSubjectWizard";
 import { MasterCalendarView } from "./components/MasterCalendarView";
 import { TodayFocusView } from "./components/TodayFocusView";
-import { SettingsModal } from "./components/SettingsModal";
+import { SettingsPage } from "./components/SettingsPage";
 import { DeleteConfirmModal } from "./components/DeleteConfirmModal";
 import {
   AlertTriangle,
@@ -39,8 +39,6 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const [appSettings, setAppSettings] = useState<AppSettings>(() => loadAppSettings());
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"data" | "preferences" | "language" | "version">("data");
 
   useEffect(() => {
     let cancelled = false;
@@ -90,11 +88,6 @@ export default function App() {
   const handleUpdateSettings = (newSettings: AppSettings) => {
     setAppSettings(newSettings);
     saveAppSettings(newSettings);
-  };
-
-  const handleOpenSettings = (tab: "data" | "preferences" | "language" | "version" = "data") => {
-    setSettingsInitialTab(tab);
-    setIsSettingsOpen(true);
   };
 
   const handleClearAllData = async () => {
@@ -187,11 +180,12 @@ export default function App() {
     { id: "today" as AppTab, label: language === "zh" ? "今日" : "Today", icon: Sun },
     { id: "dashboard" as AppTab, label: language === "zh" ? "科目" : "Subjects", icon: LayoutDashboard },
     { id: "master_calendar" as AppTab, label: language === "zh" ? "日历" : "Calendar", icon: Calendar },
+    { id: "settings" as AppTab, label: language === "zh" ? "设置" : "Settings", icon: Settings },
   ];
 
   const isMobileNavActive = (tab: AppTab) => {
     if (tab === "dashboard") {
-      return ["dashboard", "course", "todo", "realtime", "materials", "add_subject"].includes(currentTab);
+      return ["dashboard", "course", "add_subject"].includes(currentTab);
     }
     return currentTab === tab;
   };
@@ -222,7 +216,6 @@ export default function App() {
         onTabChange={(tab, planId) => {
           handleNavigateToTab(tab, planId);
         }}
-        onOpenSettings={handleOpenSettings}
       />
 
       <div
@@ -249,13 +242,6 @@ export default function App() {
             >
               <Plus className="w-4 h-4" />
             </button>
-            <button
-              onClick={() => handleOpenSettings("data")}
-              className="p-2 min-w-9 min-h-9 border border-[#111111] bg-white text-[#111111] hover:bg-[#f2f0ea] cursor-pointer"
-              aria-label={language === "zh" ? "打开设置" : "Open settings"}
-            >
-              <Settings className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
@@ -266,10 +252,10 @@ export default function App() {
               <span>{saveError}</span>
             </span>
             <button
-              onClick={() => handleOpenSettings("data")}
+              onClick={() => handleNavigateToTab("settings")}
               className="shrink-0 underline font-bold cursor-pointer"
             >
-              {language === "zh" ? "导出备份" : "EXPORT BACKUP"}
+              {language === "zh" ? "前往设置导出备份" : "OPEN SETTINGS TO EXPORT"}
             </button>
           </div>
         )}
@@ -297,6 +283,8 @@ export default function App() {
               onNotice={setAppNotice}
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
+              soundAlertsEnabled={appSettings.enableSoundAlerts}
+              defaultFocusDuration={appSettings.defaultFocusDuration}
             />
           )}
 
@@ -309,6 +297,16 @@ export default function App() {
               onDeletePlan={handleDeletePlan}
               onRequestDeletePlan={(p) => setPlanToDelete(p)}
               onAddNewSubject={handleNewPlan}
+            />
+          )}
+
+          {currentTab === "settings" && (
+            <SettingsPage
+              settings={appSettings}
+              onUpdateSettings={handleUpdateSettings}
+              plans={plans}
+              onImportPlans={handleImportPlans}
+              onClearAllData={handleClearAllData}
             />
           )}
 
@@ -336,11 +334,9 @@ export default function App() {
                   );
                 }}
                 onStartFocusTimer={(task, planId) => {
-                  const targetPlan = plans.find((p) => p.id === planId);
-                  if (targetPlan) {
-                    handleSelectPlan(planId);
-                    setCurrentTab("course");
-                  }
+                  handleSelectPlan(planId);
+                  setSelectedDate(task.date);
+                  setCurrentTab("today");
                 }}
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
@@ -353,19 +349,17 @@ export default function App() {
               existingPlans={plans}
               onPlanCreated={handlePlanGenerated}
               onCancel={() => setCurrentTab("today")}
+              defaultStudyPace={appSettings.defaultStudyPace}
             />
           )}
 
-          {(currentTab === "course" || currentTab === "todo" || currentTab === "realtime" || currentTab === "materials") &&
+          {currentTab === "course" &&
             (activePlan ? (
               <CourseDetailPage
                 plan={activePlan}
-                plans={plans}
                 onUpdatePlan={handleUpdatePlan}
-                onDeletePlan={handleDeletePlan}
                 onRequestDeletePlan={(p) => setPlanToDelete(p)}
                 onNavigateToTab={handleNavigateToTab}
-                initialDrawer={currentTab === "realtime" ? "progress" : currentTab === "materials" ? "syllabus" : null}
               />
             ) : (
               <div className="max-w-xl mx-auto mt-16 p-8 bg-white border border-[#111111] shadow-xs text-center font-mono space-y-4 animate-fadeIn">
@@ -420,13 +414,6 @@ export default function App() {
             </button>
           );
         })}
-        <button
-          onClick={() => handleOpenSettings("preferences")}
-          className="flex flex-col items-center justify-center gap-0.5 min-h-[54px] text-[11px] font-semibold text-[#333333] hover:bg-[#efede6] transition-colors cursor-pointer"
-        >
-          <Settings className="w-[18px] h-[18px]" />
-          <span>{language === "zh" ? "设置" : "Settings"}</span>
-        </button>
       </nav>
 
       <DeleteConfirmModal
@@ -434,17 +421,6 @@ export default function App() {
         plan={planToDelete}
         onClose={() => setPlanToDelete(null)}
         onConfirm={(planId) => handleDeletePlan(planId)}
-      />
-
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        initialTab={settingsInitialTab}
-        settings={appSettings}
-        onUpdateSettings={handleUpdateSettings}
-        plans={plans}
-        onImportPlans={handleImportPlans}
-        onClearAllData={handleClearAllData}
       />
     </div>
   );

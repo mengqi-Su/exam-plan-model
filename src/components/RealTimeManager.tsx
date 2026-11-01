@@ -1,101 +1,28 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
-  BarChart3,
   RefreshCw,
-  Sparkles,
-  TrendingUp,
-  Clock,
-  Target,
-  CheckCircle2,
-  AlertTriangle,
-  Award,
-  Zap,
-  Check,
-  Flame,
-  HelpCircle,
-  GraduationCap,
-  Star,
   Calendar,
-  Sliders,
-  ChevronDown,
-  ChevronUp,
-  ArrowRight,
-  FolderOpen,
-  FileText
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
-import { ExamStudyPlan, StudyTask, SyllabusTopic, UserStudyPreferences, DaySchedulePreference } from "../types";
+import { ExamStudyPlan } from "../types";
 import { playCompletionChime } from "../lib/audio";
 import { useI18n } from "../lib/i18n";
-import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
-import { getAiFallbackNotice, prepareMaterialsForAI, readApiError } from "../lib/aiClient";
+import { getAiFallbackNotice, readApiError } from "../lib/aiClient";
 import { addDays, toLocalDateString } from "../lib/date";
-import { RulerTimePicker } from "./RulerTimePicker";
 import { DomainMasteryWheelChart } from "./DomainMasteryWheelChart";
-import { PieChart, Table } from "lucide-react";
+import { PieChart } from "lucide-react";
 
 interface RealTimeManagerProps {
   plan: ExamStudyPlan;
-  plans?: ExamStudyPlan[];
-  onSelectPlan?: (planId: string) => void;
-  onAddNewSubject?: () => void;
   onUpdatePlan: (updatedPlan: ExamStudyPlan) => void;
-  onNavigateToTab: (tab: "todo" | "calendar" | "materials" | "add_subject" | "course") => void;
 }
 
-export function RealTimeManager({
-  plan,
-  plans = [],
-  onSelectPlan,
-  onAddNewSubject,
-  onUpdatePlan,
-  onNavigateToTab,
-}: RealTimeManagerProps) {
-  const { t, language } = useI18n();
+export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
+  const { language } = useI18n();
   const todayStr = useMemo(() => toLocalDateString(), []);
 
-  const defaultExamDate = useMemo(() => {
-    if (plan?.examDate) return plan.examDate;
-    return addDays(toLocalDateString(), 21);
-  }, [plan?.examDate]);
-
-  const [startDate, setStartDate] = useState(plan?.startDate || todayStr);
-  const [examDate, setExamDate] = useState(plan?.examDate || defaultExamDate);
-  const [examTime, setExamTime] = useState(plan?.examTime || "09:00");
-  const [targetScore, setTargetScore] = useState(plan?.preferences?.targetScoreOrGrade || "A (90%+ / 优秀)");
-  const [studyPace, setStudyPace] = useState<UserStudyPreferences["studyPace"]>(plan?.preferences?.studyPace || "deep_mastery");
-  const [sessionLength, setSessionLength] = useState<number>(plan?.preferences?.sessionLengthMinutes || 45);
-  const [includePracticeExams, setIncludePracticeExams] = useState(plan?.preferences?.includePracticeExams ?? true);
-  const [includeBufferDays, setIncludeBufferDays] = useState(plan?.preferences?.includeBufferDays ?? true);
-  const [bufferDaysCount, setBufferDaysCount] = useState(plan?.preferences?.bufferDaysCount ?? 2);
-  const [dailySchedules, setDailySchedules] = useState<DaySchedulePreference[]>(
-    plan?.preferences?.dailySchedules || DEFAULT_WEEK_SCHEDULE
-  );
-
-  useEffect(() => {
-    if (plan) {
-      if (plan.startDate) setStartDate(plan.startDate);
-      if (plan.examDate) setExamDate(plan.examDate);
-      if (plan.examTime) setExamTime(plan.examTime);
-      if (plan.preferences?.targetScoreOrGrade) setTargetScore(plan.preferences.targetScoreOrGrade);
-      if (plan.preferences?.studyPace) setStudyPace(plan.preferences.studyPace);
-      if (plan.preferences?.sessionLengthMinutes) setSessionLength(plan.preferences.sessionLengthMinutes);
-      if (plan.preferences?.dailySchedules) setDailySchedules(plan.preferences.dailySchedules);
-    }
-  }, [plan?.id]);
-
-  const [showPlanSettings, setShowPlanSettings] = useState(false);
-  const [showScheduleRuler, setShowScheduleRuler] = useState(false);
   const [showRoadmap, setShowRoadmap] = useState(true);
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
-  const [planGenerateError, setPlanGenerateError] = useState<string | null>(null);
-  const [planSuccessNotice, setPlanSuccessNotice] = useState(false);
-
-  const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; seconds: number }>({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-  });
 
   const [isRebalancing, setIsRebalancing] = useState(false);
   const [rebalanceReason, setRebalanceReason] = useState(
@@ -107,44 +34,15 @@ export function RealTimeManager({
   const [rebalanceError, setRebalanceError] = useState<string | null>(null);
   const [aiNotice, setAiNotice] = useState<string | null>(null);
 
-  useEffect(() => {
-    const update = () => {
-      if (!plan.examDate) return;
-      const [y, m, d] = plan.examDate.split("-").map(Number);
-      const [h, min] = (plan.examTime || "09:00").split(":").map(Number);
-      const targetTime = new Date(y, m - 1, d, h, min, 0).getTime();
-      const now = new Date().getTime();
-      const diff = targetTime - now;
-
-      if (diff <= 0) {
-        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-      } else {
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        setCountdown({ days, hours, minutes, seconds });
-      }
-    };
-
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [plan.examDate, plan.examTime]);
-
   const daysUntilExam = useMemo(() => {
-    if (!examDate) return 0;
+    if (!plan.examDate) return 0;
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    const [y, m, d] = examDate.split("-").map(Number);
+    const [y, m, d] = plan.examDate.split("-").map(Number);
     const target = new Date(y, m - 1, d);
     const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     return diff > 0 ? diff : 0;
-  }, [examDate]);
-
-  const totalEstHours = useMemo(() => {
-    return (plan.topics || []).reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
-  }, [plan.topics]);
+  }, [plan.examDate]);
 
   const overdueCount = useMemo(
     () =>
@@ -154,156 +52,26 @@ export function RealTimeManager({
     [plan.tasks, todayStr]
   );
 
-  const handleUpdateDayHours = (dayOfWeek: number, hours: number) => {
-    setDailySchedules((prev) =>
-      prev.map((s) => (s.dayOfWeek === dayOfWeek ? { ...s, availableHours: hours, enabled: hours > 0 } : s))
-    );
-  };
-
-  const handleToggleDayEnabled = (dayOfWeek: number) => {
-    setDailySchedules((prev) =>
-      prev.map((s) => (s.dayOfWeek === dayOfWeek ? { ...s, enabled: !s.enabled } : s))
-    );
-  };
-
-  const handleGenerateStudyPlan = async () => {
-    if (!plan.topics || plan.topics.length === 0) {
-      setPlanGenerateError(
-        language === "zh"
-          ? "当前科目还没有考点。请先在知识库中用 AI 提炼考点，再重新规划。"
-          : "This subject has no topics yet. Extract topics from your materials first."
-      );
-      return;
-    }
-
-    setIsGeneratingPlan(true);
-    setPlanGenerateError(null);
-    setPlanSuccessNotice(false);
-    setAiNotice(null);
-
-    const preferences: UserStudyPreferences = {
-      examName: plan.examName,
-      subject: plan.subject,
-      startDate,
-      examDate,
-      examTime,
-      targetScoreOrGrade: targetScore,
-      studyPace,
-      sessionLengthMinutes: sessionLength,
-      dailySchedules,
-      includePracticeExams,
-      includeBufferDays,
-      bufferDaysCount,
-      weakTopicsFocus: plan.topics.filter((t) => t.difficulty === "hard").map((t) => t.title),
-    };
-
-    try {
-      const res = await fetch("/api/generate-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topics: plan.topics,
-          preferences,
-          materials: prepareMaterialsForAI(plan.materials || []),
-          materialsSummary: plan.materialsSummary || "",
-          language,
-        }),
-      });
-
-      if (!res.ok) {
-        const apiError = await readApiError(res, language);
-        setPlanGenerateError(apiError.message);
-        return;
-      }
-
-      const data = await res.json();
-      if (!Array.isArray(data?.tasks) || data.tasks.length === 0) {
-        setPlanGenerateError(
-          language === "zh"
-            ? "AI 未能生成可用的每日任务，请稍后重试。"
-            : "AI did not return any usable daily tasks. Please try again."
-        );
-        return;
-      }
-
-      const newPlan: ExamStudyPlan = {
-        ...plan,
-        updatedAt: new Date().toISOString(),
-        examName: preferences.examName,
-        subject: preferences.subject,
-        startDate: preferences.startDate,
-        examDate: preferences.examDate,
-        examTime: preferences.examTime,
-        totalPlannedHours: data.totalPlannedHours || totalEstHours || 0,
-        phases: data.phases || plan.phases || [],
-        topics: plan.topics,
-        tasks: data.tasks,
-        preferences,
-      };
-
-      onUpdatePlan(newPlan);
-      setPlanSuccessNotice(true);
-      playCompletionChime();
-      setTimeout(() => setPlanSuccessNotice(false), 5000);
-    } catch (err: any) {
-      console.error("Plan generation failed:", err);
-      setPlanGenerateError(
-        language === "zh"
-          ? "无法连接 AI 服务，请检查网络后重试。"
-          : "Could not reach the AI service. Check your connection and try again."
-      );
-    } finally {
-      setIsGeneratingPlan(false);
-    }
-  };
-
-  const totalTasks = plan.tasks.length;
-  const completedTasks = plan.tasks.filter((t) => t.status === "completed").length;
-  const pendingTasks = plan.tasks.filter((t) => t.status !== "completed").length;
-
-  const totalPlannedMinutes = plan.tasks.reduce((acc, t) => acc + t.durationMinutes, 0);
-  const totalCompletedMinutes = plan.tasks
-    .filter((t) => t.status === "completed")
-    .reduce((acc, t) => acc + (t.actualMinutesSpent || t.durationMinutes), 0);
-
-  const syllabusCompletionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-  const overdueTasks = plan.tasks.filter((t) => t.date < todayStr && t.status !== "completed");
-
-  const topicMastery = React.useMemo(() => {
+  const topicMastery = useMemo(() => {
     return (plan.topics || []).map((top) => {
       const topicTasks = plan.tasks.filter((t) => t.topicTitle === top.title);
       const done = topicTasks.filter((t) => t.status === "completed");
-      const doneCount = done.length;
-      const totalCount = topicTasks.length;
 
       const ratings = done.map((t) => t.confidenceRating || 3);
       const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
 
-      const progressPercent = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+      const progressPercent =
+        topicTasks.length > 0 ? Math.round((done.length / topicTasks.length) * 100) : 0;
 
       return {
         ...top,
-        totalTasks: totalCount,
-        completedTasks: doneCount,
+        totalTasks: topicTasks.length,
+        completedTasks: done.length,
         progressPercent,
         avgRating,
       };
     });
   }, [plan.topics, plan.tasks]);
-
-  const readinessIndex = React.useMemo(() => {
-    if (totalTasks === 0) return 0;
-    const taskFactor = (completedTasks / totalTasks) * 0.6;
-    const timeFactor = Math.min(1, totalCompletedMinutes / (totalPlannedMinutes || 1)) * 0.2;
-
-    const ratings = plan.tasks.filter((t) => t.status === "completed" && t.confidenceRating);
-    const masteryFactor = ratings.length > 0
-      ? (ratings.reduce((acc, t) => acc + (t.confidenceRating || 3), 0) / (ratings.length * 5)) * 0.2
-      : 0.1;
-
-    return Math.round((taskFactor + timeFactor + masteryFactor) * 100);
-  }, [totalTasks, completedTasks, totalCompletedMinutes, totalPlannedMinutes, plan.tasks]);
 
   const handleTriggerRebalance = async () => {
     setIsRebalancing(true);
@@ -406,24 +174,7 @@ export function RealTimeManager({
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6">
-      {planSuccessNotice && (
-        <div className="p-3.5 bg-white border-2 border-[#111111] text-[#111111] font-mono text-xs flex items-center justify-between animate-fadeIn">
-          <div className="flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 text-[#111111]" />
-            <span className="font-bold">
-              {language === "zh" ? "个性化复习排程已成功生成并同步至系统！" : "Personalized study schedule successfully updated!"}
-            </span>
-          </div>
-          <button
-            onClick={() => setPlanSuccessNotice(false)}
-            className="px-2 py-0.5 border border-[#111111] text-[11px] hover:bg-[#111111] hover:text-white cursor-pointer"
-          >
-            [{language === "zh" ? "知道了" : "DISMISS"}]
-          </button>
-        </div>
-      )}
-
+    <div className="space-y-8">
       {aiNotice && (
         <div className="p-3.5 bg-[#FCD33B] border border-[#111111] text-[#111111] font-mono text-xs flex items-center justify-between animate-fadeIn">
           <div className="flex items-start space-x-2">
@@ -444,9 +195,9 @@ export function RealTimeManager({
           <div className="flex items-center justify-between pb-2 border-b border-[#111111]">
             <div className="flex items-center space-x-2">
               <Calendar className="w-4 h-4 text-[#111111]" />
-              <h2 className="text-xs font-bold uppercase text-[#111111]">
-                [1. {language === "zh" ? "备考阶段推进路线" : "PHASE REVIEW ROADMAP"}]
-              </h2>
+              <h3 className="text-xs font-bold uppercase text-[#111111]">
+                [{language === "zh" ? "备考阶段推进路线" : "PHASE REVIEW ROADMAP"}]
+              </h3>
             </div>
 
             <button
@@ -476,12 +227,6 @@ export function RealTimeManager({
                     <span className="text-xs text-[#888888]">
                       {language === "zh" ? `· 距离考试还有 ${daysUntilExam} 天` : `· ${daysUntilExam} days remaining`}
                     </span>
-                  </div>
-                </div>
-
-                <div className="relative h-20 mb-3">
-                  <div className="absolute left-[-16px] sm:left-0 top-3 text-[11px] font-bold tracking-[0.3em] text-[#111111] uppercase select-none -rotate-90 origin-center w-12 text-center">
-                    STUDIO
                   </div>
                 </div>
 
@@ -563,9 +308,9 @@ export function RealTimeManager({
       <section className="space-y-3 font-mono">
         <div className="flex items-center space-x-2 pb-2 border-b border-[#111111]">
           <RefreshCw className="w-4 h-4 text-[#111111]" />
-          <h2 className="text-xs font-bold uppercase text-[#111111]">
-            [2. {language === "zh" ? "计划动态重排" : "ADAPTIVE REBALANCE"}]
-          </h2>
+          <h3 className="text-xs font-bold uppercase text-[#111111]">
+            [{language === "zh" ? "计划动态重排" : "ADAPTIVE REBALANCE"}]
+          </h3>
         </div>
 
         <div className="bg-white border border-[#111111] p-4 space-y-3">
@@ -624,9 +369,9 @@ export function RealTimeManager({
       <section className="space-y-3 font-mono">
         <div className="flex items-center space-x-2 pb-2 border-b border-[#111111]">
           <PieChart className="w-4 h-4 text-[#111111]" />
-          <h2 className="text-xs font-bold uppercase text-[#111111]">
-            [3. {language === "zh" ? "考点知识掌握度追踪" : "TOPIC MASTERY TRACKER"}]
-          </h2>
+          <h3 className="text-xs font-bold uppercase text-[#111111]">
+            [{language === "zh" ? "考点知识掌握度追踪" : "TOPIC MASTERY TRACKER"}]
+          </h3>
         </div>
 
         <DomainMasteryWheelChart

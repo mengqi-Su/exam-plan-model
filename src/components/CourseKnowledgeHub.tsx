@@ -1,264 +1,61 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
-  Upload,
-  FileText,
-  Sparkles,
-  Trash2,
-  Plus,
-  BookOpen,
-  Check,
   AlertCircle,
-  ArrowRight,
-  GraduationCap,
-  Layers,
-  Calendar,
-  Compass,
-  FolderOpen,
-  Search,
-  Filter,
-  Eye,
-  X,
-  FileQuestion,
-  Tag,
-  Clock,
-  Zap,
-  BookmarkPlus,
-  CheckCircle2,
-  HelpCircle,
-  BarChart2,
-  ExternalLink,
-  ChevronDown,
-  ChevronUp,
-  Sliders,
-  Target,
   BrainCircuit,
-  CalendarDays,
-  RefreshCw
+  CheckCircle2,
+  Plus,
+  Sparkles,
+  X,
 } from "lucide-react";
-import { SyllabusTopic, StudyMaterial, ExamStudyPlan, UserStudyPreferences, DaySchedulePreference } from "../types";
-import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
+import { SyllabusTopic, StudyMaterial, ExamStudyPlan } from "../types";
 import { useI18n } from "../lib/i18n";
-import { parseDocumentFile } from "../lib/documentParser";
+import { prepareMaterialsForAI } from "../lib/aiClient";
 import { TabbedFolderArchive } from "./TabbedFolderArchive";
 import { UploadModal } from "./UploadModal";
 import { NoteModal } from "./NoteModal";
 import { DocumentReaderModal } from "./DocumentReaderModal";
-import { prepareMaterialsForAI, readApiError } from "../lib/aiClient";
-import { addDays, toLocalDateString } from "../lib/date";
 import { HierarchicalTopicTreeView } from "./HierarchicalTopicTreeView";
 
 interface CourseKnowledgeHubProps {
-  plan?: ExamStudyPlan | null;
-  examName: string;
-  onExamNameChange: (name: string) => void;
-  subject: string;
-  onSubjectChange: (subj: string) => void;
-  syllabusContent: string;
-  onSyllabusContentChange: (content: string) => void;
-  syllabusDocName: string;
-  onSyllabusDocNameChange: (name: string) => void;
-  topics: SyllabusTopic[];
-  onTopicsChange: (topics: SyllabusTopic[]) => void;
-  materialsSummary: string;
-  onMaterialsSummaryChange: (summary: string) => void;
-  onUpdatePlan?: (updatedPlan: ExamStudyPlan) => void;
+  plan: ExamStudyPlan;
+  onUpdatePlan: (updatedPlan: ExamStudyPlan) => void;
   onDeleteCourse?: () => void;
   onRequestDeleteCourse?: (plan?: ExamStudyPlan | null) => void;
-  onProceedToPlanConfig: () => void;
-  onNavigateToTab?: (tab: "todo" | "calendar" | "realtime" | "course") => void;
 }
 
 export function CourseKnowledgeHub({
   plan,
-  examName,
-  onExamNameChange,
-  subject,
-  onSubjectChange,
-  syllabusContent,
-  onSyllabusContentChange,
-  syllabusDocName,
-  onSyllabusDocNameChange,
-  topics,
-  onTopicsChange,
-  materialsSummary,
-  onMaterialsSummaryChange,
   onUpdatePlan,
   onDeleteCourse,
   onRequestDeleteCourse,
-  onProceedToPlanConfig,
-  onNavigateToTab,
 }: CourseKnowledgeHubProps) {
-  const { t, language } = useI18n();
+  const { language } = useI18n();
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterType, setFilterType] = useState<string>("all");
-
-  const [isParsingDoc, setIsParsingDoc] = useState(false);
-  const [parsingStatus, setParsingStatus] = useState<string>("");
-  const [isDragging, setIsDragging] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
 
   const [showPasteBox, setShowPasteBox] = useState(false);
   const [showUploadBox, setShowUploadBox] = useState(false);
   const [activeFolderDocType, setActiveFolderDocType] = useState<StudyMaterial["type"]>("notes");
-  const [pasteDocTitle, setPasteDocTitle] = useState("");
-  const [pasteDocType, setPasteDocType] = useState<StudyMaterial["type"]>("notes");
-  const [pasteDocContent, setPasteDocContent] = useState("");
 
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractionSuccess, setExtractionSuccess] = useState(false);
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [newTopicTitle, setNewTopicTitle] = useState("");
   const [newTopicWeight, setNewTopicWeight] = useState(15);
-  const [newTopicDifficulty, setNewTopicDifficulty] = useState<"easy" | "medium" | "hard">("medium");
   const [newTopicHours, setNewTopicHours] = useState(4);
   const [newTopicSubtopics, setNewTopicSubtopics] = useState("");
 
-  const todayStr = useMemo(() => toLocalDateString(), []);
-  const defaultExamDate = useMemo(() => {
-    if (plan?.examDate) return plan.examDate;
-    return addDays(toLocalDateString(), 21);
-  }, [plan?.examDate]);
-
-  const [startDate, setStartDate] = useState(plan?.startDate || todayStr);
-  const [examDate, setExamDate] = useState(plan?.examDate || defaultExamDate);
-  const [examTime, setExamTime] = useState(plan?.examTime || "09:00");
-  const [targetScore, setTargetScore] = useState(plan?.preferences?.targetScoreOrGrade || "A (90%+ / 优秀)");
-  const [studyPace, setStudyPace] = useState<UserStudyPreferences["studyPace"]>(plan?.preferences?.studyPace || "deep_mastery");
-  const [sessionLength, setSessionLength] = useState<number>(plan?.preferences?.sessionLengthMinutes || 45);
-  const [includePracticeExams, setIncludePracticeExams] = useState(plan?.preferences?.includePracticeExams ?? true);
-  const [includeBufferDays, setIncludeBufferDays] = useState(plan?.preferences?.includeBufferDays ?? true);
-  const [bufferDaysCount, setBufferDaysCount] = useState(plan?.preferences?.bufferDaysCount ?? 2);
-  const [dailySchedules, setDailySchedules] = useState<DaySchedulePreference[]>(
-    plan?.preferences?.dailySchedules || DEFAULT_WEEK_SCHEDULE
-  );
-  const [selectedWeakTopics, setSelectedWeakTopics] = useState<string[]>(
-    plan?.preferences?.weakTopicsFocus || topics.filter(t => t.difficulty === "hard").map(t => t.title)
-  );
-
-  const [showPlanSettings, setShowPlanSettings] = useState(false);
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
-  const [planGenerateError, setPlanGenerateError] = useState<string | null>(null);
-  const [planSuccessNotice, setPlanSuccessNotice] = useState(false);
-
   const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
 
-  const materials: StudyMaterial[] = useMemo(() => {
-    if (plan?.materials && plan.materials.length > 0) {
-      return plan.materials;
-    }
-    return [];
-  }, [plan?.materials]);
-
-  const filteredMaterials = useMemo(() => {
-    return materials.filter((m) => {
-      const matchType = filterType === "all" || m.type === filterType;
-      const matchQuery = !searchQuery || m.name.toLowerCase().includes(searchQuery.toLowerCase()) || m.content.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchType && matchQuery;
-    });
-  }, [materials, filterType, searchQuery]);
-
-  const totalEstHours = useMemo(() => {
-    return topics.reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
-  }, [topics]);
-
-  const daysUntilExam = useMemo(() => {
-    if (!examDate) return 0;
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const [y, m, d] = examDate.split("-").map(Number);
-    const target = new Date(y, m - 1, d);
-    const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    return diff > 0 ? diff : 0;
-  }, [examDate]);
+  const materials: StudyMaterial[] = plan.materials || [];
+  const topics: SyllabusTopic[] = plan.topics || [];
 
   const updatePlanMaterials = (newMaterials: StudyMaterial[]) => {
-    if (plan && onUpdatePlan) {
-      onUpdatePlan({
-        ...plan,
-        materials: newMaterials,
-        updatedAt: new Date().toISOString(),
-      });
-    }
-  };
-
-  const handleFileUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setIsParsingDoc(true);
-    setParsingStatus(language === "zh" ? "正在读取并解析文档文本..." : "Reading and extracting document text...");
-
-    const newAttachedMaterials: StudyMaterial[] = [];
-    let combinedContent = syllabusContent ? syllabusContent + "\n\n" : "";
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      try {
-        setParsingStatus(`${language === "zh" ? "解析中" : "Parsing"}: ${file.name} (${i + 1}/${files.length})`);
-        const parsed = await parseDocumentFile(file, language);
-        const text = parsed?.text || "";
-
-        let inferredType: StudyMaterial["type"] = "notes";
-        const lowerName = file.name.toLowerCase();
-        if (lowerName.includes("syllabus") || lowerName.includes("大纲") || lowerName.includes("考纲")) {
-          inferredType = "syllabus";
-        } else if (lowerName.includes("slide") || lowerName.includes("ppt") || lowerName.includes("讲义") || lowerName.includes("课件")) {
-          inferredType = "lecture_slides";
-        } else if (lowerName.includes("exam") || lowerName.includes("test") || lowerName.includes("真题") || lowerName.includes("试卷") || lowerName.includes("期末")) {
-          inferredType = "past_exam";
-        } else if (lowerName.includes("outline") || lowerName.includes("chapter") || lowerName.includes("教材")) {
-          inferredType = "textbook_outline";
-        }
-
-        const materialItem: StudyMaterial = {
-          id: `mat-${Date.now()}-${i}`,
-          name: file.name,
-          type: inferredType,
-          categoryGroup: inferredType === "past_exam" ? "exam_question" : inferredType === "syllabus" ? "course_syllabus" : "study_material",
-          content: text,
-          uploadedAt: new Date().toISOString(),
-          sizeBytes: file.size,
-          summaryNotes: text.slice(0, 150) + "...",
-          difficulty: "medium",
-        };
-
-        newAttachedMaterials.push(materialItem);
-        combinedContent += `=== ${file.name} ===\n${text}\n\n`;
-      } catch (err: any) {
-        console.error("Failed to parse file:", file.name, err);
-      }
-    }
-
-    if (newAttachedMaterials.length > 0) {
-      const newDocDisplayName = files.length === 1 ? files[0].name : `${files.length} 个资料集合 (${files[0].name} 等)`;
-      onSyllabusDocNameChange(newDocDisplayName);
-      onSyllabusContentChange(combinedContent.trim());
-      updatePlanMaterials([...newAttachedMaterials, ...materials]);
-    }
-
-    setIsParsingDoc(false);
-    setParsingStatus("");
-  };
-
-  const handleAddPastedDoc = () => {
-    if (!pasteDocContent.trim()) return;
-    const title = pasteDocTitle.trim() || (language === "zh" ? "自定义笔记/提纲" : "Custom Notes");
-    const newDoc: StudyMaterial = {
-      id: `mat-paste-${Date.now()}`,
-      name: title,
-      type: pasteDocType,
-      categoryGroup: pasteDocType === "past_exam" ? "exam_question" : pasteDocType === "syllabus" ? "course_syllabus" : "study_material",
-      content: pasteDocContent.trim(),
-      uploadedAt: new Date().toISOString(),
-      sizeBytes: new Blob([pasteDocContent]).size,
-      summaryNotes: pasteDocContent.trim().slice(0, 140) + "...",
-      difficulty: "medium",
-    };
-
-    updatePlanMaterials([newDoc, ...materials]);
-    onSyllabusContentChange(`${syllabusContent}\n\n=== 知识库: ${title} ===\n${pasteDocContent}`);
-    setPasteDocTitle("");
-    setPasteDocContent("");
-    setShowPasteBox(false);
+    onUpdatePlan({
+      ...plan,
+      materials: newMaterials,
+      updatedAt: new Date().toISOString(),
+    });
   };
 
   const handleDeleteDoc = (docId: string) => {
@@ -267,16 +64,11 @@ export function CourseKnowledgeHub({
   };
 
   const handleExtractTopics = async () => {
-    let sourceContent = syllabusContent.trim();
-    if (!sourceContent && materials.length > 0) {
-      sourceContent = materials.map((m) => `### ${m.name}\n${m.content}`).join("\n\n");
-    }
-
-    if (!sourceContent && materials.length === 0) {
+    if (materials.length === 0) {
       setExtractError(
         language === "zh"
           ? "请先在上方知识库中上传课程资料或粘贴笔记，AI 将为您提炼考点架构。"
-          : "Please upload knowledge base materials first for AI topic extraction."
+          : "Upload course materials or paste notes above first so AI can extract the topic blueprint."
       );
       return;
     }
@@ -285,25 +77,24 @@ export function CourseKnowledgeHub({
     setExtractError(null);
     setExtractionSuccess(false);
 
-    const materialsForAI = materials.length > 0
-      ? prepareMaterialsForAI(materials)
-      : [{ id: "pasted-note", name: "课程资料", type: "notes", content: sourceContent.slice(0, 120_000) }];
-
     try {
       const res = await fetch("/api/extract-syllabus", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          materials: materialsForAI,
-          examName: examName || (language === "zh" ? "即将到来的期末考试" : "Upcoming Exam"),
-          subject: subject || (language === "zh" ? "综合学科" : "General"),
+          materials: prepareMaterialsForAI(materials),
+          examName: plan.examName || (language === "zh" ? "即将到来的期末考试" : "Upcoming Exam"),
+          subject: plan.subject || (language === "zh" ? "综合学科" : "General"),
           language,
         }),
       });
 
       if (!res.ok) {
-        const apiError = await readApiError(res, language);
-        setExtractError(apiError.message);
+        const data = await res.json().catch(() => null);
+        setExtractError(
+          data?.error?.message ||
+            (language === "zh" ? "AI 暂时无法提炼考点，请稍后重试。" : "AI could not extract topics. Please try again.")
+        );
         return;
       }
 
@@ -317,21 +108,16 @@ export function CourseKnowledgeHub({
         return;
       }
 
-      if (data.summary) {
-        onMaterialsSummaryChange(data.summary);
-      }
-      onTopicsChange(data.topics);
-      if (plan && onUpdatePlan) {
-        onUpdatePlan({
-          ...plan,
-          topics: data.topics,
-          materialsSummary: data.summary || plan.materialsSummary,
-        });
-      }
+      onUpdatePlan({
+        ...plan,
+        topics: data.topics,
+        materialsSummary: data.summary || plan.materialsSummary,
+        updatedAt: new Date().toISOString(),
+      });
       setExtractionSuccess(true);
-      setTimeout(() => setExtractionSuccess(false), 4000);
-    } catch (err: any) {
-      console.error("Topic extraction failed:", err);
+      window.setTimeout(() => setExtractionSuccess(false), 4000);
+    } catch (error) {
+      console.error("Topic extraction failed:", error);
       setExtractError(
         language === "zh"
           ? "无法连接 AI 服务，请检查网络后重试。"
@@ -352,154 +138,34 @@ export function CourseKnowledgeHub({
     const newTopic: SyllabusTopic = {
       id: `topic-custom-${Date.now()}`,
       title: newTopicTitle.trim(),
-      category: subject || (language === "zh" ? "专业核心" : "Core"),
+      category: plan.subject || (language === "zh" ? "专业核心" : "Core"),
       weightPercentage: Number(newTopicWeight) || 15,
-      difficulty: newTopicDifficulty,
+      difficulty: "medium",
       userKnowledgeLevel: "intermediate",
       subtopics: subtopicsList.length > 0 ? subtopicsList : [newTopicTitle.trim()],
       estimatedHours: Number(newTopicHours) || 4,
     };
 
-    const updatedTopics = [...topics, newTopic];
-    onTopicsChange(updatedTopics);
-    if (plan && onUpdatePlan) {
-      onUpdatePlan({ ...plan, topics: updatedTopics });
-    }
-
+    onUpdatePlan({
+      ...plan,
+      topics: [...topics, newTopic],
+      updatedAt: new Date().toISOString(),
+    });
     setNewTopicTitle("");
     setNewTopicSubtopics("");
     setIsAddingTopic(false);
   };
 
   const handleDeleteTopic = (topicId: string) => {
-    const updated = topics.filter((t) => t.id !== topicId);
-    onTopicsChange(updated);
-    if (plan && onUpdatePlan) {
-      onUpdatePlan({ ...plan, topics: updated });
-    }
-  };
-
-  const handleGenerateStudyPlan = async () => {
-    if (topics.length === 0) {
-      setPlanGenerateError(
-        language === "zh"
-          ? "请先使用 AI 从资料中提炼考点，再生成学习计划。"
-          : "Extract topics from your materials with AI first, then generate the study plan."
-      );
-      return;
-    }
-
-    setIsGeneratingPlan(true);
-    setPlanGenerateError(null);
-    setPlanSuccessNotice(false);
-
-    const preferences: UserStudyPreferences = {
-      examName: examName || (language === "zh" ? "期末/资格考试" : "Final Exam"),
-      subject: subject || (language === "zh" ? "综合学科" : "General"),
-      startDate,
-      examDate,
-      examTime,
-      targetScoreOrGrade: targetScore,
-      dailySchedules,
-      studyPace,
-      sessionLengthMinutes: sessionLength,
-      includePracticeExams,
-      includeBufferDays,
-      bufferDaysCount,
-      weakTopicsFocus: selectedWeakTopics,
-      additionalNotes: "",
-    };
-
-    try {
-      const res = await fetch("/api/generate-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topics,
-          preferences,
-          materials: prepareMaterialsForAI(materials),
-          materialsSummary,
-          language,
-        }),
-      });
-
-      if (!res.ok) {
-        const apiError = await readApiError(res, language);
-        setPlanGenerateError(apiError.message);
-        return;
-      }
-
-      const data = await res.json();
-      if (!Array.isArray(data?.tasks) || data.tasks.length === 0) {
-        setPlanGenerateError(
-          language === "zh"
-            ? "AI 未能生成可用的每日任务，请稍后重试。"
-            : "AI did not return any usable daily tasks. Please try again."
-        );
-        return;
-      }
-
-      const newPlan: ExamStudyPlan = {
-        id: plan?.id || `plan-${Date.now()}`,
-        createdAt: plan?.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        examName: preferences.examName,
-        subject: preferences.subject,
-        startDate: preferences.startDate,
-        examDate: preferences.examDate,
-        examTime: preferences.examTime,
-        totalPlannedHours: data.totalPlannedHours || totalEstHours || 0,
-        phases: data.phases || [],
-        topics,
-        tasks: data.tasks,
-        preferences,
-        materialsSummary,
-        materials: materials.length > 0 ? materials : undefined,
-      };
-
-      if (onUpdatePlan) {
-        onUpdatePlan(newPlan);
-      }
-
-      setPlanSuccessNotice(true);
-      setTimeout(() => setPlanSuccessNotice(false), 5000);
-    } catch (err: any) {
-      console.error("Plan generation failed:", err);
-      setPlanGenerateError(
-        language === "zh"
-          ? "无法连接 AI 服务，请检查网络后重试。"
-          : "Could not reach the AI service. Check your connection and try again."
-      );
-    } finally {
-      setIsGeneratingPlan(false);
-    }
-  };
-
-  const getDocTypeBadge = (type: StudyMaterial["type"]) => {
-    switch (type) {
-      case "syllabus":
-        return <span className="inline-flex items-center px-2 py-0.5 border border-[#111111] bg-white text-[#111111] text-[10px] font-bold uppercase">[考试大纲]</span>;
-      case "lecture_slides":
-        return <span className="inline-flex items-center px-2 py-0.5 border border-[#111111] bg-white text-[#111111] text-[10px] font-bold uppercase">[讲义课件]</span>;
-      case "past_exam":
-        return <span className="inline-flex items-center px-2 py-0.5 border border-[#111111] bg-[#111111] text-white text-[10px] font-bold uppercase">[历年真题]</span>;
-      case "textbook_outline":
-        return <span className="inline-flex items-center px-2 py-0.5 border border-[#111111] bg-white text-[#111111] text-[10px] font-bold uppercase">[教材提纲]</span>;
-      default:
-        return <span className="inline-flex items-center px-2 py-0.5 border border-[#111111] bg-white text-[#111111] text-[10px] font-bold uppercase">[笔记资料]</span>;
-    }
+    onUpdatePlan({
+      ...plan,
+      topics: topics.filter((topic) => topic.id !== topicId),
+      updatedAt: new Date().toISOString(),
+    });
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8 space-y-10 animate-fadeIn text-[#111111] font-mono">
-
-      {planSuccessNotice && (
-        <div className="flex items-center space-x-2 p-3.5 bg-white border border-[#111111] text-[#111111] text-xs font-bold animate-fadeIn">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-[#111111]" />
-          <span>[{language === "zh" ? "已成功依据知识库资料生成/更新复习规划！任务已分配至每日待办与日历日程。" : "SUCCESSFULLY GENERATED STUDY PLAN FROM KNOWLEDGE BASE!"}]</span>
-        </div>
-      )}
-
+    <div className="space-y-8 animate-fadeIn text-[#111111] font-mono">
       {extractionSuccess && (
         <div className="flex items-center space-x-2 p-3.5 bg-white border border-[#111111] text-[#111111] text-xs font-bold animate-fadeIn">
           <Sparkles className="w-4 h-4 shrink-0 text-[#111111]" />
@@ -511,13 +177,6 @@ export function CourseKnowledgeHub({
         <div className="flex items-center space-x-2 p-3 bg-white border border-[#111111] text-[#111111] text-xs font-bold">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>[ERROR] {extractError}</span>
-        </div>
-      )}
-
-      {planGenerateError && (
-        <div className="flex items-center space-x-2 p-3 bg-white border border-[#111111] text-[#111111] text-xs font-bold">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>[ERROR] {planGenerateError}</span>
         </div>
       )}
 
@@ -550,15 +209,9 @@ export function CourseKnowledgeHub({
         <UploadModal
           isOpen={showUploadBox}
           onClose={() => setShowUploadBox(false)}
-          currentSyllabusContent={syllabusContent}
+          currentSyllabusContent=""
           initialType={activeFolderDocType}
-          onUploadSuccess={(newAttachedMaterials, combinedContent) => {
-            const newDocDisplayName =
-              newAttachedMaterials.length === 1
-                ? newAttachedMaterials[0].name
-                : `${newAttachedMaterials.length} 个资料集合 (${newAttachedMaterials[0].name} 等)`;
-            onSyllabusDocNameChange(newDocDisplayName);
-            onSyllabusContentChange(combinedContent);
+          onUploadSuccess={(newAttachedMaterials) => {
             updatePlanMaterials([...newAttachedMaterials, ...materials]);
           }}
         />
@@ -586,7 +239,6 @@ export function CourseKnowledgeHub({
               difficulty: "medium",
             };
             updatePlanMaterials([newDoc, ...materials]);
-            onSyllabusContentChange(`${syllabusContent}\n\n=== 知识库: ${noteData.title} ===\n${noteData.content}`);
           }}
         />
       </section>
@@ -595,12 +247,30 @@ export function CourseKnowledgeHub({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#111111]">
           <div className="flex items-center space-x-2">
             <BrainCircuit className="w-4 h-4 text-[#111111]" />
-            <h2 className="text-sm font-bold uppercase text-[#111111]">
-              [2. {language === "zh" ? "AI 提炼的考点树状体系" : "TOPIC TREE HIERARCHY"}]
-            </h2>
+            <h3 className="text-sm font-bold uppercase text-[#111111]">
+              [{language === "zh" ? "AI 提炼的考点树状体系" : "TOPIC TREE HIERARCHY"}]
+            </h3>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleExtractTopics}
+              disabled={isExtracting}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#111111] text-[#111111] text-xs font-bold hover:bg-[#f2f0ea] disabled:opacity-50 transition-colors cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>
+                [
+                {isExtracting
+                  ? language === "zh"
+                    ? "正在提炼..."
+                    : "EXTRACTING..."
+                  : language === "zh"
+                    ? "重新提炼考点"
+                    : "RE-EXTRACT"}
+                ]
+              </span>
+            </button>
             <button
               onClick={() => setIsAddingTopic(true)}
               className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111111] hover:bg-[#333333] text-white border border-[#111111] text-xs font-bold transition-colors cursor-pointer"
@@ -617,7 +287,7 @@ export function CourseKnowledgeHub({
               <h4 className="text-xs font-bold uppercase text-[#111111]">
                 [{language === "zh" ? "添加自定义大单元与考点树" : "ADD CUSTOM UNIT & TOPICS"}]
               </h4>
-              <button onClick={() => setIsAddingTopic(false)} className="text-[#111111] hover:underline cursor-pointer">
+              <button onClick={() => setIsAddingTopic(false)} className="text-[#111111] hover:underline cursor-pointer" aria-label={language === "zh" ? "关闭添加单元" : "Close add unit"}>
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -676,19 +346,30 @@ export function CourseKnowledgeHub({
           </div>
         )}
 
-        <HierarchicalTopicTreeView
-          topics={topics}
-          language={language}
-          editable={true}
-          onUpdateTopic={(index, updated) => {
-            const updatedTopics = [...topics];
-            updatedTopics[index] = { ...updatedTopics[index], ...updated };
-            onTopicsChange(updatedTopics);
-          }}
-          onDeleteTopic={(topicId) => handleDeleteTopic(topicId)}
-          onReExtract={handleExtractTopics}
-          isExtracting={isExtracting}
-        />
+        {topics.length === 0 ? (
+          <div className="border border-dashed border-[#111111]/40 bg-[#fafafa] px-5 py-8 text-center space-y-2">
+            <CheckCircle2 className="w-6 h-6 mx-auto text-[#888888]" />
+            <p className="text-xs text-[#666666] leading-relaxed">
+              {language === "zh"
+                ? "还没有考点。上传资料后点击「重新提炼考点」，或手动添加一个大单元。"
+                : "No topics yet. Upload materials and click Re-extract, or add a unit manually."}
+            </p>
+          </div>
+        ) : (
+          <HierarchicalTopicTreeView
+            topics={topics}
+            language={language}
+            editable={true}
+            onUpdateTopic={(index, updated) => {
+              const updatedTopics = [...topics];
+              updatedTopics[index] = { ...updatedTopics[index], ...updated };
+              onUpdatePlan({ ...plan, topics: updatedTopics, updatedAt: new Date().toISOString() });
+            }}
+            onDeleteTopic={(topicId) => handleDeleteTopic(topicId)}
+            onReExtract={handleExtractTopics}
+            isExtracting={isExtracting}
+          />
+        )}
       </section>
 
       <DocumentReaderModal

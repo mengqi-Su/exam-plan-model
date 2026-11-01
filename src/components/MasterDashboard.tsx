@@ -1,13 +1,11 @@
 import React, { useMemo } from "react";
 import {
-  ArrowRight,
   BookOpen,
   CheckSquare,
   Clock,
   GraduationCap,
   Layers,
   Plus,
-  Sun,
   TrendingUp,
 } from "lucide-react";
 import { AppTab, ExamStudyPlan } from "../types";
@@ -107,13 +105,6 @@ export function MasterDashboard({
 
           <div className="flex flex-wrap items-center gap-2">
             <button
-              onClick={() => onNavigateToTab("today")}
-              className="inline-flex items-center gap-2 px-3 min-h-10 border border-[#111111] bg-white text-[13px] font-semibold hover:bg-[#f2f0ea] cursor-pointer"
-            >
-              <Sun className="w-4 h-4" />
-              {isZh ? "回到今日" : "TODAY"}
-            </button>
-            <button
               onClick={onAddNewSubject}
               className="inline-flex items-center gap-2 px-3 min-h-10 bg-[#111111] text-white text-[13px] font-bold hover:bg-[#333333] cursor-pointer"
             >
@@ -183,30 +174,6 @@ export function MasterDashboard({
           </div>
         </div>
       </div>
-
-      <section className="border border-[#111111] bg-[#282828] text-white p-5 sm:p-6 shadow-[4px_4px_0px_#111111] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-1.5 min-w-0">
-          <div className="flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.16em] text-[#FCD33B]">
-            <Sun className="w-4 h-4" />
-            [ {isZh ? "今日执行" : "TODAY"} ]
-          </div>
-          <h2 className="text-xl font-bold tracking-tight">
-            {isZh ? "把今天要做的，集中在一个页面" : "One page for today's work"}
-          </h2>
-          <p className="text-[13px] leading-relaxed text-[#D6D3CA]">
-            {isZh
-              ? `今日 ${workspaceMetrics.todayCompleted} / ${workspaceMetrics.todayTotal} 项已完成。查看下一项、记录笔记，或在日终统一收尾。`
-              : `${workspaceMetrics.todayCompleted} / ${workspaceMetrics.todayTotal} tasks done today. See what's next, take notes, or wrap up at day's end.`}
-          </p>
-        </div>
-        <button
-          onClick={() => onNavigateToTab("today")}
-          className="inline-flex items-center justify-center gap-2 px-4 min-h-11 shrink-0 bg-[#FCD33B] text-[#111111] text-[13px] font-bold hover:bg-[#e9c331] cursor-pointer"
-        >
-          {isZh ? "打开今日" : "OPEN TODAY"}
-          <ArrowRight className="w-4 h-4" />
-        </button>
-      </section>
 
       <section className="space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-[#111111]">

@@ -19,8 +19,6 @@ interface PinnedRoadmapTodoListProps {
   onSaveNotes: (taskId: string, notes: string) => void;
   onDeleteTask: (taskId: string) => void;
   onStartTimer: (task: StudyTask) => void;
-  onStartRag: (task: StudyTask) => void;
-  onAddNewTask: () => void;
   selectedDate: string;
 }
 
@@ -183,7 +181,6 @@ export function PinnedRoadmapTodoList({
   onSaveNotes,
   onDeleteTask,
   onStartTimer,
-  onStartRag,
 }: PinnedRoadmapTodoListProps) {
   const { t, language } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -492,15 +489,6 @@ export function PinnedRoadmapTodoList({
                         aria-label={t("startFocusTimer")}
                       >
                         <Play className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        onClick={() => onStartRag(task)}
-                        className="p-2 min-w-8 min-h-8 border border-transparent hover:border-[#111111] hover:bg-[#FAF9F6] text-[#333333] transition-colors cursor-pointer"
-                        title={language === "zh" ? "向资料提问" : "Ask your materials"}
-                        aria-label={language === "zh" ? "向资料提问" : "Ask your materials"}
-                      >
-                        <BookOpen className="w-4 h-4" />
                       </button>
 
                       <button

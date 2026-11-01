@@ -14,7 +14,6 @@ import { useI18n } from "../lib/i18n";
 import { playCompletionChime } from "../lib/audio";
 import { PinnedRoadmapTodoList } from "./PinnedRoadmapTodoList";
 import { TaskFocusTimerModal } from "./TaskFocusTimerModal";
-import { RagKnowledgeModal } from "./RagKnowledgeModal";
 
 interface TodayFocusViewProps {
   plans: ExamStudyPlan[];
@@ -24,6 +23,8 @@ interface TodayFocusViewProps {
   onNotice?: (message: string | null) => void;
   selectedDate: string;
   onSelectDate: (date: string) => void;
+  soundAlertsEnabled: boolean;
+  defaultFocusDuration: number;
 }
 
 type DayItem = { task: StudyTask; plan: ExamStudyPlan };
@@ -44,13 +45,14 @@ export function TodayFocusView({
   onNotice,
   selectedDate,
   onSelectDate,
+  soundAlertsEnabled,
+  defaultFocusDuration,
 }: TodayFocusViewProps) {
   const { language } = useI18n();
   const isZh = language === "zh";
   const todayStr = useMemo(() => toLocalDateString(), []);
 
   const [activeTimer, setActiveTimer] = useState<DayItem | null>(null);
-  const [activeRag, setActiveRag] = useState<DayItem | null>(null);
 
   const dayItems = useMemo(() => {
     const rows: DayItem[] = [];
@@ -97,7 +99,7 @@ export function TodayFocusView({
     }));
 
     if (willComplete) {
-      playCompletionChime();
+      if (soundAlertsEnabled) playCompletionChime();
       const allDone = dayItems.every(
         (candidate) => candidate.task.id === taskId || candidate.task.status === "completed"
       );
@@ -151,7 +153,7 @@ export function TodayFocusView({
           : task
       ),
     });
-    playCompletionChime();
+    if (soundAlertsEnabled) playCompletionChime();
     setActiveTimer(null);
   };
 
@@ -292,11 +294,6 @@ export function TodayFocusView({
             const item = findItem(task.id);
             if (item) setActiveTimer(item);
           }}
-          onStartRag={(task) => {
-            const item = findItem(task.id);
-            if (item) setActiveRag(item);
-          }}
-          onAddNewTask={onAddNewSubject}
           selectedDate={selectedDate}
         />
       )}
@@ -307,17 +304,11 @@ export function TodayFocusView({
           isOpen={true}
           onClose={() => setActiveTimer(null)}
           onTaskCompleted={handleTimerCompleted}
+          soundAlertsEnabled={soundAlertsEnabled}
+          defaultFocusDuration={defaultFocusDuration}
         />
       )}
 
-      {activeRag && (
-        <RagKnowledgeModal
-          task={activeRag.task}
-          plan={activeRag.plan}
-          isOpen={true}
-          onClose={() => setActiveRag(null)}
-        />
-      )}
     </div>
   );
 }

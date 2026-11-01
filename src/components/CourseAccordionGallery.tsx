@@ -151,10 +151,11 @@ export function CourseAccordionGallery({
         </button>
 
         <div className="pt-2 border-t border-[#dedad1] w-full max-w-md flex items-center justify-center space-x-2 text-[11px] text-[#777777]">
-          <span>{language === "zh" ? "支持快速预设与自定义：" : "Quick Starter Templates:"}</span>
-          <span className="px-1.5 py-0.5 bg-[#fafafa] border border-[#dedad1] text-[#333333]">高等数学</span>
-          <span className="px-1.5 py-0.5 bg-[#fafafa] border border-[#dedad1] text-[#333333]">计算机网络</span>
-          <span className="px-1.5 py-0.5 bg-[#fafafa] border border-[#dedad1] text-[#333333]">大学英语</span>
+          <span>
+            {language === "zh"
+              ? "上传资料 → AI 提炼考点 → 生成每日计划，无预设模板。"
+              : "Upload materials → AI extracts topics → daily plan. No templates."}
+          </span>
         </div>
       </div>
     );

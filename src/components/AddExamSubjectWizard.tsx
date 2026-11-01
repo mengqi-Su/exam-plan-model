@@ -31,6 +31,7 @@ interface AddExamSubjectWizardProps {
   onPlanCreated: (newPlan: ExamStudyPlan, notice?: string | null) => void;
   onCancel: () => void;
   existingPlans: ExamStudyPlan[];
+  defaultStudyPace: UserStudyPreferences["studyPace"];
 }
 
 class GenerationError extends Error {
@@ -82,6 +83,7 @@ export function AddExamSubjectWizard({
   onPlanCreated,
   onCancel,
   existingPlans,
+  defaultStudyPace,
 }: AddExamSubjectWizardProps) {
   const { language } = useI18n();
   const tt = (zh: string, en: string) => (language === "zh" ? zh : en);
@@ -367,7 +369,7 @@ export function AddExamSubjectWizard({
       startDate,
       targetScoreOrGrade: targetScore.trim(),
       dailySchedules: buildDailySchedules(hours),
-      studyPace: "balanced",
+      studyPace: defaultStudyPace,
       sessionLengthMinutes: 45,
       includePracticeExams: false,
       includeBufferDays: false,

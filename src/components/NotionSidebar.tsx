@@ -1,13 +1,11 @@
 import React from "react";
 import {
   Calendar,
-  HardDrive,
   LayoutDashboard,
   PanelLeft,
   PanelLeftClose,
   Plus,
   Settings,
-  ShieldCheck,
   Sun,
   Trash2,
 } from "lucide-react";
@@ -26,7 +24,6 @@ interface NotionSidebarProps {
   onRequestDeletePlan?: (plan: ExamStudyPlan) => void;
   currentTab: AppTab;
   onTabChange: (tab: AppTab, planId?: string) => void;
-  onOpenSettings?: (tab?: "data" | "preferences" | "language" | "version") => void;
 }
 
 export function NotionSidebar({
@@ -40,7 +37,6 @@ export function NotionSidebar({
   onRequestDeletePlan,
   currentTab,
   onTabChange,
-  onOpenSettings,
 }: NotionSidebarProps) {
   const { language } = useI18n();
 
@@ -142,8 +138,7 @@ export function NotionSidebar({
 
         {plans.map((p, idx) => {
           const isActivePlan =
-            activePlan?.id === p.id &&
-            ["course", "todo", "realtime", "materials"].includes(currentTab);
+            activePlan?.id === p.id && currentTab === "course";
           const palette = getPaletteByIndex(idx);
 
           return (
@@ -212,36 +207,19 @@ export function NotionSidebar({
         </button>
       </div>
 
-      <div className="p-2.5 border-t border-[#111111] bg-[#faf9f6] space-y-1.5">
+      <div className="p-2.5 border-t border-[#111111] bg-[#faf9f6]">
         <button
-          onClick={() => (onOpenSettings ? onOpenSettings("data") : null)}
-          className="w-full flex items-center justify-between p-2 bg-white border border-[#111111] hover:bg-[#fafafa] text-[#111111] transition-all cursor-pointer rounded-lg text-left shadow-xs group"
+          onClick={() => onTabChange("settings")}
+          aria-current={currentTab === "settings" ? "page" : undefined}
+          className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs rounded-lg border ${
+            currentTab === "settings"
+              ? "bg-[#111111] text-white font-semibold border-[#111111] shadow-xs"
+              : "bg-white text-[#333333] border-[#dedad1] hover:border-[#111111] hover:text-[#111111]"
+          }`}
         >
-          <div className="flex items-center space-x-2 min-w-0">
-            <div className="w-6 h-6 bg-[#FCD33B] border border-[#111111] flex items-center justify-center shrink-0">
-              <HardDrive className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-bold truncate">
-                {language === "zh" ? "本地模式" : "LOCAL MODE"}
-              </div>
-              <div className="text-[9px] text-[#666666] flex items-center space-x-1 font-mono">
-                <ShieldCheck className="w-2.5 h-2.5" />
-                <span>{language === "zh" ? "数据仅保存在此浏览器" : "Stored in this browser only"}</span>
-              </div>
-            </div>
-          </div>
-          <Settings className="w-3.5 h-3.5 text-[#666666] group-hover:rotate-45 transition-transform shrink-0" />
-        </button>
-        <button
-          onClick={() => (onOpenSettings ? onOpenSettings("preferences") : null)}
-          className="w-full flex items-center justify-between py-1.5 px-2 text-[#666666] hover:text-[#111111] transition-all cursor-pointer font-sans text-[11px]"
-        >
-          <span className="flex items-center space-x-1.5">
-            <Settings className="w-3 h-3" />
-            <span>{language === "zh" ? "偏好设置" : "Preferences"}</span>
-          </span>
-          <span className="font-mono text-[10px] opacity-70">[{language.toUpperCase()}]</span>
+          <Settings className="w-4 h-4" />
+          <span className="flex-1 truncate">{language === "zh" ? "设置" : "Settings"}</span>
+          <span className="font-mono text-[10px] opacity-60">04</span>
         </button>
       </div>
     </aside>

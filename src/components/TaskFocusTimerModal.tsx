@@ -20,6 +20,8 @@ interface TaskFocusTimerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onTaskCompleted: (actualMinutesSpent: number, rating?: 1 | 2 | 3 | 4 | 5) => void;
+  soundAlertsEnabled: boolean;
+  defaultFocusDuration: number;
 }
 
 export function TaskFocusTimerModal({
@@ -27,22 +29,25 @@ export function TaskFocusTimerModal({
   isOpen,
   onClose,
   onTaskCompleted,
+  soundAlertsEnabled,
+  defaultFocusDuration,
 }: TaskFocusTimerModalProps) {
   const { t, language } = useI18n();
-  const initialSeconds = (task?.durationMinutes || 45) * 60;
+  const initialSeconds = defaultFocusDuration * 60;
   const [timeLeft, setTimeLeft] = useState(initialSeconds);
   const [isRunning, setIsRunning] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(soundAlertsEnabled);
   const [checkedObjectives, setCheckedObjectives] = useState<Record<number, boolean>>({});
   const [selectedRating, setSelectedRating] = useState<1 | 2 | 3 | 4 | 5>(4);
 
   useEffect(() => {
     if (task) {
-      setTimeLeft((task.durationMinutes || 45) * 60);
+      setTimeLeft(defaultFocusDuration * 60);
       setIsRunning(false);
+      setSoundEnabled(soundAlertsEnabled);
       setCheckedObjectives({});
     }
-  }, [task]);
+  }, [task, defaultFocusDuration, soundAlertsEnabled]);
 
   useEffect(() => {
     let interval: any = null;
@@ -79,7 +84,7 @@ export function TaskFocusTimerModal({
 
   const handleFinishAndSave = () => {
     const elapsedMinutes = Math.max(1, Math.round((initialSeconds - timeLeft) / 60));
-    playCompletionChime();
+    if (soundEnabled) playCompletionChime();
     onTaskCompleted(elapsedMinutes, selectedRating);
     onClose();
   };

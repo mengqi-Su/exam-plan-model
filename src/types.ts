@@ -4,11 +4,9 @@ export type AppTab =
   | 'today'
   | 'dashboard'
   | 'master_calendar'
-  | 'todo'
-  | 'realtime'
   | 'course'
-  | 'materials'
-  | 'add_subject';
+  | 'add_subject'
+  | 'settings';
 
 export interface DaySchedulePreference {
   dayOfWeek: number;
