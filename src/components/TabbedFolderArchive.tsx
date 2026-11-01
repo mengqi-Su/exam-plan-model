@@ -176,7 +176,6 @@ interface TabbedFolderArchiveProps {
   onDeleteDoc: (docId: string) => void;
   onOpenUpload?: (folderType?: StudyMaterial["type"]) => void;
   onOpenPaste?: (folderType?: StudyMaterial["type"]) => void;
-  onLoadSamples?: () => void;
   onDeleteCourse?: () => void;
 }
 

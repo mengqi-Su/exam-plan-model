@@ -305,6 +305,16 @@ interface AiCallOutcome<T> {
   fallbackReason?: "no_api_key" | "ai_error" | "ai_timeout";
 }
 
+class AiServiceError extends Error {
+  reason: "no_api_key" | "ai_error" | "ai_timeout";
+
+  constructor(reason: "no_api_key" | "ai_error" | "ai_timeout") {
+    super(`AI service unavailable (${reason})`);
+    this.name = "AiServiceError";
+    this.reason = reason;
+  }
+}
+
 interface AiRunOptions {
   perCallTimeoutMs?: number;
   overallBudgetMs?: number;
@@ -333,14 +343,15 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): 
 async function generateWithRetryAndFallback<T>(
   buildParams: (modelName: string) => any,
   parseResult: (text: string) => T,
-  fallbackGenerator: () => T,
+  fallbackGenerator: (() => T) | null,
   options: AiRunOptions = {}
 ): Promise<AiCallOutcome<T>> {
   const startedAt = Date.now();
   const client = getAI();
 
   if (!client) {
-    console.warn(`[AI${options.label ? ` ${options.label}` : ""}] GEMINI_API_KEY is not configured; using local fallback.`);
+    console.warn(`[AI${options.label ? ` ${options.label}` : ""}] GEMINI_API_KEY is not configured.`);
+    if (!fallbackGenerator) throw new AiServiceError("no_api_key");
     return { value: fallbackGenerator(), source: "fallback", fallbackReason: "no_api_key" };
   }
 
@@ -401,9 +412,14 @@ async function generateWithRetryAndFallback<T>(
   }
 
   console.warn(
-    `[AI${options.label ? ` ${options.label}` : ""}] falling back after error:`,
+    `[AI${options.label ? ` ${options.label}` : ""}] request failed:`,
     lastError instanceof Error ? lastError.message : lastError
   );
+
+  if (!fallbackGenerator) {
+    throw new AiServiceError(timedOut ? "ai_timeout" : "ai_error");
+  }
+
   return {
     value: fallbackGenerator(),
     source: "fallback",
@@ -580,482 +596,6 @@ function retrieveTopChunksForQuery(
 
 function isChinese(text: string): boolean {
   return /[\u4e00-\u9fa5]/.test(text || "");
-}
-
-function fallbackExtractSyllabus(materials: any[], examName: string, subject: string, lang: string = "zh") {
-  const isZh = lang === "zh" || isChinese(examName) || isChinese(subject);
-  const combinedText = materials.map((m) => m.content || "").join("\n");
-  const lines = combinedText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 3 && l.length < 80);
-
-  const foundHeadings = lines.filter((l) =>
-    /^(unit|chapter|module|week|topic|part|第|单元|章|模块|\d+\.|\b[A-Z\s]{4,}\b)/i.test(l)
-  );
-
-  const topicTemplatesZh = [
-    {
-      unit: "第 1 单元：核心概念定义与基础理论体系",
-      category: "基础概念",
-      diff: "easy" as const,
-      subtopics: [
-        {
-          title: "核心术语界定与公理化体系",
-          keyPoints: ["基本概念定义与数学/逻辑表述", "定理适用的前提充分与必要条件", "典型反例与边界误区"],
-          difficulty: "easy" as const,
-          examFrequency: "high" as const,
-          formulaOrTrap: "务必注意定理成立的前提约束条件",
-        },
-        {
-          title: "基础公式推导与符号规范",
-          keyPoints: ["标准符号约定与代数化表达", "基本等式与恒等变形技巧", "单位量纲与数值范围校验"],
-          difficulty: "easy" as const,
-          examFrequency: "medium" as const,
-          formulaOrTrap: "注意公式推导中的符号正负号与分母不为零的定义域限制",
-        },
-        {
-          title: "知识脉络梳理与分类框架",
-          keyPoints: ["知识树分支逻辑与内在关联", "同类概念横向对比与辨析矩阵", "基础概念在典型场景下的应用判断"],
-          difficulty: "easy" as const,
-          examFrequency: "medium" as const,
-          formulaOrTrap: "概念辨析选择题常考细微差异与易混淆名词",
-        },
-      ],
-    },
-    {
-      unit: "第 2 单元：核心方法、推导机制与算法状态转移",
-      category: "核心方法",
-      diff: "medium" as const,
-      subtopics: [
-        {
-          title: "核心推导模型与标准计算流程",
-          keyPoints: ["解题标准步骤分解", "主干方程建立与变量代换", "关键结论推导路径"],
-          difficulty: "medium" as const,
-          examFrequency: "high" as const,
-          formulaOrTrap: "掌握规范化步骤分得分点，列出关键主方程",
-        },
-        {
-          title: "关键算法/机制分析与复杂度评估",
-          keyPoints: ["状态转移方程与递归边界", "时空复杂度数学分析", "数据结构与辅助数组开销"],
-          difficulty: "medium" as const,
-          examFrequency: "high" as const,
-          formulaOrTrap: "注意边界初始化及极端规模下的溢出防范",
-        },
-        {
-          title: "定理证明逻辑与通用解题模板",
-          keyPoints: ["反证法/数学归纳法核心骨架", "构造性证明与构造辅助线/函数", "得分模板书写要点"],
-          difficulty: "medium" as const,
-          examFrequency: "medium" as const,
-          formulaOrTrap: "证明题必须完整写出归纳假设与递推依据",
-        },
-      ],
-    },
-    {
-      unit: "第 3 单元：典型大题精析、高频命题与解题专项演练",
-      category: "典型大题",
-      diff: "hard" as const,
-      subtopics: [
-        {
-          title: "历年高频主观大题解法剖析",
-          keyPoints: ["题干关键题眼抓取与建模", "多步解题策略与中间变量控制", "标准评分标准采分点拆解"],
-          difficulty: "hard" as const,
-          examFrequency: "high" as const,
-          formulaOrTrap: "主观题分步作答，即使最后答案有误也能保住过程分",
-        },
-        {
-          title: "高频易错踩坑点与避坑专项防范",
-          keyPoints: ["隐蔽约束条件挖掘", "特殊值测试与极端情形检验", "符号、单位与答题卡书写规范"],
-          difficulty: "hard" as const,
-          examFrequency: "high" as const,
-          formulaOrTrap: "警惕题目中隐藏的暗含条件（如非负整数、闭区间端点）",
-        },
-        {
-          title: "解题速度优化与验算技巧",
-          keyPoints: ["代入特殊值快速秒杀法", "数量级估计与量纲检验", "逆向思维与排除法运用"],
-          difficulty: "medium" as const,
-          examFrequency: "medium" as const,
-          formulaOrTrap: "客观题优先尝试特殊值与排除法，节约大题用时",
-        },
-      ],
-    },
-    {
-      unit: "第 4 单元：跨章节综合应用、前沿进阶与压轴难点突破",
-      category: "进阶难点",
-      diff: "hard" as const,
-      subtopics: [
-        {
-          title: "多模块交叉融合综合命题",
-          keyPoints: ["跨章节概念联动分析", "多层嵌套约束解题路径", "系统级综合题建模与解耦"],
-          difficulty: "hard" as const,
-          examFrequency: "high" as const,
-          formulaOrTrap: "压轴题先做模块拆解，化大为小各个击破",
-        },
-        {
-          title: "复杂边界条件与极限情况推演",
-          keyPoints: ["临界状态判定准则", "扰动分析与稳定性论证", "极值点与不可导点特殊处理"],
-          difficulty: "hard" as const,
-          examFrequency: "medium" as const,
-          formulaOrTrap: "务必单独检验端点与分母为零等奇异点",
-        },
-        {
-          title: "压轴压分技巧与保底策略",
-          keyPoints: ["第一问稳拿满分策略", "复杂第二问过程分争取", "时间分配硬性止损机制"],
-          difficulty: "hard" as const,
-          examFrequency: "medium" as const,
-          formulaOrTrap: "超过预定单题时间果断止损，先做性价比更高的题目",
-        },
-      ],
-    },
-    {
-      unit: "第 5 单元：真题实战全真模拟、艾宾浩斯复盘与速记冲刺",
-      category: "真题冲刺",
-      diff: "medium" as const,
-      subtopics: [
-        {
-          title: "全真闭卷限时模考演练",
-          keyPoints: ["全套试卷时间分配实操", "做题节奏与心理调控", "草稿纸分区使用与复查通道"],
-          difficulty: "medium" as const,
-          examFrequency: "high" as const,
-          formulaOrTrap: "严格按照考试时间闭卷模拟，训练考试生理时钟",
-        },
-        {
-          title: "个人错题本高频陷阱复盘",
-          keyPoints: ["错因分类（概念不清/计算失误/读题漏看）", "同类变式题针对性加练", "防重复犯错检查清单"],
-          difficulty: "medium" as const,
-          examFrequency: "high" as const,
-          formulaOrTrap: "重点攻克近期反复错 2 次以上的顽固题型",
-        },
-        {
-          title: "考前 24 小时必背核心清单与速查表",
-          keyPoints: ["核心公式定理极速过筛", "高频大题答题框架闭眼回忆", "考场应急处理与心态重置预案"],
-          difficulty: "easy" as const,
-          examFrequency: "high" as const,
-          formulaOrTrap: "考前不再做新难题，全力强化已掌握知识的熟练度",
-        },
-      ],
-    },
-  ];
-
-  const topics = topicTemplatesZh.map((tmpl, idx) => {
-    const customHeading = foundHeadings[idx]?.replace(/^[#*\-•\d\.\s]+/, "").trim();
-    const title = customHeading && customHeading.length > 3 && customHeading.length < 50
-      ? `第 ${idx + 1} 单元：${customHeading}`
-      : tmpl.unit;
-
-    const subtopicTree = tmpl.subtopics.map((sub, sIdx) => ({
-      id: `sub-${idx + 1}-${sIdx + 1}`,
-      title: `${idx + 1}.${sIdx + 1} ${sub.title}`,
-      keyPoints: sub.keyPoints,
-      difficulty: sub.difficulty,
-      examFrequency: sub.examFrequency,
-      formulaOrTrap: sub.formulaOrTrap,
-    }));
-
-    const subtopics = subtopicTree.map((s) => s.title);
-    const weight = idx === 0 ? 15 : idx === 1 ? 25 : idx === 2 ? 30 : idx === 3 ? 20 : 10;
-
-    return {
-      id: `topic-${idx + 1}`,
-      title,
-      category: tmpl.category,
-      description: isZh
-        ? `涵盖「${title}」的大单元考点树，包含 ${subtopicTree.length} 个细分知识点体系与高频题型。`
-        : `Covers topic tree for ${title} with ${subtopicTree.length} fine-grained subtopics.`,
-      weightPercentage: weight,
-      difficulty: tmpl.diff,
-      userKnowledgeLevel: tmpl.diff === "hard" ? "beginner" : "intermediate",
-      subtopics,
-      subtopicTree,
-      estimatedHours: tmpl.diff === "hard" ? 8 : tmpl.diff === "medium" ? 6 : 4,
-    };
-  });
-
-  return {
-    summary: isZh
-      ? `已深度解析课程资料，构建了完整的树状考点架构（Tree Hierarchy）。包含 ${topics.length} 个大单元模块，细分出 ${topics.reduce((acc, t) => acc + (t.subtopics?.length || 0), 0)} 个颗粒度考点及核心考查要点。`
-      : `Extracted comprehensive hierarchical topic tree with ${topics.length} major units and ${topics.reduce((acc, t) => acc + (t.subtopics?.length || 0), 0)} granular subtopics.`,
-    topics,
-  };
-}
-
-function fallbackGeneratePlan(topics: any[], preferences: any) {
-  const isZh = resolveIsChinese(preferences.language, preferences.examName, preferences.subject);
-  const startStr = preferences.startDate || toLocalDateString();
-  const examStr = preferences.examDate || addDaysToDateString(startStr, 14);
-  const daysTotal = Math.max(1, daysBetweenDateStrings(startStr, examStr));
-
-  const phase1End = addDaysToDateString(startStr, Math.floor(daysTotal * 0.35));
-  const phase2End = addDaysToDateString(startStr, Math.floor(daysTotal * 0.70));
-  const phase3End = addDaysToDateString(startStr, Math.floor(daysTotal * 0.90));
-  const phase4End = examStr;
-
-  const phasesZh = [
-    {
-      id: "phase-1",
-      name: "第 1 阶段：考纲通读与概念夯实",
-      description: "全面通读核心教材与讲义，梳理知识框架，完成定义与公式的理解。",
-      startDate: startStr,
-      endDate: phase1End,
-      focus: "构建知识网络，完成所有基础考点的首轮精读与笔记整理。",
-    },
-    {
-      id: "phase-2",
-      name: "第 2 阶段：专题精练与典型题攻坚",
-      description: "按知识模块强化习题演练，吃透典型题型解法，专项突破重难点与薄弱项。",
-      startDate: phase1End,
-      endDate: phase2End,
-      focus: "通过多维度题目演练深化应用能力，强化解题思路与速度。",
-    },
-    {
-      id: "phase-3",
-      name: "第 3 阶段：主动回忆与全真模考冲刺",
-      description: "限时全真模拟测试，艾宾浩斯主动回忆检测，系统性复盘错题。",
-      startDate: phase2End,
-      endDate: phase3End,
-      focus: "培养应试手感、掌控考场答题节奏，精准查漏补缺。",
-    },
-    {
-      id: "phase-4",
-      name: "第 4 阶段：高频考点速记与考前查漏",
-      description: "复习核心公式清单、速览错题本、调整考前作息与心理状态。",
-      startDate: phase3End,
-      endDate: phase4End,
-      focus: "牢固记忆核心公式与考点，保持最佳应考状态。",
-    },
-  ];
-
-  const phasesEn = [
-    {
-      id: "phase-1",
-      name: "Phase 1: Foundation & Conceptual Mastery",
-      description: "First pass of all core lecture materials, definitions, and active note synthesizing.",
-      startDate: startStr,
-      endDate: phase1End,
-      focus: "Comprehensive coverage of foundational definitions and key mechanisms.",
-    },
-    {
-      id: "phase-2",
-      name: "Phase 2: Deep Problem Sets & Application",
-      description: "Rigorous problem solving, homework assignments, and multi-step practice questions.",
-      startDate: phase1End,
-      endDate: phase2End,
-      focus: "Reinforcement through active problem solving and identifying edge cases.",
-    },
-    {
-      id: "phase-3",
-      name: "Phase 3: Active Recall & Timed Mocks",
-      description: "Timed practice exams, spaced repetition drills, and targeted weak-spot remediation.",
-      startDate: phase2End,
-      endDate: phase3End,
-      focus: "Speed, precision, and building exam endurance under strict test constraints.",
-    },
-    {
-      id: "phase-4",
-      name: "Phase 4: High-Yield Final Review & Formula Synthesis",
-      description: "Final formula sheet review, error log triage, and light reinforcement before exam day.",
-      startDate: phase3End,
-      endDate: phase4End,
-      focus: "Peak retention and mental clarity.",
-    },
-  ];
-
-  const phases = isZh ? phasesZh : phasesEn;
-
-  const tasks: any[] = [];
-  const scheduleMap = new Map((preferences.dailySchedules || []).map((s: any) => [s.dayOfWeek, s]));
-  const safeTopics = topics && topics.length > 0 ? topics : [
-    { title: isZh ? "核心概念与定义" : "Core Principles", difficulty: "medium" },
-    { title: isZh ? "综合演练与真题" : "Applied Problem Sets", difficulty: "hard" },
-    { title: isZh ? "重点难点回溯" : "Exam Synthesis", difficulty: "medium" },
-  ];
-
-  let topicIndex = 0;
-  let totalHours = 0;
-
-  for (let i = 0; i < daysTotal; i++) {
-    const dateStr = addDaysToDateString(startStr, i);
-    const dayOfWeek = parseLocalDate(dateStr).getDay();
-    const sched: any = scheduleMap.get(dayOfWeek) || { enabled: true, availableHours: 2, preferredTimeSlot: "evening" };
-
-    if (!sched.enabled || sched.availableHours <= 0) continue;
-
-    const isBufferDay = preferences.includeBufferDays && i >= daysTotal - (preferences.bufferDaysCount || 2);
-    const isMockDay = preferences.includePracticeExams && (i === Math.floor(daysTotal * 0.5) || i === Math.floor(daysTotal * 0.85));
-
-    const topic = safeTopics[topicIndex % safeTopics.length];
-    topicIndex++;
-
-    const startH = sched.preferredTimeSlot === "morning" ? 9 : sched.preferredTimeSlot === "afternoon" ? 14 : 18;
-    const sessionDuration = preferences.sessionLengthMinutes || 45;
-
-    const randSalt = Math.random().toString(36).slice(2, 6);
-    if (isMockDay) {
-      tasks.push({
-        id: `task-${dateStr}-${randSalt}-mock`,
-        title: isZh ? `全真限时模拟考试：${preferences.examName || "阶段模考"}` : `Full Timed Practice Exam: ${preferences.examName || "Mastery Mock"}`,
-        description: isZh
-          ? "严格模拟正式考试环境：关闭所有参考资料，开启倒计时并在限定时间内独立完成全套试题。"
-          : "Simulate exact test conditions: close all reference materials, set timer, and complete full test set.",
-        category: "mock_exam",
-        topicTitle: isZh ? "全部考点（综合演练）" : "All Topics (Cumulative)",
-        date: dateStr,
-        startTime: `${String(startH).padStart(2, "0")}:00`,
-        endTime: `${String(startH + 2).padStart(2, "0")}:00`,
-        durationMinutes: 120,
-        priority: "high",
-        status: "pending",
-        keyObjectives: isZh
-          ? [
-              "严格在规定考试时间内完成全部题目作答",
-              "测试完成后立即对照答案与解析复盘错题",
-              "将模糊考点与易错题型归纳到错题笔记",
-            ]
-          : [
-              "Complete all sections within timed limits",
-              "Review incorrect and flagged questions immediately afterward",
-              "Log tricky trap patterns in error notebook",
-            ],
-        activeRecallPrompt: isZh
-          ? "在本次模考中，哪些知识模块耗费了最多时间或导致了答题犹豫？"
-          : "Which concepts consumed the most time or caused hesitation during this mock?",
-      });
-      totalHours += 2;
-    } else if (isBufferDay) {
-      tasks.push({
-        id: `task-${dateStr}-${randSalt}-buffer`,
-        title: isZh ? `考前缓冲与查漏补缺：${topic.title}` : `Buffer Review: High-Yield Formula Sheet & Tricky Concepts`,
-        description: isZh
-          ? "对核心公式表、高频考点速记卡及错题本进行轻量级多轮复习。"
-          : "Lightweight spaced repetition of summary sheets, key formulas, and high-frequency definitions.",
-        category: "summary_cheat_sheet",
-        topicTitle: topic.title,
-        date: dateStr,
-        startTime: `${String(startH).padStart(2, "0")}:00`,
-        endTime: `${String(startH + 1).padStart(2, "0")}:00`,
-        durationMinutes: 60,
-        priority: "medium",
-        status: "pending",
-        keyObjectives: isZh
-          ? [
-              "合上讲义自主默写本考点的关键公式与核心概念",
-              "复盘历史错题，确保不再重复犯同类错误",
-            ]
-          : [
-              "Verify memory of top formulas and definitions without glancing at notes",
-              "Rest adequately and prepare exam logistics",
-            ],
-        activeRecallPrompt: isZh
-          ? "不看笔记，尝试口述或默写该考点最重要的 3 个核心结论与公式。"
-          : "Write down the 5 most critical formulas from memory without checking.",
-      });
-      totalHours += 1;
-    } else {
-
-      const isWeak = preferences.weakTopicsFocus?.includes(topic.title);
-      const userNeedStatement = isZh
-        ? `满足【${preferences.targetScoreOrGrade || "目标高分"}】需求，针对「${topic.title}」进行核心考点深挖`
-        : `Targeting [${preferences.targetScoreOrGrade || "High Score"}], focusing on [${topic.title}]`;
-
-      tasks.push({
-        id: `task-${dateStr}-${randSalt}-1`,
-        title: isZh ? `考点精读与概念溯源：${topic.title}` : `Active Study & Concept Mapping: ${topic.title}`,
-        description: isZh
-          ? `精读核心讲义与教材，梳理 ${topic.title} 的核心定理、定义及逻辑脉络，构建系统知识图谱。`
-          : `Review theory, highlight key relationships, and summarize the core principles of ${topic.title}.`,
-        category: "theory",
-        topicTitle: topic.title,
-        date: dateStr,
-        startTime: `${String(startH).padStart(2, "0")}:00`,
-        endTime: `${String(startH + 1).padStart(2, "0")}:00`,
-        durationMinutes: sessionDuration,
-        priority: isWeak ? "high" : "medium",
-        status: "pending",
-        keyObjectives: isZh
-          ? [
-              `梳理并总结 ${topic.title} 的核心定理与公式推导`,
-              "独立完成 3-5 道基础概念检测题",
-              "标记出需要进一步强化的疑难点",
-            ]
-          : [
-              `Summarize core axioms and equations for ${topic.title}`,
-              "Solve 3 introductory practice exercises",
-              "Identify and highlight complex derivations",
-            ],
-        activeRecallPrompt: isZh
-          ? `如果你要向完全零基础的人解释 ${topic.title} 的核心机制，你会怎么讲？`
-          : `How would you explain the core mechanism of ${topic.title} to someone with no background?`,
-        groundedUserNeed: userNeedStatement,
-        ragSource: {
-          documentName: `${preferences.subject || "专业课"}-核心讲义.pdf`,
-          documentType: "notes",
-          sectionTitle: `${topic.title} · 核心要点解析`,
-          pageOrChapter: `第${(topicIndex % 5) + 1}章 重点章节`,
-          excerptSnippet: isZh
-            ? `【讲义重点】${topic.title}在历年考查中占比较高，需重点掌握基本定理的适用前提条件与核心公式的推导边界。`
-            : `[Core Notes] Key definitions and theorems for ${topic.title}. Verify assumptions before applying formulas.`,
-          keyConcepts: [topic.title, "核心定义", "公式推导", "适用边界"],
-          relevanceReason: isZh ? "命中了考纲核心理论知识点" : "Matched core syllabus theory unit",
-        },
-        formulaOrRules: isZh
-          ? [`${topic.title} 核心控制方程/公式定义`, `边界条件: x > 0 且 满足连续性假设`]
-          : [`Governing equation for ${topic.title}`, `Boundary condition: x > 0`],
-      });
-      totalHours += Math.round(sessionDuration / 60);
-
-      if (sched.availableHours >= 2) {
-        tasks.push({
-          id: `task-${dateStr}-${randSalt}-2`,
-          title: isZh ? `真题专项演练与题型攻坚：${topic.title}` : `Active Recall & Problem Drills: ${topic.title}`,
-          description: isZh
-            ? `针对 ${topic.title} 进行历年真题与综合应用大题专项演练，结合讲义易错陷阱进行实战突破。`
-            : `Work through step-by-step problem sets and practice scenarios for ${topic.title}.`,
-          category: "practice_problems",
-          topicTitle: topic.title,
-          date: dateStr,
-          startTime: `${String(startH + 1).padStart(2, "0")}:15`,
-          endTime: `${String(startH + 2).padStart(2, "0")}:00`,
-          durationMinutes: sessionDuration,
-          priority: isWeak ? "high" : "medium",
-          status: "pending",
-          keyObjectives: isZh
-            ? [
-                "在不查阅答案解析的前提下独立完成题目推导",
-                "对账解析，标记失分步骤并记录解题技巧",
-                "将典型例题与易错陷阱收录至提纲",
-              ]
-            : [
-                "Attempt problems without looking at solution manuals first",
-                "Verify answers and document missed steps",
-                "Refine cheat sheet summary",
-              ],
-          activeRecallPrompt: isZh
-            ? `在做 ${topic.title} 相关题目时，最容易踩坑的边界条件或易错点是什么？`
-            : `What are the common edge cases or algebraic traps in ${topic.title}?`,
-          groundedUserNeed: isZh ? "根据用户题型偏好与真题演练需求分配" : "Allocated based on user practice preference",
-          ragSource: {
-            documentName: `历年期末真题及解析汇编.pdf`,
-            documentType: "past_exam",
-            sectionTitle: `${topic.title} - 计算与综合应用大题`,
-            pageOrChapter: `真题试卷 第${(topicIndex % 4) + 1}题`,
-            excerptSnippet: isZh
-              ? `【历年真题例题】已知系统处于稳态，求关于${topic.title}的响应参数与最优极值解。注意避免在中间步骤舍入误差。`
-              : `[Past Exam Drill] Calculate response parameters for ${topic.title} under steady state. Avoid early rounding.`,
-            keyConcepts: [topic.title, "综合大题", "避坑技巧", "计算规范"],
-            relevanceReason: isZh ? "命中了往年期末计算大题与典型陷阱" : "Matched past exam multi-step problem",
-          },
-          practiceQuestionRef: isZh ? `《历年真题卷》综合计算题 第 ${(topicIndex % 5) + 3} 题` : `Past Exam Problem Set #4`,
-        });
-        totalHours += Math.round(sessionDuration / 60);
-      }
-    }
-  }
-
-  return {
-    phases,
-    tasks,
-    totalPlannedHours: Math.max(12, totalHours),
-  };
 }
 
 function fallbackRebalancePlan(currentPlan: any, currentDate: string, reason: string) {
@@ -1465,10 +1005,15 @@ app.post("/api/extract-syllabus", async (req, res) => {
 Analyze the following exam study materials for the exam "${safeExamName}" in subject "${safeSubject}".
 Extract a deep, multi-tier hierarchical syllabus tree (考点树状图体系).
 
+GROUNDING RULES:
+- Use ONLY the supplied documents. Do not invent chapters, topics, formulas or exam rules that are not supported by the material.
+- If the documents are thin, return fewer units instead of padding with generic textbook content.
+- Prefer the exact chapter, section and terminology names found in the documents.
+
 TREE HIERARCHY RULES:
-1. ROOT NODES (Major Units / 核心大单元): Group content into 4-7 cohesive units or chapters (e.g. "第1单元：...", "第2单元：...").
-2. BRANCH NODES (Granular Subtopics / 细分考点): Under EACH major unit, extract 3-6 concrete, highly granular sub-topics / problem types (e.g., "1.1 动态规划最优子结构与状态定义", "1.2 背包问题变式与空间压缩").
-3. LEAF NODES (Key Points & Traps / 核心要点与避坑点): For each subtopic, extract 2-4 specific testable points, governing formulas/theorems, score-earning checkpoints, and common pitfalls.
+1. ROOT NODES (Major Units / 核心大单元): Group content into cohesive units or chapters that actually appear in the material.
+2. BRANCH NODES (Granular Subtopics / 细分考点): Under EACH major unit, extract 3-6 concrete, highly granular sub-topics / problem types from the material.
+3. LEAF NODES (Key Points & Traps / 核心要点与避坑点): For each subtopic, extract 2-4 specific testable points, governing formulas/theorems, score-earning checkpoints, and common pitfalls that are actually taught in the documents.
 4. Ensure comprehensive exam weight distribution (weights summing to roughly 100%) and realistic estimated study hours.
 ${isZh ? "CRITICAL: Output ALL titles, descriptions, subtopic titles, key points, and formula notes in natural, academic Simplified Chinese (简体中文)." : ""}
 
@@ -1569,17 +1114,41 @@ Output a clean JSON object containing:
         }
         return parsed;
       },
-      () => fallbackExtractSyllabus(safeMaterials, safeExamName, safeSubject, isZh ? "zh" : "en"),
+      null,
       { label: "extract-syllabus", perCallTimeoutMs: 35_000, overallBudgetMs: 60_000 }
     );
 
+    const topics = outcome.value?.topics;
+    if (!Array.isArray(topics) || topics.length === 0) {
+      return res.status(502).json({
+        error: isZh
+          ? "AI 未能从这些资料中识别出可用考点，请补充更完整的考纲、讲义或真题后重试。"
+          : "AI could not identify usable topics from these materials. Add a fuller syllabus, lecture notes, or past paper and try again.",
+        code: "SYLLABUS_EMPTY",
+      });
+    }
+
     res.json({
       ...outcome.value,
-      meta: { source: outcome.source, fallbackReason: outcome.fallbackReason },
+      meta: { source: outcome.source },
     });
   } catch (error: any) {
     if (error instanceof ApiInputError) {
       return res.status(error.status).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof AiServiceError) {
+      const isZh = resolveIsChinese(req.body?.language);
+      return res.status(error.reason === "no_api_key" ? 503 : 502).json({
+        error:
+          error.reason === "no_api_key"
+            ? isZh
+              ? "当前服务尚未配置 AI，无法自动提炼考点。请配置 GEMINI_API_KEY 后重试。"
+              : "AI is not configured on this server. Set GEMINI_API_KEY and try again."
+            : isZh
+              ? "AI 服务暂时不可用，请稍后重试。你的资料不会被替换成模板。"
+              : "The AI service is temporarily unavailable. Please try again. Your materials will not be replaced with a template.",
+        code: error.reason === "no_api_key" ? "AI_NOT_CONFIGURED" : "AI_UNAVAILABLE",
+      });
     }
     console.error("Error extracting syllabus:", error);
     res.status(502).json({ error: "考点提取失败，请稍后重试。", code: "SYLLABUS_EXTRACTION_FAILED" });
@@ -1624,6 +1193,24 @@ app.post("/api/generate-plan", async (req, res) => {
       ? `\n=== RETRIEVED RAG KNOWLEDGE BASE CHUNKS FROM UPLOADED MATERIALS ===\n${ragContextBlocks.slice(0, 15).join("\n\n")}\n`
       : "";
 
+    const planningStart = preferences.startDate || toLocalDateString();
+    const planningExam = preferences.examDate || addDaysToDateString(planningStart, 21);
+    const planningDays = Math.min(Math.max(1, daysBetweenDateStrings(planningStart, planningExam)), 60);
+    const studyDayLines: string[] = [];
+    for (let offset = 0; offset < planningDays; offset += 1) {
+      const dateStr = addDaysToDateString(planningStart, offset);
+      const weekday = parseLocalDate(dateStr).toLocaleDateString("en-US", { weekday: "short" });
+      const schedule = preferences.dailySchedules?.find(
+        (entry: any) => Number(entry?.dayOfWeek) === parseLocalDate(dateStr).getDay()
+      );
+      if (schedule && !schedule.enabled) continue;
+      const availableHours = Number(schedule?.availableHours) > 0 ? Number(schedule.availableHours) : 2;
+      studyDayLines.push(`${dateStr} (${weekday}) — ${availableHours}h available`);
+    }
+    const studyCalendarText = studyDayLines.length > 0
+      ? studyDayLines.join("\n")
+      : `${planningStart} — limited time before the exam`;
+
     const prompt = `You are a master learning scientist and RAG study schedule architect.
 Create a realistic, scientifically optimized day-by-day exam study plan strictly grounded in the student's uploaded materials and personal needs.
 ${isZh ? "CRITICAL: All generated phase names, phase descriptions, task titles, descriptions, key objectives, active recall prompts, and ragSource citations MUST be written in natural, idiomatic Simplified Chinese (简体中文)." : ""}
@@ -1631,47 +1218,48 @@ ${isZh ? "CRITICAL: All generated phase names, phase descriptions, task titles, 
 STUDENT PROFILE & PERSONALIZED STUDY NEEDS:
 - Exam Name: ${preferences.examName || "Final Exam"}
 - Subject: ${preferences.subject || "Academic"}
-- Start Date: ${preferences.startDate}
-- Exam Date: ${preferences.examDate} (Exam Time: ${preferences.examTime || "09:00"})
+- Start Date: ${planningStart}
+- Exam Date: ${planningExam} (Exam Time: ${preferences.examTime || "09:00"})
 - Target Score / Goal: ${preferences.targetScoreOrGrade || "Top Grade"}
-- User Focus Priority: ${preferences.userNeedFocusArea || "comprehensive"} (e.g. heavy_calculation, concepts_and_theory, past_exam_drills, rush_sprint)
+- User Focus Priority: ${preferences.userNeedFocusArea || "comprehensive"}
 - Custom Student Directives: ${preferences.customPromptRequirement || preferences.additionalNotes || "None"}
-- Study Pace Archetype: ${preferences.studyPace}
 - Preferred Session Duration: ${preferences.sessionLengthMinutes} minutes per block
-- Include Practice Exams: ${preferences.includePracticeExams ? "Yes" : "No"}
-- Include Buffer/Review Days: ${preferences.includeBufferDays ? `Yes (${preferences.bufferDaysCount} days)` : "No"}
 - Priority Weak Topics: ${preferences.weakTopicsFocus?.join(", ") || "None specified"}
-- Daily Available Study Hours:
-${preferences.dailySchedules?.map((d: any) => `  * ${d.dayName}: ${d.enabled ? `${d.availableHours}h (${d.preferredTimeSlot})` : "Rest / Off"}`).join("\n")}
+
+PLANNING CALENDAR (${planningDays} days; these are the ONLY allowed task dates):
+${studyCalendarText}
 
 SYLLABUS TOPICS:
 ${JSON.stringify(safeTopics, null, 2).slice(0, 40_000)}
 ${ragContextText}
 
 RAG GROUNDING REQUIREMENTS:
-1. Schedule tasks strictly between ${preferences.startDate} and ${preferences.examDate}, respecting the daily available hours.
-2. Group timeline into 3-4 distinct study phases (e.g. ${isZh ? "第1阶段：考纲精读与概念夯实, 第2阶段：专题大题精练与难点攻坚, 第3阶段：主动回忆与全真模考冲刺, 第4阶段：考前速记与查漏补缺" : "Phase 1: Foundation, Phase 2: Problem Solving, Phase 3: Mocks, Phase 4: Final Review"}).
-3. For EVERY study task, ground it directly in the uploaded documents:
-   - title: concise, highly actionable (${isZh ? "例如：'讲义精读：第3章 动态规划状态转移方程推导', '真题演练：2024期末第4题 二叉树递归大题'" : "e.g., 'Active Reading: Chapter 3 Dynamic Programming Equations'"})
-   - description: clear step-by-step guidance on what to achieve
+1. Every date listed in PLANNING CALENDAR must receive at least one task. Do not skip listed days and do not invent dates outside the list. Split each day into 1-3 blocks whose total durationMinutes does not exceed that day's available hours.
+2. Group the timeline into 3-4 study phases derived from this specific material (not a generic template). Each phase needs concrete startDate/endDate and a focus tied to actual topics.
+3. For EVERY study task, ground it directly in the uploaded documents and retrieved chunks:
+   - title: concise, highly actionable, tied to a real chapter/section or problem from the material
+   - description: clear step-by-step guidance on what to read, solve, or produce
    - category: ["theory", "reading", "practice_problems", "active_recall", "flashcards", "mock_exam", "review_weak_spots", "summary_cheat_sheet"]
-   - topicTitle: associated syllabus topic
-   - date: "YYYY-MM-DD"
+   - topicTitle: the associated syllabus topic title
+   - date: "YYYY-MM-DD" (must be one of the PLANNING CALENDAR dates)
    - startTime / endTime / durationMinutes
    - priority: "high" | "medium" | "low"
    - status: "pending"
-   - keyObjectives: array of 2-3 specific mastery checkpoints
+   - keyObjectives: array of 2-3 specific mastery checkpoints from the material
    - activeRecallPrompt: self-testing question based on the document concepts
-   - groundedUserNeed: explain which student requirement this task satisfies (e.g. "${isZh ? "针对【计算大题攻坚】需求，深度强化公式推导与实战" : "Targets high-yield calculation need"}")
-   - formulaOrRules: 1-2 key formulas or governing equations extracted from the material
-   - ragSource:
-     - documentName: name of the source material
+   - groundedUserNeed: explain which student requirement this task satisfies
+   - formulaOrRules: 1-2 key formulas or rules that appear in the material (empty array if none)
+   - ragSource: cite the real source document and section used
+     - documentName: exact name of the uploaded material
      - documentType: "syllabus" | "notes" | "past_exam" | "lecture_slides"
-     - sectionTitle: specific section or heading
-     - pageOrChapter: e.g. "第 2 章", "真题大题第3题"
-     - excerptSnippet: quote or direct summary from the document (50-150 chars)
+     - sectionTitle: real section or heading
+     - pageOrChapter: real chapter/page reference when available, otherwise a short section reference
+     - excerptSnippet: quote or close paraphrase of real content from that source (50-150 chars)
      - keyConcepts: array of 2-4 keywords
-     - relevanceReason: why this document chunk was chosen for this task`;
+     - relevanceReason: why this source chunk supports this task
+4. Never fabricate document names, chapter numbers, quotes, formulas or exam rules. If a piece of information is not in the materials, omit it rather than inventing it.`;
+
+    const studyDates = new Set(studyDayLines.map((line) => line.slice(0, 10)));
 
     const outcome = await generateWithRetryAndFallback(
       (modelName) => ({
@@ -1761,210 +1349,144 @@ RAG GROUNDING REQUIREMENTS:
         },
       }),
       (text) => JSON.parse(text),
-      () => fallbackGeneratePlan(safeTopics, preferences),
+      null,
       { label: "generate-plan", perCallTimeoutMs: 45_000, overallBudgetMs: 90_000 }
     );
 
     const rawResult = outcome.value;
 
-    // Schedule Engine: Guarantee full day-by-day task allocation to every single day from startDate to examDate
-    const enrichedTasks = allocateTasksAcrossAllCalendarDays(
-      rawResult.tasks || [],
-      safeTopics,
-      preferences,
-      isZh
-    );
+    // Keep only real AI-authored tasks; never pad empty days with template content.
+    const enrichedTasks = normalizePlanTasks(rawResult.tasks || [], preferences);
+
+    if (enrichedTasks.length === 0) {
+      return res.status(502).json({
+        error: isZh
+          ? "AI 未能生成可用的每日任务，请检查资料内容后重试。"
+          : "AI did not return any usable daily tasks. Check the materials and try again.",
+        code: "PLAN_EMPTY",
+      });
+    }
+
+    const coveredDates = new Set(enrichedTasks.map((task) => task.date));
+    const uncoveredDays = [...studyDates].filter((date) => !coveredDates.has(date));
+    if (uncoveredDays.length > 0) {
+      console.warn(
+        `[AI generate-plan] ${uncoveredDays.length}/${studyDates.size} study days have no AI task: ${uncoveredDays.slice(0, 8).join(", ")}`
+      );
+    }
 
     const totalCalculatedHours = Math.round(
-      enrichedTasks.reduce((sum: number, t: any) => sum + (t.durationMinutes || 60), 0) / 60
+      enrichedTasks.reduce((sum: number, task: any) => sum + (task.durationMinutes || 0), 0) / 60
     );
 
-    const sanitizedResult = {
+    res.json({
       ...rawResult,
       tasks: enrichedTasks,
-      totalPlannedHours: totalCalculatedHours || rawResult.totalPlannedHours || 25,
-    };
-
-    res.json({
-      ...sanitizedResult,
-      meta: { source: outcome.source, fallbackReason: outcome.fallbackReason },
+      totalPlannedHours: totalCalculatedHours || rawResult.totalPlannedHours || 0,
+      meta: { source: outcome.source, coveredDays: coveredDates.size, planningDays: studyDates.size },
     });
   } catch (error: any) {
     if (error instanceof ApiInputError) {
       return res.status(error.status).json({ error: error.message, code: error.code });
+    }
+    if (error instanceof AiServiceError) {
+      const isZh = resolveIsChinese(req.body?.language, req.body?.preferences?.examName);
+      return res.status(error.reason === "no_api_key" ? 503 : 502).json({
+        error:
+          error.reason === "no_api_key"
+            ? isZh
+              ? "当前服务尚未配置 AI，无法自动生成计划。请配置 GEMINI_API_KEY 后重试。"
+              : "AI is not configured on this server. Set GEMINI_API_KEY and try again."
+            : isZh
+              ? "AI 服务暂时不可用，请稍后重试。你的资料不会被替换成模板。"
+              : "The AI service is temporarily unavailable. Please try again. Your materials will not be replaced with a template.",
+        code: error.reason === "no_api_key" ? "AI_NOT_CONFIGURED" : "AI_UNAVAILABLE",
+      });
     }
     console.error("Error generating study plan:", error);
     res.status(502).json({ error: "学习计划生成失败，请稍后重试。", code: "PLAN_GENERATION_FAILED" });
   }
 });
 
-function allocateTasksAcrossAllCalendarDays(
-  existingTasks: any[],
-  topics: any[],
-  preferences: any,
-  isZh: boolean
-): any[] {
+function normalizePlanTasks(existingTasks: any[], preferences: any): any[] {
   const startStr = preferences.startDate || toLocalDateString();
   const examStr = preferences.examDate || addDaysToDateString(startStr, 21);
-  const diffDays = Math.max(1, daysBetweenDateStrings(startStr, examStr));
+  const totalDays = Math.max(1, daysBetweenDateStrings(startStr, examStr));
+  const validCategories = new Set([
+    "theory",
+    "reading",
+    "practice_problems",
+    "active_recall",
+    "flashcards",
+    "mock_exam",
+    "review_weak_spots",
+    "summary_cheat_sheet",
+  ]);
+  const validPriorities = new Set(["high", "medium", "low"]);
+  const validStatuses = new Set(["pending", "in_progress", "completed", "skipped"]);
+  const seenIds = new Set<string>();
+  const normalized: any[] = [];
 
-  const safeTopics = topics && topics.length > 0
-    ? topics
-    : [
-        { id: "top-1", title: isZh ? "核心基础概念与基本定理" : "Core Concepts & Fundamentals", difficulty: "medium", estimatedHours: 8 },
-        { id: "top-2", title: isZh ? "重点计算大题与综合推导" : "Complex Calculations & Problem Sets", difficulty: "hard", estimatedHours: 12 },
-        { id: "top-3", title: isZh ? "历年高频真题与典型题型" : "High-Yield Past Exam Questions", difficulty: "hard", estimatedHours: 10 },
-        { id: "top-4", title: isZh ? "易混淆考点辨析与查漏补缺" : "Edge Cases & Final Review", difficulty: "easy", estimatedHours: 6 },
-      ];
-
-  const tasksByDate = new Map<string, any[]>();
-  (existingTasks || []).forEach((t) => {
-    if (t.date) {
-      if (!tasksByDate.has(t.date)) {
-        tasksByDate.set(t.date, []);
-      }
-      tasksByDate.get(t.date)!.push(t);
+  (existingTasks || []).forEach((task: any, index: number) => {
+    if (!task || typeof task !== "object") return;
+    const date = clampText(task.date, 20);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parseLocalDate(date).getTime())) {
+      return;
     }
+    const dayOffset = daysBetweenDateStrings(startStr, date);
+    if (dayOffset < 0 || dayOffset >= totalDays) return;
+
+    const schedule = preferences.dailySchedules?.find(
+      (entry: any) => Number(entry?.dayOfWeek) === parseLocalDate(date).getDay()
+    );
+    if (schedule && !schedule.enabled) return;
+
+    const title = clampText(task.title, 300);
+    if (!title) return;
+
+    const rawDuration = Number(task.durationMinutes);
+    const durationMinutes = Number.isFinite(rawDuration) && rawDuration >= 10
+      ? Math.min(240, Math.round(rawDuration))
+      : Math.min(240, Math.max(10, Number(preferences.sessionLengthMinutes) || 45));
+
+    const rawId = clampText(task.id, 120) || `task-${date}-${index + 1}`;
+    let id = rawId;
+    let suffix = 2;
+    while (seenIds.has(id)) {
+      id = `${rawId}-${suffix}`;
+      suffix += 1;
+    }
+    seenIds.add(id);
+
+    normalized.push({
+      ...task,
+      id,
+      title,
+      description: clampText(task.description, 2_000),
+      category: validCategories.has(task.category) ? task.category : "reading",
+      topicTitle: clampText(task.topicTitle, 300),
+      date,
+      startTime: /^\d{2}:\d{2}$/.test(String(task.startTime || "")) ? task.startTime : undefined,
+      endTime: /^\d{2}:\d{2}$/.test(String(task.endTime || "")) ? task.endTime : undefined,
+      durationMinutes,
+      priority: validPriorities.has(task.priority) ? task.priority : "medium",
+      status: validStatuses.has(task.status) ? task.status : "pending",
+      keyObjectives: Array.isArray(task.keyObjectives)
+        ? task.keyObjectives.slice(0, 6).map((item: unknown) => clampText(item, 300)).filter(Boolean)
+        : [],
+      activeRecallPrompt: clampText(task.activeRecallPrompt, 1_000) || undefined,
+      groundedUserNeed: clampText(task.groundedUserNeed, 1_000) || undefined,
+      formulaOrRules: Array.isArray(task.formulaOrRules)
+        ? task.formulaOrRules.slice(0, 6).map((item: unknown) => clampText(item, 300)).filter(Boolean)
+        : [],
+    });
   });
 
-  const finalTasks: any[] = [];
-  const maxDays = Math.min(diffDays, 60);
-
-  for (let dayOffset = 0; dayOffset < maxDays; dayOffset++) {
-    const dateStr = addDaysToDateString(startStr, dayOffset);
-    const dayOfWeek = parseLocalDate(dateStr).getDay();
-    const scheduleConfig = preferences.dailySchedules?.find((s: any) => s.dayOfWeek === dayOfWeek);
-
-    // If day is disabled in user preferences, skip or keep existing
-    if (scheduleConfig && !scheduleConfig.enabled) {
-      if (tasksByDate.has(dateStr)) {
-        finalTasks.push(...tasksByDate.get(dateStr)!);
-      }
-      continue;
-    }
-
-    const currentDayTasks = tasksByDate.get(dateStr) || [];
-
-    if (currentDayTasks.length > 0) {
-      // If tasks exist for this day, ensure each has id and times
-      currentDayTasks.forEach((t, idx) => {
-        const salt = Math.random().toString(36).slice(2, 6);
-        finalTasks.push({
-          ...t,
-          id: t.id ? `${t.id}-${salt}` : `task-${dateStr}-${salt}-${idx + 1}`,
-          date: dateStr,
-          startTime: t.startTime || (scheduleConfig?.preferredTimeSlot === "morning" ? "09:00" : scheduleConfig?.preferredTimeSlot === "afternoon" ? "14:30" : "19:00"),
-          endTime: t.endTime || (scheduleConfig?.preferredTimeSlot === "morning" ? "10:30" : scheduleConfig?.preferredTimeSlot === "afternoon" ? "16:00" : "20:30"),
-          durationMinutes: t.durationMinutes || preferences.sessionLengthMinutes || 45,
-          status: t.status || "pending",
-        });
-      });
-    } else {
-      // Intelligently generate 1-2 tasks for this active calendar day
-      const progressRatio = dayOffset / maxDays;
-      let phaseCategory: string = "theory";
-      let taskTypeLabel = isZh ? "考点研读" : "Deep Reading";
-
-      if (progressRatio < 0.35) {
-        phaseCategory = dayOffset % 2 === 0 ? "reading" : "theory";
-        taskTypeLabel = isZh ? "考点研读" : "Concept Reading";
-      } else if (progressRatio < 0.70) {
-        phaseCategory = "practice_problems";
-        taskTypeLabel = isZh ? "专题精练" : "Problem Drill";
-      } else if (progressRatio < 0.90) {
-        phaseCategory = (dayOffset % 3 === 0) ? "mock_exam" : "active_recall";
-        taskTypeLabel = phaseCategory === "mock_exam" ? (isZh ? "全真模考" : "Timed Mock") : (isZh ? "主动回忆" : "Active Recall");
-      } else {
-        phaseCategory = "summary_cheat_sheet";
-        taskTypeLabel = isZh ? "考前速记" : "Cheat Sheet";
-      }
-
-      const topic = safeTopics[dayOffset % safeTopics.length];
-      const isMock = phaseCategory === "mock_exam";
-      const salt = Math.random().toString(36).slice(2, 6);
-
-      const title = isZh
-        ? isMock
-          ? `全真模考：${preferences.examName} 仿真模拟卷自测`
-          : phaseCategory === "practice_problems"
-          ? `专题精炼：${topic.title} 典型高频大题攻坚`
-          : phaseCategory === "active_recall"
-          ? `主动回忆：${topic.title} 核心定理与框架复盘`
-          : phaseCategory === "summary_cheat_sheet"
-          ? `考前急救：${topic.title} 易混淆考点与公式速查`
-          : `考点研读：${topic.title} 概念精讲与逻辑梳理`
-        : isMock
-        ? `Timed Mock: ${preferences.examName} Practice Exam`
-        : phaseCategory === "practice_problems"
-        ? `Practice Drill: ${topic.title} Problem Solving`
-        : phaseCategory === "active_recall"
-        ? `Active Recall: ${topic.title} Key Formulations`
-        : phaseCategory === "summary_cheat_sheet"
-        ? `High-Yield Review: ${topic.title} Formula Sheet`
-        : `Deep Study: ${topic.title} Fundamentals`;
-
-      const startTime = scheduleConfig?.preferredTimeSlot === "morning"
-        ? "09:00"
-        : scheduleConfig?.preferredTimeSlot === "afternoon"
-        ? "14:30"
-        : "19:00";
-      const endTime = scheduleConfig?.preferredTimeSlot === "morning"
-        ? "10:30"
-        : scheduleConfig?.preferredTimeSlot === "afternoon"
-        ? "16:00"
-        : "20:30";
-
-      finalTasks.push({
-        id: `task-${dateStr}-${salt}-1`,
-        title,
-        description: isZh
-          ? `在 ${dateStr} 针对【${topic.title}】执行每日专注复习，吃透考点并完成课后自测。`
-          : `Scheduled daily focus session for ${topic.title}. Master core requirements and self-test.`,
-        category: phaseCategory,
-        topicTitle: topic.title,
-        date: dateStr,
-        startTime,
-        endTime,
-        durationMinutes: isMock ? 90 : preferences.sessionLengthMinutes || 60,
-        priority: isMock || topic.difficulty === "hard" ? "high" : "medium",
-        status: "pending",
-        keyObjectives: isZh
-          ? [
-              `深入掌握【${topic.title}】核心定理、性质与适用边界`,
-              `完成对应的典型习题演练，记录错因与易混淆细节`,
-              `通过主动回忆自测回答关键公式与解题步骤`
-            ]
-          : [
-              `Master core principles of ${topic.title}`,
-              `Solve high-yield problems and log edge cases`,
-              `Verify retention with active recall prompt`
-            ],
-        activeRecallPrompt: isZh
-          ? `不看资料，尝试默写「${topic.title}」的核心推导步骤或解题模板。`
-          : `Without looking at notes, outline the key problem-solving steps for ${topic.title}.`,
-        groundedUserNeed: isZh
-          ? `匹配【${preferences.targetScoreOrGrade || "高分通关"}】目标，根据日历科学排定任务`
-          : `Scheduled to achieve ${preferences.targetScoreOrGrade || "Target Score"}`,
-        ragSource: {
-          documentName: `${preferences.subject || "专业课"}-核心讲义与真题.pdf`,
-          documentType: isMock ? "past_exam" : "notes",
-          sectionTitle: `${topic.title} · 重点考点`,
-          pageOrChapter: `第 ${(dayOffset % 5) + 1} 单元`,
-          excerptSnippet: isZh
-            ? `【讲义重点】本节重点考核「${topic.title}」的定理推导与典型题型解法，需严格掌握解题步骤与边界约束。`
-            : `[Core Notes] Key principles for ${topic.title}. Verify boundary conditions before applying formulas.`,
-          keyConcepts: [topic.title, "核心定义", "题型模板", "避坑指南"],
-          relevanceReason: isZh ? "命中了考纲核心考点与历年真题" : "Matched core syllabus topic",
-        },
-        formulaOrRules: isZh
-          ? [`${topic.title} 核心控制方程与计算准则`, `边界约束: 变量取值区间需满足定理定义域`]
-          : [`Governing equations for ${topic.title}`, `Boundary conditions verified`],
-        practiceQuestionRef: isMock ? `《历年真题期末卷》全套` : `《期末习题精选》第 ${(dayOffset % 4) + 1} 题`,
-      });
-    }
-  }
-
-  return finalTasks;
+  return normalized.sort((a, b) => {
+    const dateDiff = a.date.localeCompare(b.date);
+    if (dateDiff !== 0) return dateDiff;
+    return (a.startTime || "99:99").localeCompare(b.startTime || "99:99");
+  });
 }
 
 app.post("/api/rag-ask", async (req, res) => {

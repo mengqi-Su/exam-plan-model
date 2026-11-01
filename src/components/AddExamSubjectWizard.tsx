@@ -1,45 +1,31 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Plus,
-  GraduationCap,
-  BookOpen,
-  Calendar,
-  Clock,
-  Sparkles,
-  Sliders,
-  Target,
-  BrainCircuit,
-  CheckCircle2,
-  ArrowLeft,
-  ArrowRight,
-  Upload,
-  FileText,
-  Trash2,
   AlertCircle,
-  HelpCircle,
-  Zap,
-  BookmarkPlus,
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
   Eye,
+  FileText,
+  Loader2,
+  Plus,
+  Sparkles,
+  Trash2,
+  Upload,
   X,
-  FileQuestion,
-  Layers,
-  Check
 } from "lucide-react";
 import {
   DaySchedulePreference,
   ExamStudyPlan,
   StudyMaterial,
   SyllabusTopic,
-  UserStudyPreferences
+  UserStudyPreferences,
 } from "../types";
-import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
 import { useI18n } from "../lib/i18n";
 import { parseDocumentFile } from "../lib/documentParser";
-import { fallbackExtractSyllabusClient, fallbackGeneratePlanClient } from "../lib/fallbackPlanner";
-import { prepareMaterialsForAI, getAiFallbackNotice, readApiError } from "../lib/aiClient";
-import { addDays, daysBetween, parseLocalDate, toLocalDateString } from "../lib/date";
-import { RulerTimePicker } from "./RulerTimePicker";
-import { HierarchicalTopicTreeView } from "./HierarchicalTopicTreeView";
+import { MAX_AI_MATERIALS, prepareMaterialsForAI, readApiError } from "../lib/aiClient";
+import { daysBetween, toLocalDateString } from "../lib/date";
 
 interface AddExamSubjectWizardProps {
   onPlanCreated: (newPlan: ExamStudyPlan, notice?: string | null) => void;
@@ -47,216 +33,200 @@ interface AddExamSubjectWizardProps {
   existingPlans: ExamStudyPlan[];
 }
 
-const QUICK_SUBJECT_TEMPLATES = [
-  {
-    name: "高等数学 / 微积分 (Calculus)",
-    subject: "数学与应用数学",
-    topics: [
-      { id: "top-m1", title: "极限与连续性 (Limits & Continuity)", category: "基础理论", weightPercentage: 20, difficulty: "medium" as const, userKnowledgeLevel: "intermediate" as const, subtopics: ["无穷小比较", "夹逼准则", "重要极限公式"], estimatedHours: 8 },
-      { id: "top-m2", title: "一元函数微分学与导数应用 (Derivatives)", category: "核心运算", weightPercentage: 30, difficulty: "hard" as const, userKnowledgeLevel: "beginner" as const, subtopics: ["中值定理证明", "洛必达法则", "泰勒公式展开", "极值与最值分析"], estimatedHours: 14 },
-      { id: "top-m3", title: "一元函数积分学 (Integrals)", category: "计算与应用", weightPercentage: 30, difficulty: "hard" as const, userKnowledgeLevel: "beginner" as const, subtopics: ["换元积分法", "分部积分法", "定积分几何与物理应用"], estimatedHours: 15 },
-      { id: "top-m4", title: "常微分方程与级数 (Differential Equations)", category: "综合高阶", weightPercentage: 20, difficulty: "medium" as const, userKnowledgeLevel: "intermediate" as const, subtopics: ["一阶齐次/非齐次方程", "二阶常系数方程", "正项级数审敛法"], estimatedHours: 10 },
-    ],
-  },
-  {
-    name: "计算机网络与通信协议 (Computer Networks)",
-    subject: "计算机科学",
-    topics: [
-      { id: "top-cn1", title: "物理层与数据链路层 (Physical & Data Link)", category: "底层传输", weightPercentage: 20, difficulty: "easy" as const, userKnowledgeLevel: "intermediate" as const, subtopics: ["CSMA/CD 机制", "CRC 校验", "滑动窗口协议"], estimatedHours: 6 },
-      { id: "top-cn2", title: "网络层与路由算法 (Network & IP Routing)", category: "核心路由", weightPercentage: 35, difficulty: "hard" as const, userKnowledgeLevel: "beginner" as const, subtopics: ["IP 子网划分与 CIDR", "OSPF 与 BGP 协议", "NAT 与 ICMP 报文"], estimatedHours: 12 },
-      { id: "top-cn3", title: "传输层 TCP / UDP 核心机制 (Transport Layer)", category: "核心协议", weightPercentage: 35, difficulty: "hard" as const, userKnowledgeLevel: "beginner" as const, subtopics: ["TCP 三次握手与四次挥手", "拥塞控制四种算法", "流量控制与滑动窗口"], estimatedHours: 14 },
-      { id: "top-cn4", title: "应用层与网络安全 (Application & Security)", category: "应用与安全", weightPercentage: 10, difficulty: "medium" as const, userKnowledgeLevel: "intermediate" as const, subtopics: ["HTTP/1.1 vs HTTP/2 vs HTTP/3", "DNS 解析机制", "HTTPS 与 TLS 握手"], estimatedHours: 8 },
-    ],
-  },
-  {
-    name: "大学英语四六级 / 考研英语 (College English)",
-    subject: "外国语言文学",
-    topics: [
-      { id: "top-en1", title: "高频核心词汇与长难句剖析 (Vocabulary & Syntax)", category: "语言基础", weightPercentage: 25, difficulty: "medium" as const, userKnowledgeLevel: "intermediate" as const, subtopics: ["高频动词搭配", "定语从句与同位语从句", "倒装与虚拟语气"], estimatedHours: 15 },
-      { id: "top-en2", title: "学术阅读深度理解与题型精析 (Reading Comprehension)", category: "阅读专项", weightPercentage: 40, difficulty: "hard" as const, userKnowledgeLevel: "beginner" as const, subtopics: ["主旨大意题解题技巧", "态度态度与事实细节题", "词义推断与长难句翻译"], estimatedHours: 20 },
-      { id: "top-en3", title: "短文写作逻辑与高分句式 (Essay Writing)", category: "输出表达", weightPercentage: 20, difficulty: "medium" as const, userKnowledgeLevel: "intermediate" as const, subtopics: ["图表/图画作文结构", "引申论证三段论", "高级衔接词与修辞"], estimatedHours: 10 },
-      { id: "top-en4", title: "听力理解与精听训练 (Listening Comprehension)", category: "听觉感知", weightPercentage: 15, difficulty: "hard" as const, userKnowledgeLevel: "beginner" as const, subtopics: ["讲座对话长对话听力", "连读与弱读辨音", "关键信息速记技巧"], estimatedHours: 12 },
-    ],
-  },
-  {
-    name: "线性代数与矩阵论 (Linear Algebra)",
-    subject: "数学与应用数学",
-    topics: [
-      { id: "top-la1", title: "行列式与矩阵初等变换 (Determinants & Matrices)", category: "代数基础", weightPercentage: 25, difficulty: "easy" as const, userKnowledgeLevel: "intermediate" as const, subtopics: ["行列式展开定理", "逆矩阵计算", "矩阵的秩"], estimatedHours: 8 },
-      { id: "top-la2", title: "线性方程组与向量空间 (Linear Systems & Vector Spaces)", category: "核心推导", weightPercentage: 35, difficulty: "hard" as const, userKnowledgeLevel: "beginner" as const, subtopics: ["齐次与非齐次方程组解结构", "向量组线性相关性判定", "基变换与坐标变换"], estimatedHours: 14 },
-      { id: "top-la3", title: "特征值、特征向量与相似对角化 (Eigenvalues)", category: "高阶代数", weightPercentage: 25, difficulty: "hard" as const, userKnowledgeLevel: "beginner" as const, subtopics: ["特征多项式求解", "实对称矩阵正交相似对角化", "施密特正交化"], estimatedHours: 12 },
-      { id: "top-la4", title: "二次型与正定性判定 (Quadratic Forms)", category: "综合应用", weightPercentage: 15, difficulty: "medium" as const, userKnowledgeLevel: "intermediate" as const, subtopics: ["正交变换化二次型为标准型", "惯性定理", "正定矩阵判别法则"], estimatedHours: 8 },
-    ],
-  },
-];
+class GenerationError extends Error {
+  code?: string;
+
+  constructor(message: string, code?: string) {
+    super(message);
+    this.name = "GenerationError";
+    this.code = code;
+  }
+}
+
+const DAY_NAMES_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+const DAY_NAMES_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+function inferDocumentType(fileName: string): {
+  type: StudyMaterial["type"];
+  categoryGroup: StudyMaterial["categoryGroup"];
+} {
+  const lower = fileName.toLowerCase();
+  if (["大纲", "syllabus", "curriculum", "考纲"].some((k) => lower.includes(k))) {
+    return { type: "syllabus", categoryGroup: "course_syllabus" };
+  }
+  if (["真题", "试卷", "exam", "quiz", "test", "paper"].some((k) => lower.includes(k))) {
+    return { type: "past_exam", categoryGroup: "exam_question" };
+  }
+  if (["讲义", "课件", "slide", "ppt", "lecture"].some((k) => lower.includes(k))) {
+    return { type: "lecture_slides", categoryGroup: "study_material" };
+  }
+  if (["公式", "提纲", "cheat", "summary", "速查"].some((k) => lower.includes(k))) {
+    return { type: "textbook_outline", categoryGroup: "study_material" };
+  }
+  return { type: "notes", categoryGroup: "study_material" };
+}
+
+function suggestExamName(fileName: string): string {
+  return fileName
+    .replace(/\.[^.]+$/, "")
+    .replace(/[（(][^)）]*[)）]/g, " ")
+    .replace(/20\d{2}[-–_年]?(\d{2})?/g, " ")
+    .replace(/(考试大纲|教学大纲|课程大纲|syllabus|期末|期中|考试|试卷|真题|讲义|课件|笔记|notes?)/gi, " ")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 60);
+}
 
 export function AddExamSubjectWizard({
   onPlanCreated,
   onCancel,
   existingPlans,
 }: AddExamSubjectWizardProps) {
-  const { t, language } = useI18n();
-
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const { language } = useI18n();
+  const tt = (zh: string, en: string) => (language === "zh" ? zh : en);
 
   const [examName, setExamName] = useState("");
   const [subject, setSubject] = useState("");
-  const [targetScore, setTargetScore] = useState("A (90%+ / 优秀)");
-
-  const defaultExamDate = useMemo(() => addDays(toLocalDateString(), 21), []);
-
   const [startDate, setStartDate] = useState(() => toLocalDateString());
-  const [examDate, setExamDate] = useState(defaultExamDate);
-  const [examTime, setExamTime] = useState("09:00");
-
-  const daysDiff = useMemo(() => {
-    const diff = daysBetween(startDate, examDate);
-    return diff > 0 ? diff : 1;
-  }, [startDate, examDate]);
+  const [examDate, setExamDate] = useState("");
+  const [examTime, setExamTime] = useState("");
+  const [targetScore, setTargetScore] = useState("");
+  const [dailyHoursInput, setDailyHoursInput] = useState("2");
+  const [requirements, setRequirements] = useState("");
 
   const [courseDocuments, setCourseDocuments] = useState<StudyMaterial[]>([]);
-  const [pasteDocTitle, setPasteDocTitle] = useState("");
-  const [pasteDocType, setPasteDocType] = useState<StudyMaterial["type"]>("notes");
-  const [pasteDocContent, setPasteDocContent] = useState("");
-  const [showPasteForm, setShowPasteForm] = useState(false);
-
-  const [topics, setTopics] = useState<SyllabusTopic[]>([]);
-  const [isExtracting, setIsExtracting] = useState(false);
   const [isParsingFiles, setIsParsingFiles] = useState(false);
   const [parsingStatus, setParsingStatus] = useState("");
-  const [extractError, setExtractError] = useState<string | null>(null);
-  const [aiNotice, setAiNotice] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [showPasteForm, setShowPasteForm] = useState(false);
+  const [pasteDocTitle, setPasteDocTitle] = useState("");
+  const [pasteDocContent, setPasteDocContent] = useState("");
 
+  const [topics, setTopics] = useState<SyllabusTopic[]>([]);
+  const [showTopics, setShowTopics] = useState(false);
+  const [isWorking, setIsWorking] = useState(false);
+  const [workStage, setWorkStage] = useState<"extracting" | "planning">("extracting");
+  const [error, setError] = useState<{ message: string; code?: string } | null>(null);
+  const [aiReady, setAiReady] = useState<boolean | null>(null);
   const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
 
-  const [studyPace, setStudyPace] = useState<UserStudyPreferences["studyPace"]>("deep_mastery");
-  const [sessionLength, setSessionLength] = useState<number>(45);
-  const [includePracticeExams, setIncludePracticeExams] = useState(true);
-  const [includeBufferDays, setIncludeBufferDays] = useState(true);
-  const [bufferDaysCount, setBufferDaysCount] = useState(2);
-  const [dailySchedules, setDailySchedules] = useState<DaySchedulePreference[]>(DEFAULT_WEEK_SCHEDULE);
-  const [selectedWeakTopics, setSelectedWeakTopics] = useState<string[]>([]);
-  const [additionalNotes, setAdditionalNotes] = useState("");
-  const [userNeedFocusArea, setUserNeedFocusArea] = useState<UserStudyPreferences["userNeedFocusArea"]>("heavy_calculation");
-  const [customPromptRequirement, setCustomPromptRequirement] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const workingRef = useRef(false);
 
-  const orderedDayOfWeeks = [1, 2, 3, 4, 5, 6, 0];
-
-  const dayMeta: Record<number, { zh: string; en: string; isWeekend: boolean }> = {
-    1: { zh: "周一", en: "Mon", isWeekend: false },
-    2: { zh: "周二", en: "Tue", isWeekend: false },
-    3: { zh: "周三", en: "Wed", isWeekend: false },
-    4: { zh: "周四", en: "Thu", isWeekend: false },
-    5: { zh: "周五", en: "Fri", isWeekend: false },
-    6: { zh: "周六", en: "Sat", isWeekend: true },
-    0: { zh: "周日", en: "Sun", isWeekend: true },
-  };
-
-  const weeklyTotalHours = useMemo(() => {
-    return dailySchedules.reduce((acc, curr) => (curr.enabled ? acc + curr.availableHours : acc), 0);
-  }, [dailySchedules]);
-
-  const totalPlannedStudyHours = useMemo(() => {
-    let total = 0;
-    for (let i = 0; i < daysDiff; i++) {
-      const dayOfWeek = parseLocalDate(addDays(startDate, i)).getDay();
-      const sched = dailySchedules.find((s) => s.dayOfWeek === dayOfWeek);
-      if (sched && sched.enabled) {
-        total += sched.availableHours;
-      }
-    }
-    return Math.round(total * 10) / 10;
-  }, [startDate, daysDiff, dailySchedules]);
-
-  const handleUpdateDayHours = (dayOfWeek: number, hours: number) => {
-    const clamped = Math.max(0, Math.min(16, Math.round(hours * 10) / 10));
-    setDailySchedules((prev) =>
-      prev.map((d) => (d.dayOfWeek === dayOfWeek ? { ...d, availableHours: clamped, enabled: clamped > 0 } : d))
-    );
-  };
-
-  const handleToggleDayEnabled = (dayOfWeek: number) => {
-    setDailySchedules((prev) =>
-      prev.map((d) => {
-        if (d.dayOfWeek === dayOfWeek) {
-          const nextEnabled = !d.enabled;
-          return {
-            ...d,
-            enabled: nextEnabled,
-            availableHours: nextEnabled && d.availableHours === 0 ? 2.5 : d.availableHours,
-          };
-        }
-        return d;
-      })
-    );
-  };
-
-  const handleApplyWeeklyPreset = (type: "weekday_weekend" | "balanced_3h" | "intensive_5h" | "light_1_5h") => {
-    setDailySchedules((prev) =>
-      prev.map((d) => {
-        const isWeekend = d.dayOfWeek === 0 || d.dayOfWeek === 6;
-        if (type === "weekday_weekend") {
-          return { ...d, availableHours: isWeekend ? 5 : 2.5, enabled: true };
-        } else if (type === "balanced_3h") {
-          return { ...d, availableHours: 3, enabled: true };
-        } else if (type === "intensive_5h") {
-          return { ...d, availableHours: 5, enabled: true };
-        } else {
-          return { ...d, availableHours: isWeekend ? 2.5 : 1.5, enabled: true };
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/health")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data && typeof data.aiConfigured === "boolean") {
+          setAiReady(data.aiConfigured);
         }
       })
-    );
+      .catch(() => {
+        // Health check is advisory only; generation reports its own errors.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const parsedDailyHours = Number(dailyHoursInput);
+  const dailyHoursValid =
+    Number.isFinite(parsedDailyHours) && parsedDailyHours >= 0.5 && parsedDailyHours <= 12;
+
+  const daysDiff = useMemo(() => {
+    if (!examDate) return null;
+    return daysBetween(startDate, examDate);
+  }, [startDate, examDate]);
+
+  const totalPlannedHours = useMemo(() => {
+    if (daysDiff === null || daysDiff < 0 || !dailyHoursValid) return null;
+    return Math.round(Math.max(1, daysDiff) * parsedDailyHours * 10) / 10;
+  }, [daysDiff, parsedDailyHours, dailyHoursValid]);
+
+  const topicsHours = useMemo(
+    () => Math.round(topics.reduce((sum, topic) => sum + (topic.estimatedHours || 0), 0)),
+    [topics]
+  );
+
+  const typeLabels: Record<StudyMaterial["type"], string> = {
+    syllabus: tt("考纲", "Syllabus"),
+    notes: tt("笔记", "Notes"),
+    lecture_slides: tt("讲义", "Slides"),
+    past_exam: tt("真题", "Past exam"),
+    textbook_outline: tt("提纲", "Outline"),
+    custom: tt("资料", "Material"),
   };
 
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generateError, setGenerateError] = useState<string | null>(null);
+  const buildDailySchedules = (hours: number): DaySchedulePreference[] =>
+    [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+      dayOfWeek,
+      dayName: language === "zh" ? DAY_NAMES_ZH[dayOfWeek] : DAY_NAMES_EN[dayOfWeek],
+      availableHours: hours,
+      preferredTimeSlot: "flexible" as const,
+      enabled: true,
+    }));
 
-  const handleApplyTemplate = (tmpl: typeof QUICK_SUBJECT_TEMPLATES[0]) => {
-    setExamName(tmpl.name);
-    setSubject(tmpl.subject);
-    setTopics(tmpl.topics);
-    setSelectedWeakTopics(tmpl.topics.filter(t => t.difficulty === "hard").map(t => t.title));
+  const invalidateAiResult = () => {
+    setTopics([]);
+    setShowTopics(false);
+    setError(null);
   };
 
-  const inferDocumentType = (fileName: string): { type: StudyMaterial["type"]; categoryGroup: StudyMaterial["categoryGroup"] } => {
-    const lower = fileName.toLowerCase();
-    if (lower.includes("大纲") || lower.includes("syllabus") || lower.includes("curriculum") || lower.includes("考纲")) {
-      return { type: "syllabus", categoryGroup: "course_syllabus" };
-    }
-    if (lower.includes("真题") || lower.includes("试卷") || lower.includes("exam") || lower.includes("quiz") || lower.includes("test") || lower.includes("paper")) {
-      return { type: "past_exam", categoryGroup: "exam_question" };
-    }
-    if (lower.includes("讲义") || lower.includes("课件") || lower.includes("slide") || lower.includes("ppt") || lower.includes("lecture")) {
-      return { type: "lecture_slides", categoryGroup: "study_material" };
-    }
-    if (lower.includes("公式") || lower.includes("提纲") || lower.includes("cheat") || lower.includes("summary") || lower.includes("速查")) {
-      return { type: "textbook_outline", categoryGroup: "study_material" };
-    }
-    return { type: "notes", categoryGroup: "study_material" };
+  // Validation and upload errors become stale as soon as the user edits the form.
+  // Service errors keep their API code and stay visible until dismissed.
+  const clearTransientError = () => {
+    setError((prev) => (prev && !prev.code ? null : prev));
   };
 
-  const handleFileUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  const handleFileUpload = async (files: FileList | File[] | null) => {
+    if (!files || isParsingFiles || isWorking) return;
+    const incoming = Array.from(files);
+    if (incoming.length === 0) return;
+
+    if (courseDocuments.length >= MAX_AI_MATERIALS) {
+      setError({
+        message: tt(
+          `一次最多添加 ${MAX_AI_MATERIALS} 份资料，请先删除部分文件。`,
+          `Up to ${MAX_AI_MATERIALS} materials can be added. Remove some files first.`
+        ),
+      });
+      return;
+    }
+
+    const remainingSlots = MAX_AI_MATERIALS - courseDocuments.length;
+    const fileArray = incoming.slice(0, remainingSlots);
+    if (incoming.length > remainingSlots) {
+      setError({
+        message: tt(
+          `一次最多添加 ${MAX_AI_MATERIALS} 份资料，本次仅处理前 ${remainingSlots} 份。`,
+          `Up to ${MAX_AI_MATERIALS} materials can be added. Only the first ${remainingSlots} files were processed.`
+        ),
+      });
+    } else {
+      setError(null);
+    }
+
     setIsParsingFiles(true);
-    setExtractError(null);
-
-    const fileArray = Array.from(files);
     const newDocs: StudyMaterial[] = [];
+    const failures: string[] = [];
+    let suggestedName = "";
 
-    for (let i = 0; i < fileArray.length; i++) {
+    for (let i = 0; i < fileArray.length; i += 1) {
       const file = fileArray[i];
       setParsingStatus(
-        language === "zh"
-          ? `正在解析 (${i + 1}/${fileArray.length})：${file.name}...`
-          : `Parsing (${i + 1}/${fileArray.length}): ${file.name}...`
+        tt(
+          `正在读取 (${i + 1}/${fileArray.length})：${file.name}`,
+          `Reading (${i + 1}/${fileArray.length}): ${file.name}`
+        )
       );
 
       try {
         const parsed = await parseDocumentFile(file, language, (status) => setParsingStatus(status));
         const { type, categoryGroup } = inferDocumentType(file.name);
-
-        const newDoc: StudyMaterial = {
-          id: `mat-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        newDocs.push({
+          id: `mat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           name: file.name,
           type,
           categoryGroup,
@@ -265,970 +235,823 @@ export function AddExamSubjectWizard({
           uploadedAt: new Date().toISOString(),
           difficulty: type === "past_exam" ? "hard" : "medium",
           summaryNotes: parsed.text.slice(0, 160) + (parsed.text.length > 160 ? "..." : ""),
-        };
-
-        newDocs.push(newDoc);
-
-        if (!examName && (type === "syllabus" || i === 0)) {
-          const suggested = file.name.replace(/\.[^/.]+$/, "").replace(/大纲|syllabus|期末|考试|试卷|讲义/i, "").trim();
-          if (suggested) {
-            setExamName(suggested);
-          }
+        });
+        if (!suggestedName) {
+          suggestedName = suggestExamName(file.name);
         }
       } catch (err: any) {
-        console.error("Failed to parse file:", file.name, err);
+        failures.push(`${file.name}：${err?.message || tt("解析失败", "parse failed")}`);
       }
-    }
-
-    if (newDocs.length > 0) {
-      setCourseDocuments((prev) => [...prev, ...newDocs]);
     }
 
     setIsParsingFiles(false);
     setParsingStatus("");
+
+    if (newDocs.length > 0) {
+      setCourseDocuments((prev) => [...prev, ...newDocs]);
+      invalidateAiResult();
+      if (!examName.trim() && suggestedName) {
+        setExamName(suggestedName);
+      }
+    }
+
+    if (failures.length > 0) {
+      const extra =
+        failures.length > 3
+          ? tt(`（另有 ${failures.length - 3} 个失败）`, ` (+${failures.length - 3} more failed)`)
+          : "";
+      setError({ message: failures.slice(0, 3).join("；") + extra });
+    }
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLLabelElement>) => {
+    event.preventDefault();
+    setIsDragging(false);
+    if (isParsingFiles) return;
+    void handleFileUpload(event.dataTransfer.files);
+  };
+
+  const handleDeleteDocument = (id: string) => {
+    if (isWorking) return;
+    setCourseDocuments((prev) => prev.filter((doc) => doc.id !== id));
+    invalidateAiResult();
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleAddPastedDocument = () => {
-    if (!pasteDocContent.trim()) return;
+    if (isWorking) return;
+    const content = pasteDocContent.trim();
+    if (!content) return;
+    if (courseDocuments.length >= MAX_AI_MATERIALS) {
+      setError({
+        message: tt(
+          `一次最多添加 ${MAX_AI_MATERIALS} 份资料，请先删除部分文件。`,
+          `Up to ${MAX_AI_MATERIALS} materials can be added. Remove some files first.`
+        ),
+      });
+      return;
+    }
 
-    const { categoryGroup } = inferDocumentType(pasteDocTitle || "notes.txt");
-    const newDoc: StudyMaterial = {
-      id: `mat-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      name: pasteDocTitle.trim() || `${language === "zh" ? "学习笔记与考点提纲" : "Course Notes"} (${new Date().toLocaleDateString()})`,
-      type: pasteDocType,
-      categoryGroup: pasteDocType === "syllabus" ? "course_syllabus" : pasteDocType === "past_exam" ? "exam_question" : "study_material",
-      content: pasteDocContent.trim(),
-      uploadedAt: new Date().toISOString(),
-      sizeBytes: new Blob([pasteDocContent]).size,
-      difficulty: "medium",
-      summaryNotes: pasteDocContent.slice(0, 160) + "...",
-    };
+    const title =
+      pasteDocTitle.trim() || `${tt("粘贴笔记", "Pasted notes")} ${courseDocuments.length + 1}`;
 
-    setCourseDocuments((prev) => [...prev, newDoc]);
+    setCourseDocuments((prev) => [
+      ...prev,
+      {
+        id: `mat-paste-${Date.now()}`,
+        name: title,
+        type: "notes",
+        categoryGroup: "study_material",
+        content,
+        sizeBytes: new Blob([content]).size,
+        uploadedAt: new Date().toISOString(),
+        difficulty: "medium",
+        summaryNotes: content.slice(0, 160) + (content.length > 160 ? "..." : ""),
+      },
+    ]);
+    invalidateAiResult();
     setPasteDocTitle("");
     setPasteDocContent("");
     setShowPasteForm(false);
   };
 
-  const handleUpdateDocument = (id: string, patch: Partial<StudyMaterial>) => {
-    setCourseDocuments((prev) =>
-      prev.map((doc) => {
-        if (doc.id === id) {
-          const updated = { ...doc, ...patch };
-          if (patch.type) {
-            updated.categoryGroup =
-              patch.type === "syllabus"
-                ? "course_syllabus"
-                : patch.type === "past_exam"
-                ? "exam_question"
-                : "study_material";
-          }
-          return updated;
-        }
-        return doc;
-      })
-    );
-  };
-
-  const handleDeleteDocument = (id: string) => {
-    setCourseDocuments((prev) => prev.filter((d) => d.id !== id));
-  };
-
-  const handleExtractSyllabus = async () => {
-    if (courseDocuments.length === 0) {
-      setExtractError(language === "zh" ? "请先上传至少一份课程考纲、讲义或试卷文件。" : "Please upload at least one course document first.");
-      return;
-    }
-
-    setIsExtracting(true);
-    setExtractError(null);
-    setAiNotice(null);
-
-    const safeExamName = examName || (language === "zh" ? "新考试科目" : "New Exam");
-    const safeSubject = subject || (language === "zh" ? "综合学科" : "General");
-    let notice: string | null = null;
-
+  const requestTopics = async (): Promise<SyllabusTopic[]> => {
+    let res: Response;
     try {
-      let data: any = null;
-      try {
-        const res = await fetch("/api/extract-syllabus", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            materials: prepareMaterialsForAI(courseDocuments),
-            examName: safeExamName,
-            subject: safeSubject,
-            language,
-          }),
-        });
-
-        if (res.ok) {
-          data = await res.json();
-          notice = getAiFallbackNotice(data.meta, language);
-        } else {
-          const apiError = await readApiError(res, language);
-          notice =
-            language === "zh"
-              ? `${apiError.message} 已改用本地模板提炼考点。`
-              : `${apiError.message} A local topic template was used instead.`;
-        }
-      } catch (fetchErr) {
-        console.warn("Network error during syllabus extraction:", fetchErr);
-        notice =
-          language === "zh"
-            ? "无法连接 AI 服务，已改用本地模板提炼考点。"
-            : "Could not reach the AI service. A local topic template was used instead.";
-      }
-
-      if (!data || !data.topics || data.topics.length === 0) {
-        data = fallbackExtractSyllabusClient(courseDocuments, safeExamName, safeSubject, language);
-        if (!notice) {
-          notice =
-            language === "zh"
-              ? "AI 未返回有效考点，已改用本地模板。"
-              : "AI returned no usable topics. A local template was used instead.";
-        }
-      }
-
-      setAiNotice(notice);
-
-      if (data.topics && Array.isArray(data.topics) && data.topics.length > 0) {
-        setTopics(data.topics);
-        setSelectedWeakTopics(data.topics.filter((t: any) => t.difficulty === "hard").map((t: any) => t.title));
-      }
-    } catch (err: any) {
-      console.error("Extraction error handled:", err);
-      const fallback = fallbackExtractSyllabusClient(courseDocuments, safeExamName, safeSubject, language);
-      setTopics(fallback.topics);
-      setSelectedWeakTopics(fallback.topics.filter((t: any) => t.difficulty === "hard").map((t: any) => t.title));
-      setAiNotice(
-        language === "zh"
-          ? "考点提取失败，已改用本地模板。"
-          : "Topic extraction failed. A local template was used instead."
+      res = await fetch("/api/extract-syllabus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          materials: prepareMaterialsForAI(courseDocuments),
+          examName: examName.trim(),
+          subject: subject.trim(),
+          language,
+        }),
+      });
+    } catch {
+      throw new GenerationError(
+        tt("无法连接服务，请检查网络后重试。", "Could not reach the server. Check your connection and try again.")
       );
-    } finally {
-      setIsExtracting(false);
-    }
-  };
-
-  const handleUpdateTopic = (id: string, patch: Partial<SyllabusTopic>) => {
-    setTopics((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
-  };
-
-  const handleAddCustomTopic = () => {
-    const newTopic: SyllabusTopic = {
-      id: `topic-custom-${Date.now()}`,
-      title: language === "zh" ? "新增核心考点" : "New Core Topic",
-      category: subject || (language === "zh" ? "主干模块" : "Core Module"),
-      description: language === "zh" ? "核心公式推导、定义掌握与典型例题演练。" : "Key formulas, definitions, and problem drills.",
-      weightPercentage: 25,
-      difficulty: "medium",
-      userKnowledgeLevel: "intermediate",
-      subtopics: [language === "zh" ? "重点知识梳理" : "Key Concept Review", language === "zh" ? "典型题型精析" : "Sample Problems"],
-      estimatedHours: 6,
-    };
-    setTopics([...topics, newTopic]);
-  };
-
-  const handleDeleteTopic = (id: string) => {
-    setTopics((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  const handleGenerateFinalPlan = async () => {
-    if (!examName.trim()) {
-      setGenerateError(language === "zh" ? "请输入考试科目名称。" : "Please enter the exam name.");
-      setStep(1);
-      return;
-    }
-    if (topics.length === 0) {
-      setGenerateError(language === "zh" ? "请至少添加或提取一个考点模块。" : "Please add at least one topic.");
-      setStep(2);
-      return;
     }
 
-    setIsGenerating(true);
-    setGenerateError(null);
-    setAiNotice(null);
+    if (!res.ok) {
+      const apiError = await readApiError(res, language);
+      throw new GenerationError(apiError.message, apiError.code);
+    }
 
+    const data = await res.json().catch(() => null);
+    const extracted: SyllabusTopic[] = Array.isArray(data?.topics)
+      ? data.topics.filter((topic: any) => topic && typeof topic.title === "string" && topic.title.trim())
+      : [];
+
+    if (extracted.length === 0) {
+      throw new GenerationError(
+        tt(
+          "AI 没有从这些资料中识别到可用考点，请补充更完整的考纲、讲义或真题后重试。",
+          "AI found no usable topics in these materials. Add a fuller syllabus, notes, or past paper and try again."
+        ),
+        "SYLLABUS_EMPTY"
+      );
+    }
+
+    return extracted;
+  };
+
+  const requestPlan = async (activeTopics: SyllabusTopic[]): Promise<ExamStudyPlan> => {
+    const hours = Number(dailyHoursInput);
     const preferences: UserStudyPreferences = {
-      examName,
-      subject: subject || (language === "zh" ? "通用学科" : "General"),
+      examName: examName.trim(),
+      subject: subject.trim() || tt("综合学科", "General"),
       examDate,
-      examTime,
+      examTime: examTime || "09:00",
       startDate,
-      targetScoreOrGrade: targetScore,
-      dailySchedules,
-      studyPace,
-      sessionLengthMinutes: sessionLength,
-      includePracticeExams,
-      includeBufferDays,
-      bufferDaysCount,
-      weakTopicsFocus: selectedWeakTopics,
-      userNeedFocusArea,
-      customPromptRequirement,
-      additionalNotes,
+      targetScoreOrGrade: targetScore.trim(),
+      dailySchedules: buildDailySchedules(hours),
+      studyPace: "balanced",
+      sessionLengthMinutes: 45,
+      includePracticeExams: false,
+      includeBufferDays: false,
+      bufferDaysCount: 0,
+      weakTopicsFocus: activeTopics.filter((topic) => topic.difficulty === "hard").map((topic) => topic.title),
+      userNeedFocusArea: "comprehensive",
+      customPromptRequirement: requirements.trim(),
+      additionalNotes: "",
     };
 
-    const materialsSummaryText = courseDocuments.length > 0
-      ? courseDocuments.map(d => `${d.name} (${d.type})`).join("、")
-      : examName;
+    let res: Response;
+    try {
+      res = await fetch("/api/generate-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topics: activeTopics,
+          preferences,
+          materials: prepareMaterialsForAI(courseDocuments),
+          materialsSummary: courseDocuments.map((doc) => doc.name).join("、"),
+          language,
+        }),
+      });
+    } catch {
+      throw new GenerationError(
+        tt("无法连接服务，请检查网络后重试。", "Could not reach the server. Check your connection and try again.")
+      );
+    }
+
+    if (!res.ok) {
+      const apiError = await readApiError(res, language);
+      throw new GenerationError(apiError.message, apiError.code);
+    }
+
+    const data = await res.json().catch(() => null);
+    const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
+    if (tasks.length === 0) {
+      throw new GenerationError(
+        tt(
+          "AI 没有返回可用的每日任务，请检查资料内容或调整要求后重试。",
+          "AI returned no usable daily tasks. Check your materials or requirements and try again."
+        ),
+        "PLAN_EMPTY"
+      );
+    }
+
+    const now = new Date().toISOString();
+    return {
+      id: `plan-${Date.now()}`,
+      examName: examName.trim(),
+      subject: preferences.subject,
+      examDate,
+      examTime: examTime || undefined,
+      startDate,
+      totalPlannedHours:
+        Number(data?.totalPlannedHours) ||
+        Math.round(tasks.reduce((sum: number, task: any) => sum + (task.durationMinutes || 0), 0) / 60),
+      createdAt: now,
+      updatedAt: now,
+      preferences,
+      topics: activeTopics,
+      materials: courseDocuments,
+      phases: Array.isArray(data?.phases) ? data.phases : [],
+      tasks,
+      materialsSummary: tt(
+        `${courseDocuments.length} 份资料 · AI 识别 ${activeTopics.length} 个考点`,
+        `${courseDocuments.length} materials · ${activeTopics.length} topics extracted by AI`
+      ),
+    };
+  };
+
+  const handleGenerate = async () => {
+    if (workingRef.current || isParsingFiles) return;
+
+    if (!examName.trim()) {
+      setError({ message: tt("请填写考试或课程名称。", "Enter the exam or course name.") });
+      return;
+    }
+    if (!startDate) {
+      setError({ message: tt("请选择开始复习日期。", "Choose the start date.") });
+      return;
+    }
+    if (!examDate) {
+      setError({ message: tt("请选择考试日期。", "Choose the exam date.") });
+      return;
+    }
+    if (daysBetween(startDate, examDate) < 0) {
+      setError({
+        message: tt("考试日期不能早于开始复习日期。", "The exam date cannot be earlier than the start date."),
+      });
+      return;
+    }
+    if (!dailyHoursValid) {
+      setError({
+        message: tt("每天可学习时长需在 0.5–12 小时之间。", "Daily study time must be between 0.5 and 12 hours."),
+      });
+      return;
+    }
+    if (courseDocuments.length === 0) {
+      setError({
+        message: tt(
+          "请至少上传一份考纲、讲义、真题或笔记。",
+          "Upload at least one syllabus, slide deck, past paper, or notes file."
+        ),
+      });
+      return;
+    }
+
+    setError(null);
+    workingRef.current = true;
+    setIsWorking(true);
 
     try {
-      let data: any = null;
-      let notice: string | null = null;
-      try {
-        const res = await fetch("/api/generate-plan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            topics,
-            preferences,
-            materials: prepareMaterialsForAI(courseDocuments),
-            materialsSummary: materialsSummaryText,
-            language,
-          }),
-        });
-
-        if (res.ok) {
-          data = await res.json();
-          notice = getAiFallbackNotice(data.meta, language);
-        } else {
-          const apiError = await readApiError(res, language);
-          notice =
-            language === "zh"
-              ? `${apiError.message} 已改用本地规划模板。`
-              : `${apiError.message} A local planning template was used instead.`;
-        }
-      } catch (fetchErr) {
-        console.warn("Network error during plan generation:", fetchErr);
-        notice =
-          language === "zh"
-            ? "无法连接 AI 服务，已改用本地规划模板。"
-            : "Could not reach the AI service. A local planning template was used instead.";
+      let activeTopics = topics;
+      if (activeTopics.length === 0) {
+        setWorkStage("extracting");
+        activeTopics = await requestTopics();
+        setTopics(activeTopics);
       }
-
-      if (!data || !data.tasks || data.tasks.length === 0) {
-        data = fallbackGeneratePlanClient(topics, preferences);
-        if (!notice) {
-          notice =
-            language === "zh"
-              ? "AI 未返回有效的学习计划，已改用本地规划模板。"
-              : "AI returned no usable study plan. A local planning template was used instead.";
-        }
-      }
-
-      setAiNotice(notice);
-
-      const newPlanId = `plan-${Date.now()}`;
-      const generatedTasks = data.tasks || [];
-      const totalHours = Math.round(
-        generatedTasks.reduce((acc: number, t: any) => acc + (t.durationMinutes || 0), 0) / 60
-      ) || 20;
-
-      const newPlan: ExamStudyPlan = {
-        id: newPlanId,
-        examName,
-        subject: subject || (language === "zh" ? "通用学科" : "General"),
-        examDate,
-        examTime,
-        startDate,
-        totalPlannedHours: totalHours,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        preferences,
-        topics,
-        materials: courseDocuments,
-        phases: data.phases || [],
-        tasks: generatedTasks,
-        materialsSummary: data.summary || materialsSummaryText,
-      };
-
-      onPlanCreated(newPlan, notice);
+      setWorkStage("planning");
+      const newPlan = await requestPlan(activeTopics);
+      onPlanCreated(newPlan, null);
     } catch (err: any) {
-      console.error("Plan creation fallback handling:", err);
-      const safeData = fallbackGeneratePlanClient(topics, preferences);
-      const fallbackNotice =
-        language === "zh"
-          ? "规划生成失败，已改用本地规划模板。你可以在设置中检查 AI 状态。"
-          : "Plan generation failed. A local planning template was used instead.";
-      setAiNotice(fallbackNotice);
-      const newPlan: ExamStudyPlan = {
-        id: `plan-${Date.now()}`,
-        examName,
-        subject: subject || "通用学科",
-        examDate,
-        examTime,
-        startDate,
-        totalPlannedHours: safeData.totalPlannedHours || 25,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        preferences,
-        topics,
-        materials: courseDocuments,
-        phases: safeData.phases,
-        tasks: safeData.tasks,
-        materialsSummary: materialsSummaryText,
-      };
-      onPlanCreated(newPlan, fallbackNotice);
+      if (err instanceof GenerationError) {
+        setError({ message: err.message, code: err.code });
+      } else {
+        console.error("Unexpected plan generation error:", err);
+        setError({
+          message: tt("生成过程中出现异常，请稍后重试。", "Something went wrong while generating the plan. Please try again."),
+        });
+      }
     } finally {
-      setIsGenerating(false);
+      workingRef.current = false;
+      setIsWorking(false);
     }
   };
+
+  const materialLimitReached = courseDocuments.length >= MAX_AI_MATERIALS;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 font-mono text-[#111111] space-y-6">
-
-      <div className="flex items-center justify-between pb-4 border-b border-[#111111]">
+    <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 font-sans text-[#111111] space-y-5">
+      <div className="flex items-center justify-between border-b border-[#111111] pb-4">
         <button
           onClick={onCancel}
-          className="flex items-center space-x-1.5 text-xs text-[#111111] hover:underline font-bold transition-colors cursor-pointer"
+          disabled={isWorking}
+          className="flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40 cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>[{language === "zh" ? "返回现有备考计划" : "BACK TO CURRENT PLAN"}]</span>
+          <span>{tt("返回现有计划", "BACK TO PLANS")}</span>
         </button>
+        <span className="font-mono text-[10px] font-bold uppercase text-[#777]">
+          {tt(`本地已有 ${existingPlans.length} 门科目`, `${existingPlans.length} SUBJECT(S) SAVED`)}
+        </span>
+      </div>
 
-        <div className="flex items-center space-x-2 text-xs">
-          <span className="text-[#666666] font-bold">[{language === "zh" ? "已有科目" : "EXISTING SUBJECTS"}]:</span>
-          <span className="font-bold text-[#111111] border border-[#111111] bg-white px-2 py-0.5">
-            {existingPlans.length} {language === "zh" ? "门" : "COURSES"}
+      <header className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="border border-[#111111] bg-[#FCD33B] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider">
+            AI GENERATED
+          </span>
+          <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#777]">
+            {tt("没有预设模板 · 只依据你的资料", "NO TEMPLATES · YOUR MATERIALS ONLY")}
           </span>
         </div>
-      </div>
-
-      <div className="border-b border-[#111111] pb-3">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#111111] flex items-center space-x-2 uppercase">
-          <Plus className="w-5 h-5 text-[#111111]" />
-          <span>{language === "zh" ? "新建科目" : "NEW SUBJECT"}</span>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+          {tt("从资料生成学习计划", "Build a plan from your materials")}
         </h1>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 text-xs font-bold border-b border-[#111111] pb-3">
-        <button
-          onClick={() => setStep(1)}
-          className={`flex items-center space-x-2 py-2 px-3 border transition-colors cursor-pointer ${
-            step === 1 ? "bg-[#111111] text-white border-[#111111]" : "text-[#666666] border-[#111111] bg-white hover:bg-[#111111] hover:text-white"
-          }`}
-        >
-          <span className="text-[11px]">[01]</span>
-          <span className="truncate">{language === "zh" ? "科目信息" : "SUBJECT"}</span>
-        </button>
-
-        <button
-          onClick={() => {
-            if (!examName.trim()) {
-              setGenerateError(language === "zh" ? "请输入科目名称" : "Please enter exam name");
-              return;
-            }
-            setStep(2);
-          }}
-          className={`flex items-center space-x-2 py-2 px-3 border transition-colors cursor-pointer ${
-            step === 2 ? "bg-[#111111] text-white border-[#111111]" : "text-[#666666] border-[#111111] bg-white hover:bg-[#111111] hover:text-white"
-          }`}
-        >
-          <span className="text-[11px]">[02]</span>
-          <span className="truncate">{language === "zh" ? "考纲资料" : "SYLLABUS"}</span>
-        </button>
-
-        <button
-          onClick={() => {
-            if (!examName.trim()) {
-              setStep(1);
-              return;
-            }
-            if (topics.length === 0) {
-              setStep(2);
-              return;
-            }
-            setStep(3);
-          }}
-          className={`flex items-center space-x-2 py-2 px-3 border transition-colors cursor-pointer ${
-            step === 3 ? "bg-[#111111] text-white border-[#111111]" : "text-[#666666] border-[#111111] bg-white hover:bg-[#111111] hover:text-white"
-          }`}
-        >
-          <span className="text-[11px]">[03]</span>
-          <span className="truncate">{language === "zh" ? "时长与规划需求" : "TIME & REQUIREMENTS"}</span>
-        </button>
-      </div>
-
-      {(generateError || extractError || aiNotice) && (
-        <div className="space-y-2">
-          {generateError && (
-            <div className="p-3 bg-[#fafafa] border border-[#111111] text-[#111111] text-xs flex items-center justify-between font-bold">
-              <div className="flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-[#111111]" />
-                <span>[ERROR: {generateError}]</span>
-              </div>
-              <button onClick={() => setGenerateError(null)} className="text-xs hover:underline cursor-pointer">
-                [{language === "zh" ? "关闭" : "DISMISS"}]
-              </button>
-            </div>
+        <p className="max-w-2xl text-xs leading-relaxed text-[#555]">
+          {tt(
+            "上传考纲、讲义或真题，填好考试信息，AI 会自动识别考点并排成每天可执行的任务。没有示例考点，也没有内置周计划模板。",
+            "Upload a syllabus, slides, or past papers, set the exam details, and AI will extract topics and schedule daily tasks. No sample topics, no built-in weekly template."
           )}
+        </p>
+      </header>
 
-          {extractError && (
-            <div className="p-3 bg-[#fafafa] border border-[#111111] text-[#111111] text-xs flex items-center justify-between font-bold">
-              <div className="flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-[#111111]" />
-                <span>[ERROR: {extractError}]</span>
-              </div>
-              <button onClick={() => setExtractError(null)} className="text-xs hover:underline cursor-pointer">
-                [{language === "zh" ? "关闭" : "DISMISS"}]
-              </button>
-            </div>
-          )}
-
-          {aiNotice && (
-            <div className="p-3 bg-[#fafafa] border border-[#111111] text-[#111111] text-xs flex items-center justify-between font-bold">
-              <div className="flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-[#111111]" />
-                <span>[{language === "zh" ? "提示" : "NOTICE"}: {aiNotice}]</span>
-              </div>
-              <button onClick={() => setAiNotice(null)} className="text-xs hover:underline cursor-pointer">
-                [{language === "zh" ? "关闭" : "DISMISS"}]
-              </button>
-            </div>
-          )}
+      {aiReady === false && (
+        <div className="flex items-start gap-2.5 border border-[#111111] bg-[#FFF4CC] px-4 py-3">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="min-w-0 text-xs">
+            <p className="font-bold">{tt("当前服务未配置 AI，暂时无法自动生成", "AI is not configured on this server")}</p>
+            <p className="mt-0.5 leading-relaxed text-[#555]">
+              {tt(
+                "请在部署环境配置 GEMINI_API_KEY 后刷新页面。生成失败时不会用模板代替。",
+                "Set GEMINI_API_KEY in your deployment and refresh. Failures are reported, never replaced with a template."
+              )}
+            </p>
+          </div>
         </div>
       )}
 
-      {step === 1 && (
-        <div className="space-y-6">
-
-          <div className="bg-[#fafafa] p-4 border border-[#111111]">
-            <div className="flex items-center justify-between mb-3 border-b border-[#111111] pb-2">
-              <span className="text-xs font-bold text-[#111111] uppercase flex items-center space-x-1.5">
-                <BookmarkPlus className="w-4 h-4 text-[#111111]" />
-                <span>{language === "zh" ? "[快速载入经典科目模板]" : "[QUICK SUBJECT PRESETS]"}</span>
-              </span>
-              <span className="text-[11px] text-[#666666]">
-                {language === "zh" ? "一键预填科目、学科领域与核心考纲" : "Preload course details & topics"}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              {QUICK_SUBJECT_TEMPLATES.map((tmpl, idx) => {
-                const paletteColors = [
-                  { bg: "bg-[#FCD33B]", text: "text-[#111111]" },
-                  { bg: "bg-[#D8D8D8]", text: "text-[#111111]" },
-                  { bg: "bg-[#B5B5B5]", text: "text-[#111111]" },
-                  { bg: "bg-[#282828]", text: "text-white" },
-                ];
-                const pColor = paletteColors[idx % paletteColors.length];
-
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => handleApplyTemplate(tmpl)}
-                    className="p-3 bg-white hover:bg-[#111111] hover:text-white border border-[#111111] text-left transition-colors group cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2 truncate">
-                        <span className={`w-3 h-3 border border-[#111111] shrink-0 ${pColor.bg}`} />
-                        <span className="font-bold text-xs truncate">
-                          {tmpl.name}
-                        </span>
-                      </div>
-                      <span className="text-[10px] px-1.5 py-0.2 border border-[#111111] bg-[#fafafa] text-[#111111] group-hover:bg-[#111111] group-hover:text-white group-hover:border-white font-bold shrink-0 ml-2">
-                        [{tmpl.topics.length} {language === "zh" ? "个考点" : "topics"}]
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-[#666666] group-hover:text-[#e5e5e5] block mt-1">
-                      {tmpl.subject}
-                    </span>
-                  </button>
-                );
-              })}
+      {error && (
+        <div className="flex items-start justify-between gap-3 border border-[#111111] bg-[#FDEAE6] px-4 py-3">
+          <div className="flex min-w-0 items-start gap-2.5">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div className="min-w-0 text-xs">
+              <p className="font-bold">
+                {error.code === "AI_NOT_CONFIGURED"
+                  ? tt("AI 尚未配置", "AI is not configured")
+                  : tt("生成未完成", "Generation failed")}
+              </p>
+              <p className="mt-0.5 leading-relaxed">{error.message}</p>
             </div>
           </div>
+          <button
+            onClick={() => setError(null)}
+            className="shrink-0 border border-[#111111] bg-white p-1 hover:bg-[#111111] hover:text-white cursor-pointer"
+            aria-label={tt("关闭提示", "Dismiss error")}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
-          <div className="bg-white p-5 border border-[#111111] space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-2 border-b border-[#111111] pb-2.5">
-              <GraduationCap className="w-4 h-4 text-[#111111]" />
-              <span>[// {language === "zh" ? "考试基本信息" : "COURSE & EXAM DETAILS"}]</span>
-            </h3>
+      <section className="border border-[#111111] bg-white">
+        <div className="flex items-center justify-between border-b border-[#111111] bg-[#fafafa] px-4 py-3 sm:px-5">
+          <h2 className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-wider">
+            <CalendarDays className="h-4 w-4" />
+            <span>[01] {tt("考试信息", "EXAM DETAILS")}</span>
+          </h2>
+          <span className="font-mono text-[10px] font-bold text-[#C62828]">* {tt("必填", "REQUIRED")}</span>
+        </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
-                  {language === "zh" ? "考试科目 / 课程全称 *" : "Exam / Course Name *"}
-                </label>
-                <input
-                  type="text"
-                  value={examName}
-                  onChange={(e) => setExamName(e.target.value)}
-                  placeholder={language === "zh" ? "例如：微积分期末考试 / 考研数学" : "e.g. Calculus II Final Exam"}
-                  className="w-full px-3 py-2 text-xs bg-[#fafafa] border border-[#111111] focus:bg-white outline-none font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
-                  {language === "zh" ? "学科 / 专业领域" : "Subject Domain"}
-                </label>
-                <input
-                  type="text"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  placeholder={language === "zh" ? "例如：数学、计算机、外语、金融" : "e.g. Mathematics, Computer Science"}
-                  className="w-full px-3 py-2 text-xs bg-[#fafafa] border border-[#111111] focus:bg-white outline-none font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
-                  {language === "zh" ? "计划开始日期" : "Start Date"}
-                </label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-[#fafafa] border border-[#111111] focus:bg-white outline-none font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
-                  {language === "zh" ? "目标考试日期与时间" : "Exam Date & Time"}
-                </label>
-                <div className="flex space-x-2">
-                  <input
-                    type="date"
-                    value={examDate}
-                    onChange={(e) => setExamDate(e.target.value)}
-                    className="w-2/3 px-3 py-2 text-xs bg-[#fafafa] border border-[#111111] focus:bg-white outline-none font-mono"
-                  />
-                  <input
-                    type="time"
-                    value={examTime}
-                    onChange={(e) => setExamTime(e.target.value)}
-                    className="w-1/3 px-3 py-2 text-xs bg-[#fafafa] border border-[#111111] focus:bg-white outline-none font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase text-[#111111] mb-1">
-                  {language === "zh" ? "目标期望成绩 / 评级" : "Target Score / Grade"}
-                </label>
-                <input
-                  type="text"
-                  value={targetScore}
-                  onChange={(e) => setTargetScore(e.target.value)}
-                  placeholder="例如：90+ / A+ / 稳过 85 分"
-                  className="w-full px-3 py-2 text-xs bg-[#fafafa] border border-[#111111] focus:bg-white outline-none font-mono"
-                />
-              </div>
-
-              <div className="flex items-center">
-                <div className="p-3 bg-[#fafafa] border border-[#111111] text-xs text-[#111111] w-full font-bold">
-                  <span>{language === "zh" ? "备考周期计算：" : "Study Duration: "}</span>
-                  <span>{daysDiff} {language === "zh" ? "天" : "days"} (约 {Math.ceil(daysDiff / 7)} {language === "zh" ? "周" : "weeks"})</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-2">
-            <button
-              onClick={() => {
-                if (!examName.trim()) {
-                  setGenerateError(language === "zh" ? "请输入考试科目名称" : "Please enter the exam name");
-                  return;
-                }
-                setStep(2);
+        <fieldset
+          disabled={isWorking}
+          className="grid min-w-0 grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-5"
+        >
+          <label className="sm:col-span-2">
+            <span className="mb-1.5 flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wider text-[#555]">
+              {tt("考试 / 课程名称", "EXAM OR COURSE NAME")} <span className="text-[#C62828]">*</span>
+            </span>
+            <input
+              type="text"
+              value={examName}
+              onChange={(event) => {
+                setExamName(event.target.value);
+                clearTransientError();
               }}
-              className="flex items-center space-x-2 px-5 py-2.5 bg-[#111111] text-white hover:bg-[#333333] font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-[#111111]"
+              placeholder={tt("例如：数据结构期末考试 / 考研数学一", "e.g. Data Structures Final / Calculus II")}
+              maxLength={200}
+              className="w-full border border-[#111111] bg-[#fafafa] px-3 py-2.5 font-mono text-xs outline-none focus:bg-white"
+            />
+          </label>
+
+          <label>
+            <span className="mb-1.5 block font-mono text-[10px] font-bold uppercase tracking-wider text-[#555]">
+              {tt("学科 / 专业（可选）", "SUBJECT (OPTIONAL)")}
+            </span>
+            <input
+              type="text"
+              value={subject}
+              onChange={(event) => setSubject(event.target.value)}
+              placeholder={tt("例如：计算机科学", "e.g. Computer Science")}
+              maxLength={200}
+              className="w-full border border-[#111111] bg-[#fafafa] px-3 py-2.5 font-mono text-xs outline-none focus:bg-white"
+            />
+          </label>
+
+          <label>
+            <span className="mb-1.5 block font-mono text-[10px] font-bold uppercase tracking-wider text-[#555]">
+              {tt("目标成绩（可选）", "TARGET SCORE (OPTIONAL)")}
+            </span>
+            <input
+              type="text"
+              value={targetScore}
+              onChange={(event) => setTargetScore(event.target.value)}
+              placeholder={tt("例如：90+ / A", "e.g. 90+ / A")}
+              maxLength={200}
+              className="w-full border border-[#111111] bg-[#fafafa] px-3 py-2.5 font-mono text-xs outline-none focus:bg-white"
+            />
+          </label>
+
+          <label>
+            <span className="mb-1.5 block font-mono text-[10px] font-bold uppercase tracking-wider text-[#555]">
+              {tt("开始复习日期", "START DATE")}
+            </span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(event) => {
+                setStartDate(event.target.value);
+                clearTransientError();
+              }}
+              className="w-full border border-[#111111] bg-[#fafafa] px-3 py-2.5 font-mono text-xs outline-none focus:bg-white"
+            />
+          </label>
+
+          <label>
+            <span className="mb-1.5 flex items-center gap-1 font-mono text-[10px] font-bold uppercase tracking-wider text-[#555]">
+              {tt("考试日期", "EXAM DATE")} <span className="text-[#C62828]">*</span>
+            </span>
+            <input
+              type="date"
+              value={examDate}
+              min={startDate}
+              onChange={(event) => {
+                setExamDate(event.target.value);
+                clearTransientError();
+              }}
+              className="w-full border border-[#111111] bg-[#fafafa] px-3 py-2.5 font-mono text-xs outline-none focus:bg-white"
+            />
+          </label>
+
+          <label>
+            <span className="mb-1.5 block font-mono text-[10px] font-bold uppercase tracking-wider text-[#555]">
+              {tt("每天可学习时长", "STUDY TIME PER DAY")}
+            </span>
+            <div className="flex border border-[#111111] bg-[#fafafa] focus-within:bg-white">
+              <input
+                type="number"
+                min={0.5}
+                max={12}
+                step={0.5}
+                value={dailyHoursInput}
+                onChange={(event) => {
+                  setDailyHoursInput(event.target.value);
+                  clearTransientError();
+                }}
+                className="w-full min-w-0 bg-transparent px-3 py-2.5 font-mono text-xs outline-none"
+              />
+              <span className="flex items-center border-l border-[#111111] bg-[#FCD33B] px-3 font-mono text-[10px] font-bold uppercase">
+                {tt("小时 / 天", "H / DAY")}
+              </span>
+            </div>
+          </label>
+
+          <label>
+            <span className="mb-1.5 block font-mono text-[10px] font-bold uppercase tracking-wider text-[#555]">
+              {tt("考试时间（可选）", "EXAM TIME (OPTIONAL)")}
+            </span>
+            <div className="relative">
+              <Clock className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#777]" />
+              <input
+                type="time"
+                value={examTime}
+                onChange={(event) => setExamTime(event.target.value)}
+                className="w-full border border-[#111111] bg-[#fafafa] py-2.5 pl-9 pr-3 font-mono text-xs outline-none focus:bg-white"
+              />
+            </div>
+          </label>
+        </fieldset>
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[#111111] bg-[#fafafa] px-4 py-2.5 font-mono text-[11px] sm:px-5">
+          {daysDiff !== null && daysDiff >= 0 && dailyHoursValid ? (
+            <>
+              <span>
+                {tt("备考周期", "SPAN")} <strong>{daysDiff}</strong> {tt("天", "days")}
+              </span>
+              <span className="text-[#bbb]">/</span>
+              <span>
+                {tt("每天", "PER DAY")} <strong>{parsedDailyHours}</strong>h
+              </span>
+              <span className="text-[#bbb]">/</span>
+              <span>
+                {tt("预计总复习量", "TOTAL")} <strong>{totalPlannedHours}</strong>h
+              </span>
+              {daysDiff > 60 && (
+                <span className="text-[#8A5A00]">
+                  {tt("单次生成前 60 天，剩余可稍后调整", "First 60 days per generation")}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-[#777]">
+              {tt("选择考试日期后自动计算备考周期", "Pick an exam date to see your timeframe")}
+            </span>
+          )}
+        </div>
+      </section>
+
+      <section className="border border-[#111111] bg-white">
+        <div className="flex items-center justify-between border-b border-[#111111] bg-[#fafafa] px-4 py-3 sm:px-5">
+          <h2 className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-wider">
+            <FileText className="h-4 w-4" />
+            <span>[02] {tt("备考资料", "STUDY MATERIALS")}</span>
+          </h2>
+          <span className="font-mono text-[10px] font-bold text-[#777]">
+            {courseDocuments.length} / {MAX_AI_MATERIALS}
+          </span>
+        </div>
+
+        <fieldset disabled={isWorking} className="min-w-0 space-y-3 p-4 sm:p-5">
+          <label
+            onDragOver={(event) => {
+              event.preventDefault();
+              if (!isParsingFiles && !isWorking) setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            className={`flex cursor-pointer flex-col items-center justify-center border border-dashed border-[#111111] px-4 py-6 text-center transition-colors ${
+              isDragging ? "bg-[#FCD33B]" : "bg-[#fafafa] hover:bg-[#FFF4CC]"
+            } ${materialLimitReached || isParsingFiles || isWorking ? "pointer-events-none opacity-60" : ""}`}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.docx,.pptx,.txt,.md,.markdown,.csv,.json,.rtf"
+              onChange={(event) => {
+                void handleFileUpload(event.target.files);
+                event.target.value = "";
+              }}
+              className="hidden"
+              disabled={materialLimitReached || isParsingFiles || isWorking}
+            />
+            <div className="mb-2 flex h-10 w-10 items-center justify-center border border-[#111111] bg-[#111111] text-white">
+              {isParsingFiles ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
+            </div>
+            <p className="text-xs font-bold">
+              {isParsingFiles
+                ? parsingStatus || tt("正在读取资料...", "Reading materials...")
+                : tt("拖拽资料到这里，或点击选择文件", "Drop materials here, or click to browse")}
+            </p>
+            <p className="mt-1 text-[11px] leading-relaxed text-[#666]">
+              {tt(
+                "考纲 / 讲义 / 真题 / 笔记 · PDF、DOCX、PPTX、TXT、MD、CSV · 单个文件 ≤ 10 MB",
+                "Syllabus / slides / past papers / notes · PDF, DOCX, PPTX, TXT, MD, CSV · max 10 MB each"
+              )}
+            </p>
+          </label>
+
+          {materialLimitReached && (
+            <p className="font-mono text-[10px] font-bold text-[#8A5A00]">
+              {tt(
+                `已达到 ${MAX_AI_MATERIALS} 份资料上限，删除文件后可继续添加。`,
+                `Material limit of ${MAX_AI_MATERIALS} reached. Delete a file to add more.`
+              )}
+            </p>
+          )}
+
+          {courseDocuments.length > 0 && (
+            <ul className="divide-y divide-[#e5e2da] border border-[#111111] bg-white">
+              {courseDocuments.map((doc) => (
+                <li key={doc.id} className="flex items-center gap-2.5 px-3 py-2.5">
+                  <FileText className="h-4 w-4 shrink-0 text-[#111111]" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-bold">{doc.name}</p>
+                    <p className="mt-0.5 font-mono text-[10px] text-[#777]">
+                      {typeLabels[doc.type]} ·{" "}
+                      {Math.max(1, Math.round((doc.sizeBytes || doc.content.length) / 1024))} KB ·{" "}
+                      {doc.content.length.toLocaleString()} {tt("字", "chars")}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setPreviewDoc(doc)}
+                    className="border border-[#111111] bg-white p-1.5 hover:bg-[#111111] hover:text-white cursor-pointer"
+                    title={tt("预览内容", "Preview content")}
+                    aria-label={tt("预览内容", "Preview content")}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteDocument(doc.id)}
+                    className="border border-[#111111] bg-white p-1.5 hover:bg-[#111111] hover:text-white cursor-pointer"
+                    title={tt("删除资料", "Delete material")}
+                    aria-label={tt("删除资料", "Delete material")}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[11px] leading-relaxed text-[#777]">
+              {tt(
+                "资料越完整，考点与每日任务越准确。AI 不会使用资料以外的内容。",
+                "More complete materials produce better topics and tasks. AI will not use content outside your files."
+              )}
+            </p>
+            <button
+              onClick={() => setShowPasteForm((prev) => !prev)}
+              disabled={materialLimitReached || isWorking}
+              className="flex shrink-0 items-center gap-1 border border-[#111111] bg-white px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase transition-colors hover:bg-[#111111] hover:text-white disabled:opacity-40 cursor-pointer"
             >
-              <span>[{language === "zh" ? "下一步：上传课程资料与考纲" : "NEXT: COURSE DOCUMENTS & SYLLABUS"}]</span>
-              <ArrowRight className="w-4 h-4" />
+              <Plus className="h-3 w-3" />
+              <span>{tt("粘贴文字", "PASTE TEXT")}</span>
             </button>
           </div>
-        </div>
-      )}
 
-      {step === 2 && (
-        <div className="space-y-6">
-
-          <div className="bg-white p-5 border border-[#111111] space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#111111] pb-3 gap-2">
-              <div>
-                <h3 className="text-xs font-bold uppercase text-[#111111] flex items-center space-x-2">
-                  <BookOpen className="w-4 h-4 text-[#111111]" />
-                  <span>{language === "zh" ? `[${examName || "当前课程"}] 备考资料与考纲` : `COURSE MATERIALS: ${examName || "COURSE"}`}</span>
-                </h3>
-                <p className="text-xs text-[#666666] mt-0.5">
-                  {language === "zh"
-                    ? "可一次性批量上传或持续添加属于本门课程的大纲、讲义课件、模拟试卷等多个文件，AI 将联合深度解析。"
-                    : "Upload multiple files (syllabus, lecture slides, mock exams) for this single course."}
-                </p>
-              </div>
-
-              <div className="flex items-center space-x-2">
+          {showPasteForm && (
+            <div className="space-y-2 border border-[#111111] bg-[#fafafa] p-3">
+              <input
+                type="text"
+                value={pasteDocTitle}
+                onChange={(event) => setPasteDocTitle(event.target.value)}
+                placeholder={tt("资料名称（可选），例如：第三章公式速记", "Title (optional), e.g. Chapter 3 formula sheet")}
+                maxLength={200}
+                className="w-full border border-[#111111] bg-white px-3 py-2 font-mono text-xs outline-none"
+              />
+              <textarea
+                rows={5}
+                value={pasteDocContent}
+                onChange={(event) => setPasteDocContent(event.target.value)}
+                placeholder={tt(
+                  "直接粘贴考纲章节、课堂笔记或典型题目...",
+                  "Paste syllabus sections, lecture notes, or sample problems..."
+                )}
+                className="w-full resize-y border border-[#111111] bg-white px-3 py-2 font-mono text-xs leading-relaxed outline-none"
+              />
+              <div className="flex justify-end gap-2">
                 <button
-                  onClick={() => setShowPasteForm(!showPasteForm)}
-                  className="flex items-center space-x-1 px-3 py-1 bg-white hover:bg-[#111111] hover:text-white border border-[#111111] text-xs font-bold transition-colors cursor-pointer"
+                  onClick={() => {
+                    setShowPasteForm(false);
+                    setPasteDocTitle("");
+                    setPasteDocContent("");
+                  }}
+                  className="border border-[#111111] bg-white px-3 py-1.5 text-[11px] font-bold hover:bg-[#f0eee8] cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>[{language === "zh" ? "粘贴文本资料" : "PASTE TEXT"}]</span>
+                  {tt("取消", "Cancel")}
+                </button>
+                <button
+                  onClick={handleAddPastedDocument}
+                  disabled={!pasteDocContent.trim() || isWorking}
+                  className="border border-[#111111] bg-[#111111] px-3 py-1.5 text-[11px] font-bold text-white hover:bg-[#333333] disabled:opacity-40 cursor-pointer"
+                >
+                  {tt("加入资料", "Add material")}
                 </button>
               </div>
             </div>
+          )}
+        </fieldset>
+      </section>
 
-            {showPasteForm && (
-              <div className="p-4 bg-[#fafafa] border border-[#111111] space-y-3">
-                <div className="flex items-center justify-between border-b border-[#111111] pb-2">
-                  <span className="text-xs font-bold uppercase text-[#111111]">
-                    [// {language === "zh" ? "添加自定义文本 / 笔记到本课程" : "ADD TEXT NOTES TO THIS COURSE"}]
-                  </span>
-                  <button onClick={() => setShowPasteForm(false)} className="text-[#111111] hover:bg-[#111111] hover:text-white p-1 cursor-pointer">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    value={pasteDocTitle}
-                    onChange={(e) => setPasteDocTitle(e.target.value)}
-                    placeholder={language === "zh" ? "资料名称，例如：第3章核心公式速记" : "Document title..."}
-                    className="px-3 py-1.5 text-xs bg-white border border-[#111111] outline-none font-mono"
-                  />
-                  <select
-                    value={pasteDocType}
-                    onChange={(e) => setPasteDocType(e.target.value as any)}
-                    className="px-3 py-1.5 text-xs bg-white border border-[#111111] outline-none font-mono font-bold"
-                  >
-                    <option value="syllabus">{language === "zh" ? "课程教学大纲 (Syllabus)" : "Syllabus"}</option>
-                    <option value="lecture_slides">{language === "zh" ? "课件讲义 (Lecture Slides)" : "Lecture Slides"}</option>
-                    <option value="notes">{language === "zh" ? "课程笔记 (Study Notes)" : "Notes"}</option>
-                    <option value="past_exam">{language === "zh" ? "模拟试卷 / 真题 (Exam Paper)" : "Exam Paper"}</option>
-                    <option value="textbook_outline">{language === "zh" ? "考点提纲 / 速查 (Cheat Sheet)" : "Outline"}</option>
-                  </select>
-                </div>
-                <textarea
-                  rows={4}
-                  value={pasteDocContent}
-                  onChange={(e) => setPasteDocContent(e.target.value)}
-                  placeholder={language === "zh" ? "直接粘贴大纲章节、知识要点或典型题目..." : "Paste outline, topics or problems..."}
-                  className="w-full px-3 py-2 text-xs bg-white border border-[#111111] outline-none font-mono"
+      <section className="border border-[#111111] bg-white">
+        <div className="flex items-center justify-between border-b border-[#111111] bg-[#fafafa] px-4 py-3 sm:px-5">
+          <h2 className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-wider">
+            <Sparkles className="h-4 w-4" />
+            <span>[03] {tt("生成计划", "GENERATE")}</span>
+          </h2>
+          <span className="font-mono text-[10px] font-bold text-[#777]">AI</span>
+        </div>
+
+        <div className="space-y-4 p-4 sm:p-5">
+          <label className="block">
+            <span className="mb-1.5 block font-mono text-[10px] font-bold uppercase tracking-wider text-[#555]">
+              {tt("补充要求（可选）", "EXTRA REQUIREMENTS (OPTIONAL)")}
+            </span>
+            <textarea
+              rows={3}
+              value={requirements}
+              onChange={(event) => setRequirements(event.target.value)}
+              disabled={isWorking}
+              maxLength={2000}
+              placeholder={tt(
+                "例如：基础较弱，请把证明题拆细；重点复习第三、四章；周末安排真题模拟；考前留两天总复习...",
+                "e.g. My foundations are weak, break proofs into smaller steps; focus on chapters 3–4; reserve weekends for mock papers; keep the last two days for review..."
+              )}
+              className="w-full resize-y border border-[#111111] bg-[#fafafa] px-3 py-2.5 text-xs leading-relaxed outline-none focus:bg-white"
+            />
+          </label>
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-[#111111] bg-[#fafafa] px-3 py-2.5 font-mono text-[10px] font-bold uppercase text-[#555]">
+            <span>01 {tt("读取资料", "READ")}</span>
+            <span className="text-[#bbb]">→</span>
+            <span>02 {tt("提取考点", "EXTRACT")}</span>
+            <span className="text-[#bbb]">→</span>
+            <span>03 {tt("编排每日任务", "SCHEDULE")}</span>
+          </div>
+
+          {topics.length > 0 && !isWorking && (
+            <div className="border border-[#111111]">
+              <button
+                onClick={() => setShowTopics((prev) => !prev)}
+                className="flex w-full items-center justify-between gap-2 bg-[#FFF4CC] px-3 py-2.5 text-left cursor-pointer"
+              >
+                <span className="flex items-center gap-2 text-xs font-bold">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  {tt(
+                    `AI 已识别 ${topics.length} 个考点，约 ${topicsHours} 小时`,
+                    `AI found ${topics.length} topics (~${topicsHours}h)`
+                  )}
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 shrink-0 transition-transform ${showTopics ? "rotate-180" : ""}`}
                 />
-                <div className="flex justify-end space-x-2">
-                  <button
-                    onClick={() => setShowPasteForm(false)}
-                    className="px-3 py-1 text-xs border border-[#111111] bg-white hover:bg-[#111111] hover:text-white font-bold cursor-pointer transition-colors"
-                  >
-                    [{language === "zh" ? "取消" : "CANCEL"}]
-                  </button>
-                  <button
-                    onClick={handleAddPastedDocument}
-                    disabled={!pasteDocContent.trim()}
-                    className="px-3 py-1 text-xs bg-[#111111] text-white border border-[#111111] font-bold disabled:opacity-40 hover:bg-[#333333] cursor-pointer transition-colors"
-                  >
-                    [{language === "zh" ? "加入本课程资料库" : "ADD TO COURSE"}]
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <label className="border border-dashed border-[#111111] hover:bg-[#111111] hover:text-white bg-[#fafafa] p-6 flex flex-col items-center justify-center cursor-pointer transition-colors text-center group">
-              <input
-                type="file"
-                multiple
-                accept=".txt,.md,.doc,.docx,.pdf,.rtf,image/*"
-                onChange={(e) => handleFileUpload(e.target.files)}
-                className="hidden"
-              />
-              <div className="w-10 h-10 bg-white border border-[#111111] text-[#111111] flex items-center justify-center mb-2">
-                {isParsingFiles ? (
-                  <div className="w-4 h-4 border-2 border-[#111111] border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Upload className="w-5 h-5" />
-                )}
-              </div>
-              <span className="text-xs font-bold uppercase">
-                {isParsingFiles
-                  ? (parsingStatus || (language === "zh" ? "正在批量解析文件..." : "Parsing files..."))
-                  : (language === "zh" ? "点击或拖拽上传多个课程文件（支持多选）" : "Click or drag multiple course files")}
-              </span>
-              <span className="text-[11px] text-[#666666] group-hover:text-[#e5e5e5] mt-1">
-                {language === "zh"
-                  ? "支持 PDF、DOCX、PPTX、TXT、Markdown、CSV、JSON，单文件 ≤ 10 MB；单门课程可同时包含大纲、讲义、真题等多个文件"
-                  : "Supports PDF, DOCX, PPTX, TXT, Markdown, CSV, JSON (max 10 MB each). All files belong to this course."}
-              </span>
-            </label>
-
-            {courseDocuments.length > 0 && (
-              <div className="space-y-2 pt-2">
-                <div className="flex items-center justify-between text-xs font-bold text-[#111111] border-b border-[#111111] pb-1.5">
-                  <span className="flex items-center space-x-1.5">
-                    <Layers className="w-4 h-4 text-[#111111]" />
-                    <span>{language === "zh" ? `[本课程已包含 ${courseDocuments.length} 份文件资料]` : `[ATTACHED FILES: ${courseDocuments.length}]`}</span>
-                  </span>
-                  <span className="text-[11px] text-[#666666] font-normal">
-                    {language === "zh" ? "可修改文档类型以指导 AI 专项分析" : "Change document role for tailored AI analysis"}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2">
-                  {courseDocuments.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="p-3 bg-[#fafafa] border border-[#111111] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
-                    >
-                      <div className="flex items-center space-x-2.5 min-w-0 flex-1">
-                        <div className="w-6 h-6 bg-white border border-[#111111] flex items-center justify-center text-xs shrink-0 text-[#111111]">
-                          <FileText className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-bold text-xs text-[#111111] truncate">{doc.name}</span>
-                            {doc.sizeBytes && (
-                              <span className="text-[10px] text-[#666666] shrink-0">
-                                ({Math.round(doc.sizeBytes / 1024)} KB)
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[10px] text-[#666666] block truncate font-mono">
-                            {doc.content.slice(0, 80)}... ({doc.content.length} {language === "zh" ? "字" : "chars"})
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-2 shrink-0 self-end sm:self-auto">
-                        <select
-                          value={doc.type}
-                          onChange={(e) => handleUpdateDocument(doc.id, { type: e.target.value as any })}
-                          className="text-[11px] px-2 py-1 bg-white border border-[#111111] text-[#111111] outline-none font-bold font-mono"
-                        >
-                          <option value="syllabus">{language === "zh" ? "课程教学大纲" : "Syllabus"}</option>
-                          <option value="lecture_slides">{language === "zh" ? "讲义课件/PPT" : "Lecture Slides"}</option>
-                          <option value="notes">{language === "zh" ? "课程笔记" : "Study Notes"}</option>
-                          <option value="past_exam">{language === "zh" ? "历年真题/试卷" : "Past Exam"}</option>
-                          <option value="textbook_outline">{language === "zh" ? "公式提纲速查" : "Cheat Sheet"}</option>
-                        </select>
-
-                        <button
-                          onClick={() => setPreviewDoc(doc)}
-                          className="p-1 text-[#111111] hover:bg-[#111111] hover:text-white transition-colors cursor-pointer border border-[#111111] bg-white"
-                          title={language === "zh" ? "预览文档内容" : "Preview Document Content"}
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-
-                        <button
-                          onClick={() => handleDeleteDocument(doc.id)}
-                          className="p-1 text-[#111111] hover:bg-[#111111] hover:text-white transition-colors cursor-pointer border border-[#111111] bg-white"
-                          title={language === "zh" ? "从本课程移除" : "Remove from course"}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+              </button>
+              {showTopics && (
+                <div className="divide-y divide-[#e5e2da]">
+                  {topics.map((topic, index) => (
+                    <div key={topic.id || index} className="flex items-start justify-between gap-3 px-3 py-2">
+                      <span className="text-xs font-semibold leading-relaxed">
+                        {index + 1}. {topic.title}
+                      </span>
+                      <span className="shrink-0 font-mono text-[10px] text-[#777]">
+                        {topic.weightPercentage || 0}% · ~{topic.estimatedHours || 0}h
+                      </span>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+          )}
 
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={handleExtractSyllabus}
-                disabled={isExtracting || courseDocuments.length === 0}
-                className="flex items-center space-x-2 px-4 py-2.5 bg-[#111111] hover:bg-[#333333] disabled:opacity-40 text-white text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer border border-[#111111]"
-              >
-                {isExtracting ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>[{language === "zh" ? "AI 正在联合解析全部文件并提炼考纲架构..." : "EXTRACTING TOPICS FROM ALL DOCUMENTS..."}]</span>
-                  </>
+          {isWorking && (
+            <div className="space-y-1.5 border border-[#111111] bg-[#FFF4CC] px-3 py-3 font-mono text-[11px]">
+              <div className={`flex items-center gap-2 ${workStage === "planning" ? "opacity-60" : "font-bold"}`}>
+                {workStage === "planning" ? (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
                 ) : (
-                  <>
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>
-                      [{language === "zh"
-                        ? "AI 联合提炼考点与权重"
-                        : "EXTRACT TOPICS WITH AI"}]
-                    </span>
-                  </>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 )}
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-white p-5 border border-[#111111] space-y-4">
-            <div className="flex items-center justify-between border-b border-[#111111] pb-2.5">
-              <div>
-                <h3 className="text-xs font-bold uppercase text-[#111111]">
-                  [// {language === "zh" ? "考点知识树架构 (Tree Hierarchy)" : "KNOWLEDGE TREE HIERARCHY"}]
-                </h3>
-                <span className="text-xs text-[#666666]">
-                  {language === "zh" ? `已解析 ${topics.length} 个核心大单元模块` : `${topics.length} units extracted`}
-                </span>
+                <span>{tt("01 读取资料并提取考点", "01 Reading materials & extracting topics")}</span>
               </div>
-
-              <button
-                onClick={handleAddCustomTopic}
-                className="flex items-center space-x-1 px-3 py-1 bg-white hover:bg-[#111111] hover:text-white text-xs font-bold text-[#111111] border border-[#111111] transition-colors cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>[{language === "zh" ? "+ 新增大单元" : "+ ADD UNIT"}]</span>
-              </button>
-            </div>
-
-            <HierarchicalTopicTreeView
-              topics={topics}
-              language={language}
-              editable={true}
-              onUpdateTopic={(index, updated) => {
-                const updatedTopics = [...topics];
-                updatedTopics[index] = { ...updatedTopics[index], ...updated };
-                setTopics(updatedTopics);
-              }}
-              onDeleteTopic={(topicId) => handleDeleteTopic(topicId)}
-              onReExtract={handleExtractSyllabus}
-              isExtracting={isExtracting}
-            />
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            <button
-              onClick={() => setStep(1)}
-              className="flex items-center space-x-1.5 px-4 py-2 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white text-xs font-bold text-[#111111] cursor-pointer transition-colors"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>[{language === "zh" ? "上一步" : "BACK"}]</span>
-            </button>
-
-            <button
-              onClick={() => {
-                if (topics.length === 0) {
-                  setGenerateError(language === "zh" ? "请至少配置一个考点" : "Please configure at least one topic");
-                  return;
-                }
-                setStep(3);
-              }}
-              className="flex items-center space-x-2 px-5 py-2.5 bg-[#111111] text-white hover:bg-[#333333] font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-[#111111]"
-            >
-              <span>[{language === "zh" ? "下一步：复习节奏与作息" : "NEXT: PACING & SCHEDULE"}]</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="space-y-4 font-sans">
-          <div className="bg-white p-5 border border-[#111111] space-y-5">
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#111111] pb-3 font-mono">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#111111] flex items-center space-x-2">
-                <Sliders className="w-4 h-4 text-[#111111]" />
-                <span>[// {language === "zh" ? "学习时长与自身规划需求" : "TIME & STUDY REQUIREMENTS"}]</span>
-              </h3>
-
-              <div className="flex items-center space-x-3 text-xs text-[#666666] font-sans">
-                <span>
-                  {language === "zh" ? "备考周期" : "Span"}: <strong className="text-[#111111] font-mono">{daysDiff}</strong> {language === "zh" ? "天" : "days"}
-                </span>
-                <span>·</span>
-                <span>
-                  {language === "zh" ? "考点" : "Topics"}: <strong className="text-[#111111] font-mono">{topics.length}</strong>
-                </span>
-                <span>·</span>
-                <span>
-                  {language === "zh" ? "资料" : "Docs"}: <strong className="text-[#111111] font-mono">{courseDocuments.length}</strong>
-                </span>
+              <div className={`flex items-center gap-2 ${workStage === "planning" ? "font-bold" : "opacity-40"}`}>
+                {workStage === "planning" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <span className="inline-block h-3.5 w-3.5 border border-[#111111]" />
+                )}
+                <span>{tt("02 按日历编排每日任务", "02 Scheduling daily tasks")}</span>
               </div>
             </div>
+          )}
 
-            <RulerTimePicker
-              language={language}
-              dailySchedules={dailySchedules}
-              onUpdateDayHours={handleUpdateDayHours}
-              onToggleDayEnabled={handleToggleDayEnabled}
-              onApplyPreset={handleApplyWeeklyPreset}
-              daysDiff={daysDiff}
-            />
-
-            <div className="pt-4 border-t border-[#dedad1] space-y-3">
-              <label className="text-xs font-bold text-[#111111] uppercase tracking-wide flex items-center space-x-1.5">
-                <Target className="w-4 h-4 text-[#111111]" />
-                <span>{language === "zh" ? "2. 自身规划上有什么需求" : "2. Personal Planning & Study Requirements"}</span>
-              </label>
-
-              <div className="space-y-1">
-                <textarea
-                  rows={3}
-                  value={customPromptRequirement}
-                  onChange={(e) => setCustomPromptRequirement(e.target.value)}
-                  placeholder={
-                    language === "zh"
-                      ? "在此输入您的自身复习规划需求（如：基础较弱，计算大题请拆细；重点复习前三章；优先安排真题易错考点；周末多安排综合演练等）..."
-                      : "Enter your personal study requirements or directives (e.g., focus heavily on dynamic programming; break down proofs into smaller steps; reserve weekends for past exam papers)..."
-                  }
-                  className="w-full p-3 text-xs border border-[#dedad1] focus:border-[#111111] bg-[#fafafa] focus:bg-white outline-none text-[#111111] leading-relaxed resize-none placeholder-[#888888]"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex flex-col items-stretch justify-between gap-3 pt-1 sm:flex-row sm:items-center">
+            <p className="max-w-sm text-[11px] leading-relaxed text-[#777]">
+              {tt(
+                "生成期间请保持页面打开，通常需要 1–2 分钟。失败会明确提示，不会塞入模板内容。",
+                "Keep this page open; generation usually takes 1–2 minutes. Failures are explicit, never padded with template content."
+              )}
+            </p>
             <button
-              onClick={() => setStep(2)}
-              className="flex items-center space-x-1.5 px-4 py-2 border border-[#dedad1] hover:border-[#111111] bg-white text-xs font-semibold text-[#111111] cursor-pointer transition-colors"
+              onClick={handleGenerate}
+              disabled={isWorking || isParsingFiles}
+              className="flex w-full items-center justify-center gap-2 border border-[#111111] bg-[#111111] px-5 py-3 font-mono text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-[#333333] disabled:opacity-40 sm:w-auto cursor-pointer"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>{language === "zh" ? "上一步" : "Back"}</span>
-            </button>
-
-            <button
-              onClick={handleGenerateFinalPlan}
-              disabled={isGenerating}
-              className="flex items-center space-x-2 px-5 py-2.5 bg-[#111111] hover:bg-[#333333] disabled:opacity-40 text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer border border-[#111111]"
-            >
-              {isGenerating ? (
+              {isWorking ? (
                 <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>{language === "zh" ? "正在生成备考日历..." : "GENERATING STUDY PLAN..."}</span>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>
+                    {workStage === "extracting"
+                      ? tt("正在提取考点...", "EXTRACTING TOPICS...")
+                      : tt("正在生成计划...", "BUILDING PLAN...")}
+                  </span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>{language === "zh" ? "一键生成科目备考计划" : "GENERATE STUDY PLAN"}</span>
+                  <Sparkles className="h-4 w-4" />
+                  <span>
+                    {topics.length > 0
+                      ? tt("重新生成学习计划", "REGENERATE PLAN")
+                      : tt("生成学习计划", "GENERATE STUDY PLAN")}
+                  </span>
                 </>
               )}
             </button>
           </div>
         </div>
-      )}
+      </section>
 
       {previewDoc && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white max-w-2xl w-full max-h-[85vh] flex flex-col border border-[#111111] font-mono">
-            <div className="p-4 border-b border-[#111111] flex items-center justify-between bg-[#fafafa]">
-              <div className="flex items-center space-x-2 min-w-0">
-                <FileText className="w-4 h-4 text-[#111111]" />
-                <span className="font-bold text-xs uppercase text-[#111111] truncate">{previewDoc.name}</span>
-                <span className="text-[10px] px-2 py-0.5 border border-[#111111] bg-white text-[#111111] font-bold">
-                  [{previewDoc.type}]
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col border border-[#111111] bg-white font-mono">
+            <div className="flex items-center justify-between gap-3 border-b border-[#111111] bg-[#fafafa] p-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <FileText className="h-4 w-4 shrink-0 text-[#111111]" />
+                <span className="truncate text-xs font-bold uppercase">{previewDoc.name}</span>
+                <span className="shrink-0 border border-[#111111] bg-white px-2 py-0.5 text-[10px] font-bold">
+                  {typeLabels[previewDoc.type]}
                 </span>
               </div>
               <button
                 onClick={() => setPreviewDoc(null)}
-                className="p-1 text-[#111111] hover:bg-[#111111] hover:text-white cursor-pointer"
+                className="shrink-0 p-1 text-[#111111] hover:bg-[#111111] hover:text-white cursor-pointer"
+                aria-label={tt("关闭预览", "Close preview")}
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="p-4 overflow-y-auto flex-1 font-mono text-xs text-[#111111] bg-white whitespace-pre-wrap leading-relaxed">
-              {previewDoc.content || (language === "zh" ? "文档内容为空" : "Empty document content")}
+            <div className="flex-1 overflow-y-auto whitespace-pre-wrap bg-white p-4 font-mono text-xs leading-relaxed text-[#111111]">
+              {previewDoc.content || tt("文档内容为空", "Empty document content")}
             </div>
 
-            <div className="p-3 border-t border-[#111111] flex items-center justify-between text-xs text-[#666666] bg-[#fafafa]">
-              <span className="font-bold">[{previewDoc.content.length} {language === "zh" ? "字符" : "CHARS"}]</span>
+            <div className="flex items-center justify-between border-t border-[#111111] bg-[#fafafa] p-3 text-xs text-[#666]">
+              <span className="font-bold">
+                [{previewDoc.content.length.toLocaleString()} {tt("字符", "CHARS")}]
+              </span>
               <button
                 onClick={() => setPreviewDoc(null)}
-                className="px-4 py-1.5 bg-[#111111] text-white text-xs font-bold uppercase hover:bg-[#333333] border border-[#111111] cursor-pointer"
+                className="border border-[#111111] bg-[#111111] px-4 py-1.5 text-xs font-bold uppercase text-white hover:bg-[#333333] cursor-pointer"
               >
-                [{language === "zh" ? "关闭预览" : "CLOSE"}]
+                [{tt("关闭", "CLOSE")}]
               </button>
             </div>
           </div>

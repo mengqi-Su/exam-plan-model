@@ -27,8 +27,7 @@ import { ExamStudyPlan, StudyTask, SyllabusTopic, UserStudyPreferences, DaySched
 import { playCompletionChime } from "../lib/audio";
 import { useI18n } from "../lib/i18n";
 import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
-import { fallbackGeneratePlanClient } from "../lib/fallbackPlanner";
-import { getAiFallbackNotice, readApiError } from "../lib/aiClient";
+import { getAiFallbackNotice, prepareMaterialsForAI, readApiError } from "../lib/aiClient";
 import { addDays, toLocalDateString } from "../lib/date";
 import { RulerTimePicker } from "./RulerTimePicker";
 import { DomainMasteryWheelChart } from "./DomainMasteryWheelChart";
@@ -168,6 +167,15 @@ export function RealTimeManager({
   };
 
   const handleGenerateStudyPlan = async () => {
+    if (!plan.topics || plan.topics.length === 0) {
+      setPlanGenerateError(
+        language === "zh"
+          ? "当前科目还没有考点。请先在知识库中用 AI 提炼考点，再重新规划。"
+          : "This subject has no topics yet. Extract topics from your materials first."
+      );
+      return;
+    }
+
     setIsGeneratingPlan(true);
     setPlanGenerateError(null);
     setPlanSuccessNotice(false);
@@ -186,83 +194,37 @@ export function RealTimeManager({
       includePracticeExams,
       includeBufferDays,
       bufferDaysCount,
-      weakTopicsFocus: (plan.topics || []).filter(t => t.difficulty === "hard").map(t => t.title),
+      weakTopicsFocus: plan.topics.filter((t) => t.difficulty === "hard").map((t) => t.title),
     };
 
-    const topics = plan.topics && plan.topics.length > 0 ? plan.topics : [
-      {
-        id: "top-1",
-        title: "基础概念与核心理论",
-        category: "基础概念",
-        weightPercentage: 30,
-        difficulty: "easy" as const,
-        subtopics: ["核心定理推导", "基础应用"],
-        estimatedHours: 8,
-      },
-      {
-        id: "top-2",
-        title: "典型考题与高频题型精解",
-        category: "实战演练",
-        weightPercentage: 40,
-        difficulty: "hard" as const,
-        subtopics: ["经典大题演练", "易错点与解题模板"],
-        estimatedHours: 14,
-      },
-      {
-        id: "top-3",
-        title: "全真模拟与真题冲刺",
-        category: "模拟冲刺",
-        weightPercentage: 30,
-        difficulty: "hard" as const,
-        subtopics: ["历年真题实战", "查漏补缺与考前押密"],
-        estimatedHours: 10,
-      },
-    ];
-
     try {
-      let data: any = null;
-      let notice: string | null = null;
-      try {
-        const res = await fetch("/api/generate-plan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            topics,
-            preferences,
-            materialsSummary: plan.materialsSummary || "",
-            language,
-          }),
-        });
+      const res = await fetch("/api/generate-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topics: plan.topics,
+          preferences,
+          materials: prepareMaterialsForAI(plan.materials || []),
+          materialsSummary: plan.materialsSummary || "",
+          language,
+        }),
+      });
 
-        if (res.ok) {
-          data = await res.json();
-          notice = getAiFallbackNotice(data.meta, language);
-        } else {
-          const apiError = await readApiError(res, language);
-          notice =
-            language === "zh"
-              ? `${apiError.message} 已改用本地规划模板。`
-              : `${apiError.message} A local planning template was used instead.`;
-        }
-      } catch (fetchErr) {
-        console.warn("Network fetch error for generate-plan, generating local plan:", fetchErr);
-        notice =
+      if (!res.ok) {
+        const apiError = await readApiError(res, language);
+        setPlanGenerateError(apiError.message);
+        return;
+      }
+
+      const data = await res.json();
+      if (!Array.isArray(data?.tasks) || data.tasks.length === 0) {
+        setPlanGenerateError(
           language === "zh"
-            ? "无法连接 AI 服务，已改用本地规划模板。"
-            : "Could not reach the AI service. A local planning template was used instead.";
+            ? "AI 未能生成可用的每日任务，请稍后重试。"
+            : "AI did not return any usable daily tasks. Please try again."
+        );
+        return;
       }
-
-      if (!data || !data.tasks || data.tasks.length === 0) {
-        data = fallbackGeneratePlanClient(topics, preferences);
-        if (!notice) {
-          notice =
-            language === "zh"
-              ? "AI 未返回有效的学习计划，已改用本地规划模板。"
-              : "AI returned no usable study plan. A local planning template was used instead.";
-        }
-      }
-
-      setAiNotice(notice);
 
       const newPlan: ExamStudyPlan = {
         ...plan,
@@ -272,10 +234,10 @@ export function RealTimeManager({
         startDate: preferences.startDate,
         examDate: preferences.examDate,
         examTime: preferences.examTime,
-        totalPlannedHours: data.totalPlannedHours || totalEstHours || 35,
+        totalPlannedHours: data.totalPlannedHours || totalEstHours || 0,
         phases: data.phases || plan.phases || [],
-        topics: topics,
-        tasks: data.tasks || [],
+        topics: plan.topics,
+        tasks: data.tasks,
         preferences,
       };
 
@@ -284,28 +246,12 @@ export function RealTimeManager({
       playCompletionChime();
       setTimeout(() => setPlanSuccessNotice(false), 5000);
     } catch (err: any) {
-      console.error("Plan generation error, using safe fallback", err);
-      const safeData = fallbackGeneratePlanClient(topics, preferences);
-      const safePlan: ExamStudyPlan = {
-        ...plan,
-        updatedAt: new Date().toISOString(),
-        startDate: preferences.startDate,
-        examDate: preferences.examDate,
-        examTime: preferences.examTime,
-        totalPlannedHours: safeData.totalPlannedHours || 30,
-        phases: safeData.phases || [],
-        topics: topics,
-        tasks: safeData.tasks,
-        preferences,
-      };
-      onUpdatePlan(safePlan);
-      setAiNotice(
+      console.error("Plan generation failed:", err);
+      setPlanGenerateError(
         language === "zh"
-          ? "规划生成失败，已改用本地规划模板。你可以在设置中检查 AI 状态。"
-          : "Plan generation failed. A local planning template was used instead."
+          ? "无法连接 AI 服务，请检查网络后重试。"
+          : "Could not reach the AI service. Check your connection and try again."
       );
-      setPlanSuccessNotice(true);
-      setTimeout(() => setPlanSuccessNotice(false), 5000);
     } finally {
       setIsGeneratingPlan(false);
     }

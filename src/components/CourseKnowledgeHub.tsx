@@ -36,15 +36,14 @@ import {
   RefreshCw
 } from "lucide-react";
 import { SyllabusTopic, StudyMaterial, ExamStudyPlan, UserStudyPreferences, DaySchedulePreference } from "../types";
-import { INITIAL_SAMPLE_DOCUMENTS, DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
+import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
 import { useI18n } from "../lib/i18n";
 import { parseDocumentFile } from "../lib/documentParser";
 import { TabbedFolderArchive } from "./TabbedFolderArchive";
 import { UploadModal } from "./UploadModal";
 import { NoteModal } from "./NoteModal";
 import { DocumentReaderModal } from "./DocumentReaderModal";
-import { fallbackExtractSyllabusClient, fallbackGeneratePlanClient } from "../lib/fallbackPlanner";
-import { prepareMaterialsForAI, getAiFallbackNotice, readApiError } from "../lib/aiClient";
+import { prepareMaterialsForAI, readApiError } from "../lib/aiClient";
 import { addDays, toLocalDateString } from "../lib/date";
 import { HierarchicalTopicTreeView } from "./HierarchicalTopicTreeView";
 
@@ -141,7 +140,6 @@ export function CourseKnowledgeHub({
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [planGenerateError, setPlanGenerateError] = useState<string | null>(null);
   const [planSuccessNotice, setPlanSuccessNotice] = useState(false);
-  const [aiNotice, setAiNotice] = useState<string | null>(null);
 
   const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
 
@@ -268,14 +266,6 @@ export function CourseKnowledgeHub({
     updatePlanMaterials(updated);
   };
 
-  const handleLoadSampleKnowledgeBase = () => {
-    updatePlanMaterials(INITIAL_SAMPLE_DOCUMENTS);
-    const combined = INITIAL_SAMPLE_DOCUMENTS.map((d) => `### ${d.name}\n${d.content}`).join("\n\n");
-    onSyllabusContentChange(combined);
-    onExamNameChange(language === "zh" ? "高级数据结构与算法期末考试" : "CS 301: Advanced Algorithms Final");
-    onSubjectChange(language === "zh" ? "计算机科学与工程" : "Computer Science");
-  };
-
   const handleExtractTopics = async () => {
     let sourceContent = syllabusContent.trim();
     if (!sourceContent && materials.length > 0) {
@@ -294,89 +284,59 @@ export function CourseKnowledgeHub({
     setIsExtracting(true);
     setExtractError(null);
     setExtractionSuccess(false);
-    setAiNotice(null);
 
     const materialsForAI = materials.length > 0
       ? prepareMaterialsForAI(materials)
       : [{ id: "pasted-note", name: "课程资料", type: "notes", content: sourceContent.slice(0, 120_000) }];
-    let notice: string | null = null;
 
     try {
-      let data: any = null;
-      try {
-        const res = await fetch("/api/extract-syllabus", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            materials: materialsForAI,
-            examName: examName || (language === "zh" ? "即将到来的期末考试" : "Upcoming Exam"),
-            subject: subject || (language === "zh" ? "综合学科" : "General"),
-            language,
-          }),
-        });
+      const res = await fetch("/api/extract-syllabus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          materials: materialsForAI,
+          examName: examName || (language === "zh" ? "即将到来的期末考试" : "Upcoming Exam"),
+          subject: subject || (language === "zh" ? "综合学科" : "General"),
+          language,
+        }),
+      });
 
-        if (res.ok) {
-          data = await res.json();
-          notice = getAiFallbackNotice(data.meta, language);
-        } else {
-          const apiError = await readApiError(res, language);
-          notice =
-            language === "zh"
-              ? `${apiError.message} 已改用本地模板提炼考点。`
-              : `${apiError.message} A local topic template was used instead.`;
-        }
-      } catch (fetchErr) {
-        console.warn("Network fetch error, using local fallback syllabus parser:", fetchErr);
-        notice =
+      if (!res.ok) {
+        const apiError = await readApiError(res, language);
+        setExtractError(apiError.message);
+        return;
+      }
+
+      const data = await res.json();
+      if (!Array.isArray(data?.topics) || data.topics.length === 0) {
+        setExtractError(
           language === "zh"
-            ? "无法连接 AI 服务，已改用本地模板提炼考点。"
-            : "Could not reach the AI service. A local topic template was used instead.";
-      }
-
-      if (!data || !data.topics || data.topics.length === 0) {
-        data = fallbackExtractSyllabusClient(
-          materials.length > 0 ? materials : [{ name: "课程资料", content: sourceContent, type: "notes" }],
-          examName || (language === "zh" ? "期末考试" : "Final Exam"),
-          subject || (language === "zh" ? "综合学科" : "General"),
-          language
+            ? "AI 未能从这些资料中识别出可用考点，请补充更完整的资料后重试。"
+            : "AI could not identify usable topics from these materials. Add fuller materials and try again."
         );
-        if (!notice) {
-          notice =
-            language === "zh"
-              ? "AI 未返回有效考点，已改用本地模板。"
-              : "AI returned no usable topics. A local template was used instead.";
-        }
+        return;
       }
-
-      setAiNotice(notice);
 
       if (data.summary) {
         onMaterialsSummaryChange(data.summary);
       }
-      if (data.topics && data.topics.length > 0) {
-        onTopicsChange(data.topics);
-        if (plan && onUpdatePlan) {
-          onUpdatePlan({
-            ...plan,
-            topics: data.topics,
-            materialsSummary: data.summary || plan.materialsSummary,
-          });
-        }
+      onTopicsChange(data.topics);
+      if (plan && onUpdatePlan) {
+        onUpdatePlan({
+          ...plan,
+          topics: data.topics,
+          materialsSummary: data.summary || plan.materialsSummary,
+        });
       }
       setExtractionSuccess(true);
       setTimeout(() => setExtractionSuccess(false), 4000);
     } catch (err: any) {
-      console.error("Extraction error handled:", err);
-      const fallback = fallbackExtractSyllabusClient([], examName || "期末考试", subject || "综合学科", language);
-      onTopicsChange(fallback.topics);
-      onMaterialsSummaryChange(fallback.summary);
-      setAiNotice(
+      console.error("Topic extraction failed:", err);
+      setExtractError(
         language === "zh"
-          ? "考点提取失败，已改用本地模板。"
-          : "Topic extraction failed. A local template was used instead."
+          ? "无法连接 AI 服务，请检查网络后重试。"
+          : "Could not reach the AI service. Check your connection and try again."
       );
-      setExtractionSuccess(true);
-      setTimeout(() => setExtractionSuccess(false), 4000);
     } finally {
       setIsExtracting(false);
     }
@@ -421,13 +381,17 @@ export function CourseKnowledgeHub({
 
   const handleGenerateStudyPlan = async () => {
     if (topics.length === 0) {
-      await handleExtractTopics();
+      setPlanGenerateError(
+        language === "zh"
+          ? "请先使用 AI 从资料中提炼考点，再生成学习计划。"
+          : "Extract topics from your materials with AI first, then generate the study plan."
+      );
+      return;
     }
 
     setIsGeneratingPlan(true);
     setPlanGenerateError(null);
     setPlanSuccessNotice(false);
-    setAiNotice(null);
 
     const preferences: UserStudyPreferences = {
       examName: examName || (language === "zh" ? "期末/资格考试" : "Final Exam"),
@@ -447,77 +411,33 @@ export function CourseKnowledgeHub({
     };
 
     try {
-      let data: any = null;
-      let notice: string | null = null;
-      try {
-        const res = await fetch("/api/generate-plan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            topics: topics.length > 0 ? topics : [
-              {
-                id: "top-1",
-                title: "核心理论与基础概念",
-                category: "核心大纲",
-                weightPercentage: 30,
-                difficulty: "medium",
-                subtopics: ["基础定义与定理推导", "标准名词解释"],
-                estimatedHours: 8,
-              },
-              {
-                id: "top-2",
-                title: "典型考题与高频题型精解",
-                category: "实战演练",
-                weightPercentage: 40,
-                difficulty: "hard",
-                subtopics: ["经典大题演练", "易错点与解题模板"],
-                estimatedHours: 14,
-              },
-              {
-                id: "top-3",
-                title: "全真模拟与真题冲刺",
-                category: "模拟冲刺",
-                weightPercentage: 30,
-                difficulty: "hard",
-                subtopics: ["历年真题实战", "查漏补缺与考前押密"],
-                estimatedHours: 10,
-              },
-            ],
-            preferences,
-            materialsSummary,
-            language,
-          }),
-        });
+      const res = await fetch("/api/generate-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topics,
+          preferences,
+          materials: prepareMaterialsForAI(materials),
+          materialsSummary,
+          language,
+        }),
+      });
 
-        if (res.ok) {
-          data = await res.json();
-          notice = getAiFallbackNotice(data.meta, language);
-        } else {
-          const apiError = await readApiError(res, language);
-          notice =
-            language === "zh"
-              ? `${apiError.message} 已改用本地规划模板。`
-              : `${apiError.message} A local planning template was used instead.`;
-        }
-      } catch (fetchErr) {
-        console.warn("Network fetch error for generate-plan, generating local plan:", fetchErr);
-        notice =
+      if (!res.ok) {
+        const apiError = await readApiError(res, language);
+        setPlanGenerateError(apiError.message);
+        return;
+      }
+
+      const data = await res.json();
+      if (!Array.isArray(data?.tasks) || data.tasks.length === 0) {
+        setPlanGenerateError(
           language === "zh"
-            ? "无法连接 AI 服务，已改用本地规划模板。"
-            : "Could not reach the AI service. A local planning template was used instead.";
+            ? "AI 未能生成可用的每日任务，请稍后重试。"
+            : "AI did not return any usable daily tasks. Please try again."
+        );
+        return;
       }
-
-      if (!data || !data.tasks || data.tasks.length === 0) {
-        data = fallbackGeneratePlanClient(topics, preferences);
-        if (!notice) {
-          notice =
-            language === "zh"
-              ? "AI 未返回有效的学习计划，已改用本地规划模板。"
-              : "AI returned no usable study plan. A local planning template was used instead.";
-        }
-      }
-
-      setAiNotice(notice);
 
       const newPlan: ExamStudyPlan = {
         id: plan?.id || `plan-${Date.now()}`,
@@ -528,10 +448,10 @@ export function CourseKnowledgeHub({
         startDate: preferences.startDate,
         examDate: preferences.examDate,
         examTime: preferences.examTime,
-        totalPlannedHours: data.totalPlannedHours || totalEstHours || 35,
+        totalPlannedHours: data.totalPlannedHours || totalEstHours || 0,
         phases: data.phases || [],
-        topics: topics.length > 0 ? topics : data.topics || [],
-        tasks: data.tasks || [],
+        topics,
+        tasks: data.tasks,
         preferences,
         materialsSummary,
         materials: materials.length > 0 ? materials : undefined,
@@ -544,35 +464,12 @@ export function CourseKnowledgeHub({
       setPlanSuccessNotice(true);
       setTimeout(() => setPlanSuccessNotice(false), 5000);
     } catch (err: any) {
-      console.error("Plan generation error, using safe fallback", err);
-      const safeData = fallbackGeneratePlanClient(topics, preferences);
-      const safePlan: ExamStudyPlan = {
-        id: plan?.id || `plan-${Date.now()}`,
-        createdAt: plan?.createdAt || new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        examName: preferences.examName,
-        subject: preferences.subject,
-        startDate: preferences.startDate,
-        examDate: preferences.examDate,
-        examTime: preferences.examTime,
-        totalPlannedHours: safeData.totalPlannedHours || 30,
-        phases: safeData.phases,
-        topics: topics.length > 0 ? topics : [],
-        tasks: safeData.tasks,
-        preferences,
-        materialsSummary,
-        materials: materials.length > 0 ? materials : undefined,
-      };
-      if (onUpdatePlan) {
-        onUpdatePlan(safePlan);
-      }
-      setAiNotice(
+      console.error("Plan generation failed:", err);
+      setPlanGenerateError(
         language === "zh"
-          ? "规划生成失败，已改用本地规划模板。你可以在设置中检查 AI 状态。"
-          : "Plan generation failed. A local planning template was used instead."
+          ? "无法连接 AI 服务，请检查网络后重试。"
+          : "Could not reach the AI service. Check your connection and try again."
       );
-      setPlanSuccessNotice(true);
-      setTimeout(() => setPlanSuccessNotice(false), 5000);
     } finally {
       setIsGeneratingPlan(false);
     }
@@ -624,18 +521,6 @@ export function CourseKnowledgeHub({
         </div>
       )}
 
-      {aiNotice && (
-        <div className="flex items-center justify-between space-x-2 p-3 bg-white border border-[#111111] text-[#111111] text-xs font-bold">
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>[{language === "zh" ? "提示" : "NOTICE"}] {aiNotice}</span>
-          </div>
-          <button onClick={() => setAiNotice(null)} className="hover:underline cursor-pointer">
-            [{language === "zh" ? "关闭" : "DISMISS"}]
-          </button>
-        </div>
-      )}
-
       <section className="space-y-4">
         {/* 1. Main Knowledge Base Archive View */}
         <div className="pt-1">
@@ -651,7 +536,6 @@ export function CourseKnowledgeHub({
               if (folderType) setActiveFolderDocType(folderType);
               setShowPasteBox(true);
             }}
-            onLoadSamples={handleLoadSampleKnowledgeBase}
             onDeleteCourse={(onRequestDeleteCourse || onDeleteCourse) ? () => {
               if (onRequestDeleteCourse) {
                 onRequestDeleteCourse(plan);

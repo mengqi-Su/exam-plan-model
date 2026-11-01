@@ -22,12 +22,12 @@ export function getAiFallbackNotice(meta: AiResponseMeta | undefined, language: 
   if (meta?.source !== "fallback") return null;
   if (language === "zh") {
     return meta.fallbackReason === "no_api_key"
-      ? "未配置 AI 服务，已使用本地规划模板生成结果。所有数据仍保存在本浏览器中。"
-      : "AI 服务暂时不可用，已使用本地规划模板生成结果。你可以在设置中查看 AI 状态。";
+      ? "未配置 AI 服务，已按本地排程规则重新分配任务。所有数据仍保存在本浏览器中。"
+      : "AI 服务暂时不可用，已按本地排程规则重新分配任务。你可以在设置中查看 AI 状态。";
   }
   return meta.fallbackReason === "no_api_key"
-    ? "AI is not configured. A local planning template was used instead. Your data stays in this browser."
-    : "AI is temporarily unavailable. A local planning template was used instead. Check AI status in Settings.";
+    ? "AI is not configured. Tasks were rescheduled with local rules. Your data stays in this browser."
+    : "AI is temporarily unavailable. Tasks were rescheduled with local rules. Check AI status in Settings.";
 }
 
 const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
@@ -64,8 +64,52 @@ const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
     en: "AI document parsing is temporarily unavailable. Please try again later.",
   },
   AI_UNAVAILABLE: {
-    zh: "AI 服务暂时不可用，请稍后重试。",
-    en: "AI service is temporarily unavailable. Please try again later.",
+    zh: "AI 服务暂时不可用，请稍后重试。你的资料不会被替换成模板。",
+    en: "The AI service is temporarily unavailable. Please try again. Your materials will not be replaced with a template.",
+  },
+  AI_NOT_CONFIGURED: {
+    zh: "AI 服务尚未配置，无法自动生成。请在部署环境配置 GEMINI_API_KEY 后重试。",
+    en: "AI is not configured on this server. Set GEMINI_API_KEY in your deployment and try again.",
+  },
+  MISSING_MATERIALS: {
+    zh: "请先上传至少一份课程资料。",
+    en: "Upload at least one course document first.",
+  },
+  EMPTY_MATERIALS: {
+    zh: "资料内容为空，请重新上传可读取文字的文件。",
+    en: "The materials contain no readable text. Upload a text-based file and try again.",
+  },
+  SYLLABUS_EMPTY: {
+    zh: "AI 没有从这些资料中识别到可用考点，请补充更完整的考纲、讲义或真题后重试。",
+    en: "AI found no usable topics in these materials. Add a fuller syllabus, notes, or past paper and try again.",
+  },
+  SYLLABUS_EXTRACTION_FAILED: {
+    zh: "考点提取失败，请稍后重试。",
+    en: "Topic extraction failed. Please try again later.",
+  },
+  PLAN_EMPTY: {
+    zh: "AI 没有返回可用的每日任务，请检查资料内容后重试。",
+    en: "AI returned no usable daily tasks. Check your materials and try again.",
+  },
+  PLAN_GENERATION_FAILED: {
+    zh: "学习计划生成失败，请稍后重试。",
+    en: "Study plan generation failed. Please try again later.",
+  },
+  INVALID_START_DATE: {
+    zh: "开始日期格式无效，请重新选择。",
+    en: "The start date is invalid. Pick it again.",
+  },
+  INVALID_EXAM_DATE: {
+    zh: "考试日期格式无效，请重新选择。",
+    en: "The exam date is invalid. Pick it again.",
+  },
+  INVALID_DATE_RANGE: {
+    zh: "考试日期不能早于开始复习日期。",
+    en: "The exam date cannot be earlier than the start date.",
+  },
+  PARSE_FAILED: {
+    zh: "文档解析服务异常，请稍后重试或换一份文件。",
+    en: "Document parsing failed. Please try again or upload a different file.",
   },
   EMPTY_DOCUMENT: {
     zh: "未能从文件中读取到文字内容。",
