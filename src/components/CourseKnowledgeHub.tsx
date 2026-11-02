@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { SyllabusTopic, StudyMaterial, ExamStudyPlan } from "../types";
 import { useI18n } from "../lib/i18n";
-import { prepareMaterialsForAI } from "../lib/aiClient";
+import { prepareMaterialsForAI, runGeneration } from "../lib/aiClient";
 import { TabbedFolderArchive } from "./TabbedFolderArchive";
 import { UploadModal } from "./UploadModal";
 import { NoteModal } from "./NoteModal";
@@ -78,28 +78,17 @@ export function CourseKnowledgeHub({
     setExtractionSuccess(false);
 
     try {
-      const res = await fetch("/api/extract-syllabus", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const { result } = await runGeneration<{ summary?: string; topics?: SyllabusTopic[] }>(
+        "syllabus",
+        {
           materials: prepareMaterialsForAI(materials),
           examName: plan.examName || (language === "zh" ? "即将到来的期末考试" : "Upcoming Exam"),
           subject: plan.subject || (language === "zh" ? "综合学科" : "General"),
-          language,
-        }),
-      });
+        },
+        { language }
+      );
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        setExtractError(
-          data?.error?.message ||
-            (language === "zh" ? "AI 暂时无法提炼考点，请稍后重试。" : "AI could not extract topics. Please try again.")
-        );
-        return;
-      }
-
-      const data = await res.json();
-      if (!Array.isArray(data?.topics) || data.topics.length === 0) {
+      if (!Array.isArray(result?.topics) || result.topics.length === 0) {
         setExtractError(
           language === "zh"
             ? "AI 未能从这些资料中识别出可用考点，请补充更完整的资料后重试。"
@@ -110,18 +99,19 @@ export function CourseKnowledgeHub({
 
       onUpdatePlan({
         ...plan,
-        topics: data.topics,
-        materialsSummary: data.summary || plan.materialsSummary,
+        topics: result.topics,
+        materialsSummary: result.summary || plan.materialsSummary,
         updatedAt: new Date().toISOString(),
       });
       setExtractionSuccess(true);
       window.setTimeout(() => setExtractionSuccess(false), 4000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Topic extraction failed:", error);
       setExtractError(
-        language === "zh"
-          ? "无法连接 AI 服务，请检查网络后重试。"
-          : "Could not reach the AI service. Check your connection and try again."
+        error?.message ||
+          (language === "zh"
+            ? "无法连接 AI 服务，请检查网络后重试。"
+            : "Could not reach the AI service. Check your connection and try again.")
       );
     } finally {
       setIsExtracting(false);

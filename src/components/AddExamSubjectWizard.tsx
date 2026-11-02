@@ -27,7 +27,7 @@ import {
 } from "../types";
 import { useI18n } from "../lib/i18n";
 import { parseDocumentFile } from "../lib/documentParser";
-import { MAX_AI_MATERIALS, prepareMaterialsForAI, readApiError } from "../lib/aiClient";
+import { GenerationError, MAX_AI_MATERIALS, prepareMaterialsForAI, runGeneration } from "../lib/aiClient";
 import { daysBetween, toLocalDateString } from "../lib/date";
 import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
 import { RulerTimePicker } from "./RulerTimePicker";
@@ -37,16 +37,6 @@ interface AddExamSubjectWizardProps {
   onCancel: () => void;
   existingPlans: ExamStudyPlan[];
   defaultStudyPace: UserStudyPreferences["studyPace"];
-}
-
-class GenerationError extends Error {
-  code?: string;
-
-  constructor(message: string, code?: string) {
-    super(message);
-    this.name = "GenerationError";
-    this.code = code;
-  }
 }
 
 const DAY_NAMES_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -128,11 +118,11 @@ export function AddExamSubjectWizard({
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/health")
+    fetch("/functions/v1/app/health")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!cancelled && data && typeof data.aiConfigured === "boolean") {
-          setAiReady(data.aiConfigured);
+        if (!cancelled && data && typeof data.ai?.configured === "boolean") {
+          setAiReady(data.ai.configured);
         }
       })
       .catch(() => {
@@ -406,32 +396,18 @@ export function AddExamSubjectWizard({
   };
 
   const requestTopics = async (): Promise<SyllabusTopic[]> => {
-    let res: Response;
-    try {
-      res = await fetch("/api/extract-syllabus", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          materials: prepareMaterialsForAI(courseDocuments),
-          examName: examName.trim(),
-          subject: subject.trim(),
-          language,
-        }),
-      });
-    } catch {
-      throw new GenerationError(
-        tt("无法连接服务，请检查网络后重试。", "Could not reach the server. Check your connection and try again.")
-      );
-    }
+    const { result } = await runGeneration<{ summary?: string; topics?: SyllabusTopic[] }>(
+      "syllabus",
+      {
+        materials: prepareMaterialsForAI(courseDocuments),
+        examName: examName.trim(),
+        subject: subject.trim(),
+      },
+      { language }
+    );
 
-    if (!res.ok) {
-      const apiError = await readApiError(res, language);
-      throw new GenerationError(apiError.message, apiError.code);
-    }
-
-    const data = await res.json().catch(() => null);
-    const extracted: SyllabusTopic[] = Array.isArray(data?.topics)
-      ? data.topics.filter((topic: any) => topic && typeof topic.title === "string" && topic.title.trim())
+    const extracted: SyllabusTopic[] = Array.isArray(result?.topics)
+      ? result.topics.filter((topic: any) => topic && typeof topic.title === "string" && topic.title.trim())
       : [];
 
     if (extracted.length === 0) {
@@ -467,32 +443,17 @@ export function AddExamSubjectWizard({
       additionalNotes: "",
     };
 
-    let res: Response;
-    try {
-      res = await fetch("/api/generate-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topics: activeTopics,
-          preferences,
-          materials: prepareMaterialsForAI(courseDocuments),
-          materialsSummary: courseDocuments.map((doc) => doc.name).join("、"),
-          language,
-        }),
-      });
-    } catch {
-      throw new GenerationError(
-        tt("无法连接服务，请检查网络后重试。", "Could not reach the server. Check your connection and try again.")
-      );
-    }
+    const { result } = await runGeneration<{ phases?: any[]; tasks?: any[]; totalPlannedHours?: number }>(
+      "plan",
+      {
+        topics: activeTopics,
+        preferences,
+        materials: prepareMaterialsForAI(courseDocuments),
+      },
+      { language }
+    );
 
-    if (!res.ok) {
-      const apiError = await readApiError(res, language);
-      throw new GenerationError(apiError.message, apiError.code);
-    }
-
-    const data = await res.json().catch(() => null);
-    const tasks = Array.isArray(data?.tasks) ? data.tasks : [];
+    const tasks = Array.isArray(result?.tasks) ? result.tasks : [];
     if (tasks.length === 0) {
       throw new GenerationError(
         tt(
@@ -512,14 +473,14 @@ export function AddExamSubjectWizard({
       examTime: examTime || undefined,
       startDate,
       totalPlannedHours:
-        Number(data?.totalPlannedHours) ||
+        Number(result?.totalPlannedHours) ||
         Math.round(tasks.reduce((sum: number, task: any) => sum + (task.durationMinutes || 0), 0) / 60),
       createdAt: now,
       updatedAt: now,
       preferences,
       topics: activeTopics,
       materials: courseDocuments,
-      phases: Array.isArray(data?.phases) ? data.phases : [],
+      phases: Array.isArray(result?.phases) ? result.phases : [],
       tasks,
       materialsSummary: tt(
         `${courseDocuments.length} 份资料 · AI 识别 ${activeTopics.length} 个考点`,
@@ -658,11 +619,11 @@ export function AddExamSubjectWizard({
         <div className="flex items-start gap-2.5 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-4 py-3 text-[#8A5A00]">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="min-w-0 text-[13px]">
-            <p className="font-medium">{tt("当前服务未配置 AI，暂时无法自动生成", "AI is not configured on this server")}</p>
+            <p className="font-medium">{tt("当前服务未启用 AI，暂时无法自动生成", "AI is not enabled on this site yet")}</p>
             <p className="mt-0.5 leading-relaxed text-[#8A5A00]/80">
               {tt(
-                "请在部署环境配置 GEMINI_API_KEY 后刷新页面。",
-                "Set GEMINI_API_KEY in your deployment and refresh."
+                "请稍后刷新页面重试；若持续不可用，请检查站点 AI 服务状态。你的资料仍保存在本地。",
+                "Refresh and try again later. If it persists, check the site's AI service status. Your materials stay local."
               )}
             </p>
           </div>

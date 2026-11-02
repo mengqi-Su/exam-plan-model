@@ -10,7 +10,7 @@ import {
 import { ExamStudyPlan } from "../types";
 import { playCompletionChime } from "../lib/audio";
 import { useI18n } from "../lib/i18n";
-import { getAiFallbackNotice, readApiError } from "../lib/aiClient";
+import { getAiFallbackNotice, runGeneration } from "../lib/aiClient";
 import { addDays, toLocalDateString } from "../lib/date";
 import { DomainMasteryWheelChart } from "./DomainMasteryWheelChart";
 
@@ -85,31 +85,21 @@ export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
       let data: any = null;
       let notice: string | null = null;
       try {
-        const res = await fetch("/api/rebalance-plan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            currentPlan: plan,
-            currentDate: todayStr,
-            reason: rebalanceReason,
-            language,
-          }),
-        });
-
-        if (res.ok) {
-          data = await res.json();
-          notice = getAiFallbackNotice(data.meta, language);
-        } else {
-          const apiError = await readApiError(res, language);
-          notice =
-            language === "zh"
-              ? `${apiError.message} 已改用本地排程规则。`
-              : `${apiError.message} A local scheduling rule was used instead.`;
-        }
-      } catch (fetchErr) {
-        console.warn("Network error during rebalance fetch, using local scheduler:", fetchErr);
-        notice =
-          language === "zh"
+        const { result, meta } = await runGeneration<{ rebalanceSummary?: string; tasks?: any[] }>(
+          "rebalance",
+          { currentPlan: plan, currentDate: todayStr, reason: rebalanceReason },
+          { language }
+        );
+        data = result;
+        notice = getAiFallbackNotice(meta, language);
+      } catch (fetchErr: any) {
+        console.warn("Rebalance via AI failed, using local scheduler:", fetchErr);
+        const msg = fetchErr?.message;
+        notice = msg
+          ? language === "zh"
+            ? `${msg} 已改用本地排程规则。`
+            : `${msg} A local scheduling rule was used instead.`
+          : language === "zh"
             ? "无法连接 AI 服务，已改用本地排程规则重排计划。"
             : "Could not reach the AI service. A local scheduling rule was used instead.";
       }
