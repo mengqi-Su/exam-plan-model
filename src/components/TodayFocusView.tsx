@@ -7,12 +7,14 @@ import {
   Play,
   Plus,
   Sun,
+  ArrowUpRight,
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { AppTab, ExamStudyPlan, StudyTask } from "../types";
 import { addDays, daysBetween, toLocalDateString } from "../lib/date";
 import { useI18n } from "../lib/i18n";
 import { playCompletionChime } from "../lib/audio";
+import { starquizPracticeUrl } from "../lib/links";
 import { PinnedRoadmapTodoList } from "./PinnedRoadmapTodoList";
 import { TaskFocusTimerModal } from "./TaskFocusTimerModal";
 
@@ -300,13 +302,29 @@ export function TodayFocusView({
                   {isZh ? "分钟" : "min"}
                 </div>
               </div>
-              <button
-                onClick={() => setActiveTimer(nextItem)}
-                className="shrink-0 inline-flex items-center justify-center gap-2 px-5 min-h-11 bg-[#111111] text-white text-[13px] font-bold hover:bg-[#333333] cursor-pointer"
-              >
-                <Play className="w-4 h-4 fill-current" />
-                {isZh ? "开始专注" : "START FOCUS"}
-              </button>
+              <div className="shrink-0 flex items-center gap-2">
+                <a
+                  href={starquizPracticeUrl({
+                    subject: nextItem.plan.subject || nextItem.plan.preferences?.subject,
+                    topic: nextItem.task.topicTitle,
+                    examName: nextItem.plan.examName,
+                  })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 min-h-11 border-2 border-[#111111] bg-white text-[#111111] text-[12px] font-bold hover:bg-[#f2f0ea] cursor-pointer"
+                  title={isZh ? "去 StarQuiz 练这个考点" : "Practice this topic in StarQuiz"}
+                >
+                  {isZh ? "练这个考点" : "PRACTICE"}
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </a>
+                <button
+                  onClick={() => setActiveTimer(nextItem)}
+                  className="inline-flex items-center justify-center gap-2 px-5 min-h-11 bg-[#111111] text-white text-[13px] font-bold hover:bg-[#333333] cursor-pointer"
+                >
+                  <Play className="w-4 h-4 fill-current" />
+                  {isZh ? "开始专注" : "START FOCUS"}
+                </button>
+              </div>
             </div>
           )}
 

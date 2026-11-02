@@ -14,7 +14,9 @@ import {
   Clock,
   FolderTree,
   Zap,
+  ArrowUpRight,
 } from "lucide-react";
+import { starquizPracticeUrl } from "../lib/links";
 
 interface HierarchicalTopicTreeViewProps {
   topics: SyllabusTopic[];
@@ -25,6 +27,10 @@ interface HierarchicalTopicTreeViewProps {
   onAddTopic?: (newTopic: SyllabusTopic) => void;
   onReExtract?: () => void;
   isExtracting?: boolean;
+  /** 科目名称，用于「练这个考点」深链到 StarQuiz 对应学科 */
+  subject?: string;
+  /** 考试名称，作为 StarQuiz 备考上下文 */
+  examName?: string;
 }
 
 export function HierarchicalTopicTreeView({
@@ -36,8 +42,12 @@ export function HierarchicalTopicTreeView({
   onAddTopic,
   onReExtract,
   isExtracting = false,
+  subject,
+  examName,
 }: HierarchicalTopicTreeViewProps) {
   const isZh = language === "zh";
+  const practiceSubject = (subject || examName || "").trim();
+  const canPractice = practiceSubject.length > 0;
 
   // State for expanded unit cards
   const [expandedUnits, setExpandedUnits] = useState<Record<string, boolean>>(() => {
@@ -361,6 +371,19 @@ export function HierarchicalTopicTreeView({
                     )}
                   </div>
 
+                  {!isEditing && canPractice && (
+                    <a
+                      href={starquizPracticeUrl({ subject: practiceSubject, topic: topic.title, examName })}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ui-btn ui-btn-ghost px-2.5 py-1.5 text-[12px] shrink-0 self-end sm:self-center"
+                      title={isZh ? `去 StarQuiz 练「${topic.title}」` : `Practice "${topic.title}" in StarQuiz`}
+                    >
+                      <span>{isZh ? "练这个考点" : "Practice"}</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+
                   {!isEditing && editable && (
                     <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
                       <button
@@ -510,15 +533,28 @@ export function HierarchicalTopicTreeView({
                                   <span className="ui-chip shrink-0">{freqText}</span>
                                 </div>
 
-                                {editable && (
+                                {(editable || canPractice) && (
                                   <div className="flex items-center gap-1 shrink-0 self-end sm:self-center">
-                                    <button
-                                      onClick={() => handleDeleteSubtopic(tIdx, topic, sIdx)}
-                                      className="p-1.5 rounded-md text-[#a39e97] hover:bg-[#FDF0EE] hover:text-[#B42318] transition-colors cursor-pointer"
-                                      title={isZh ? "删除此细分考点" : "Delete subtopic"}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+                                    {canPractice && (
+                                      <a
+                                        href={starquizPracticeUrl({ subject: practiceSubject, topic: sub.title, examName })}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="p-1.5 rounded-md text-[#a39e97] hover:bg-[#f1efe9] hover:text-[#1c1b1a] transition-colors cursor-pointer"
+                                        title={isZh ? `去 StarQuiz 练「${sub.title}」` : `Practice "${sub.title}" in StarQuiz`}
+                                      >
+                                        <ArrowUpRight className="w-3.5 h-3.5" />
+                                      </a>
+                                    )}
+                                    {editable && (
+                                      <button
+                                        onClick={() => handleDeleteSubtopic(tIdx, topic, sIdx)}
+                                        className="p-1.5 rounded-md text-[#a39e97] hover:bg-[#FDF0EE] hover:text-[#B42318] transition-colors cursor-pointer"
+                                        title={isZh ? "删除此细分考点" : "Delete subtopic"}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                               </div>
