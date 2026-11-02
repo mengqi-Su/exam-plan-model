@@ -1,12 +1,15 @@
 import { StudyMaterial } from "../types";
 
 export const MAX_AI_MATERIALS = 20;
-export const MAX_AI_CHARS_PER_MATERIAL = 120_000;
+// 单次 AI 调用只需要片段文本：本地阅读器仍保留完整原文
+export const MAX_AI_CHARS_PER_MATERIAL = 60_000;
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 export interface AiResponseMeta {
   source?: "ai" | "fallback";
-  fallbackReason?: "no_api_key" | "ai_error" | "ai_timeout";
+  fallbackReason?: "no_api_key" | "ai_error" | "ai_timeout" | "too_many_tasks";
+  coveredDays?: number;
+  planningDays?: number;
 }
 
 export function prepareMaterialsForAI(materials?: StudyMaterial[]) {
@@ -21,13 +24,21 @@ export function prepareMaterialsForAI(materials?: StudyMaterial[]) {
 export function getAiFallbackNotice(meta: AiResponseMeta | undefined, language: string): string | null {
   if (meta?.source !== "fallback") return null;
   if (language === "zh") {
-    return meta.fallbackReason === "no_api_key"
-      ? "未配置 AI 服务，已按本地排程规则重新分配任务。所有数据仍保存在本浏览器中。"
-      : "AI 服务暂时不可用，已按本地排程规则重新分配任务。你的数据和已完成的任务都保留在本浏览器中。";
+    if (meta.fallbackReason === "no_api_key") {
+      return "未配置 AI 服务，已按本地排程规则重新分配任务。所有数据仍保存在本浏览器中。";
+    }
+    if (meta.fallbackReason === "too_many_tasks") {
+      return "待办任务较多，已按本地排程规则均匀重排。数据和已完成任务都保留在本浏览器中。";
+    }
+    return "AI 服务暂时不可用，已按本地排程规则重新分配任务。你的数据和已完成的任务都保留在本浏览器中。";
   }
-  return meta.fallbackReason === "no_api_key"
-    ? "AI is not configured. Tasks were rescheduled with local rules. Your data stays in this browser."
-    : "AI is temporarily unavailable. Tasks were rescheduled with local rules. Your data and completed tasks stay in this browser.";
+  if (meta.fallbackReason === "no_api_key") {
+    return "AI is not configured. Tasks were rescheduled with local rules. Your data stays in this browser.";
+  }
+  if (meta.fallbackReason === "too_many_tasks") {
+    return "There are many open tasks, so they were redistributed with local rules. Your data and completed tasks stay in this browser.";
+  }
+  return "AI is temporarily unavailable. Tasks were rescheduled with local rules. Your data and completed tasks stay in this browser.";
 }
 
 const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
@@ -95,6 +106,10 @@ const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
     zh: "学习计划生成失败，请稍后重试。",
     en: "Study plan generation failed. Please try again later.",
   },
+  PLAN_CHUNK_EMPTY: {
+    zh: "有几天没能生成任务，请重试或减少这几天的资料要求。",
+    en: "Some days got no tasks. Try again, or reduce the requirements for those days.",
+  },
   INVALID_START_DATE: {
     zh: "开始日期格式无效，请重新选择。",
     en: "The start date is invalid. Pick it again.",
@@ -132,8 +147,8 @@ const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
     en: "Invalid request format. Refresh the page and try again.",
   },
   ai_not_configured: {
-    zh: "Qoder AI 尚未启用，请稍后再试。",
-    en: "Qoder AI is not enabled yet. Please try again later.",
+    zh: "AI 服务尚未启用：请在站点设置中填写 DeepSeek API Key。",
+    en: "AI is not enabled yet: add a DeepSeek API key in the site settings.",
   },
   ai_unavailable: {
     zh: "AI 服务暂时不可用，请稍后重试。你的资料不会被替换成模板。",
@@ -148,12 +163,12 @@ const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
     en: "AI is rate limited. Please try again later.",
   },
   ai_access_denied: {
-    zh: "Qoder AI 授权失败，请稍后再试。",
-    en: "Qoder AI authorization failed. Please try again later.",
+    zh: "AI 服务鉴权失败，请检查站点设置中的 DeepSeek API Key。",
+    en: "AI authentication failed. Check the DeepSeek API key in the site settings.",
   },
   ai_out_of_credits: {
-    zh: "Qoder AI 额度已用尽，本次无法生成。请在 Qoder 账户充值或等待额度刷新后重试。",
-    en: "Your Qoder AI credits are used up, so generation is paused. Top up or wait for your quota to refresh, then try again.",
+    zh: "DeepSeek 账户余额不足，本次无法生成。请充值后重试。",
+    en: "The DeepSeek account has no remaining balance, so generation is paused. Top up and try again.",
   },
   ai_request_rejected: {
     zh: "AI 服务拒绝了本次请求，请减少资料量或分批生成后重试。",
@@ -208,7 +223,7 @@ export async function readApiError(
   };
 }
 
-/* ---------------- Qoder AI 生成（start / poll 轮询） ---------------- */
+/* ---------------- DeepSeek 生成（浏览器并发编排小请求） ---------------- */
 
 export class GenerationError extends Error {
   code?: string;
@@ -226,11 +241,22 @@ export interface RunGenerationOptions {
   signal?: AbortSignal;
   onStatus?: (text: string) => void;
   deadlineMs?: number;
-  pollIntervalMs?: number;
 }
 
 const FUNCTION_BASE = "/functions/v1/app";
-const START_RETRY_DELAYS = [1000, 2500, 5000];
+
+// 站点网关单请求约 45 秒超时，因此每次只让模型产出一小段 JSON，由浏览器并发调用拼接。
+const CONCURRENCY = 3;
+const CALL_RETRY_DELAYS = [2500, 9000];
+// 这些错误码是瞬时的（限流、抖动、坏输出），自动重试；配置与额度类错误直接告诉用户。
+const RETRYABLE_CODES = new Set([
+  "ai_rate_limited",
+  "ai_unavailable",
+  "ai_bad_output",
+  "AI_EMPTY",
+  "PLAN_CHUNK_EMPTY",
+  "internal_error",
+]);
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -254,152 +280,327 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-async function postJson(path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
-  return fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal,
+interface CallContext {
+  lang: "zh" | "en";
+  tt: (zh: string, en: string) => string;
+  deadlineAt: number;
+  signal: AbortSignal;
+  onStatus?: (text: string) => void;
+}
+
+function abortError(ctx: CallContext): GenerationError {
+  return new GenerationError(
+    ctx.lang === "zh" ? "已取消生成。" : "Generation cancelled.",
+    "ABORTED"
+  );
+}
+
+// 单次小请求：瞬时故障（限流 / 网络抖动 / 坏输出 / 发布窗口的非 JSON 响应）自动重试，
+// 配置与额度类错误立即抛出，让用户看到真实原因而不是「请检查网络」。
+async function callAi<T = any>(
+  path: string,
+  body: Record<string, unknown>,
+  ctx: CallContext
+): Promise<T> {
+  const url = `${FUNCTION_BASE}${path}`;
+  const requestBody = { ...body, language: ctx.lang };
+
+  for (let attempt = 0; attempt <= CALL_RETRY_DELAYS.length; attempt++) {
+    if (ctx.signal.aborted) throw abortError(ctx);
+    if (Date.now() > ctx.deadlineAt) {
+      throw new GenerationError(
+        ctx.tt("生成超时了，请稍后重试，或减少资料量。", "Generation timed out. Try again later or reduce the materials."),
+        "AI_TIMEOUT"
+      );
+    }
+
+    let res: Response | null = null;
+    let data: any = null;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+        signal: ctx.signal,
+      });
+      data = await res.json().catch(() => null);
+    } catch (error: any) {
+      if (error?.name === "AbortError") throw abortError(ctx);
+      res = null;
+      data = null;
+    }
+
+    if (!res || !data) {
+      if (attempt < CALL_RETRY_DELAYS.length) {
+        ctx.onStatus?.(ctx.tt("正在重连 AI 服务…", "Reconnecting to the AI service…"));
+        await sleep(CALL_RETRY_DELAYS[attempt], ctx.signal);
+        continue;
+      }
+      throw new GenerationError(
+        ctx.tt("无法连接 AI 服务，请检查网络后重试。", "Could not reach the AI service. Check your connection and try again."),
+        "ai_unavailable"
+      );
+    }
+
+    if (!res.ok || data.ok === false) {
+      const code = typeof data.code === "string" ? data.code : undefined;
+      if (code && RETRYABLE_CODES.has(code) && attempt < CALL_RETRY_DELAYS.length) {
+        ctx.onStatus?.(ctx.tt(`AI 服务繁忙，自动重试中（第 ${attempt + 1} 次）…`, `AI is busy, retrying (attempt ${attempt + 1})…`));
+        await sleep(CALL_RETRY_DELAYS[attempt], ctx.signal);
+        continue;
+      }
+      throw new GenerationError(localizeApiError(code, res.status, ctx.lang, data?.error), code);
+    }
+
+    return data as T;
+  }
+
+  throw new GenerationError(
+    ctx.tt("无法连接 AI 服务，请检查网络后重试。", "Could not reach the AI service. Check your connection and try again."),
+    "ai_unavailable"
+  );
+}
+
+/** 保序并发：返回值按输入顺序排列，任一失败即中断整批。 */
+async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const workerCount = Math.min(Math.max(1, limit), items.length);
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      results[index] = await fn(items[index], index);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+function linkSignal(external?: AbortSignal): { signal: AbortSignal; abort: () => void } {
+  const controller = new AbortController();
+  if (external) {
+    if (external.aborted) controller.abort();
+    else external.addEventListener("abort", () => controller.abort(), { once: true });
+  }
+  return { signal: controller.signal, abort: () => controller.abort() };
+}
+
+function dedupeTasks(tasks: any[]): any[] {
+  const seenIds = new Set<string>();
+  const seenPairs = new Set<string>();
+  const out: any[] = [];
+  tasks.forEach((task: any) => {
+    if (!task || typeof task !== "object" || !task.date || !task.title) return;
+    const pair = `${task.date}|${String(task.title).trim().toLowerCase()}`;
+    if (seenPairs.has(pair)) return;
+    seenPairs.add(pair);
+    let id = String(task.id || `task-${task.date}-${out.length + 1}`);
+    let suffix = 2;
+    while (seenIds.has(id)) {
+      id = `${String(task.id || `task-${task.date}`)}-${suffix}`;
+      suffix += 1;
+    }
+    seenIds.add(id);
+    out.push({ ...task, id });
+  });
+  return out.sort((a, b) => {
+    const diff = String(a.date).localeCompare(String(b.date));
+    return diff !== 0 ? diff : String(a.startTime || "99:99").localeCompare(String(b.startTime || "99:99"));
   });
 }
 
-// 站点网关对单个请求约 45 秒超时，因此生成拆成 start（建会话）+ poll（轮询结果）。
-// 浏览器持有会话 ID 与规划上下文；函数无状态。网络抖动 / 发布窗口可自动重连。
+/* ---------------- 考点提取：单元 -> 逐单元展开 ---------------- */
+
+async function generateSyllabus(payload: Record<string, unknown>, ctx: CallContext) {
+  ctx.onStatus?.(ctx.tt("识别核心单元…", "Identifying major units…"));
+  const unitsRes = await callAi<{ summary?: string; units: any[] }>(
+    "/ai/units",
+    { materials: payload.materials, examName: payload.examName, subject: payload.subject },
+    ctx
+  );
+  const units = Array.isArray(unitsRes.units) ? unitsRes.units : [];
+  if (!units.length) {
+    throw new GenerationError(
+      ctx.tt(
+        "AI 没有从这些资料中识别到可用单元，请补充更完整的考纲、讲义或真题后重试。",
+        "AI found no usable units in these materials. Add a fuller syllabus, notes, or past paper and try again."
+      ),
+      "SYLLABUS_EMPTY"
+    );
+  }
+
+  ctx.onStatus?.(ctx.tt(`展开 ${units.length} 个单元的考点…`, `Expanding ${units.length} units…`));
+  let done = 0;
+  const topics = await mapLimit(units, CONCURRENCY, async (unit: any, index: number) => {
+    const res = await callAi<{ topic: any }>(
+      "/ai/unit-tree",
+      { unit, unitIndex: index, unitsCount: units.length },
+      ctx
+    );
+    done += 1;
+    ctx.onStatus?.(ctx.tt(`考点已展开 ${done}/${units.length}`, `Topics expanded ${done}/${units.length}`));
+    return res.topic;
+  });
+
+  const clean = topics.filter(Boolean);
+  if (!clean.length) {
+    throw new GenerationError(
+      ctx.tt(
+        "AI 没有从这些资料中识别到可用考点，请补充更完整的考纲、讲义或真题后重试。",
+        "AI found no usable topics in these materials. Add a fuller syllabus, notes, or past paper and try again."
+      ),
+      "SYLLABUS_EMPTY"
+    );
+  }
+  return { result: { summary: unitsRes.summary || "", topics: clean }, meta: { source: "ai" as const } };
+}
+
+/* ---------------- 计划生成：日历分段 -> 并发排程 -> 补缺 ---------------- */
+
+async function generatePlan(payload: Record<string, unknown>, ctx: CallContext) {
+  const schedule = await callAi<{ studyDates: string[]; chunks: Array<{ dates: string[] }>; totalDays: number }>(
+    "/ai/plan-schedule",
+    { preferences: payload.preferences },
+    ctx
+  );
+  const studyDates = Array.isArray(schedule.studyDates) ? schedule.studyDates : [];
+  const chunks = Array.isArray(schedule.chunks) ? schedule.chunks : [];
+  if (!chunks.length || !studyDates.length) {
+    throw new GenerationError(
+      ctx.tt("所选日期内没有可用的学习日，请调整日期或每日安排。", "No study days fall in the selected range. Adjust the dates or daily availability."),
+      "INVALID_DATE_RANGE"
+    );
+  }
+
+  ctx.onStatus?.(
+    ctx.tt(`共 ${studyDates.length} 天，分 ${chunks.length} 段编排每日任务…`, `${studyDates.length} days in ${chunks.length} segments…`)
+  );
+
+  const covered: string[] = [];
+  let finished = 0;
+  const chunkResults = await mapLimit(chunks, CONCURRENCY, async (chunk, index) => {
+    const res = await callAi<{ phases: any[]; tasks: any[] }>(
+      "/ai/plan-chunk",
+      {
+        preferences: payload.preferences,
+        topics: payload.topics,
+        materials: payload.materials,
+        dates: chunk.dates,
+        includePhases: index === 0,
+        coveredTopicTitles: covered.slice(-40),
+      },
+      ctx
+    );
+    (res.tasks || []).forEach((task: any) => {
+      const title = typeof task?.topicTitle === "string" ? task.topicTitle : "";
+      if (title && !covered.includes(title)) covered.push(title);
+    });
+    finished += 1;
+    ctx.onStatus?.(ctx.tt(`已编排 ${finished}/${chunks.length} 段`, `Scheduled ${finished}/${chunks.length} segments`));
+    return res;
+  });
+
+  let phases: any[] = [];
+  let tasks: any[] = [];
+  chunkResults.forEach((res) => {
+    tasks.push(...(res?.tasks || []));
+    if (!phases.length && Array.isArray(res?.phases) && res.phases.length) phases = res.phases;
+  });
+
+  // 模型偶尔会跳过某几天：单独补一轮，避免日历上出现无说明的空白天
+  const scheduled = new Set(tasks.map((task: any) => task?.date));
+  const missing = studyDates.filter((date) => !scheduled.has(date));
+  if (missing.length > 0 && missing.length < studyDates.length) {
+    ctx.onStatus?.(ctx.tt(`补齐 ${missing.length} 个空缺日期…`, `Filling ${missing.length} missing days…`));
+    const groups: string[][] = [];
+    for (let i = 0; i < missing.length; i += 3) groups.push(missing.slice(i, i + 3));
+    const repairs = await mapLimit(groups.slice(0, 4), CONCURRENCY, (group) =>
+      callAi<{ tasks: any[] }>("/ai/plan-chunk", {
+        preferences: payload.preferences,
+        topics: payload.topics,
+        materials: payload.materials,
+        dates: group,
+        includePhases: false,
+        coveredTopicTitles: covered.slice(-40),
+      }, ctx).catch(() => null)
+    );
+    repairs.forEach((res) => {
+      if (res?.tasks) tasks.push(...res.tasks);
+    });
+  }
+
+  tasks = dedupeTasks(tasks);
+  if (!tasks.length) {
+    throw new GenerationError(
+      ctx.tt("AI 没有返回可用的每日任务，请检查资料内容后重试。", "AI returned no usable daily tasks. Check your materials and try again."),
+      "PLAN_EMPTY"
+    );
+  }
+
+  const coveredDays = new Set(tasks.map((task: any) => task.date)).size;
+  return {
+    result: {
+      phases,
+      tasks,
+      totalPlannedHours: Math.round(tasks.reduce((sum: number, task: any) => sum + (task.durationMinutes || 0), 0) / 60),
+    },
+    meta: { source: "ai" as const, coveredDays, planningDays: studyDates.length },
+  };
+}
+
+/* ---------------- 重排：单次调用，函数内已含本地兜底 ---------------- */
+
+async function generateRebalance(payload: Record<string, unknown>, ctx: CallContext) {
+  ctx.onStatus?.(ctx.tt("重新分配未完成任务…", "Rescheduling open tasks…"));
+  const res = await callAi<{ result: any; meta?: AiResponseMeta }>(
+    "/ai/rebalance",
+    { currentPlan: payload.currentPlan, currentDate: payload.currentDate, reason: payload.reason },
+    ctx
+  );
+  if (!res?.result || !Array.isArray(res.result.tasks)) {
+    throw new GenerationError(
+      ctx.tt("AI 未返回有效排程，请重试。", "AI returned no usable schedule. Please try again."),
+      "ai_bad_output"
+    );
+  }
+  return { result: res.result, meta: res.meta };
+}
+
+/**
+ * 规划生成入口：三种模式都走「小步同步调用 + 浏览器并发编排」，
+ * 函数不保存任何会话状态，所有上下文由本浏览器持有（本地优先）。
+ */
 export async function runGeneration<T = any>(
   mode: GenerationMode,
   payload: Record<string, unknown>,
   opts: RunGenerationOptions
 ): Promise<{ result: T; meta?: AiResponseMeta }> {
   const isZh = opts.language !== "en";
-  const lang = isZh ? "zh" : "en";
   const tt = (zh: string, en: string) => (isZh ? zh : en);
-  // 考点树与整学期计划都是长输出：预算给足，避免在模型还在生成时就报超时
-  const deadlineMs = opts.deadlineMs ?? (mode === "plan" ? 300_000 : 180_000);
-  const interval = opts.pollIntervalMs ?? 2500;
-  const startedAt = Date.now();
-  const aborted = () =>
-    new GenerationError(tt("已取消生成。", "Generation cancelled."), "ABORTED");
+  const { signal, abort } = linkSignal(opts.signal);
+  // 长计划由多段小调用拼成：给整体留足时间，单段仍受网关 45 秒约束
+  const deadlineMs = opts.deadlineMs ?? (mode === "plan" ? 600_000 : mode === "syllabus" ? 300_000 : 90_000);
+  const ctx: CallContext = {
+    lang: isZh ? "zh" : "en",
+    tt,
+    deadlineAt: Date.now() + deadlineMs,
+    signal,
+    onStatus: opts.onStatus,
+  };
 
-  const startBody = { ...payload, mode, language: lang };
-
-  let startData: any = null;
-  for (let attempt = 0; attempt <= START_RETRY_DELAYS.length; attempt++) {
-    if (opts.signal?.aborted) throw aborted();
-    let res: Response | null = null;
-    let data: any = null;
-    try {
-      res = await postJson(`${FUNCTION_BASE}/ai/start`, startBody, opts.signal);
-      data = await res.json().catch(() => null);
-    } catch (e: any) {
-      if (e?.name === "AbortError") throw aborted();
-      res = null;
-      data = null;
-    }
-
-    // 网络失败、网关 5xx、部署窗口的 HTML 响应：重试以撑过后端重启
-    if (!res || !data || res.status >= 500) {
-      if (attempt < START_RETRY_DELAYS.length) {
-        opts.onStatus?.(
-          tt(`服务正在更新，自动重连中（第 ${attempt + 1} 次）…`, `Reconnecting (attempt ${attempt + 1})…`)
-        );
-        await sleep(START_RETRY_DELAYS[attempt], opts.signal);
-        continue;
-      }
-      throw new GenerationError(
-        tt("无法连接 AI 服务，请检查网络后重试。", "Could not reach the AI service. Check your connection and try again."),
-        "ai_unavailable"
-      );
-    }
-
-    if (!res.ok || data.ok === false) {
-      throw new GenerationError(localizeApiError(data?.code, res.status, lang, data?.error), data?.code);
-    }
-    startData = data;
-    break;
-  }
-
-  // 立即完成的结果（如 AI 未启用时的本地重排兜底）
-  if (startData?.done && startData?.result) {
-    return { result: startData.result as T, meta: startData.meta };
-  }
-
-  const sessionId = String(startData?.sessionId || "");
-  if (!sessionId) {
-    throw new GenerationError(
-      tt("AI 服务未返回任务，请重试。", "The AI service did not return a task. Try again."),
-      "ai_unavailable"
-    );
-  }
-
-  const pollBody: Record<string, unknown> = { sessionId, mode, language: lang };
-  if (mode === "plan") {
-    pollBody.preferences = (payload as any).preferences;
-    pollBody.studyDates = startData.studyDates || [];
-  }
-
-  let netErrors = 0;
-  let badOutput = 0;
-  let running = false;
-  let idle = false;
-
-  while (true) {
-    if (opts.signal?.aborted) throw aborted();
-    if (Date.now() - startedAt > deadlineMs) {
-      throw new GenerationError(
-        tt("生成超时了，请稍后重试，或减少资料量。", "Generation timed out. Try again later or reduce the materials."),
-        "AI_TIMEOUT"
-      );
-    }
-    await sleep(interval, opts.signal);
-
-    let res: Response | null = null;
-    let data: any = null;
-    try {
-      res = await postJson(`${FUNCTION_BASE}/ai/poll`, pollBody, opts.signal);
-      data = await res.json().catch(() => null);
-    } catch (e: any) {
-      if (e?.name === "AbortError") throw aborted();
-      res = null;
-      data = null;
-    }
-
-    if (!res || !data || res.status >= 500) {
-      netErrors++;
-      if (netErrors < 20) continue;
-      throw new GenerationError(
-        tt("网络连接中断，请检查网络后再试。", "Network connection lost. Check your connection and try again."),
-        "ai_unavailable"
-      );
-    }
-    netErrors = 0;
-
-    if (!res.ok || data.ok === false) {
-      const code = data?.code;
-      if (code === "ai_bad_output" && badOutput < 2) {
-        badOutput++;
-        continue;
-      }
-      throw new GenerationError(localizeApiError(code, res.status, lang, data?.error), code);
-    }
-
-    if (data.done && data.result) {
-      return { result: data.result as T, meta: data.meta };
-    }
-
-    for (const status of data.statuses || []) {
-      if (!status || typeof status.type !== "string") continue;
-      if (status.type === "session.status_running") running = true;
-      if (status.type === "session.status_idle") idle = true;
-    }
-    // 新会话可能先发一次 idle，等运行状态出现或过了 8 秒才当成真正的结束
-    if (idle && (running || Date.now() - startedAt > 8000)) {
-      const hasErrors = Array.isArray(data.errors) && data.errors.length > 0;
-      throw new GenerationError(
-        hasErrors
-          ? tt("AI 本次没有生成内容，请重试。", "AI returned no content this time. Try again.")
-          : tt("AI 没有返回内容，请重试。", "AI returned no content. Try again."),
-        "AI_EMPTY"
-      );
-    }
+  try {
+    if (mode === "syllabus") return (await generateSyllabus(payload, ctx)) as unknown as { result: T; meta?: AiResponseMeta };
+    if (mode === "plan") return (await generatePlan(payload, ctx)) as unknown as { result: T; meta?: AiResponseMeta };
+    return (await generateRebalance(payload, ctx)) as unknown as { result: T; meta?: AiResponseMeta };
+  } catch (error: any) {
+    if (error?.name === "AbortError") throw abortError(ctx);
+    throw error;
+  } finally {
+    abort();
   }
 }

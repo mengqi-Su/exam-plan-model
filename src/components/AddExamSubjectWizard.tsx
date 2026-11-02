@@ -109,6 +109,7 @@ export function AddExamSubjectWizard({
   const [showTopics, setShowTopics] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [workStage, setWorkStage] = useState<"extracting" | "planning">("extracting");
+  const [genStatus, setGenStatus] = useState("");
   const [error, setError] = useState<{ message: string; code?: string } | null>(null);
   const [aiReady, setAiReady] = useState<boolean | null>(null);
   const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
@@ -403,7 +404,7 @@ export function AddExamSubjectWizard({
         examName: examName.trim(),
         subject: subject.trim(),
       },
-      { language }
+      { language, onStatus: setGenStatus }
     );
 
     const extracted: SyllabusTopic[] = Array.isArray(result?.topics)
@@ -450,7 +451,7 @@ export function AddExamSubjectWizard({
         preferences,
         materials: prepareMaterialsForAI(courseDocuments),
       },
-      { language }
+      { language, onStatus: setGenStatus }
     );
 
     const tasks = Array.isArray(result?.tasks) ? result.tasks : [];
@@ -509,6 +510,7 @@ export function AddExamSubjectWizard({
     }
 
     setError(null);
+    setGenStatus("");
     workingRef.current = true;
     setIsWorking(true);
 
@@ -619,11 +621,11 @@ export function AddExamSubjectWizard({
         <div className="flex items-start gap-2.5 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-4 py-3 text-[#8A5A00]">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="min-w-0 text-[13px]">
-            <p className="font-medium">{tt("当前服务未启用 AI，暂时无法自动生成", "AI is not enabled on this site yet")}</p>
+            <p className="font-medium">{tt("AI 服务尚未配置，暂时无法自动生成", "AI is not configured on this site yet")}</p>
             <p className="mt-0.5 leading-relaxed text-[#8A5A00]/80">
               {tt(
-                "请稍后刷新页面重试；若持续不可用，请检查站点 AI 服务状态。你的资料仍保存在本地。",
-                "Refresh and try again later. If it persists, check the site's AI service status. Your materials stay local."
+                "请在站点设置中填写 DeepSeek API Key 后刷新重试。你的资料仍保存在本地。",
+                "Add a DeepSeek API key in the site settings, then refresh. Your materials stay local."
               )}
             </p>
           </div>
@@ -1067,6 +1069,11 @@ export function AddExamSubjectWizard({
                   )}
                   <span>{tt("按日历编排每日任务", "Scheduling daily tasks")}</span>
                 </div>
+                {genStatus && (
+                  <p className="border-t border-[#eeeae3] pt-2 text-[12px] leading-relaxed text-[#8a8580] tabular-nums">
+                    {genStatus}
+                  </p>
+                )}
               </div>
             )}
           </div>

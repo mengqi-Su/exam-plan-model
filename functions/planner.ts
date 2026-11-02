@@ -335,9 +335,15 @@ export function retrieveTopChunksForQuery(
   return scored.slice(0, topK).map((s) => s.chunk);
 }
 
-/* ---------------- 提示词构建 ---------------- */
+/* ---------------- 提示词构建（分段：每次调用都要在网关 45 秒超时内返回） ---------------- */
 
-export function buildSyllabusPrompt(
+const GROUNDING_RULES = `GROUNDING RULES:
+- Use ONLY the supplied documents. Do not invent chapters, topics, formulas or exam rules that are not supported by the material.
+- If the documents are thin, return fewer items instead of padding with generic textbook content.
+- Prefer the exact chapter, section and terminology names found in the documents.`;
+
+/** 第一步：只识别核心大单元与权重，输出很小，便于快速返回。 */
+export function buildUnitsPrompt(
   safeMaterials: ClientMaterial[],
   examName: string,
   subject: string,
@@ -345,192 +351,400 @@ export function buildSyllabusPrompt(
 ): string {
   const safeExamName = clampText(examName, 200) || 'Upcoming Exam';
   const safeSubject = clampText(subject, 200) || 'General';
+  // 每份资料均分预算：多文件时后面的资料不会被整体截断挤掉
+  const perDoc = Math.max(1_500, Math.floor(45_000 / Math.max(1, safeMaterials.length)));
   const aggregatedContent = safeMaterials
-    .map((m, idx) => `--- DOCUMENT ${idx + 1}: ${m.name} (${m.type}) ---\n${m.content}`)
+    .map((m, idx) => `--- DOCUMENT ${idx + 1}: ${m.name} (${m.type}) ---\n${m.content.slice(0, perDoc)}`)
     .join('\n\n');
 
-  return `You are an expert academic curriculum analyzer, knowledge tree architect, and exam preparation strategist.
-Analyze the following exam study materials for the exam "${safeExamName}" in subject "${safeSubject}".
-Extract a deep, multi-tier hierarchical syllabus tree (考点树状图体系).
+  return `You are an expert academic curriculum analyzer and exam preparation strategist.
+Analyze the study materials below for the exam "${safeExamName}" (${safeSubject}) and list ONLY the major units (核心大单元) that actually appear in the material.
 
-GROUNDING RULES:
-- Use ONLY the supplied documents. Do not invent chapters, topics, formulas or exam rules that are not supported by the material.
-- If the documents are thin, return fewer units instead of padding with generic textbook content.
-- Prefer the exact chapter, section and terminology names found in the documents.
-
-TREE HIERARCHY RULES:
-1. ROOT NODES (Major Units / 核心大单元): Group content into cohesive units or chapters that actually appear in the material.
-2. BRANCH NODES (Granular Subtopics / 细分考点): Under EACH major unit, extract 3-6 concrete, highly granular sub-topics / problem types from the material.
-3. LEAF NODES (Key Points & Traps / 核心要点与避坑点): For each subtopic, extract 2-4 specific testable points, governing formulas/theorems, score-earning checkpoints, and common pitfalls that are actually taught in the documents.
-4. Ensure comprehensive exam weight distribution (weights summing to roughly 100%) and realistic estimated study hours.
-${isZh ? 'CRITICAL: Output ALL titles, descriptions, subtopic titles, key points, and formula notes in natural, academic Simplified Chinese (简体中文).' : ''}
+${GROUNDING_RULES}
+- Do NOT expand subtopics or key points in this step; another pass will drill into each unit.
+- Keep 4-10 units. Merge trivial sections; never pad the list.
+${isZh ? '- Write every title, category and description in natural academic Simplified Chinese (简体中文).' : ''}
 
 Documents content:
-${aggregatedContent.slice(0, 50000)}
+${aggregatedContent.slice(0, 48_000)}
 
 Output ONLY a single JSON object (no markdown fences, no commentary) with exactly this shape:
 {
-  "summary": "2-sentence summary of the knowledge tree scope and highest-yield focus branches",
-  "topics": [
+  "summary": "2-sentence summary of the knowledge scope and the highest-yield units",
+  "units": [
     {
-      "id": "topic-1",
+      "id": "unit-1",
       "title": "major unit/chapter title",
       "category": "broad domain or module name",
-      "description": "overview of the concepts covered in this unit",
+      "description": "one sentence on what this unit covers",
       "weightPercentage": 5-40,
       "difficulty": "easy" | "medium" | "hard",
-      "userKnowledgeLevel": "beginner" | "intermediate" | "advanced",
-      "subtopics": ["1.1 subtopic title", "1.2 subtopic title"],
-      "subtopicTree": [
-        {
-          "id": "sub-1-1",
-          "title": "specific subtopic title",
-          "keyPoints": ["2-4 concrete concept points or formula notes"],
-          "difficulty": "easy" | "medium" | "hard",
-          "examFrequency": "high" | "medium" | "low",
-          "formulaOrTrap": "brief tip, formula, or common mistake"
-        }
-      ],
-      "estimatedHours": 4-15
+      "estimatedHours": 3-20
+    }
+  ]
+}
+Weights should sum to roughly 100.`;
+}
+
+/** 从全量分块中挑出与某个单元最相关的原文片段（纯本地检索，不调模型）。 */
+export function selectUnitExcerpts(unit: Pick<SyllabusUnit, 'title' | 'category' | 'description'>, chunks: DocumentChunk[]): string {
+  if (!chunks.length) return '';
+  return retrieveTopChunksForQuery(`${unit.title} ${unit.category} ${unit.description}`, chunks, {
+    topK: 8,
+    preferFormulas: true,
+    preferQuestions: true
+  })
+    .map((c, idx) => `[${idx + 1}] Source: "${c.materialName}" (${c.materialType}) | Heading: "${c.sectionTitle}"\n${c.content.slice(0, 900)}`)
+    .join('\n\n')
+    .slice(0, 14_000);
+}
+
+/** 第二步：针对单个大单元展开细分考点与要点，输入只带该单元相关的资料片段。 */
+export function buildUnitTreePrompt(
+  unit: SyllabusUnit,
+  totalUnits: number,
+  isZh: boolean
+): string {
+  const excerpt = clampText(unit.excerpts, 14_000) || '(no supporting excerpts were found for this unit)';
+
+  return `You are a knowledge tree architect drilling into ONE unit of an exam syllabus.
+Unit to expand: "${unit.title}" (${unit.category}) — ${unit.description || 'no description'}
+This is unit ${unit.unitIndex + 1} of ${totalUnits}; other units are handled separately, so stay inside this unit's scope.
+
+${GROUNDING_RULES}
+- Extract 3-6 granular subtopics (细分考点) for THIS unit only, each with 2-4 testable key points, formulas, score checkpoints and common pitfalls found in the excerpts.
+- Keep the unit title, category, weight and estimated hours exactly as given.
+${isZh ? '- Write titles, key points and formula/trap notes in natural academic Simplified Chinese (简体中文).' : ''}
+
+Supporting excerpts:
+${excerpt}
+
+Output ONLY a single JSON object (no markdown fences, no commentary) with exactly this shape:
+{
+  "title": ${JSON.stringify(unit.title)},
+  "category": ${JSON.stringify(unit.category)},
+  "description": "overview of this unit",
+  "weightPercentage": ${unit.weightPercentage},
+  "difficulty": "${unit.difficulty}",
+  "userKnowledgeLevel": "beginner" | "intermediate" | "advanced",
+  "estimatedHours": ${unit.estimatedHours},
+  "subtopics": ["1.1 subtopic title", "1.2 subtopic title"],
+  "subtopicTree": [
+    {
+      "id": "sub-${unit.id}-1",
+      "title": "specific subtopic title",
+      "keyPoints": ["2-4 concrete points or formula notes"],
+      "difficulty": "easy" | "medium" | "hard",
+      "examFrequency": "high" | "medium" | "low",
+      "formulaOrTrap": "brief tip, formula, or common mistake"
     }
   ]
 }`;
 }
 
-export function buildPlanPrompt(
-  preferences: any,
-  safeTopics: any[],
-  safeMaterials: ClientMaterial[],
-  isZh: boolean
-): { prompt: string; studyDates: string[] } {
-  const allChunks = chunkAllMaterials(safeMaterials);
-  const ragContextBlocks: string[] = [];
-  const focusQuery = `${preferences.userNeedFocusArea || ''} ${preferences.customPromptRequirement || ''} ${preferences.weakTopicsFocus?.join(' ') || ''}`.trim();
+export interface SyllabusUnit {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  weightPercentage: number;
+  difficulty: string;
+  estimatedHours: number;
+  unitIndex: number;
+  /** 由 /ai/units 预先检索出的原文片段，随单元回传，展开时不必再上传整份资料 */
+  excerpts?: string;
+}
 
-  if (focusQuery && allChunks.length > 0) {
-    const topFocusChunks = retrieveTopChunksForQuery(focusQuery, allChunks, { topK: 5 });
-    topFocusChunks.forEach((c, idx) => {
-      ragContextBlocks.push(`[RAG-CHUNK-FOCUS-${idx + 1}] Source: "${c.materialName}" (${c.materialType}) Section: "${c.sectionTitle}"\nContent Excerpt:\n${c.content.slice(0, 600)}`);
+export function sanitizeUnitsResult(parsed: any): { summary: string; units: SyllabusUnit[] } {
+  const rawUnits = Array.isArray(parsed?.units) ? parsed.units : [];
+  const units: SyllabusUnit[] = [];
+  rawUnits.forEach((unit: any, index: number) => {
+    if (!unit || typeof unit !== 'object') return;
+    const title = clampText(unit.title, 300);
+    if (!title) return;
+    const weight = Number(unit.weightPercentage);
+    const hours = Number(unit.estimatedHours);
+    units.push({
+      id: clampText(unit.id, 120) || `unit-${index + 1}`,
+      title,
+      category: clampText(unit.category, 120),
+      description: clampText(unit.description, 1_000),
+      weightPercentage: Number.isFinite(weight) && weight > 0 ? Math.min(100, Math.round(weight)) : 0,
+      difficulty: ['easy', 'medium', 'hard'].includes(String(unit.difficulty)) ? String(unit.difficulty) : 'medium',
+      estimatedHours: Number.isFinite(hours) && hours > 0 ? Math.min(120, Math.round(hours)) : 0,
+      unitIndex: index,
     });
-  }
-
-  safeTopics.slice(0, 8).forEach((t: any, idx: number) => {
-    if (allChunks.length > 0) {
-      const topChunks = retrieveTopChunksForQuery(t.title + ' ' + (t.subtopics?.join(' ') || ''), allChunks, { topK: 3 });
-      topChunks.forEach((c, cIdx) => {
-        ragContextBlocks.push(`[RAG-CHUNK-TOPIC-${idx + 1}-${cIdx + 1}] Target: "${t.title}" | Source: "${c.materialName}" (${c.materialType}) | Heading: "${c.sectionTitle}"\nExcerpt:\n${c.content.slice(0, 500)}`);
-      });
-    }
   });
+  return {
+    summary: clampText(parsed?.summary, 2_000),
+    units: units.slice(0, 14),
+  };
+}
 
-  const ragContextText = ragContextBlocks.length > 0
-    ? `\n=== RETRIEVED RAG KNOWLEDGE BASE CHUNKS FROM UPLOADED MATERIALS ===\n${ragContextBlocks.slice(0, 15).join('\n\n')}\n`
-    : '';
+/** 把展开结果并回大单元，产出与 sanitizeTopics 同形状的考点节点。 */
+export function normalizeUnitTopic(unit: SyllabusUnit, parsed: any): any {
+  const merged = {
+    ...parsed,
+    id: unit.id,
+    title: unit.title,
+    category: unit.category || clampText(parsed?.category, 120),
+    description: clampText(parsed?.description, 2_000) || unit.description,
+    weightPercentage: unit.weightPercentage,
+    difficulty: unit.difficulty,
+    estimatedHours: unit.estimatedHours,
+  };
+  // 先用 syllabus 归一化补齐 subtopics <-> subtopicTree，再套用统一的字段上限
+  const { topics } = sanitizeSyllabusResult({ topics: [merged] });
+  const [topic] = sanitizeTopics(topics);
+  if (!topic) return null;
+  const hasDetail = topic.subtopics.length > 0 || (topic.subtopicTree || []).length > 0;
+  return hasDetail ? topic : null;
+}
 
+/* ---------------- 排程日历（纯本地计算，不调用模型） ---------------- */
+
+export interface StudyDay {
+  date: string;
+  weekday: string;
+  availableHours: number;
+}
+
+export function buildStudyCalendar(preferences: any): StudyDay[] {
   const planningStart = preferences.startDate || toLocalDateString();
   const planningExam = preferences.examDate || addDaysToDateString(planningStart, 21);
   const planningDays = Math.min(Math.max(1, daysBetweenDateStrings(planningStart, planningExam)), 60);
-  const studyDayLines: string[] = [];
+  const days: StudyDay[] = [];
   for (let offset = 0; offset < planningDays; offset += 1) {
     const dateStr = addDaysToDateString(planningStart, offset);
-    const weekday = parseLocalDate(dateStr).toLocaleDateString('en-US', { weekday: 'short' });
+    const date = parseLocalDate(dateStr);
     const schedule = preferences.dailySchedules?.find(
-      (entry: any) => Number(entry?.dayOfWeek) === parseLocalDate(dateStr).getDay()
+      (entry: any) => Number(entry?.dayOfWeek) === date.getDay()
     );
     if (schedule && !schedule.enabled) continue;
     const availableHours = Number(schedule?.availableHours) > 0 ? Number(schedule.availableHours) : 2;
-    studyDayLines.push(`${dateStr} (${weekday}) — ${availableHours}h available`);
+    days.push({
+      date: dateStr,
+      weekday: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      availableHours,
+    });
   }
-  const studyCalendarText = studyDayLines.length > 0
-    ? studyDayLines.join('\n')
-    : `${planningStart} — limited time before the exam`;
+  return days;
+}
 
-  const prompt = `You are a master learning scientist and RAG study schedule architect.
-Create a realistic, scientifically optimized day-by-day exam study plan strictly grounded in the student's uploaded materials and personal needs.
-${isZh ? 'CRITICAL: All generated phase names, phase descriptions, task titles, descriptions, key objectives, active recall prompts, and ragSource citations MUST be written in natural, idiomatic Simplified Chinese (简体中文).' : ''}
+export function studyDatesFromCalendar(days: StudyDay[]): string[] {
+  return days.map((day) => day.date);
+}
 
-STUDENT PROFILE & PERSONALIZED STUDY NEEDS:
-- Exam Name: ${preferences.examName || 'Final Exam'}
-- Subject: ${preferences.subject || 'Academic'}
-- Start Date: ${planningStart}
-- Exam Date: ${planningExam} (Exam Time: ${preferences.examTime || '09:00'})
-- Target Score / Goal: ${preferences.targetScoreOrGrade || 'Top Grade'}
-- User Focus Priority: ${preferences.userNeedFocusArea || 'comprehensive'}
-- Custom Student Directives: ${preferences.customPromptRequirement || preferences.additionalNotes || 'None'}
-- Preferred Session Duration: ${preferences.sessionLengthMinutes} minutes per block
-- Priority Weak Topics: ${preferences.weakTopicsFocus?.join(', ') || 'None specified'}
+function expectedTasksForDay(day: StudyDay, sessionMinutes: number): number {
+  const perSession = Math.floor((day.availableHours * 60) / Math.max(10, sessionMinutes));
+  return Math.min(3, Math.max(1, perSession || 1));
+}
 
-PLANNING CALENDAR (${planningDays} days; these are the ONLY allowed task dates):
-${studyCalendarText}
+/**
+ * 把日历切成小段：每段任务量控制在个位数，保证单次同步调用能在超时前返回。
+ * @returns 每段的日期列表与预计任务数
+ */
+export function chunkStudyDays(
+  days: StudyDay[],
+  options: { maxTasksPerChunk?: number; maxDaysPerChunk?: number; sessionLengthMinutes?: number } = {}
+): Array<{ dates: string[]; expectedTasks: number }> {
+  const maxTasks = Math.max(2, Number(options.maxTasksPerChunk) || 7);
+  const maxDays = Math.max(1, Number(options.maxDaysPerChunk) || 4);
+  const sessionMinutes = Math.max(10, Number(options.sessionLengthMinutes) || 45);
+  if (days.length === 0) return [];
+  const chunks: Array<{ dates: string[]; expectedTasks: number }> = [];
+  let current: string[] = [];
+  let tasks = 0;
+  for (const day of days) {
+    const dayTasks = expectedTasksForDay(day, sessionMinutes);
+    if (current.length > 0 && (tasks + dayTasks > maxTasks || current.length >= maxDays)) {
+      chunks.push({ dates: current, expectedTasks: tasks });
+      current = [];
+      tasks = 0;
+    }
+    current.push(day.date);
+    tasks += dayTasks;
+  }
+  if (current.length > 0) chunks.push({ dates: current, expectedTasks: tasks });
+  return chunks;
+}
+
+export function buildPlanChunkPrompt(
+  preferences: any,
+  safeTopics: any[],
+  safeMaterials: ClientMaterial[],
+  chunkDays: StudyDay[],
+  options: { includePhases: boolean; coveredTopicTitles?: string[]; isZh: boolean }
+): string {
+  const isZh = options.isZh;
+  const sessionMinutes = Math.max(10, Number(preferences.sessionLengthMinutes) || 45);
+  const calendarText = chunkDays
+    .map((day) => `${day.date} (${day.weekday}) — ${day.availableHours}h available (~${expectedTasksForDay(day, sessionMinutes)} tasks)`)
+    .join('\n');
+  const planningStart = preferences.startDate || chunkDays[0]?.date || toLocalDateString();
+  const planningExam = preferences.examDate || chunkDays[chunkDays.length - 1]?.date || planningStart;
+
+  // 考点清单压缩到标题级别，细节由资料片段提供，控制输入体量
+  const topicDigest = safeTopics.map((t: any) => ({
+    title: t.title,
+    category: t.category,
+    weight: t.weightPercentage,
+    difficulty: t.difficulty,
+    hours: t.estimatedHours,
+    subtopics: (t.subtopics || []).slice(0, 8),
+  }));
+  const compactTopics = JSON.stringify(topicDigest, null, 1).slice(0, 14_000);
+
+  const focusQuery = `${preferences.userNeedFocusArea || ''} ${preferences.customPromptRequirement || ''} ${preferences.weakTopicsFocus?.join(' ') || ''}`.trim();
+  const chunkNames = chunkDays.map((d) => d.date).join(' ');
+  const allChunks = chunkAllMaterials(safeMaterials);
+  const ragBlocks: string[] = [];
+  if (allChunks.length > 0) {
+    retrieveTopChunksForQuery(`${focusQuery} ${chunkNames}`, allChunks, { topK: 6, preferQuestions: true, preferFormulas: true })
+      .forEach((c, idx) => {
+        ragBlocks.push(`[${idx + 1}] Source: "${c.materialName}" (${c.materialType}) | Heading: "${c.sectionTitle}"\n${c.content.slice(0, 700)}`);
+      });
+  }
+  const ragText = ragBlocks.length > 0
+    ? `\n=== MATERIAL EXCERPTS ===\n${ragBlocks.join('\n\n')}\n`
+    : '';
+
+  const covered = (options.coveredTopicTitles || []).slice(0, 40).join(' | ').slice(0, 2_000);
+  const coveredText = covered
+    ? `\nALREADY SCHEDULED IN EARLIER DAYS (advance to new subtopics instead of repeating):\n${covered}\n`
+    : '';
+
+  const phasesBlock = options.includePhases
+    ? `First, group the whole timeline (${planningStart} to ${planningExam}) into 3-4 study phases derived from this specific material (not a generic template). Each phase needs concrete startDate/endDate and a focus tied to actual topics.
+`
+    : `Do NOT output phases; they were already produced by an earlier call. Use "phases": [].
+`;
+
+  return `You are a master learning scientist and study schedule architect.
+Schedule ONLY the days listed in PLANNING CALENDAR below. Other days are handled by separate calls.
+${isZh ? 'CRITICAL: All phase names, task titles, descriptions, key objectives and active recall prompts MUST be written in natural, idiomatic Simplified Chinese (简体中文).' : ''}
+
+${GROUNDING_RULES}
+
+STUDENT PROFILE:
+- Exam: ${preferences.examName || 'Final Exam'} (${preferences.subject || 'Academic'})
+- Exam Date: ${planningExam} at ${preferences.examTime || '09:00'}
+- Target: ${preferences.targetScoreOrGrade || 'Top Grade'}
+- Focus Priority: ${preferences.userNeedFocusArea || 'comprehensive'}
+- Student Directives: ${preferences.customPromptRequirement || preferences.additionalNotes || 'None'}
+- Weak Topics: ${preferences.weakTopicsFocus?.join(', ') || 'None specified'}
+- Preferred Block Length: ${sessionMinutes} minutes
+
+PLANNING CALENDAR (these are the ONLY allowed task dates; every listed day needs at least one task):
+${calendarText}
 
 SYLLABUS TOPICS:
-${JSON.stringify(safeTopics, null, 2).slice(0, 40_000)}
-${ragContextText}
-
-RAG GROUNDING REQUIREMENTS:
-1. Every date listed in PLANNING CALENDAR must receive at least one task. Do not skip listed days and do not invent dates outside the list. Split each day into 1-3 blocks whose total durationMinutes does not exceed that day's available hours.
-2. Group the timeline into 3-4 study phases derived from this specific material (not a generic template). Each phase needs concrete startDate/endDate and a focus tied to actual topics.
-3. For EVERY study task, ground it directly in the uploaded documents and retrieved chunks:
-   - title: concise, highly actionable, tied to a real chapter/section or problem from the material
-   - description: clear step-by-step guidance on what to read, solve, or produce
-   - category: ["theory", "reading", "practice_problems", "active_recall", "flashcards", "mock_exam", "review_weak_spots", "summary_cheat_sheet"]
+${compactTopics}
+${ragText}${coveredText}
+RULES:
+1. Output 1-3 tasks per listed day and never exceed that day's available hours; do not invent dates outside the calendar.
+2. ${phasesBlock}3. For every study task ground the content in the material excerpts:
+   - title: concise and actionable, tied to a real chapter/section or problem type
+   - description: what to read, solve or produce
+   - category: one of ["theory", "reading", "practice_problems", "active_recall", "flashcards", "mock_exam", "review_weak_spots", "summary_cheat_sheet"]
    - topicTitle: the associated syllabus topic title
-   - date: "YYYY-MM-DD" (must be one of the PLANNING CALENDAR dates)
-   - startTime / endTime / durationMinutes
-   - priority: "high" | "medium" | "low"
-   - status: "pending"
-   - keyObjectives: array of 2-3 specific mastery checkpoints from the material
-   - activeRecallPrompt: self-testing question based on the document concepts
-   - groundedUserNeed: explain which student requirement this task satisfies
-   - formulaOrRules: 1-2 key formulas or rules that appear in the material (empty array if none)
-   - ragSource: cite the real source document and section used
-     - documentName: exact name of the uploaded material
-     - documentType: "syllabus" | "notes" | "past_exam" | "lecture_slides"
-     - sectionTitle: real section or heading
-     - pageOrChapter: real chapter/page reference when available, otherwise a short section reference
-     - excerptSnippet: quote or close paraphrase of real content from that source (50-150 chars)
-     - keyConcepts: array of 2-4 keywords
-     - relevanceReason: why this source chunk supports this task
-4. Never fabricate document names, chapter numbers, quotes, formulas or exam rules. If a piece of information is not in the materials, omit it rather than inventing it.
+   - date: "YYYY-MM-DD" from the calendar, plus startTime / endTime / durationMinutes
+   - priority: "high" | "medium" | "low"; status: "pending"
+   - keyObjectives: 2-3 specific mastery checkpoints
+   - activeRecallPrompt: a self-testing question based on the material
+   - groundedUserNeed: which student requirement this task satisfies
+   - formulaOrRules: 1-2 formulas or rules that actually appear in the material (empty array if none)
+   - ragSource: documentName / documentType / sectionTitle / pageOrChapter / excerptSnippet (50-150 chars) / keyConcepts / relevanceReason
+4. Never fabricate document names, chapter numbers, quotes or formulas. Omit unsupported details instead of inventing them.
 
 Output ONLY a single JSON object (no markdown fences, no commentary) with exactly this shape:
 {
   "phases": [ { "id": "phase-1", "name": "...", "description": "...", "startDate": "YYYY-MM-DD", "endDate": "YYYY-MM-DD", "focus": "..." } ],
-  "tasks": [ { "id": "task-1", "title": "...", "description": "...", "category": "reading", "topicTitle": "...", "date": "YYYY-MM-DD", "startTime": "09:00", "endTime": "09:45", "durationMinutes": 45, "priority": "high", "status": "pending", "keyObjectives": ["..."], "activeRecallPrompt": "...", "groundedUserNeed": "...", "formulaOrRules": ["..."], "ragSource": { "documentName": "...", "documentType": "notes", "sectionTitle": "...", "pageOrChapter": "...", "excerptSnippet": "...", "keyConcepts": ["..."], "relevanceReason": "..." } } ],
-  "totalPlannedHours": 0
+  "tasks": [ { "id": "task-1", "title": "...", "description": "...", "category": "reading", "topicTitle": "...", "date": "YYYY-MM-DD", "startTime": "09:00", "endTime": "09:45", "durationMinutes": 45, "priority": "high", "status": "pending", "keyObjectives": ["..."], "activeRecallPrompt": "...", "groundedUserNeed": "...", "formulaOrRules": ["..."], "ragSource": { "documentName": "...", "documentType": "notes", "sectionTitle": "...", "pageOrChapter": "...", "excerptSnippet": "...", "keyConcepts": ["..."], "relevanceReason": "..." } } ]
 }`;
+}
 
-  return { prompt, studyDates: studyDayLines.map((line) => line.slice(0, 10)) };
+/** 段结果归一化：只保留落在本段日期内的任务，避免越界重复。 */
+export function sanitizePlanChunkResult(parsed: any, preferences: any, allowedDates: string[]): { phases: any[]; tasks: any[] } {
+  const allowed = new Set(allowedDates);
+  const tasks = normalizePlanTasks(parsed?.tasks || [], preferences).filter((task: any) => allowed.has(task.date));
+  const phases = Array.isArray(parsed?.phases)
+    ? parsed.phases.slice(0, 6).map((phase: any, index: number) => ({
+        id: clampText(phase?.id, 120) || `phase-${index + 1}`,
+        name: clampText(phase?.name, 200),
+        description: clampText(phase?.description, 1_000),
+        startDate: clampText(phase?.startDate, 20),
+        endDate: clampText(phase?.endDate, 20),
+        focus: clampText(phase?.focus, 300),
+      })).filter((phase: any) => phase.name)
+    : [];
+  return { phases, tasks };
 }
 
 export function buildRebalancePrompt(currentPlan: any, todayStr: string, reason: string, isZh: boolean): string {
+  const pending = (currentPlan.tasks || []).filter((t: any) => t.status !== 'completed');
   return `You are an adaptive study coach.
-The student needs to dynamically reschedule their remaining exam study plan as of ${todayStr}.
+The student needs to reschedule the remaining tasks of an exam plan as of ${todayStr}.
 Reason / Trigger: ${reason || 'Student missed past tasks or needs schedule rebalancing'}
-${isZh ? 'CRITICAL: The summary and updated task titles/descriptions must be written in natural Simplified Chinese (简体中文).' : ''}
+${isZh ? 'CRITICAL: The summary and every task title must be written in natural Simplified Chinese (简体中文).' : ''}
 
 Exam Date: ${currentPlan.examDate}
 Exam Name: ${currentPlan.examName}
+Completed tasks stay exactly where they are and MUST NOT be returned.
 
-Daily Available Schedule Preferences:
+Daily Available Hours:
 ${JSON.stringify(currentPlan.preferences?.dailySchedules || [])}
 
-Current Tasks Status:
-${JSON.stringify(currentPlan.tasks).slice(0, 80_000)}
+Tasks To Reschedule (${pending.length} tasks; only their dates/times need to change):
+${JSON.stringify(pending.map((t: any) => ({
+    id: t.id,
+    title: t.title,
+    topicTitle: t.topicTitle,
+    durationMinutes: t.durationMinutes,
+    priority: t.priority,
+    status: t.status,
+    date: t.date,
+  }))).slice(0, 24_000)}
 
 INSTRUCTIONS:
-1. Preserve all tasks that are already 'completed'. Keep their dates unchanged.
-2. For all 'pending' or 'skipped' tasks scheduled before ${todayStr}, or remaining uncompleted tasks:
-   - Reschedule them intelligently across remaining days from ${todayStr} up to ${currentPlan.examDate}.
-   - Balance daily study load without exceeding daily available study hours.
-   - If time is tight, merge low-priority tasks into high-yield review sessions and mark their priority appropriately.
-3. Return the complete updated tasks array with updated dates, startTimes, endTimes, and prioritized sequence.
+1. Spread these tasks across the days from ${todayStr} up to ${currentPlan.examDate}, respecting the daily available hours.
+2. If time is tight, keep high-priority and high-yield review tasks, lower the rest, and drop the least useful ones (do not return them).
+3. Keep each task's id unchanged and give it a new date, startTime, endTime, durationMinutes, priority and status ("pending" or "skipped").
+4. Do not invent new tasks and do not rewrite long descriptions; return the compact fields below only.
 
 Output ONLY a single JSON object (no markdown fences, no commentary) with exactly this shape:
 {
-  "rebalanceSummary": "...",
-  "tasks": [ { "id": "task-1", "title": "...", "description": "...", "category": "reading", "topicTitle": "...", "date": "YYYY-MM-DD", "startTime": "09:00", "endTime": "09:45", "durationMinutes": 45, "priority": "high", "status": "pending", "keyObjectives": ["..."], "activeRecallPrompt": "...", "notes": "...", "confidenceRating": 3 } ]
+  "rebalanceSummary": "1-2 sentences in the student's language explaining how the load was redistributed",
+  "tasks": [ { "id": "task-1", "date": "YYYY-MM-DD", "startTime": "09:00", "endTime": "09:45", "durationMinutes": 45, "priority": "high", "status": "pending" } ]
 }`;
+}
+
+/** 把精简后的重排结果并回完整任务表：已完成任务保持原样。 */
+export function mergeRebalanceTasks(currentTasks: any[], updates: any[]): Array<any> {
+  const byId = new Map<string, any>();
+  updates.forEach((task: any) => {
+    const id = clampText(task?.id, 120);
+    const date = clampText(task?.date, 20);
+    if (!id || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    byId.set(id, task);
+  });
+  const merged = currentTasks.map((task: any) => {
+    if (task?.status === 'completed') return task;
+    const update = byId.get(String(task?.id));
+    if (!update) return task;
+    return {
+      ...task,
+      date: clampText(update.date, 20) || task.date,
+      startTime: /^\d{2}:\d{2}$/.test(String(update.startTime || '')) ? update.startTime : task.startTime,
+      endTime: /^\d{2}:\d{2}$/.test(String(update.endTime || '')) ? update.endTime : task.endTime,
+      durationMinutes: Number.isFinite(Number(update.durationMinutes)) && Number(update.durationMinutes) >= 10
+        ? Math.min(240, Math.round(Number(update.durationMinutes)))
+        : task.durationMinutes,
+      priority: ['high', 'medium', 'low'].includes(String(update.priority)) ? update.priority : task.priority,
+      status: ['pending', 'in_progress', 'completed', 'skipped'].includes(String(update.status)) ? update.status : 'pending',
+    };
+  });
+  return merged;
 }
 
 /* ---------------- 结果解析与归一化 ---------------- */
