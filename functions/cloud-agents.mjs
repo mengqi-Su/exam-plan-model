@@ -73,10 +73,12 @@ export function createCloudAgentsClient({
       if (!response.ok) {
         cancelBody(response);
         const status = response.status;
+        // 402 = 账号 AI 额度/权益不足，属于终局拒绝，必须与「暂时不可用」区分开
         const code = status === 401 || status === 403 ? 'ai_access_denied'
+          : status === 402 ? 'ai_out_of_credits'
           : status === 404 ? 'ai_resource_not_found' : status === 409 ? 'ai_conflict'
           : status === 429 ? 'ai_rate_limited' : status >= 400 && status < 500 ? 'ai_request_rejected' : 'ai_service_unavailable';
-        throw fail(code, [400, 401, 403, 404, 409, 429].includes(status) ? status : 503,
+        throw fail(code, [400, 401, 402, 403, 404, 409, 429].includes(status) ? status : 503,
           status >= 400 && status < 500 && status !== 408 ? 'rejected' : 'unknown');
       }
       if (response.status === 204) return null;

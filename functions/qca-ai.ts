@@ -236,7 +236,8 @@ export async function startQoderGeneration(prompt: string): Promise<string> {
   }
 
   const diagnosticId = crypto.randomUUID();
-  try {
+
+  const runOnce = async (): Promise<string> => {
     const binding = await ensureBinding();
     const sessionId = await createSession(binding);
     await cloud.request(`/api/v1/cloud/sessions/${sessionId}/events`, {
@@ -246,7 +247,23 @@ export async function startQoderGeneration(prompt: string): Promise<string> {
       }
     });
     return sessionId;
+  };
+
+  try {
+    return await runOnce();
   } catch (error) {
+    // 缓存的 Agent/Environment 可能在上游被归档或删掉（404），这时丢弃缓存重新绑定一次，
+    // 否则接下来的 10 分钟里每次生成都会失败。
+    if (error instanceof CloudAgentsError && error.code === 'ai_resource_not_found') {
+      cachedBinding = null;
+      try {
+        return await runOnce();
+      } catch (retryError) {
+        const retried = retryError instanceof QcaError ? retryError : mapCloudError(retryError);
+        console.error(JSON.stringify({ event: 'exam_plan_qca_start_failed', diagnosticId, code: retried.code, retried: true }));
+        throw retried;
+      }
+    }
     const mapped = error instanceof QcaError ? error : mapCloudError(error);
     console.error(JSON.stringify({
       event: 'exam_plan_qca_start_failed',
@@ -299,7 +316,16 @@ function mapCloudError(error: unknown): QcaError {
   if (error instanceof CloudAgentsError) {
     if (error.code === 'ai_not_configured') return new QcaError('ai_not_configured', 'Qoder AI 尚未启用，请稍后再试', 503);
     if (error.code === 'ai_access_denied') return new QcaError('ai_access_denied', 'Qoder AI 授权失败，请稍后再试', 502);
+    if (error.code === 'ai_out_of_credits') {
+      return new QcaError('ai_out_of_credits', 'Qoder AI 额度已用尽，请充值或等待额度刷新后重试', 402);
+    }
     if (error.code === 'ai_rate_limited') return new QcaError('ai_rate_limited', 'AI 调用频率过高，请稍后再试', 429);
+    if (error.code === 'ai_resource_not_found') {
+      return new QcaError('ai_unavailable', 'Qoder AI 初始化失败，请稍后重试', 502);
+    }
+    if (error.code === 'ai_request_rejected') {
+      return new QcaError('ai_request_rejected', 'AI 服务拒绝了本次请求，请减少资料量后重试', 400);
+    }
     if (error.code === 'ai_request_unknown' || error.code === 'ai_service_unavailable') {
       return new QcaError('ai_unavailable', 'Qoder AI 响应超时，请稍后重试', 504);
     }

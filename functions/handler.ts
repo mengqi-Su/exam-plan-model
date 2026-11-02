@@ -35,6 +35,17 @@ const JSON_HEADERS = {
   'Cache-Control': 'no-store',
 };
 
+// 重排是纯本地的日期再分配，AI 拿不到结果时不该卡住用户；这些错误码一律走本地兜底。
+const LOCAL_REBALANCE_FALLBACK_CODES = new Set([
+  'ai_not_configured',
+  'ai_unavailable',
+  'ai_out_of_credits',
+  'ai_access_denied',
+  'ai_rate_limited',
+  'ai_request_rejected',
+  'ai_bad_output',
+]);
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
 }
@@ -118,15 +129,22 @@ async function handleAIStart(req: Request): Promise<Response> {
       const reason = clampText(body.reason, 500);
       const zh = resolveIsChinese(language, currentPlan.examName, currentPlan.subject);
 
-      // AI 未启用时直接返回本地排程兜底，保证重排始终可用（本地优先）。
+      // AI 不可用时（未启用 / 额度用尽 / 上游异常）直接返回本地排程兜底，保证重排始终可用（本地优先）。
       if (!qoderConfigured()) {
         const result = fallbackRebalancePlan(currentPlan, todayStr, reason);
         return json({ ok: true, done: true, mode, result, meta: { source: 'fallback', fallbackReason: 'no_api_key' } });
       }
 
       const prompt = buildRebalancePrompt(currentPlan, todayStr, reason, zh);
-      const sessionId = await startQoderGeneration(prompt);
-      return json({ ok: true, sessionId, mode });
+      try {
+        const sessionId = await startQoderGeneration(prompt);
+        return json({ ok: true, sessionId, mode });
+      } catch (error) {
+        const code = error instanceof QcaError ? error.code : '';
+        if (!LOCAL_REBALANCE_FALLBACK_CODES.has(code)) throw error;
+        const result = fallbackRebalancePlan(currentPlan, todayStr, reason);
+        return json({ ok: true, done: true, mode, result, meta: { source: 'fallback', fallbackReason: 'ai_error' } });
+      }
     }
 
     return fail('invalid_request', isZh ? '未知的规划任务类型。' : 'Unknown planning mode.');

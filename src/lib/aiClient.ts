@@ -23,11 +23,11 @@ export function getAiFallbackNotice(meta: AiResponseMeta | undefined, language: 
   if (language === "zh") {
     return meta.fallbackReason === "no_api_key"
       ? "未配置 AI 服务，已按本地排程规则重新分配任务。所有数据仍保存在本浏览器中。"
-      : "AI 服务暂时不可用，已按本地排程规则重新分配任务。你可以在设置中查看 AI 状态。";
+      : "AI 服务暂时不可用，已按本地排程规则重新分配任务。你的数据和已完成的任务都保留在本浏览器中。";
   }
   return meta.fallbackReason === "no_api_key"
     ? "AI is not configured. Tasks were rescheduled with local rules. Your data stays in this browser."
-    : "AI is temporarily unavailable. Tasks were rescheduled with local rules. Check AI status in Settings.";
+    : "AI is temporarily unavailable. Tasks were rescheduled with local rules. Your data and completed tasks stay in this browser.";
 }
 
 const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
@@ -151,6 +151,14 @@ const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
     zh: "Qoder AI 授权失败，请稍后再试。",
     en: "Qoder AI authorization failed. Please try again later.",
   },
+  ai_out_of_credits: {
+    zh: "Qoder AI 额度已用尽，本次无法生成。请在 Qoder 账户充值或等待额度刷新后重试。",
+    en: "Your Qoder AI credits are used up, so generation is paused. Top up or wait for your quota to refresh, then try again.",
+  },
+  ai_request_rejected: {
+    zh: "AI 服务拒绝了本次请求，请减少资料量或分批生成后重试。",
+    en: "The AI service rejected this request. Reduce the materials or generate in smaller batches.",
+  },
   AI_EMPTY: {
     zh: "AI 本次没有返回内容，请重试。",
     en: "AI returned no content this time. Please try again.",
@@ -265,7 +273,8 @@ export async function runGeneration<T = any>(
   const isZh = opts.language !== "en";
   const lang = isZh ? "zh" : "en";
   const tt = (zh: string, en: string) => (isZh ? zh : en);
-  const deadlineMs = opts.deadlineMs ?? (mode === "plan" ? 200_000 : 140_000);
+  // 考点树与整学期计划都是长输出：预算给足，避免在模型还在生成时就报超时
+  const deadlineMs = opts.deadlineMs ?? (mode === "plan" ? 300_000 : 180_000);
   const interval = opts.pollIntervalMs ?? 2500;
   const startedAt = Date.now();
   const aborted = () =>
