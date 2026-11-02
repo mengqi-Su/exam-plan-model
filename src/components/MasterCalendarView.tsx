@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,13 +11,10 @@ import {
   Play,
   Target,
   Search,
-  CheckSquare,
-  BookOpen,
-  PenLine
 } from "lucide-react";
-import { ExamStudyPlan, StudyTask, TaskCategory, DailyMemoNote } from "../types";
+import { ExamStudyPlan, StudyTask, DailyMemoNote } from "../types";
 import { useI18n } from "../lib/i18n";
-import { getPaletteByString, getPaletteByIndex } from "../lib/themePalettes";
+import { getPaletteByIndex } from "../lib/themePalettes";
 import { getDailyMemos } from "../lib/storage";
 import { DailyMoodMemoPad } from "./DailyMoodMemoPad";
 import { parseLocalDate, toLocalDateString } from "../lib/date";
@@ -30,14 +27,15 @@ interface MasterCalendarViewProps {
   selectedDate?: string;
 }
 
-const COURSE_COLORS = [
-  "border border-[#111111] bg-white text-[#111111]",
-  "border border-[#111111] bg-[#fafafa] text-[#111111]",
-  "border border-[#111111] bg-white text-[#111111]",
-  "border border-[#111111] bg-[#fafafa] text-[#111111]",
-  "border border-[#111111] bg-white text-[#111111]",
-  "border border-[#111111] bg-[#fafafa] text-[#111111]",
-];
+// Subtle mood signal for the day-cell memo dot (replaces the old emoji badges).
+const MEMO_DOT: Record<string, string> = {
+  motivated: "#E0A800",
+  calm: "#6E8CA8",
+  inspired: "#D9A521",
+  breakthrough: "#3F6B4F",
+  anxious: "#A9756A",
+  tired: "#8A8580",
+};
 
 export function MasterCalendarView({
   plans,
@@ -46,7 +44,8 @@ export function MasterCalendarView({
   onSelectDate,
   selectedDate: propSelectedDate,
 }: MasterCalendarViewProps) {
-  const { t, language } = useI18n();
+  const { language } = useI18n();
+  const isZh = language === "zh";
 
   const [currentMonthDate, setCurrentMonthDate] = useState<Date>(() => {
     return propSelectedDate ? parseLocalDate(propSelectedDate) : new Date();
@@ -192,68 +191,71 @@ export function MasterCalendarView({
     return examDatesByDate.get(activeDayDate) || [];
   }, [examDatesByDate, activeDayDate]);
 
-  const weekHeaders = language === "zh"
+  const weekHeaders = isZh
     ? ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
     : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  const monthTitle = language === "zh"
+  const monthTitle = isZh
     ? `${year}年 ${month + 1}月`
     : currentMonthDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
+  const viewingTodayMonth = todayStr.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`);
+
+  const selectCls =
+    "text-xs bg-transparent text-[#1c1b1a] outline-none cursor-pointer";
+  const filterWrapCls =
+    "flex items-center gap-1.5 rounded-lg border border-[#e5e2dc] bg-white px-2.5 py-1.5";
+
   return (
-    <div className="bg-white border border-[#111111] overflow-hidden">
-
-      <div className="p-4 sm:p-5 border-b border-[#111111] space-y-3">
+    <div className="ui-card overflow-hidden">
+      {/* Header: month navigation + filters */}
+      <div className="p-4 sm:p-5 border-b border-[#f0ede8] space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2">
-              <CalendarIcon className="w-4 h-4 text-[#111111]" />
-              <h2 className="text-base font-bold font-mono text-[#111111] tracking-tight uppercase">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="w-4 h-4 text-[#a39e97]" />
+              <h2 className="text-lg font-semibold text-[#1c1b1a] tracking-tight tabular-nums">
                 {monthTitle}
               </h2>
             </div>
 
-            <div className="flex items-center space-x-1 border border-[#111111] p-0.5 bg-[#fafafa]">
+            <div className="flex items-center gap-0.5 rounded-lg bg-[#f1efe9] p-0.5">
               <button
                 onClick={handlePrevMonth}
-                className="p-1 hover:bg-[#111111] hover:text-white text-[#111111] transition-colors cursor-pointer"
-                title="Previous Month"
+                className="p-1.5 rounded-md text-[#6b6660] hover:bg-white hover:text-[#1c1b1a] transition-colors cursor-pointer"
+                title={isZh ? "上个月" : "Previous month"}
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={handleJumpToToday}
-                className={`px-2 py-0.5 text-xs font-mono font-bold transition-colors cursor-pointer ${
-                  todayStr.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`)
-                    ? "bg-[#111111] text-white"
-                    : "text-[#111111] hover:bg-[#ededed]"
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                  viewingTodayMonth
+                    ? "bg-white text-[#1c1b1a] shadow-sm"
+                    : "text-[#6b6660] hover:bg-white/60"
                 }`}
               >
-                [{language === "zh" ? "今日" : "TODAY"}]
+                {isZh ? "今日" : "Today"}
               </button>
               <button
                 onClick={handleNextMonth}
-                className="p-1 hover:bg-[#111111] hover:text-white text-[#111111] transition-colors cursor-pointer"
-                title="Next Month"
+                className="p-1.5 rounded-md text-[#6b6660] hover:bg-white hover:text-[#1c1b1a] transition-colors cursor-pointer"
+                title={isZh ? "下个月" : "Next month"}
               >
-                <ChevronRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-
-            <div className="flex items-center space-x-1.5 bg-white border border-[#111111] px-2 py-1">
-              <Layers className="w-3.5 h-3.5 text-[#111111]" />
+            <div className={filterWrapCls}>
+              <Layers className="w-3.5 h-3.5 text-[#a39e97]" />
               <select
                 value={courseFilter}
                 onChange={(e) => setCourseFilter(e.target.value)}
-                className="text-xs font-mono bg-transparent text-[#111111] outline-none cursor-pointer"
+                className={selectCls}
               >
-                <option value="all">
-                  {language === "zh" ? "全部科目" : "ALL COURSES"}
-                </option>
+                <option value="all">{isZh ? "全部科目" : "All courses"}</option>
                 {plans.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.examName}
@@ -262,41 +264,40 @@ export function MasterCalendarView({
               </select>
             </div>
 
-            <div className="flex items-center space-x-1.5 bg-white border border-[#111111] px-2 py-1">
-              <Filter className="w-3.5 h-3.5 text-[#111111]" />
+            <div className={filterWrapCls}>
+              <Filter className="w-3.5 h-3.5 text-[#a39e97]" />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="text-xs font-mono bg-transparent text-[#111111] outline-none cursor-pointer"
+                className={selectCls}
               >
-                <option value="all">{language === "zh" ? "全部任务" : "ALL STATUS"}</option>
-                <option value="pending">{language === "zh" ? "仅待完成" : "PENDING"}</option>
-                <option value="completed">{language === "zh" ? "仅已完成" : "COMPLETED"}</option>
+                <option value="all">{isZh ? "全部任务" : "All status"}</option>
+                <option value="pending">{isZh ? "仅待完成" : "Pending"}</option>
+                <option value="completed">{isZh ? "仅已完成" : "Completed"}</option>
               </select>
             </div>
 
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-[#888888] absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-[#a39e97] absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder={language === "zh" ? "搜索考点..." : "SEARCH..."}
+                placeholder={isZh ? "搜索考点..." : "Search..."}
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
-                className="pl-8 pr-2.5 py-1 text-xs font-mono bg-white border border-[#111111] text-[#111111] placeholder-[#888888] outline-none focus:bg-[#fafafa] w-28 sm:w-36 transition-all"
+                className="pl-8 pr-2.5 py-1.5 text-xs rounded-lg border border-[#e5e2dc] bg-white text-[#1c1b1a] placeholder-[#a39e97] outline-none focus:border-[#cfc9c0] w-32 sm:w-40 transition-colors"
               />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-[#111111] font-mono">
-
-        <div className="lg:col-span-8 p-3 sm:p-4 bg-white">
-
-          <div className="grid grid-cols-7 gap-1 text-center font-mono font-bold text-[10px] text-[#111111] mb-1.5 py-1 bg-[#fafafa] border border-[#111111]">
+      <div className="grid grid-cols-1 lg:grid-cols-12">
+        {/* Calendar grid */}
+        <div className="lg:col-span-8 p-3 sm:p-4">
+          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-[#8a8580] mb-1.5">
             {weekHeaders.map((w, idx) => (
-              <div key={idx} className={idx === 0 || idx === 6 ? "text-[#666666]" : ""}>
-                [{w}]
+              <div key={idx} className={idx === 0 || idx === 6 ? "text-[#a39e97]" : ""}>
+                {w}
               </div>
             ))}
           </div>
@@ -317,70 +318,63 @@ export function MasterCalendarView({
                     setActiveDayDate(dateStr);
                     if (onSelectDate) onSelectDate(dateStr);
                   }}
-                  className={`min-h-[92px] sm:min-h-[105px] p-1.5 border flex flex-col justify-between transition-all cursor-pointer select-none relative font-mono ${
+                  className={`min-h-[92px] sm:min-h-[104px] p-1.5 rounded-lg border flex flex-col justify-between transition-all cursor-pointer select-none relative ${
                     isSelected
-                      ? "border-[#111111] bg-[#111111] text-white z-10"
+                      ? "border-[#1c1b1a] bg-[#1c1b1a] text-white z-10 shadow-sm"
                       : isToday
-                      ? "border-2 border-[#111111] bg-[#ededed] text-[#111111]"
+                      ? "border-[#cfc9c0] bg-[#f1efe9] text-[#1c1b1a]"
                       : isCurrentMonth
-                      ? "border border-[#111111] bg-white hover:bg-[#ededed] text-[#111111]"
-                      : "border border-dashed border-[#111111]/30 bg-[#fafafa] opacity-40 hover:opacity-80 text-[#111111]"
+                      ? "border-[#eae7e1] bg-white hover:bg-[#faf9f6] hover:border-[#ddd8d0] text-[#1c1b1a]"
+                      : "border-transparent bg-[#faf9f6] text-[#a39e97] opacity-70 hover:opacity-100"
                   }`}
                 >
-
                   <div className="flex items-center justify-between">
                     <span
-                      className={`text-xs font-bold w-5 h-5 flex items-center justify-center ${
+                      className={`text-xs font-medium tabular-nums w-5 h-5 flex items-center justify-center rounded-full ${
                         isSelected
-                          ? "bg-white text-[#111111]"
+                          ? "bg-white text-[#1c1b1a]"
                           : isToday
-                          ? "bg-[#111111] text-white"
+                          ? "bg-[#1c1b1a] text-white"
                           : isCurrentMonth
-                          ? "text-[#111111]"
-                          : "text-[#666666]"
+                          ? "text-[#1c1b1a]"
+                          : "text-[#a39e97]"
                       }`}
                     >
                       {dayNum}
                     </span>
 
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center gap-1">
                       {dayMemo && (
                         <span
-                          className={`text-[9px] px-1 py-0.2 font-bold ${
-                            isSelected ? "bg-white text-[#111111]" : "bg-[#fef08a] text-[#111111] border border-[#111111]"
-                          }`}
-                          title={language === "zh" ? `随心便签: ${dayMemo.content || "有记录"}` : `Memo: ${dayMemo.content || "Recorded"}`}
-                        >
-                          {dayMemo.mood === "motivated" && "⚡"}
-                          {dayMemo.mood === "calm" && "☕"}
-                          {dayMemo.mood === "inspired" && "💡"}
-                          {dayMemo.mood === "breakthrough" && "🎯"}
-                          {dayMemo.mood === "anxious" && "🌧️"}
-                          {dayMemo.mood === "tired" && "🔋"}
-                          {!dayMemo.mood && "📝"}
-                        </span>
+                          className="w-1.5 h-1.5 rounded-full shrink-0"
+                          style={{
+                            backgroundColor: isSelected
+                              ? "#FCD33B"
+                              : MEMO_DOT[dayMemo.mood || ""] || "#D9A521",
+                          }}
+                          title={isZh ? `随心便签: ${dayMemo.content || "有记录"}` : `Memo: ${dayMemo.content || "Recorded"}`}
+                        />
                       )}
 
                       {dayTasks.length > 0 && (
-                        <span className={`text-[10px] font-bold ${isSelected ? "text-white" : "text-[#666666]"}`}>
-                          [{completedInDay}/{dayTasks.length}]
+                        <span className={`text-[10px] tabular-nums ${isSelected ? "text-white/70" : "text-[#8a8580]"}`}>
+                          {completedInDay}/{dayTasks.length}
                         </span>
                       )}
                     </div>
                   </div>
 
                   <div className="mt-1 space-y-1 flex-1 overflow-hidden">
-
                     {dayExams.map((exam) => (
                       <div
                         key={`exam-${exam.id}`}
-                        className={`border border-[#111111] px-1 py-0.5 text-[9px] font-bold truncate flex items-center space-x-0.5 ${
-                          isSelected ? "bg-white text-[#d44c47]" : "bg-[#d44c47] text-white"
+                        className={`rounded px-1 py-0.5 text-[9px] font-medium truncate flex items-center gap-0.5 ${
+                          isSelected ? "bg-white/15 text-white" : "bg-[#FDF0EE] text-[#B42318]"
                         }`}
-                        title={`大考日: ${exam.examName}`}
+                        title={isZh ? `大考日: ${exam.examName}` : `Exam day: ${exam.examName}`}
                       >
                         <Target className="w-2.5 h-2.5 shrink-0" />
-                        <span className="truncate uppercase">[{exam.examName}]</span>
+                        <span className="truncate">{exam.examName}</span>
                       </div>
                     ))}
 
@@ -391,33 +385,29 @@ export function MasterCalendarView({
                       return (
                         <div
                           key={`task-${task.id}`}
-                          className={`px-1 py-0.5 text-[9px] border truncate flex items-center space-x-1 font-bold ${
+                          className={`rounded px-1 py-0.5 text-[9px] truncate flex items-center gap-1 ${
                             isSelected
                               ? isTaskDone
-                                ? "bg-[#222222] border-white/40 text-white/50 line-through"
-                                : "bg-white border-white text-[#111111]"
+                                ? "bg-white/10 text-white/50 line-through"
+                                : "bg-white/10 text-white/90"
                               : isTaskDone
-                              ? "bg-[#ededed] border-[#111111] text-[#666666] line-through"
-                              : "bg-white border-[#111111] text-[#111111]"
+                              ? "bg-[#f1efe9] text-[#a39e97] line-through"
+                              : "bg-[#faf9f6] text-[#1c1b1a]"
                           }`}
                           title={`${plan.examName}: ${task.title}`}
                         >
                           <span
-                            className="w-2 h-2 shrink-0 border border-[#111111]"
-                            style={{
-                              backgroundColor: coursePalette.accentColor,
-                            }}
+                            className="w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ backgroundColor: coursePalette.accentColor }}
                           />
-                          <span className="truncate flex-1">
-                            {task.title}
-                          </span>
+                          <span className="truncate flex-1">{task.title}</span>
                         </div>
                       );
                     })}
 
                     {dayTasks.length > 2 && (
-                      <div className={`text-[9px] font-bold pl-1 ${isSelected ? "text-white/80" : "text-[#666666]"}`}>
-                        +{dayTasks.length - 2} {language === "zh" ? "项" : "MORE"}
+                      <div className={`text-[9px] pl-1 ${isSelected ? "text-white/60" : "text-[#a39e97]"}`}>
+                        +{dayTasks.length - 2} {isZh ? "项" : "more"}
                       </div>
                     )}
                   </div>
@@ -427,48 +417,48 @@ export function MasterCalendarView({
           </div>
         </div>
 
-        <div className="lg:col-span-4 p-4 sm:p-5 bg-white flex flex-col justify-between space-y-4 font-mono">
+        {/* Selected-day panel */}
+        <div className="lg:col-span-4 p-4 sm:p-5 border-t lg:border-t-0 lg:border-l border-[#f0ede8] flex flex-col space-y-4">
           <div className="space-y-3">
-
-            <div className="flex items-center justify-between pb-2 border-b border-[#111111]">
+            <div className="flex items-center justify-between pb-3 border-b border-[#f0ede8]">
               <div>
-                <span className="text-[11px] font-bold text-[#666666] uppercase tracking-wider block">
-                  [{language === "zh" ? "选中日期任务" : "SELECTED DATE TASKS"}]
+                <span className="text-[11px] font-medium text-[#8a8580] block">
+                  {isZh ? "选中日期任务" : "Selected date"}
                 </span>
-                <h3 className="text-base font-bold text-[#111111] flex items-center space-x-1.5">
+                <h3 className="text-base font-semibold text-[#1c1b1a] flex items-center gap-1.5 tabular-nums">
                   <span>{activeDayDate}</span>
                   {activeDayDate === todayStr && (
-                    <span className="text-[10px] px-1.5 py-0.2 bg-[#111111] text-white font-bold">
-                      [{language === "zh" ? "今日" : "TODAY"}]
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#1c1b1a] text-white font-medium">
+                      {isZh ? "今日" : "Today"}
                     </span>
                   )}
                 </h3>
               </div>
 
-              <span className="text-xs font-bold text-[#111111] bg-white border border-[#111111] px-2 py-0.5">
-                {activeDayTasks.length} {language === "zh" ? "项" : "TASKS"}
+              <span className="ui-chip tabular-nums">
+                {activeDayTasks.length} {isZh ? "项" : "tasks"}
               </span>
             </div>
 
             {activeDayExams.length > 0 && (
-              <div className="p-3 bg-[#fafafa] border border-[#111111] space-y-1">
-                <div className="flex items-center space-x-1.5 text-xs font-bold text-[#111111] uppercase">
+              <div className="p-3 rounded-lg bg-[#FDF0EE] border border-[#f5d6d0] space-y-1">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#B42318]">
                   <Target className="w-4 h-4" />
-                  <span>[{language === "zh" ? "考试日提醒" : "EXAM DAY ALERT"}]</span>
+                  <span>{isZh ? "考试日提醒" : "Exam day"}</span>
                 </div>
                 {activeDayExams.map((ex) => (
-                  <p key={ex.id} className="text-xs font-bold text-[#111111]">
-                    [{ex.examName}] ({ex.subject})
+                  <p key={ex.id} className="text-xs text-[#8c2f26]">
+                    {ex.examName}（{ex.subject}）
                   </p>
                 ))}
               </div>
             )}
 
             {activeDayTasks.length === 0 ? (
-              <div className="py-8 text-center space-y-2">
-                <CheckCircle2 className="w-8 h-8 text-[#111111] mx-auto opacity-40" />
-                <p className="text-xs text-[#666666] font-bold">
-                  [{language === "zh" ? "该日期无任何排定的复习任务" : "NO TASKS SCHEDULED FOR THIS DAY"}]
+              <div className="py-10 text-center space-y-2">
+                <CheckCircle2 className="w-8 h-8 text-[#ddd8d0] mx-auto" />
+                <p className="text-xs text-[#8a8580]">
+                  {isZh ? "该日期没有排定的复习任务" : "No tasks scheduled for this day"}
                 </p>
               </div>
             ) : (
@@ -480,66 +470,63 @@ export function MasterCalendarView({
                   return (
                     <div
                       key={`${plan.id}-${task.id}`}
-                      className={`p-2.5 border transition-all space-y-2 font-mono ${
+                      className={`p-2.5 rounded-lg border transition-all space-y-2 ${
                         isCompleted
-                          ? "bg-[#fafafa] border-[#111111] opacity-70"
-                          : "bg-white border-[#111111]"
+                          ? "bg-[#faf9f6] border-[#eae7e1] opacity-75"
+                          : "bg-white border-[#eae7e1] hover:border-[#ddd8d0]"
                       }`}
                     >
-                      <div className="flex items-start space-x-2">
-
+                      <div className="flex items-start gap-2">
                         <button
                           onClick={() => onToggleTaskStatus(plan.id, task.id)}
-                          className="mt-0.5 text-[#111111] hover:text-[#000000] transition-colors shrink-0 cursor-pointer"
+                          className="mt-0.5 transition-colors shrink-0 cursor-pointer"
+                          title={isCompleted ? (isZh ? "标记为未完成" : "Mark incomplete") : (isZh ? "标记为完成" : "Mark complete")}
                         >
                           {isCompleted ? (
-                            <CheckCircle2 className="w-4 h-4 text-[#111111]" />
+                            <CheckCircle2 className="w-4 h-4 text-[#3F6B4F]" />
                           ) : (
-                            <Circle className="w-4 h-4 text-[#111111]" />
+                            <Circle className="w-4 h-4 text-[#cfc9c0] hover:text-[#8a8580]" />
                           )}
                         </button>
 
                         <div className="min-w-0 flex-1 space-y-1">
-
-                          <div className="flex flex-wrap items-center gap-1 font-bold">
-                            <span
-                              className="border border-[#111111] px-1.5 py-0.2 text-[9px] uppercase truncate max-w-[120px]"
-                              style={{
-                                backgroundColor: coursePalette.accentColor,
-                                color: coursePalette.id === "dark-slate" ? "#FFFFFF" : "#111111"
-                              }}
-                            >
-                              [{plan.examName}]
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#f1efe9] px-2 py-0.5 text-[10px] font-medium text-[#6b6660] truncate max-w-[140px]">
+                              <span
+                                className="w-1.5 h-1.5 rounded-full shrink-0"
+                                style={{ backgroundColor: coursePalette.accentColor }}
+                              />
+                              <span className="truncate">{plan.examName}</span>
                             </span>
-                            <span className="text-[10px] text-[#666666] flex items-center space-x-0.5">
+                            <span className="text-[10px] text-[#8a8580] flex items-center gap-0.5 tabular-nums">
                               <Clock className="w-2.5 h-2.5" />
-                              <span>{task.durationMinutes}M</span>
+                              <span>{task.durationMinutes}{isZh ? "分钟" : "m"}</span>
                             </span>
                           </div>
 
                           <p
-                            className={`text-xs font-bold leading-snug ${
-                              isCompleted ? "line-through text-[#666666]" : "text-[#111111]"
+                            className={`text-[13px] font-medium leading-snug ${
+                              isCompleted ? "line-through text-[#a39e97]" : "text-[#1c1b1a]"
                             }`}
                           >
                             {task.title}
                           </p>
 
                           {task.topicTitle && (
-                            <p className="text-[10px] text-[#666666] truncate font-bold">
-                              [{task.topicTitle}]
+                            <p className="text-[11px] text-[#8a8580] truncate">
+                              {task.topicTitle}
                             </p>
                           )}
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-end space-x-1.5 pt-1 border-t border-[#111111]">
+                      <div className="flex items-center justify-end pt-1.5 border-t border-[#f0ede8]">
                         <button
                           onClick={() => onStartFocusTimer(task, plan.id)}
-                          className="px-2 py-0.5 text-[10px] bg-[#111111] hover:bg-[#333333] text-white border border-[#111111] font-bold transition-colors flex items-center space-x-1 cursor-pointer"
+                          className="ui-btn ui-btn-primary px-2.5 py-1 text-[11px] flex items-center gap-1"
                         >
-                          <Play className="w-2.5 h-2.5" />
-                          <span>[{language === "zh" ? "专注" : "FOCUS"}]</span>
+                          <Play className="w-3 h-3" />
+                          <span>{isZh ? "专注" : "Focus"}</span>
                         </button>
                       </div>
                     </div>
@@ -548,8 +535,8 @@ export function MasterCalendarView({
               </div>
             )}
 
-            {/* 随心记便签 (Daily Mood & Note Sticky Pad) - 放置在任务列表下方 */}
-            <div className="pt-2 border-t border-[#e5e5e5]">
+            {/* Daily mood & note pad — sits below the task list */}
+            <div className="pt-3 border-t border-[#f0ede8]">
               <DailyMoodMemoPad
                 dateStr={activeDayDate}
                 language={language}

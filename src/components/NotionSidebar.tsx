@@ -39,15 +39,16 @@ export function NotionSidebar({
   onTabChange,
 }: NotionSidebarProps) {
   const { language } = useI18n();
+  const isZh = language === "zh";
 
   if (!isOpen) {
     return (
       <div className="hidden md:block fixed top-3 left-3 z-40">
         <button
           onClick={onToggle}
-          className="p-2 min-w-9 min-h-9 rounded-md hover:bg-[#efefed] text-[#787774] hover:text-[#37352f] transition-colors border border-[#e9e9e7] bg-white shadow-xs"
-          title={language === "zh" ? "展开侧栏" : "Open sidebar"}
-          aria-label={language === "zh" ? "展开侧栏" : "Open sidebar"}
+          className="p-2 min-w-9 min-h-9 rounded-lg border border-[#eae7e1] bg-white text-[#8a8580] shadow-[0_1px_2px_rgba(28,27,26,0.04)] transition-colors hover:text-[#1c1b1a] hover:bg-[#faf9f6] cursor-pointer"
+          title={isZh ? "展开侧栏" : "Open sidebar"}
+          aria-label={isZh ? "展开侧栏" : "Open sidebar"}
         >
           <PanelLeft className="w-4 h-4" />
         </button>
@@ -55,116 +56,86 @@ export function NotionSidebar({
     );
   }
 
+  const navItems: { id: AppTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { id: "today", label: isZh ? "今日" : "Today", icon: Sun },
+    { id: "dashboard", label: isZh ? "科目" : "Subjects", icon: LayoutDashboard },
+    { id: "master_calendar", label: isZh ? "日历" : "Calendar", icon: Calendar },
+  ];
+
   return (
     <aside
-      className="hidden md:flex w-64 bg-[#f2f0ea] border-r border-[#111111] flex-col h-screen fixed top-0 left-0 z-40 select-none text-[13px] text-[#111111] font-sans"
-      aria-label={language === "zh" ? "主导航侧栏" : "Main navigation"}
+      className="hidden md:flex w-64 bg-[#f2f0ea] border-r border-[#e7e4de] flex-col h-screen fixed top-0 left-0 z-40 select-none text-[13px] text-[#1c1b1a]"
+      aria-label={isZh ? "主导航侧栏" : "Main navigation"}
     >
-
-      <div className="p-3.5 flex items-center justify-between border-b border-[#111111] bg-[#faf9f6]">
-        <div className="flex items-center space-x-2.5 min-w-0">
-          <div className="w-6 h-6 bg-[#111111] text-white flex items-center justify-center text-[10px] font-mono font-bold shrink-0 tracking-tighter">
+      <div className="p-3.5 flex items-center justify-between">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-6 h-6 rounded-md bg-[#1c1b1a] text-white flex items-center justify-center text-[10px] font-semibold shrink-0 tracking-tight">
             EP
           </div>
-          <div className="min-w-0">
-            <span className="font-bold text-xs text-[#111111] tracking-tight font-sans block truncate">
-              EXAM PLAN AI
-            </span>
-            <span className="text-[10px] text-[#666666] font-mono block truncate">
-
-            </span>
-          </div>
+          <span className="font-semibold text-[13px] text-[#1c1b1a] tracking-tight block truncate">
+            EXAM PLAN AI
+          </span>
         </div>
 
         <button
           onClick={onToggle}
-          className="p-2 min-w-9 min-h-9 text-[#666666] hover:text-[#111111] hover:bg-[#e4e1d8] transition-colors border border-transparent hover:border-[#111111] cursor-pointer"
-          title={language === "zh" ? "收起侧栏" : "Collapse sidebar"}
-          aria-label={language === "zh" ? "收起侧栏" : "Collapse sidebar"}
+          className="p-2 min-w-9 min-h-9 rounded-lg text-[#8a8580] hover:text-[#1c1b1a] hover:bg-black/[0.04] transition-colors cursor-pointer"
+          title={isZh ? "收起侧栏" : "Collapse sidebar"}
+          aria-label={isZh ? "收起侧栏" : "Collapse sidebar"}
         >
           <PanelLeftClose className="w-4 h-4" />
         </button>
       </div>
 
-      <div className="p-2 space-y-1 border-b border-[#dedad1]">
-        <button
-          onClick={() => onTabChange("today")}
-          className={`w-full flex items-center space-x-2 px-2.5 py-2.5 text-left transition-all cursor-pointer font-sans text-[13px] rounded-lg ${
-            currentTab === "today"
-              ? "bg-[#111111] text-white font-semibold shadow-xs"
-              : "hover:bg-[#e4e1d8] text-[#333333]"
-          }`}
-          aria-current={currentTab === "today" ? "page" : undefined}
-        >
-          <Sun className="w-4 h-4" />
-          <span className="flex-1 truncate">{language === "zh" ? "今日" : "Today"}</span>
-          <span className="font-mono text-[10px] opacity-60">01</span>
-        </button>
-
-        <button
-          onClick={() => onTabChange("dashboard")}
-          className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs rounded-lg ${
-            currentTab === "dashboard"
-              ? "bg-[#111111] text-white font-semibold shadow-xs"
-              : "hover:bg-[#e4e1d8] text-[#333333]"
-          }`}
-        >
-          <LayoutDashboard className="w-4 h-4" />
-          <span className="flex-1 truncate">{language === "zh" ? "科目看板" : "Subjects"}</span>
-          <span className="font-mono text-[10px] opacity-60">02</span>
-        </button>
-
-        <button
-          onClick={() => onTabChange("master_calendar")}
-          className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs rounded-lg ${
-            currentTab === "master_calendar"
-              ? "bg-[#111111] text-white font-semibold shadow-xs"
-              : "hover:bg-[#e4e1d8] text-[#333333]"
-          }`}
-        >
-          <Calendar className="w-4 h-4" />
-          <span className="flex-1 truncate">{language === "zh" ? "全科日历" : "Calendar"}</span>
-          <span className="font-mono text-[10px] opacity-60">03</span>
-        </button>
+      <div className="px-2.5 pb-2 space-y-0.5">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const active = currentTab === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onTabChange(item.id)}
+              aria-current={active ? "page" : undefined}
+              className={`ui-nav-item ${active ? "ui-nav-active" : "ui-nav-idle"}`}
+            >
+              <Icon className="w-4 h-4 shrink-0" />
+              <span className="flex-1 truncate">{item.label}</span>
+            </button>
+          );
+        })}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        <div className="flex items-center justify-between px-2 py-1.5 text-[10px] font-mono uppercase tracking-widest text-[#777777] border-b border-[#dedad1] mb-1">
-          <span className="flex items-center space-x-1">
-            <span>INDEX // {language === "zh" ? "备考科目" : "COURSES"}</span>
-          </span>
-          <span className="text-[10px] font-mono">[{plans.length}]</span>
+      <div className="flex-1 overflow-y-auto px-2.5 pt-2 space-y-0.5 border-t border-[#e7e4de]">
+        <div className="flex items-center justify-between px-2.5 py-1.5 mb-0.5">
+          <span className="text-[11px] font-medium text-[#a39e97]">{isZh ? "备考科目" : "Courses"}</span>
+          <span className="ui-chip tabular-nums">{plans.length}</span>
         </div>
 
         {plans.map((p, idx) => {
-          const isActivePlan =
-            activePlan?.id === p.id && currentTab === "course";
+          const isActivePlan = activePlan?.id === p.id && currentTab === "course";
           const palette = getPaletteByIndex(idx);
 
           return (
             <div
               key={p.id}
-              className={`group flex items-center justify-between w-full transition-all border rounded-lg ${
-                isActivePlan
-                  ? "bg-white border-[#111111] font-semibold text-[#111111] shadow-xs"
-                  : "border-transparent hover:border-[#dedad1] hover:bg-[#e4e1d8] text-[#333333]"
+              className={`group flex items-center justify-between w-full rounded-lg transition-all ${
+                isActivePlan ? "bg-white shadow-[0_1px_2px_rgba(28,27,26,0.08)]" : "hover:bg-black/[0.04]"
               }`}
-              style={isActivePlan ? { borderLeftWidth: "4px", borderLeftColor: palette.accentColor } : {}}
             >
               <button
                 onClick={() => {
                   onSelectPlan(p.id);
                   onTabChange("course", p.id);
                 }}
-                className="flex-1 flex items-center space-x-2 px-2 py-1.5 text-left truncate cursor-pointer min-w-0 rounded-lg"
+                className="flex-1 flex items-center gap-2.5 px-2.5 py-2 text-left truncate cursor-pointer min-w-0 rounded-lg"
               >
                 <span
-                  className="w-4 h-4 text-[9px] font-mono font-bold flex items-center justify-center border border-[#111111] shrink-0 rounded-xs"
-                  style={{ backgroundColor: palette.accentColor, color: palette.id === "dark-slate" ? "#FFFFFF" : "#111111" }}
-                >
-                  {idx + 1}
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: palette.accentColor }}
+                />
+                <span className={`flex-1 truncate text-[13px] ${isActivePlan ? "font-medium text-[#1c1b1a]" : "text-[#6b6660]"}`}>
+                  {p.examName}
                 </span>
-                <span className="flex-1 truncate text-xs font-sans">{p.examName}</span>
               </button>
 
               {(onRequestDeletePlan || onDeletePlan) && (
@@ -177,9 +148,9 @@ export function NotionSidebar({
                       onDeletePlan(p.id);
                     }
                   }}
-                  className="opacity-0 group-hover:opacity-100 p-2 mr-1 text-[#777777] hover:text-[#d44c47] transition-all shrink-0 cursor-pointer rounded-md"
-                  title={language === "zh" ? "删除此科目" : "Delete subject"}
-                  aria-label={language === "zh" ? `删除科目 ${p.examName}` : `Delete subject ${p.examName}`}
+                  className="opacity-0 group-hover:opacity-100 p-2 mr-1 text-[#a39e97] hover:text-[#B42318] transition-all shrink-0 cursor-pointer rounded-md"
+                  title={isZh ? "删除此科目" : "Delete subject"}
+                  aria-label={isZh ? `删除科目 ${p.examName}` : `Delete subject ${p.examName}`}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -189,37 +160,30 @@ export function NotionSidebar({
         })}
 
         {plans.length === 0 && (
-          <p className="text-[11px] text-[#777777] px-2 py-1 font-mono">
-            {language === "zh" ? "暂无科目" : "No subjects yet"}
-          </p>
+          <p className="text-[12px] text-[#a39e97] px-2.5 py-1.5">{isZh ? "暂无科目" : "No subjects yet"}</p>
         )}
 
         <button
           onClick={onNewPlan}
-          className={`w-full flex items-center space-x-2 px-2.5 py-2 mt-1 text-left transition-all cursor-pointer font-sans text-xs border border-dashed border-[#111111]/30 hover:border-[#111111] rounded-lg ${
+          className={`ui-nav-item mt-1 border border-dashed ${
             currentTab === "add_subject"
-              ? "bg-[#111111] text-white font-semibold shadow-xs"
-              : "hover:bg-[#e4e1d8] text-[#111111]"
+              ? "ui-nav-active border-transparent"
+              : "border-[#d8d4cc] text-[#6b6660] hover:border-[#bdb8ae] hover:bg-black/[0.02]"
           }`}
         >
-          <Plus className="w-3.5 h-3.5" />
-          <span className="flex-1 truncate uppercase tracking-wider">{language === "zh" ? "新建科目" : "NEW SUBJECT"}</span>
+          <Plus className="w-4 h-4 shrink-0" />
+          <span className="flex-1 truncate">{isZh ? "新建科目" : "New subject"}</span>
         </button>
       </div>
 
-      <div className="p-2.5 border-t border-[#111111] bg-[#faf9f6]">
+      <div className="p-2.5 border-t border-[#e7e4de]">
         <button
           onClick={() => onTabChange("settings")}
           aria-current={currentTab === "settings" ? "page" : undefined}
-          className={`w-full flex items-center space-x-2 px-2.5 py-2 text-left transition-all cursor-pointer font-sans text-xs rounded-lg border ${
-            currentTab === "settings"
-              ? "bg-[#111111] text-white font-semibold border-[#111111] shadow-xs"
-              : "bg-white text-[#333333] border-[#dedad1] hover:border-[#111111] hover:text-[#111111]"
-          }`}
+          className={`ui-nav-item ${currentTab === "settings" ? "ui-nav-active" : "ui-nav-idle"}`}
         >
-          <Settings className="w-4 h-4" />
-          <span className="flex-1 truncate">{language === "zh" ? "设置" : "Settings"}</span>
-          <span className="font-mono text-[10px] opacity-60">04</span>
+          <Settings className="w-4 h-4 shrink-0" />
+          <span className="flex-1 truncate">{isZh ? "设置" : "Settings"}</span>
         </button>
       </div>
     </aside>

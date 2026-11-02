@@ -192,10 +192,10 @@ export default function App() {
 
   if (!isHydrated) {
     return (
-      <div className="min-h-screen bg-[#f8f7f4] text-[#111111] flex items-center justify-center font-mono text-xs">
-        <div className="flex items-center space-x-2">
-          <span className="w-2 h-2 bg-[#111111] animate-pulse" />
-          <span>{language === "zh" ? "正在读取本地备考数据..." : "Loading local planner data..."}</span>
+      <div className="min-h-screen bg-[#f8f7f4] text-[#8a8580] flex items-center justify-center text-[13px]">
+        <div className="flex items-center gap-2.5">
+          <span className="w-4 h-4 rounded-full border-2 border-[#ddd9d2] border-t-[#1c1b1a] animate-spin" />
+          <span>{language === "zh" ? "正在读取本地备考数据…" : "Loading local planner data…"}</span>
         </div>
       </div>
     );
@@ -223,53 +223,51 @@ export default function App() {
           isSidebarOpen ? "md:ml-64" : "ml-0"
         }`}
       >
-        <div className="md:hidden sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[#111111] bg-[#faf9f6] px-3 py-2">
+        <div className="md:hidden sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[#e7e4de] bg-[#f8f7f4]/90 backdrop-blur px-4 py-2.5">
           <button
             onClick={() => handleNavigateToTab("today")}
             className="flex items-center gap-2 cursor-pointer"
             aria-label={language === "zh" ? "回到今日" : "Back to today"}
           >
-            <span className="w-6 h-6 bg-[#111111] text-white flex items-center justify-center text-[10px] font-mono font-bold">
+            <span className="w-6 h-6 rounded-md bg-[#1c1b1a] text-white flex items-center justify-center text-[10px] font-semibold tracking-tight">
               EP
             </span>
-            <span className="text-xs font-bold tracking-tight">EXAM PLAN AI</span>
+            <span className="text-[13px] font-semibold tracking-tight text-[#1c1b1a]">EXAM PLAN AI</span>
           </button>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={handleNewPlan}
-              className="p-2 min-w-9 min-h-9 border border-[#111111] bg-white text-[#111111] hover:bg-[#f2f0ea] cursor-pointer"
-              aria-label={language === "zh" ? "新建备考科目" : "Create subject"}
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
+          <button
+            onClick={handleNewPlan}
+            className="p-2 min-w-9 min-h-9 rounded-lg border border-[#e5e2dc] bg-white text-[#1c1b1a] hover:bg-[#faf9f6] transition-colors cursor-pointer"
+            aria-label={language === "zh" ? "新建备考科目" : "Create subject"}
+          >
+            <Plus className="w-4 h-4" />
+          </button>
         </div>
 
         {saveError && (
-          <div className="sticky top-0 z-30 flex items-start justify-between gap-3 bg-[#FCD33B] border-b border-[#111111] px-4 py-2 text-[12px] text-[#111111]">
+          <div className="sticky top-0 z-30 flex items-start justify-between gap-3 border-b border-[#f0e2c0] bg-[#FFF6DD] px-4 py-2.5 text-[13px] text-[#8A5A00]">
             <span className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{saveError}</span>
             </span>
             <button
               onClick={() => handleNavigateToTab("settings")}
-              className="shrink-0 underline font-bold cursor-pointer"
+              className="shrink-0 font-medium underline underline-offset-2 cursor-pointer"
             >
-              {language === "zh" ? "前往设置导出备份" : "OPEN SETTINGS TO EXPORT"}
+              {language === "zh" ? "前往设置导出备份" : "Export a backup"}
             </button>
           </div>
         )}
         {appNotice && (
-          <div className="sticky top-0 z-30 flex items-start justify-between gap-3 bg-[#FCD33B] border-b border-[#111111] px-4 py-2 text-[12px] text-[#111111]">
+          <div className="sticky top-0 z-30 flex items-start justify-between gap-3 border-b border-[#e7e4de] bg-[#f1efe9] px-4 py-2.5 text-[13px] text-[#6b6660]">
             <span className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{appNotice}</span>
             </span>
             <button
               onClick={() => setAppNotice(null)}
-              className="shrink-0 underline font-bold cursor-pointer"
+              className="shrink-0 font-medium underline underline-offset-2 cursor-pointer"
             >
-              {language === "zh" ? "知道了" : "DISMISS"}
+              {language === "zh" ? "知道了" : "Dismiss"}
             </button>
           </div>
         )}
@@ -362,29 +360,24 @@ export default function App() {
                 onNavigateToTab={handleNavigateToTab}
               />
             ) : (
-              <div className="max-w-xl mx-auto mt-16 p-8 bg-white border border-[#111111] shadow-xs text-center font-mono space-y-4 animate-fadeIn">
-                <div className="w-12 h-12 bg-[#FCD33B] border border-[#111111] flex items-center justify-center mx-auto shadow-xs">
-                  <LayoutDashboard className="w-6 h-6 text-[#111111]" />
+              <div className="max-w-md mx-auto mt-16 ui-card p-8 text-center space-y-4 animate-fadeIn">
+                <div className="w-12 h-12 rounded-xl bg-[#f1efe9] flex items-center justify-center mx-auto">
+                  <LayoutDashboard className="w-6 h-6 text-[#8a8580]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-[#111111]">
-                    {language === "zh"
-                      ? "暂无可查看的备考科目 // NO ACTIVE SUBJECT"
-                      : "NO ACTIVE SUBJECT"}
+                  <h3 className="text-[15px] font-semibold text-[#1c1b1a]">
+                    {language === "zh" ? "暂无备考科目" : "No subjects yet"}
                   </h3>
-                  <p className="text-xs text-[#666666] mt-1.5 leading-relaxed max-w-md mx-auto">
+                  <p className="text-[13px] text-[#8a8580] mt-1.5 leading-relaxed max-w-sm mx-auto">
                     {language === "zh"
-                      ? "您还没有添加任何备考科目。请先点击下方按钮新建您的首门备考计划，生成每日科学复习任务与考纲知识库。"
-                      : "You have no exam subjects yet. Create your first study plan to generate daily tasks and a syllabus knowledge base."}
+                      ? "新建你的首门备考计划，AI 会整理考点并生成每日复习任务。"
+                      : "Create your first study plan to generate daily tasks and a syllabus knowledge base."}
                   </p>
                 </div>
                 <div className="pt-2">
-                  <button
-                    onClick={handleNewPlan}
-                    className="inline-flex items-center space-x-2 px-5 py-2.5 bg-[#111111] text-white text-xs font-bold rounded-lg hover:bg-[#333333] transition-colors cursor-pointer shadow-xs active:scale-95"
-                  >
+                  <button onClick={handleNewPlan} className="ui-btn ui-btn-primary">
                     <Plus className="w-4 h-4" />
-                    <span>{language === "zh" ? "新建备考科目 (Create Subject)" : "CREATE SUBJECT"}</span>
+                    <span>{language === "zh" ? "新建备考科目" : "Create subject"}</span>
                   </button>
                 </div>
               </div>
@@ -393,7 +386,7 @@ export default function App() {
       </div>
 
       <nav
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#faf9f6] border-t border-[#111111] grid grid-cols-4"
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#f8f7f4]/95 backdrop-blur border-t border-[#e7e4de] grid grid-cols-4"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label={language === "zh" ? "移动端主导航" : "Mobile navigation"}
       >
@@ -405,8 +398,8 @@ export default function App() {
               key={item.id}
               onClick={() => handleNavigateToTab(item.id)}
               aria-current={active ? "page" : undefined}
-              className={`flex flex-col items-center justify-center gap-0.5 min-h-[54px] text-[11px] font-semibold transition-colors cursor-pointer ${
-                active ? "bg-[#111111] text-white" : "text-[#333333] hover:bg-[#efede6]"
+              className={`flex flex-col items-center justify-center gap-1 min-h-[56px] text-[11px] transition-colors cursor-pointer ${
+                active ? "text-[#1c1b1a] font-semibold" : "text-[#a39e97] font-medium"
               }`}
             >
               <Icon className="w-[18px] h-[18px]" />

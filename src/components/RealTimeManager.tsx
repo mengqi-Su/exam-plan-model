@@ -4,6 +4,8 @@ import {
   Calendar,
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  PieChart,
 } from "lucide-react";
 import { ExamStudyPlan } from "../types";
 import { playCompletionChime } from "../lib/audio";
@@ -11,7 +13,6 @@ import { useI18n } from "../lib/i18n";
 import { getAiFallbackNotice, readApiError } from "../lib/aiClient";
 import { addDays, toLocalDateString } from "../lib/date";
 import { DomainMasteryWheelChart } from "./DomainMasteryWheelChart";
-import { PieChart } from "lucide-react";
 
 interface RealTimeManagerProps {
   plan: ExamStudyPlan;
@@ -20,6 +21,7 @@ interface RealTimeManagerProps {
 
 export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
   const { language } = useI18n();
+  const isZh = language === "zh";
   const todayStr = useMemo(() => toLocalDateString(), []);
 
   const [showRoadmap, setShowRoadmap] = useState(true);
@@ -176,146 +178,125 @@ export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
   return (
     <div className="space-y-8">
       {aiNotice && (
-        <div className="p-3.5 bg-[#FCD33B] border border-[#111111] text-[#111111] font-mono text-xs flex items-center justify-between animate-fadeIn">
-          <div className="flex items-start space-x-2">
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-3.5 py-3 text-[12.5px] text-[#8A5A00] animate-fadeIn">
+          <div className="flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-            <span className="font-bold leading-relaxed">{aiNotice}</span>
+            <span className="leading-relaxed">{aiNotice}</span>
           </div>
           <button
             onClick={() => setAiNotice(null)}
-            className="px-2 py-0.5 border border-[#111111] text-[11px] hover:bg-[#111111] hover:text-white cursor-pointer shrink-0 ml-3"
+            className="shrink-0 font-medium underline underline-offset-2 cursor-pointer"
           >
-            [{language === "zh" ? "知道了" : "DISMISS"}]
+            {isZh ? "知道了" : "Dismiss"}
           </button>
         </div>
       )}
 
       {plan?.phases && plan.phases.length > 0 && (
-        <section className="space-y-3 font-mono">
-          <div className="flex items-center justify-between pb-2 border-b border-[#111111]">
-            <div className="flex items-center space-x-2">
-              <Calendar className="w-4 h-4 text-[#111111]" />
-              <h3 className="text-xs font-bold uppercase text-[#111111]">
-                [{language === "zh" ? "备考阶段推进路线" : "PHASE REVIEW ROADMAP"}]
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 ui-subtle" />
+              <h3 className="text-[14px] font-semibold text-[#1c1b1a]">
+                {isZh ? "备考阶段推进路线" : "Phase review roadmap"}
               </h3>
             </div>
-
             <button
               onClick={() => setShowRoadmap(!showRoadmap)}
-              className="text-xs font-bold text-[#111111] hover:underline cursor-pointer"
+              className="inline-flex items-center gap-1 text-[12px] font-medium ui-muted hover:text-[#1c1b1a] transition-colors cursor-pointer"
             >
-              [{showRoadmap ? (language === "zh" ? "收起" : "COLLAPSE") : (language === "zh" ? "展开" : "EXPAND")}]
+              {showRoadmap ? (isZh ? "收起" : "Collapse") : isZh ? "展开" : "Expand"}
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showRoadmap ? "rotate-180" : ""}`} />
             </button>
           </div>
 
           {showRoadmap && (
-            <div className="bg-[#faf9f6] border border-[#111111] py-8 px-6 sm:px-12 select-none animate-fadeIn">
-              <div className="relative">
-                <div className="absolute left-6 sm:left-12 top-10 bottom-0 w-[1px] bg-[#111111]" />
-
-                <div className="flex items-center space-x-4 mb-8">
-                  <div className="w-12 h-12 rounded-full border border-[#999999] bg-[#eae8e1] flex items-center justify-center shrink-0 z-10">
-                    <span className="text-[10px] font-bold text-[#666666]">
-                      {daysUntilExam}D
-                    </span>
-                  </div>
-
-                  <div className="text-xs text-[#555555] font-sans">
-                    <span className="font-bold text-[#111111] text-sm tracking-wide">
-                      {language === "zh" ? "备考推进全流程" : "Phase Timeline"}
-                    </span>{" "}
-                    <span className="text-xs text-[#888888]">
-                      {language === "zh" ? `· 距离考试还有 ${daysUntilExam} 天` : `· ${daysUntilExam} days remaining`}
-                    </span>
-                  </div>
+            <div className="ui-card p-5 sm:p-7 select-none animate-fadeIn">
+              <div className="flex items-center gap-3.5 mb-6">
+                <div className="w-11 h-11 rounded-full bg-[#f1efe9] flex items-center justify-center shrink-0">
+                  <span className="text-[12px] font-semibold tabular-nums text-[#1c1b1a]">{daysUntilExam}D</span>
                 </div>
-
-                <div className="relative w-full border-t border-[#111111] my-4">
-                  <div className="absolute left-6 sm:left-12 -translate-x-1/2 -top-3.5 bg-[#111111] text-white text-[11px] font-bold px-3.5 py-0.5 rounded-full flex items-center justify-center tracking-widest z-20 shadow-sm">
-                    00
-                  </div>
-                </div>
-
-                <div className="pt-8 space-y-10 sm:space-y-12">
-                  {plan.phases.map((phase, pIdx) => {
-                    const currentNum = String(pIdx + 1).padStart(2, "0");
-                    const isCurrent = pIdx === 0;
-
-                    return (
-                      <div
-                        key={phase.id || `phase-step-${pIdx}`}
-                        className="relative flex items-center group"
-                      >
-                        <div className="absolute left-6 sm:left-12 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#111111] z-20 transition-transform group-hover:scale-125" />
-
-                        <div className="pl-16 sm:pl-28 flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-12 flex-1">
-                          <span className="text-sm sm:text-base font-bold text-[#111111] tracking-widest shrink-0 w-10">
-                            {currentNum}
-                          </span>
-
-                          <div className="flex-1 space-y-1">
-                            <div className="flex flex-wrap items-center gap-3">
-                              <span className="text-sm sm:text-base font-normal font-sans text-[#111111] tracking-tight">
-                                {phase.name}
-                              </span>
-
-                              <span className="text-[10px] text-[#777777] font-mono border-b border-[#cccccc] pb-0.5">
-                                {phase.startDate?.slice(5)} ~ {phase.endDate?.slice(5)}
-                              </span>
-
-                              {isCurrent && (
-                                <span className="text-[9px] px-1.5 py-0.2 bg-[#111111] text-white font-bold uppercase font-mono">
-                                  {language === "zh" ? "进行中" : "CURRENT"}
-                                </span>
-                              )}
-                            </div>
-
-                            {phase.description && (
-                              <p className="text-xs text-[#666666] leading-relaxed max-w-xl font-sans">
-                                {phase.description || phase.focus}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  <div className="relative flex items-center pt-2">
-                    <div className="absolute left-6 sm:left-12 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#111111] z-20" />
-
-                    <div className="pl-16 sm:pl-28 flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-12 flex-1">
-                      <span className="text-sm sm:text-base font-bold text-[#111111] tracking-widest shrink-0 w-10">
-                        {String(plan.phases.length + 1).padStart(2, "0")}
-                      </span>
-                      <div className="flex items-center space-x-3">
-                        <span className="text-sm sm:text-base font-bold font-sans text-[#111111]">
-                          {language === "zh" ? "终点 · 目标考试日" : "Final · Exam Day"}
-                        </span>
-                        <span className="text-xs text-[#111111] font-bold font-mono px-2 py-0.5 border border-[#111111] bg-white">
-                          {plan.examDate || "--"} {plan.examTime || ""}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="text-[13px] min-w-0">
+                  <span className="font-semibold text-[#1c1b1a]">
+                    {isZh ? "备考推进全流程" : "Phase timeline"}
+                  </span>
+                  <span className="ui-muted">
+                    {" · "}
+                    {isZh ? `距离考试还有 ${daysUntilExam} 天` : `${daysUntilExam} days remaining`}
+                  </span>
                 </div>
               </div>
+
+              <ol className="relative space-y-6">
+                <span className="absolute left-[5px] top-2 bottom-2 w-px bg-[#eae7e1]" aria-hidden="true" />
+
+                {plan.phases.map((phase, pIdx) => {
+                  const isCurrent = pIdx === 0;
+                  return (
+                    <li key={phase.id || `phase-step-${pIdx}`} className="relative flex gap-4 group">
+                      <span
+                        className={`relative z-10 mt-1.5 w-2.5 h-2.5 rounded-full shrink-0 ring-4 ring-white transition-transform group-hover:scale-125 ${
+                          isCurrent ? "bg-[#1c1b1a]" : "bg-[#cfc9c0]"
+                        }`}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                          <span className="text-[11px] font-medium tabular-nums ui-subtle">
+                            {String(pIdx + 1).padStart(2, "0")}
+                          </span>
+                          <span className="text-[14px] font-medium text-[#1c1b1a] tracking-tight">
+                            {phase.name}
+                          </span>
+                          <span className="ui-chip tabular-nums">
+                            {phase.startDate?.slice(5)} ~ {phase.endDate?.slice(5)}
+                          </span>
+                          {isCurrent && (
+                            <span className="inline-flex items-center rounded-full bg-[#1c1b1a] text-white px-2 py-0.5 text-[10px] font-medium">
+                              {isZh ? "进行中" : "Current"}
+                            </span>
+                          )}
+                        </div>
+                        {phase.description && (
+                          <p className="mt-1 text-[12.5px] ui-muted leading-relaxed max-w-xl">
+                            {phase.description || phase.focus}
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+
+                <li className="relative flex gap-4">
+                  <span className="relative z-10 mt-1.5 w-2.5 h-2.5 rounded-full shrink-0 ring-4 ring-white bg-[#FCD33B]" />
+                  <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                    <span className="text-[11px] font-medium tabular-nums ui-subtle">
+                      {String(plan.phases.length + 1).padStart(2, "0")}
+                    </span>
+                    <span className="text-[14px] font-semibold text-[#1c1b1a]">
+                      {isZh ? "终点 · 目标考试日" : "Final · Exam day"}
+                    </span>
+                    <span className="ui-chip tabular-nums">
+                      {plan.examDate || "—"} {plan.examTime || ""}
+                    </span>
+                  </div>
+                </li>
+              </ol>
             </div>
           )}
         </section>
       )}
 
-      <section className="space-y-3 font-mono">
-        <div className="flex items-center space-x-2 pb-2 border-b border-[#111111]">
-          <RefreshCw className="w-4 h-4 text-[#111111]" />
-          <h3 className="text-xs font-bold uppercase text-[#111111]">
-            [{language === "zh" ? "计划动态重排" : "ADAPTIVE REBALANCE"}]
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <RefreshCw className="w-4 h-4 ui-subtle" />
+          <h3 className="text-[14px] font-semibold text-[#1c1b1a]">
+            {isZh ? "计划动态重排" : "Adaptive rebalance"}
           </h3>
         </div>
 
-        <div className="bg-white border border-[#111111] p-4 space-y-3">
-          <p className="text-[11px] text-[#666666] leading-relaxed">
-            {language === "zh"
+        <div className="ui-card p-4 space-y-3">
+          <p className="text-[12.5px] ui-muted leading-relaxed">
+            {isZh
               ? "当作息变动或出现积压任务时，可将未完成任务平摊到剩余备考时间。AI 不可用时会自动改用本地排程规则。"
               : "Redistribute overdue tasks across the remaining study days. If AI is unavailable, local scheduling rules are used automatically."}
           </p>
@@ -324,41 +305,41 @@ export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
             value={rebalanceReason}
             onChange={(e) => setRebalanceReason(e.target.value)}
             rows={2}
-            placeholder={language === "zh" ? "说明本次调整原因（可选）" : "Why are you rebalancing? (optional)"}
-            className="w-full bg-[#faf9f6] border border-[#111111] px-3 py-2 text-xs text-[#111111] placeholder-[#999999] focus:outline-none resize-none"
+            placeholder={isZh ? "说明本次调整原因（可选）" : "Why are you rebalancing? (optional)"}
+            className="w-full rounded-lg bg-[#faf9f6] border border-[#e5e2dc] px-3 py-2 text-[13px] text-[#1c1b1a] placeholder-[#a39e97] focus:outline-none focus:border-[#cfc9c0] resize-none"
           />
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-[10px] font-bold text-[#666666] uppercase">
-              [{language === "zh" ? `积压任务 ${overdueCount} 项` : `${overdueCount} OVERDUE TASKS`}]
+            <span className="text-[12px] ui-muted tabular-nums">
+              {isZh ? `积压任务 ${overdueCount} 项` : `${overdueCount} overdue tasks`}
             </span>
             <button
               onClick={handleTriggerRebalance}
               disabled={isRebalancing}
-              className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 bg-[#111111] hover:bg-[#333333] disabled:opacity-50 text-white text-xs font-bold transition-colors cursor-pointer"
+              className="ui-btn ui-btn-primary px-3.5 py-1.5 text-[12px]"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRebalancing ? "animate-spin" : ""}`} />
               <span>
                 {isRebalancing
-                  ? language === "zh"
-                    ? "正在重排..."
-                    : "REBALANCING..."
-                  : language === "zh"
+                  ? isZh
+                    ? "正在重排…"
+                    : "Rebalancing…"
+                  : isZh
                     ? "重排剩余任务"
-                    : "REBALANCE TASKS"}
+                    : "Rebalance tasks"}
               </span>
             </button>
           </div>
 
           {rebalanceError && (
-            <div className="flex items-start space-x-2 p-2.5 bg-[#faf9f6] border border-[#111111] text-[11px] text-[#111111]">
+            <div className="flex items-start gap-2 rounded-lg border border-[#f0d0cc] bg-[#FDF0EE] p-2.5 text-[12px] text-[#B42318]">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>{rebalanceError}</span>
             </div>
           )}
 
           {rebalanceResultSummary && (
-            <div className="flex items-start space-x-2 p-2.5 bg-[#faf9f6] border border-[#111111] text-[11px] text-[#111111]">
+            <div className="flex items-start gap-2 rounded-lg border border-[#d8e4dc] bg-[#EEF4EF] p-2.5 text-[12px] text-[#3F6B4F]">
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
               <span>{rebalanceResultSummary}</span>
             </div>
@@ -366,18 +347,15 @@ export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
         </div>
       </section>
 
-      <section className="space-y-3 font-mono">
-        <div className="flex items-center space-x-2 pb-2 border-b border-[#111111]">
-          <PieChart className="w-4 h-4 text-[#111111]" />
-          <h3 className="text-xs font-bold uppercase text-[#111111]">
-            [{language === "zh" ? "考点知识掌握度追踪" : "TOPIC MASTERY TRACKER"}]
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <PieChart className="w-4 h-4 ui-subtle" />
+          <h3 className="text-[14px] font-semibold text-[#1c1b1a]">
+            {isZh ? "考点知识掌握度追踪" : "Topic mastery tracker"}
           </h3>
         </div>
 
-        <DomainMasteryWheelChart
-          topics={topicMastery}
-          language={language}
-        />
+        <DomainMasteryWheelChart topics={topicMastery} language={language} />
       </section>
     </div>
   );

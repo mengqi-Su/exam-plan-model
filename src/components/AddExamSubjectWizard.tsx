@@ -174,9 +174,9 @@ export function AddExamSubjectWizard({
   const materialsReady = courseDocuments.length > 0 && !isParsingFiles;
 
   const steps = [
-    { n: 1 as const, label: tt("考试信息", "EXAM DETAILS"), icon: CalendarDays },
-    { n: 2 as const, label: tt("上传资料", "MATERIALS"), icon: Upload },
-    { n: 3 as const, label: tt("生成计划", "GENERATE"), icon: Sparkles },
+    { n: 1 as const, label: tt("考试信息", "Exam details"), icon: CalendarDays },
+    { n: 2 as const, label: tt("上传资料", "Materials"), icon: Upload },
+    { n: 3 as const, label: tt("生成计划", "Generate"), icon: Sparkles },
   ];
 
   const goToStep = (target: 1 | 2 | 3) => {
@@ -579,80 +579,87 @@ export function AddExamSubjectWizard({
   const materialLimitReached = courseDocuments.length >= MAX_AI_MATERIALS;
 
   const inputClass =
-    "w-full border border-[#111111] bg-[#fafafa] px-3 py-2.5 font-mono text-xs outline-none focus:bg-white";
+    "w-full rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] text-[#1c1b1a] outline-none transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97]";
   const labelClass =
-    "mb-1.5 block font-mono text-[10px] font-bold uppercase tracking-wider text-[#555]";
+    "mb-1.5 block text-[11px] font-medium text-[#6b6660]";
+  const sectionHeadCls =
+    "flex items-center justify-between gap-3 border-b border-[#f0ede8] px-4 py-3 sm:px-5";
+  const iconBtnCls =
+    "rounded-lg border border-[#e5e2dc] bg-white p-1.5 text-[#6b6660] transition-colors hover:border-[#cfc9c0] hover:text-[#1c1b1a] cursor-pointer";
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 font-sans text-[#111111] space-y-5">
-      <div className="flex items-center justify-between border-b border-[#111111] pb-4">
+    <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 font-sans text-[#1c1b1a] space-y-5">
+      <div className="flex items-center justify-between">
         <button
           onClick={onCancel}
           disabled={isWorking}
-          className="flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40 cursor-pointer"
+          className="ui-btn ui-btn-ghost flex items-center gap-1.5 text-[12px] disabled:cursor-not-allowed disabled:opacity-40"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>{tt("返回现有计划", "BACK TO PLANS")}</span>
+          <span>{tt("返回现有计划", "Back to plans")}</span>
         </button>
-        <span className="font-mono text-[10px] font-bold uppercase text-[#777]">
-          {tt(`本地已有 ${existingPlans.length} 门科目`, `${existingPlans.length} SUBJECT(S) SAVED`)}
+        <span className="text-[12px] text-[#a39e97] tabular-nums">
+          {tt(`本地已有 ${existingPlans.length} 门科目`, `${existingPlans.length} subjects saved`)}
         </span>
       </div>
 
-      <header className="flex flex-wrap items-center gap-2">
-        <span className="border border-[#111111] bg-[#FCD33B] px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wider">
-          AI GENERATED
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+      <header className="space-y-1">
+        <h1 className="ui-page-title">
           {tt("从资料生成学习计划", "Build a plan from your materials")}
         </h1>
+        <p className="text-[13px] text-[#8a8580]">
+          {tt("上传考纲、讲义或笔记，AI 自动识别考点并编排每日复习。", "Upload a syllabus, slides, or notes — AI extracts topics and schedules your daily review.")}
+        </p>
       </header>
 
-      <ol className="flex items-stretch border border-[#111111] bg-white font-mono">
+      <ol className="flex items-center gap-2">
         {steps.map((s, index) => {
           const isCurrent = s.n === step;
           const isDone = s.n < step;
           const Icon = s.icon;
           return (
-            <li key={s.n} className={`flex-1 ${index > 0 ? "border-l border-[#111111]" : ""}`}>
-              <button
-                onClick={() => goToStep(s.n)}
-                disabled={isWorking || s.n > step}
-                aria-current={isCurrent ? "step" : undefined}
-                className={`flex w-full items-center justify-center gap-2 px-2 py-3 text-[11px] font-bold uppercase tracking-wider transition-colors ${
-                  isCurrent
-                    ? "bg-[#111111] text-white"
-                    : isDone
-                      ? "bg-[#FFF4CC] text-[#111111] hover:bg-[#FCD33B] cursor-pointer"
-                      : "bg-white text-[#999] cursor-not-allowed"
-                }`}
-              >
-                <span
-                  className={`flex h-5 w-5 shrink-0 items-center justify-center border text-[10px] ${
+            <React.Fragment key={s.n}>
+              {index > 0 && <span className="h-px w-4 shrink-0 bg-[#e7e4de] sm:w-6" aria-hidden />}
+              <li className="min-w-0 flex-1">
+                <button
+                  onClick={() => goToStep(s.n)}
+                  disabled={isWorking || s.n > step}
+                  aria-current={isCurrent ? "step" : undefined}
+                  className={`flex w-full items-center justify-center gap-2 rounded-lg border px-2 py-2.5 text-[12px] transition-colors ${
                     isCurrent
-                      ? "border-white bg-white text-[#111111]"
+                      ? "border-[#1c1b1a] bg-[#1c1b1a] text-white font-medium"
                       : isDone
-                        ? "border-[#111111] bg-[#111111] text-white"
-                        : "border-[#bbb] text-[#999]"
+                        ? "border-[#e7e4de] bg-white text-[#1c1b1a] font-medium hover:border-[#cfc9c0] cursor-pointer"
+                        : "border-transparent bg-[#f1efe9] text-[#a39e97] cursor-not-allowed"
                   }`}
                 >
-                  {isDone ? <Check className="h-3 w-3" /> : s.n}
-                </span>
-                <Icon className="hidden h-3.5 w-3.5 sm:block" />
-                <span className="hidden sm:inline">{s.label}</span>
-                <span className="sm:hidden">{s.n}</span>
-              </button>
-            </li>
+                  <span
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium tabular-nums ${
+                      isCurrent
+                        ? "bg-white text-[#1c1b1a]"
+                        : isDone
+                          ? "bg-[#3F6B4F] text-white"
+                          : "bg-[#e7e4de] text-[#a39e97]"
+                    }`}
+                  >
+                    {isDone ? <Check className="h-3 w-3" /> : s.n}
+                  </span>
+                  <Icon className="hidden h-3.5 w-3.5 sm:block" />
+                  <span className="hidden truncate sm:inline">{s.label}</span>
+                  <span className="sm:hidden tabular-nums">{s.n}</span>
+                </button>
+              </li>
+            </React.Fragment>
           );
         })}
       </ol>
 
       {aiReady === false && (
-        <div className="flex items-start gap-2.5 border border-[#111111] bg-[#FFF4CC] px-4 py-3">
+        <div className="flex items-start gap-2.5 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-4 py-3 text-[#8A5A00]">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div className="min-w-0 text-xs">
-            <p className="font-bold">{tt("当前服务未配置 AI，暂时无法自动生成", "AI is not configured on this server")}</p>
-            <p className="mt-0.5 leading-relaxed text-[#555]">
+          <div className="min-w-0 text-[13px]">
+            <p className="font-medium">{tt("当前服务未配置 AI，暂时无法自动生成", "AI is not configured on this server")}</p>
+            <p className="mt-0.5 leading-relaxed text-[#8A5A00]/80">
               {tt(
                 "请在部署环境配置 GEMINI_API_KEY 后刷新页面。",
                 "Set GEMINI_API_KEY in your deployment and refresh."
@@ -663,11 +670,11 @@ export function AddExamSubjectWizard({
       )}
 
       {error && (
-        <div className="flex items-start justify-between gap-3 border border-[#111111] bg-[#FDEAE6] px-4 py-3">
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-[#f5d6d0] bg-[#FDF0EE] px-4 py-3 text-[#B42318]">
           <div className="flex min-w-0 items-start gap-2.5">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <div className="min-w-0 text-xs">
-              <p className="font-bold">
+            <div className="min-w-0 text-[13px]">
+              <p className="font-medium">
                 {error.code === "AI_NOT_CONFIGURED"
                   ? tt("AI 尚未配置", "AI is not configured")
                   : tt("生成未完成", "Generation failed")}
@@ -677,7 +684,7 @@ export function AddExamSubjectWizard({
           </div>
           <button
             onClick={() => setError(null)}
-            className="shrink-0 border border-[#111111] bg-white p-1 hover:bg-[#111111] hover:text-white cursor-pointer"
+            className="shrink-0 rounded-lg p-1 transition-colors hover:bg-[#B42318]/10 cursor-pointer"
             aria-label={tt("关闭提示", "Dismiss error")}
           >
             <X className="h-3.5 w-3.5" />
@@ -687,19 +694,19 @@ export function AddExamSubjectWizard({
 
       {/* STEP 1 — Exam details */}
       {step === 1 && (
-        <section className="border border-[#111111] bg-white">
-          <div className="flex items-center justify-between border-b border-[#111111] bg-[#fafafa] px-4 py-3 sm:px-5">
-            <h2 className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-wider">
-              <CalendarDays className="h-4 w-4" />
-              <span>{tt("考试信息", "EXAM DETAILS")}</span>
+        <section className="ui-card overflow-hidden">
+          <div className={sectionHeadCls}>
+            <h2 className="ui-section-title flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-[#8a8580]" />
+              <span>{tt("考试信息", "Exam details")}</span>
             </h2>
-            <span className="font-mono text-[10px] font-bold text-[#C62828]">* {tt("必填", "REQUIRED")}</span>
+            <span className="text-[11px] font-medium text-[#a39e97]">* {tt("必填", "Required")}</span>
           </div>
 
           <fieldset disabled={isWorking} className="grid min-w-0 grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-5">
             <label className="sm:col-span-2">
               <span className={`${labelClass} flex items-center gap-1`}>
-                {tt("考试 / 课程名称", "EXAM OR COURSE NAME")} <span className="text-[#C62828]">*</span>
+                {tt("考试 / 课程名称", "Exam or course name")} <span className="text-[#B42318]">*</span>
               </span>
               <input
                 type="text"
@@ -715,7 +722,7 @@ export function AddExamSubjectWizard({
             </label>
 
             <label>
-              <span className={labelClass}>{tt("开始复习日期", "START DATE")}</span>
+              <span className={labelClass}>{tt("开始复习日期", "Start date")}</span>
               <input
                 type="date"
                 value={startDate}
@@ -729,7 +736,7 @@ export function AddExamSubjectWizard({
 
             <label>
               <span className={`${labelClass} flex items-center gap-1`}>
-                {tt("考试日期", "EXAM DATE")} <span className="text-[#C62828]">*</span>
+                {tt("考试日期", "Exam date")} <span className="text-[#B42318]">*</span>
               </span>
               <input
                 type="date"
@@ -744,8 +751,8 @@ export function AddExamSubjectWizard({
             </label>
 
             <label>
-              <span className={labelClass}>{tt("每天可学习时长", "STUDY TIME PER DAY")}</span>
-              <div className="flex border border-[#111111] bg-[#fafafa] focus-within:bg-white">
+              <span className={labelClass}>{tt("每天可学习时长", "Study time per day")}</span>
+              <div className="flex overflow-hidden rounded-lg border border-[#e5e2dc] bg-white focus-within:border-[#cfc9c0]">
                 <input
                   type="number"
                   min={0.5}
@@ -756,29 +763,29 @@ export function AddExamSubjectWizard({
                     setDailyHoursInput(event.target.value);
                     clearTransientError();
                   }}
-                  className="w-full min-w-0 bg-transparent px-3 py-2.5 font-mono text-xs outline-none"
+                  className="w-full min-w-0 bg-transparent px-3 py-2.5 text-[13px] text-[#1c1b1a] tabular-nums outline-none"
                 />
-                <span className="flex items-center border-l border-[#111111] bg-[#FCD33B] px-3 font-mono text-[10px] font-bold uppercase">
-                  {tt("小时 / 天", "H / DAY")}
+                <span className="flex items-center border-l border-[#f0ede8] bg-[#f1efe9] px-3 text-[11px] font-medium text-[#6b6660]">
+                  {tt("小时 / 天", "h / day")}
                 </span>
               </div>
             </label>
 
-            <div className="border border-[#111111] bg-[#fafafa] sm:col-span-2">
+            <div className="overflow-hidden rounded-lg border border-[#e5e2dc] bg-[#faf9f6] sm:col-span-2">
               <button
                 type="button"
                 onClick={() => setShowAdvanced((prev) => !prev)}
                 aria-expanded={showAdvanced}
-                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 font-mono text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white cursor-pointer"
+                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-[12px] font-medium text-[#1c1b1a] transition-colors hover:bg-white cursor-pointer"
               >
                 <span className="flex items-center gap-2">
-                  <Sliders className="h-3.5 w-3.5" />
-                  {tt("高级设置", "ADVANCED")}
+                  <Sliders className="h-3.5 w-3.5 text-[#8a8580]" />
+                  {tt("高级设置", "Advanced settings")}
                 </span>
-                <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
+                <ChevronDown className={`h-4 w-4 text-[#8a8580] transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
               </button>
               {showAdvanced && (
-                <div className="border-t border-[#111111] bg-white p-3 sm:p-4">
+                <div className="border-t border-[#f0ede8] bg-white p-3 sm:p-4">
                   <RulerTimePicker
                     language={language}
                     dailySchedules={dailySchedules}
@@ -792,20 +799,20 @@ export function AddExamSubjectWizard({
             </div>
 
             <label>
-              <span className={labelClass}>{tt("考试时间（可选）", "EXAM TIME (OPTIONAL)")}</span>
+              <span className={labelClass}>{tt("考试时间（可选）", "Exam time (optional)")}</span>
               <div className="relative">
-                <Clock className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#777]" />
+                <Clock className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#a39e97]" />
                 <input
                   type="time"
                   value={examTime}
                   onChange={(event) => setExamTime(event.target.value)}
-                  className="w-full border border-[#111111] bg-[#fafafa] py-2.5 pl-9 pr-3 font-mono text-xs outline-none focus:bg-white"
+                  className="w-full rounded-lg border border-[#e5e2dc] bg-white py-2.5 pl-9 pr-3 text-[13px] text-[#1c1b1a] outline-none transition-colors focus:border-[#cfc9c0]"
                 />
               </div>
             </label>
 
             <label>
-              <span className={labelClass}>{tt("学科 / 专业（可选）", "SUBJECT (OPTIONAL)")}</span>
+              <span className={labelClass}>{tt("学科 / 专业（可选）", "Subject (optional)")}</span>
               <input
                 type="text"
                 value={subject}
@@ -817,7 +824,7 @@ export function AddExamSubjectWizard({
             </label>
 
             <label>
-              <span className={labelClass}>{tt("目标成绩（可选）", "TARGET SCORE (OPTIONAL)")}</span>
+              <span className={labelClass}>{tt("目标成绩（可选）", "Target score (optional)")}</span>
               <input
                 type="text"
                 value={targetScore}
@@ -830,29 +837,29 @@ export function AddExamSubjectWizard({
           </fieldset>
 
           {daysDiff !== null && daysDiff >= 0 && hoursReady && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[#111111] bg-[#fafafa] px-4 py-2.5 font-mono text-[11px] sm:px-5">
-              <span>
-                {tt("备考周期", "SPAN")} <strong>{daysDiff}</strong> {tt("天", "days")}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[#f0ede8] bg-[#faf9f6] px-4 py-2.5 text-[12px] text-[#6b6660] sm:px-5">
+              <span className="tabular-nums">
+                {tt("备考周期", "Span")} <strong className="font-semibold text-[#1c1b1a]">{daysDiff}</strong> {tt("天", "days")}
               </span>
-              <span className="text-[#bbb]">/</span>
+              <span className="text-[#d6d2cb]">·</span>
               {advancedTouched ? (
                 <>
-                  <span>
-                    {tt("周总学时", "WEEKLY")} <strong>{weeklyTotalHours}</strong>h
+                  <span className="tabular-nums">
+                    {tt("周总学时", "Weekly")} <strong className="font-semibold text-[#1c1b1a]">{weeklyTotalHours}</strong>h
                   </span>
-                  <span className="text-[#bbb]">/</span>
-                  <span>
-                    {tt("全程预计", "TOTAL")} <strong>{advancedTotalHours}</strong>h
+                  <span className="text-[#d6d2cb]">·</span>
+                  <span className="tabular-nums">
+                    {tt("全程预计", "Total")} <strong className="font-semibold text-[#1c1b1a]">{advancedTotalHours}</strong>h
                   </span>
                 </>
               ) : (
                 <>
-                  <span>
-                    {tt("每天", "PER DAY")} <strong>{parsedDailyHours}</strong>h
+                  <span className="tabular-nums">
+                    {tt("每天", "Per day")} <strong className="font-semibold text-[#1c1b1a]">{parsedDailyHours}</strong>h
                   </span>
-                  <span className="text-[#bbb]">/</span>
-                  <span>
-                    {tt("预计总复习量", "TOTAL")} <strong>{totalPlannedHours}</strong>h
+                  <span className="text-[#d6d2cb]">·</span>
+                  <span className="tabular-nums">
+                    {tt("预计总复习量", "Total")} <strong className="font-semibold text-[#1c1b1a]">{totalPlannedHours}</strong>h
                   </span>
                 </>
               )}
@@ -863,13 +870,13 @@ export function AddExamSubjectWizard({
 
       {/* STEP 2 — Materials */}
       {step === 2 && (
-        <section className="border border-[#111111] bg-white">
-          <div className="flex items-center justify-between border-b border-[#111111] bg-[#fafafa] px-4 py-3 sm:px-5">
-            <h2 className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-wider">
-              <Upload className="h-4 w-4" />
-              <span>{tt("上传资料", "MATERIALS")}</span>
+        <section className="ui-card overflow-hidden">
+          <div className={sectionHeadCls}>
+            <h2 className="ui-section-title flex items-center gap-2">
+              <Upload className="h-4 w-4 text-[#8a8580]" />
+              <span>{tt("上传资料", "Materials")}</span>
             </h2>
-            <span className="font-mono text-[10px] font-bold text-[#777]">
+            <span className="text-[12px] text-[#a39e97] tabular-nums">
               {courseDocuments.length} / {MAX_AI_MATERIALS}
             </span>
           </div>
@@ -882,8 +889,8 @@ export function AddExamSubjectWizard({
               }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleDrop}
-              className={`flex cursor-pointer flex-col items-center justify-center border border-dashed border-[#111111] px-4 py-8 text-center transition-colors ${
-                isDragging ? "bg-[#FCD33B]" : "bg-[#fafafa] hover:bg-[#FFF4CC]"
+              className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-4 py-8 text-center transition-colors ${
+                isDragging ? "border-[#1c1b1a] bg-[#f1efe9]" : "border-[#ddd8d0] bg-[#faf9f6] hover:border-[#cfc9c0] hover:bg-[#f1efe9]"
               } ${materialLimitReached || isParsingFiles || isWorking ? "pointer-events-none opacity-60" : ""}`}
             >
               <input
@@ -898,15 +905,15 @@ export function AddExamSubjectWizard({
                 className="hidden"
                 disabled={materialLimitReached || isParsingFiles || isWorking}
               />
-              <div className="mb-2 flex h-12 w-12 items-center justify-center border border-[#111111] bg-[#111111] text-white">
-                {isParsingFiles ? <Loader2 className="h-6 w-6 animate-spin" /> : <Upload className="h-6 w-6" />}
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#1c1b1a] shadow-sm">
+                {isParsingFiles ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
               </div>
-              <p className="text-sm font-bold">
+              <p className="text-[14px] font-medium text-[#1c1b1a]">
                 {isParsingFiles
                   ? parsingStatus || tt("正在读取资料...", "Reading materials...")
                   : tt("拖拽资料到这里，或点击选择文件", "Drop materials here, or click to browse")}
               </p>
-              <p className="mt-1 text-[11px] leading-relaxed text-[#666]">
+              <p className="mt-1 text-[12px] leading-relaxed text-[#8a8580]">
                 {tt(
                   "PDF、DOCX、PPTX、TXT、MD、CSV · 单个文件 ≤ 10 MB",
                   "PDF, DOCX, PPTX, TXT, MD, CSV · max 10 MB each"
@@ -915,13 +922,15 @@ export function AddExamSubjectWizard({
             </label>
 
             {courseDocuments.length > 0 && (
-              <ul className="divide-y divide-[#e5e2da] border border-[#111111] bg-white">
+              <ul className="divide-y divide-[#f0ede8] overflow-hidden rounded-xl border border-[#eae7e1] bg-white">
                 {courseDocuments.map((doc) => (
                   <li key={doc.id} className="flex items-center gap-2.5 px-3 py-2.5">
-                    <FileText className="h-4 w-4 shrink-0 text-[#111111]" />
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f1efe9] text-[#6b6660]">
+                      <FileText className="h-4 w-4" />
+                    </span>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-bold">{doc.name}</p>
-                      <p className="mt-0.5 font-mono text-[10px] text-[#777]">
+                      <p className="truncate text-[13px] font-medium text-[#1c1b1a]">{doc.name}</p>
+                      <p className="mt-0.5 text-[11px] text-[#8a8580] tabular-nums">
                         {typeLabels[doc.type]} ·{" "}
                         {Math.max(1, Math.round((doc.sizeBytes || doc.content.length) / 1024))} KB ·{" "}
                         {doc.content.length.toLocaleString()} {tt("字", "chars")}
@@ -929,7 +938,7 @@ export function AddExamSubjectWizard({
                     </div>
                     <button
                       onClick={() => setPreviewDoc(doc)}
-                      className="border border-[#111111] bg-white p-1.5 hover:bg-[#111111] hover:text-white cursor-pointer"
+                      className={iconBtnCls}
                       title={tt("预览内容", "Preview content")}
                       aria-label={tt("预览内容", "Preview content")}
                     >
@@ -937,7 +946,7 @@ export function AddExamSubjectWizard({
                     </button>
                     <button
                       onClick={() => handleDeleteDocument(doc.id)}
-                      className="border border-[#111111] bg-white p-1.5 hover:bg-[#111111] hover:text-white cursor-pointer"
+                      className={iconBtnCls}
                       title={tt("删除资料", "Delete material")}
                       aria-label={tt("删除资料", "Delete material")}
                     >
@@ -952,29 +961,29 @@ export function AddExamSubjectWizard({
               <button
                 onClick={() => setShowPasteForm((prev) => !prev)}
                 disabled={materialLimitReached || isWorking}
-                className="flex shrink-0 items-center gap-1 border border-[#111111] bg-white px-2.5 py-1.5 font-mono text-[10px] font-bold uppercase transition-colors hover:bg-[#111111] hover:text-white disabled:opacity-40 cursor-pointer"
+                className="ui-btn ui-btn-ghost flex shrink-0 items-center gap-1 text-[12px] disabled:opacity-40"
               >
-                <Plus className="h-3 w-3" />
-                <span>{tt("粘贴文字", "PASTE TEXT")}</span>
+                <Plus className="h-3.5 w-3.5" />
+                <span>{tt("粘贴文字", "Paste text")}</span>
               </button>
             </div>
 
             {showPasteForm && (
-              <div className="space-y-2 border border-[#111111] bg-[#fafafa] p-3">
+              <div className="space-y-2 rounded-xl border border-[#eae7e1] bg-[#faf9f6] p-3">
                 <input
                   type="text"
                   value={pasteDocTitle}
                   onChange={(event) => setPasteDocTitle(event.target.value)}
                   placeholder={tt("资料名称（可选）", "Title (optional)")}
                   maxLength={200}
-                  className="w-full border border-[#111111] bg-white px-3 py-2 font-mono text-xs outline-none"
+                  className={inputClass}
                 />
                 <textarea
                   rows={5}
                   value={pasteDocContent}
                   onChange={(event) => setPasteDocContent(event.target.value)}
                   placeholder={tt("粘贴考纲章节、课堂笔记或典型题目...", "Paste syllabus sections, notes, or sample problems...")}
-                  className="w-full resize-y border border-[#111111] bg-white px-3 py-2 font-mono text-xs leading-relaxed outline-none"
+                  className="w-full resize-y rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] leading-relaxed text-[#1c1b1a] outline-none transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97]"
                 />
                 <div className="flex justify-end gap-2">
                   <button
@@ -983,14 +992,14 @@ export function AddExamSubjectWizard({
                       setPasteDocTitle("");
                       setPasteDocContent("");
                     }}
-                    className="border border-[#111111] bg-white px-3 py-1.5 text-[11px] font-bold hover:bg-[#f0eee8] cursor-pointer"
+                    className="ui-btn ui-btn-ghost px-3 py-1.5 text-[12px]"
                   >
                     {tt("取消", "Cancel")}
                   </button>
                   <button
                     onClick={handleAddPastedDocument}
                     disabled={!pasteDocContent.trim() || isWorking}
-                    className="border border-[#111111] bg-[#111111] px-3 py-1.5 text-[11px] font-bold text-white hover:bg-[#333333] disabled:opacity-40 cursor-pointer"
+                    className="ui-btn ui-btn-primary px-3 py-1.5 text-[12px] disabled:opacity-40"
                   >
                     {tt("加入资料", "Add material")}
                   </button>
@@ -1003,37 +1012,36 @@ export function AddExamSubjectWizard({
 
       {/* STEP 3 — Generate */}
       {step === 3 && (
-        <section className="border border-[#111111] bg-white">
-          <div className="flex items-center justify-between border-b border-[#111111] bg-[#fafafa] px-4 py-3 sm:px-5">
-            <h2 className="flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-wider">
-              <Sparkles className="h-4 w-4" />
-              <span>{tt("生成计划", "GENERATE")}</span>
+        <section className="ui-card overflow-hidden">
+          <div className={sectionHeadCls}>
+            <h2 className="ui-section-title flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-[#8a8580]" />
+              <span>{tt("生成计划", "Generate")}</span>
             </h2>
-            <span className="font-mono text-[10px] font-bold text-[#777]">AI</span>
           </div>
 
           <div className="space-y-4 p-4 sm:p-5">
-            <div className="grid grid-cols-1 gap-2 border border-[#111111] bg-[#fafafa] p-3 font-mono text-[11px] sm:grid-cols-3">
-              <div>
-                <div className="text-[10px] uppercase text-[#777]">{tt("考试", "EXAM")}</div>
-                <div className="mt-0.5 truncate font-bold">{examName || "—"}</div>
+            <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#eae7e1] bg-[#faf9f6] p-4 text-[13px] sm:grid-cols-3">
+              <div className="min-w-0">
+                <div className="text-[11px] text-[#8a8580]">{tt("考试", "Exam")}</div>
+                <div className="mt-0.5 truncate font-medium text-[#1c1b1a]">{examName || "—"}</div>
               </div>
-              <div>
-                <div className="text-[10px] uppercase text-[#777]">{tt("周期", "SPAN")}</div>
-                <div className="mt-0.5 font-bold">
+              <div className="min-w-0">
+                <div className="text-[11px] text-[#8a8580]">{tt("周期", "Span")}</div>
+                <div className="mt-0.5 font-medium text-[#1c1b1a] tabular-nums">
                   {daysDiff !== null && daysDiff >= 0 ? `${daysDiff} ${tt("天", "days")} · ${parsedDailyHours}h/${tt("天", "day")}` : "—"}
                 </div>
               </div>
-              <div>
-                <div className="text-[10px] uppercase text-[#777]">{tt("资料", "MATERIALS")}</div>
-                <div className="mt-0.5 font-bold">
+              <div className="min-w-0">
+                <div className="text-[11px] text-[#8a8580]">{tt("资料", "Materials")}</div>
+                <div className="mt-0.5 font-medium text-[#1c1b1a] tabular-nums">
                   {courseDocuments.length} {tt("份", "files")}
                 </div>
               </div>
             </div>
 
             <label className="block">
-              <span className={labelClass}>{tt("补充要求（可选）", "EXTRA REQUIREMENTS (OPTIONAL)")}</span>
+              <span className={labelClass}>{tt("补充要求（可选）", "Extra requirements (optional)")}</span>
               <textarea
                 rows={3}
                 value={requirements}
@@ -1044,33 +1052,33 @@ export function AddExamSubjectWizard({
                   "例如：重点复习第三、四章；周末安排真题模拟；考前留两天总复习...",
                   "e.g. Focus on chapters 3–4; reserve weekends for mock papers; keep the last two days for review..."
                 )}
-                className="w-full resize-y border border-[#111111] bg-[#fafafa] px-3 py-2.5 text-xs leading-relaxed outline-none focus:bg-white"
+                className="w-full resize-y rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] leading-relaxed text-[#1c1b1a] outline-none transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97]"
               />
             </label>
 
             {topics.length > 0 && !isWorking && (
-              <div className="border border-[#111111]">
+              <div className="overflow-hidden rounded-xl border border-[#eae7e1]">
                 <button
                   onClick={() => setShowTopics((prev) => !prev)}
-                  className="flex w-full items-center justify-between gap-2 bg-[#FFF4CC] px-3 py-2.5 text-left cursor-pointer"
+                  className="flex w-full items-center justify-between gap-2 bg-[#EEF4EF] px-3 py-2.5 text-left cursor-pointer"
                 >
-                  <span className="flex items-center gap-2 text-xs font-bold">
+                  <span className="flex items-center gap-2 text-[13px] font-medium text-[#3F6B4F]">
                     <CheckCircle2 className="h-4 w-4 shrink-0" />
                     {tt(
                       `AI 已识别 ${topics.length} 个考点，约 ${topicsHours} 小时`,
                       `AI found ${topics.length} topics (~${topicsHours}h)`
                     )}
                   </span>
-                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${showTopics ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`h-4 w-4 shrink-0 text-[#3F6B4F] transition-transform ${showTopics ? "rotate-180" : ""}`} />
                 </button>
                 {showTopics && (
-                  <div className="divide-y divide-[#e5e2da]">
+                  <div className="divide-y divide-[#f0ede8] bg-white">
                     {topics.map((topic, index) => (
                       <div key={topic.id || index} className="flex items-start justify-between gap-3 px-3 py-2">
-                        <span className="text-xs font-semibold leading-relaxed">
-                          {index + 1}. {topic.title}
+                        <span className="text-[13px] leading-relaxed text-[#1c1b1a]">
+                          <span className="text-[#a39e97] tabular-nums">{index + 1}.</span> {topic.title}
                         </span>
-                        <span className="shrink-0 font-mono text-[10px] text-[#777]">
+                        <span className="shrink-0 text-[11px] text-[#8a8580] tabular-nums">
                           {topic.weightPercentage || 0}% · ~{topic.estimatedHours || 0}h
                         </span>
                       </div>
@@ -1081,20 +1089,20 @@ export function AddExamSubjectWizard({
             )}
 
             {isWorking && (
-              <div className="space-y-1.5 border border-[#111111] bg-[#FFF4CC] px-3 py-3 font-mono text-[11px]">
-                <div className={`flex items-center gap-2 ${workStage === "planning" ? "opacity-60" : "font-bold"}`}>
+              <div className="space-y-2 rounded-xl border border-[#eae7e1] bg-[#faf9f6] px-4 py-3 text-[13px]">
+                <div className={`flex items-center gap-2 ${workStage === "planning" ? "text-[#8a8580]" : "font-medium text-[#1c1b1a]"}`}>
                   {workStage === "planning" ? (
-                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <CheckCircle2 className="h-4 w-4 text-[#3F6B4F]" />
                   ) : (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin text-[#1c1b1a]" />
                   )}
                   <span>{tt("读取资料并提取考点", "Reading materials & extracting topics")}</span>
                 </div>
-                <div className={`flex items-center gap-2 ${workStage === "planning" ? "font-bold" : "opacity-40"}`}>
+                <div className={`flex items-center gap-2 ${workStage === "planning" ? "font-medium text-[#1c1b1a]" : "text-[#a39e97]"}`}>
                   {workStage === "planning" ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin text-[#1c1b1a]" />
                   ) : (
-                    <span className="inline-block h-3.5 w-3.5 border border-[#111111]" />
+                    <span className="inline-block h-4 w-4 rounded-full border border-[#ddd8d0]" />
                   )}
                   <span>{tt("按日历编排每日任务", "Scheduling daily tasks")}</span>
                 </div>
@@ -1104,24 +1112,24 @@ export function AddExamSubjectWizard({
         </section>
       )}
 
-      <div className="flex flex-col gap-3 border-t border-[#111111] pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-t border-[#f0ede8] pt-4 sm:flex-row sm:items-center sm:justify-between">
         <button
           onClick={() => (step === 1 ? onCancel() : goToStep((step - 1) as 1 | 2 | 3))}
           disabled={isWorking}
-          className="flex items-center justify-center gap-1.5 border border-[#111111] bg-white px-4 py-2.5 font-mono text-[11px] font-bold uppercase tracking-wider hover:bg-[#f0eee8] disabled:opacity-40 cursor-pointer sm:w-auto"
+          className="ui-btn ui-btn-ghost flex items-center justify-center gap-1.5 px-4 py-2.5 text-[13px] disabled:opacity-40 sm:w-auto"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          <span>{step === 1 ? tt("返回现有计划", "BACK TO PLANS") : tt("上一步", "BACK")}</span>
+          <span>{step === 1 ? tt("返回现有计划", "Back to plans") : tt("上一步", "Back")}</span>
         </button>
 
         {step < 3 ? (
           <button
             onClick={handleNext}
             disabled={step === 1 ? !detailsReady : !materialsReady}
-            className="flex w-full items-center justify-center gap-2 border border-[#111111] bg-[#111111] px-6 py-3 font-mono text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-[#333333] disabled:opacity-40 sm:w-auto cursor-pointer"
+            className="ui-btn ui-btn-primary flex w-full items-center justify-center gap-2 px-6 py-3 text-[13px] font-medium disabled:opacity-40 sm:w-auto"
           >
             <span>
-              {step === 1 ? tt("下一步：上传资料", "NEXT: MATERIALS") : tt("下一步：生成计划", "NEXT: GENERATE")}
+              {step === 1 ? tt("下一步：上传资料", "Next: Materials") : tt("下一步：生成计划", "Next: Generate")}
             </span>
             <ArrowRight className="h-4 w-4" />
           </button>
@@ -1129,22 +1137,22 @@ export function AddExamSubjectWizard({
           <button
             onClick={handleGenerate}
             disabled={isWorking || isParsingFiles}
-            className="flex w-full items-center justify-center gap-2 border border-[#111111] bg-[#111111] px-6 py-3 font-mono text-xs font-bold uppercase tracking-wider text-white transition-colors hover:bg-[#333333] disabled:opacity-40 sm:w-auto cursor-pointer"
+            className="ui-btn ui-btn-primary flex w-full items-center justify-center gap-2 px-6 py-3 text-[13px] font-medium disabled:opacity-40 sm:w-auto"
           >
             {isWorking ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>
                   {workStage === "extracting"
-                    ? tt("正在提取考点...", "EXTRACTING TOPICS...")
-                    : tt("正在生成计划...", "BUILDING PLAN...")}
+                    ? tt("正在提取考点...", "Extracting topics...")
+                    : tt("正在生成计划...", "Building plan...")}
                 </span>
               </>
             ) : (
               <>
                 <Sparkles className="h-4 w-4" />
                 <span>
-                  {topics.length > 0 ? tt("重新生成学习计划", "REGENERATE PLAN") : tt("生成学习计划", "GENERATE STUDY PLAN")}
+                  {topics.length > 0 ? tt("重新生成学习计划", "Regenerate plan") : tt("生成学习计划", "Generate study plan")}
                 </span>
               </>
             )}
@@ -1153,38 +1161,40 @@ export function AddExamSubjectWizard({
       </div>
 
       {previewDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col border border-[#111111] bg-white font-mono">
-            <div className="flex items-center justify-between gap-3 border-b border-[#111111] bg-[#fafafa] p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1c1b1a]/40 backdrop-blur-sm p-4">
+          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#eae7e1] bg-white shadow-[0_12px_40px_rgba(28,27,26,0.18)]">
+            <div className="flex items-center justify-between gap-3 border-b border-[#f0ede8] bg-[#faf9f6] p-4">
               <div className="flex min-w-0 items-center gap-2">
-                <FileText className="h-4 w-4 shrink-0 text-[#111111]" />
-                <span className="truncate text-xs font-bold uppercase">{previewDoc.name}</span>
-                <span className="shrink-0 border border-[#111111] bg-white px-2 py-0.5 text-[10px] font-bold">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f1efe9] text-[#6b6660]">
+                  <FileText className="h-4 w-4" />
+                </span>
+                <span className="truncate text-[13px] font-medium text-[#1c1b1a]">{previewDoc.name}</span>
+                <span className="ui-chip shrink-0">
                   {typeLabels[previewDoc.type]}
                 </span>
               </div>
               <button
                 onClick={() => setPreviewDoc(null)}
-                className="shrink-0 p-1 text-[#111111] hover:bg-[#111111] hover:text-white cursor-pointer"
+                className="shrink-0 rounded-lg p-1.5 text-[#6b6660] transition-colors hover:bg-[#f1efe9] hover:text-[#1c1b1a] cursor-pointer"
                 aria-label={tt("关闭预览", "Close preview")}
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto whitespace-pre-wrap bg-white p-4 font-mono text-xs leading-relaxed text-[#111111]">
+            <div className="flex-1 overflow-y-auto whitespace-pre-wrap bg-white p-4 text-[13px] leading-relaxed text-[#1c1b1a]">
               {previewDoc.content || tt("文档内容为空", "Empty document content")}
             </div>
 
-            <div className="flex items-center justify-between border-t border-[#111111] bg-[#fafafa] p-3 text-xs text-[#666]">
-              <span className="font-bold">
-                [{previewDoc.content.length.toLocaleString()} {tt("字符", "CHARS")}]
+            <div className="flex items-center justify-between border-t border-[#f0ede8] bg-[#faf9f6] p-3 text-[12px] text-[#8a8580]">
+              <span className="tabular-nums">
+                {previewDoc.content.length.toLocaleString()} {tt("字符", "chars")}
               </span>
               <button
                 onClick={() => setPreviewDoc(null)}
-                className="border border-[#111111] bg-[#111111] px-4 py-1.5 text-xs font-bold uppercase text-white hover:bg-[#333333] cursor-pointer"
+                className="ui-btn ui-btn-primary px-4 py-1.5 text-[12px]"
               >
-                [{tt("关闭", "CLOSE")}]
+                {tt("关闭", "Close")}
               </button>
             </div>
           </div>

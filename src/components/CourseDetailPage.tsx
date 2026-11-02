@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
   BookOpen,
   Calendar,
@@ -7,6 +8,7 @@ import {
   Clock,
   FileText,
   Sun,
+  Target,
 } from "lucide-react";
 import { ExamStudyPlan } from "../types";
 import { useI18n } from "../lib/i18n";
@@ -29,6 +31,7 @@ export function CourseDetailPage({
   onNavigateToTab,
 }: CourseDetailPageProps) {
   const { language } = useI18n();
+  const isZh = language === "zh";
 
   // Secondary reference detail is disclosed on demand; progress stays primary.
   const [showKnowledge, setShowKnowledge] = useState(false);
@@ -100,209 +103,168 @@ export function CourseDetailPage({
   }, [plan.examDate]);
 
   return (
-    <div className="relative min-h-screen bg-[#F8F7F4] text-[#111111] font-sans pb-20">
-      <header className="w-full bg-[#FAF9F6] border-b border-[#111111] shadow-2xs">
-        <div className="h-10 px-4 sm:px-8 flex items-center justify-between border-b border-[#DEDAD1] text-xs font-mono text-[#666666]">
-          <div className="flex items-center space-x-2 truncate">
-            <button
-              onClick={() => onNavigateToTab("dashboard")}
-              className="hover:text-[#111111] transition-colors cursor-pointer"
-            >
-              WORKSPACE
-            </button>
-            <span>/</span>
-            <button
-              onClick={() => onNavigateToTab("dashboard")}
-              className="hover:text-[#111111] transition-colors cursor-pointer"
-            >
-              COURSES
-            </button>
-            <span>/</span>
-            <span className="font-bold text-[#111111] truncate font-sans">
-              [{plan.examName}]
-            </span>
-          </div>
-          <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-widest text-[#888888]">
-            {language === "zh" ? "单页课程工作区" : "SINGLE-PAGE COURSE WORKSPACE"}
-          </span>
-        </div>
+    <div className="relative min-h-screen bg-[#f8f7f4] text-[#1c1b1a] pb-20 animate-fadeIn">
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-6 sm:pt-8">
+        <button
+          onClick={() => onNavigateToTab("dashboard")}
+          className="inline-flex items-center gap-1.5 text-[13px] ui-muted hover:text-[#1c1b1a] transition-colors cursor-pointer mb-4"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          {isZh ? "科目" : "Subjects"}
+        </button>
 
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-3 min-w-0 flex-1">
-              <div className="flex items-center space-x-2.5">
-                <span
-                  className="w-4 h-4 border border-[#111111] shrink-0 inline-block shadow-2xs"
-                  style={{ backgroundColor: palette.accentColor }}
-                />
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#666666] bg-white px-2 py-0.5 border border-[#DEDAD1]">
-                  {plan.subject || (language === "zh" ? "学科考试" : "EXAM SUBJECT")}
-                </span>
-                <span className="text-xs font-mono text-[#888888]">
-                  ID: #{plan.id.slice(-6).toUpperCase()}
-                </span>
-              </div>
-
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#111111] leading-tight font-sans">
-                {plan.examName}
-              </h1>
-
-              {plan.examDate && (
-                <div className="flex flex-wrap items-center gap-2.5 text-xs font-mono text-[#444444] pt-1">
-                  <span className="text-[#666666] uppercase font-bold flex items-center space-x-1">
-                    <Calendar className="w-3.5 h-3.5 text-[#111111]" />
-                    <span>{language === "zh" ? "考试时间" : "EXAM DATE"}:</span>
-                  </span>
-                  <strong className="text-[#111111] bg-white px-2.5 py-1 border border-[#111111] shadow-2xs font-bold text-xs">
-                    {plan.examDate} {plan.examTime || "09:00"}
-                  </strong>
-                  {plan.preferences?.targetScoreOrGrade && (
-                    <span className="text-[#666666] border border-[#DEDAD1] bg-white px-2 py-1">
-                      {language === "zh" ? "目标" : "TARGET"}: <b className="text-[#111111]">{plan.preferences.targetScoreOrGrade}</b>
-                    </span>
-                  )}
-                </div>
-              )}
+        <header className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+          <div className="space-y-3 min-w-0 flex-1">
+            <div className="flex items-center gap-2.5">
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: palette.accentColor }}
+                aria-hidden="true"
+              />
+              <span className="ui-chip">{plan.subject || (isZh ? "学科考试" : "Subject")}</span>
             </div>
 
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#1c1b1a] leading-tight">
+              {plan.examName}
+            </h1>
+
             {plan.examDate && (
-              <div className="shrink-0 flex flex-col items-start lg:items-end space-y-1">
-                <span className="text-[10px] font-mono font-bold text-[#888888] uppercase tracking-widest flex items-center space-x-1">
-                  <Clock className="w-3 h-3 text-[#111111]" />
-                  <span>{language === "zh" ? "考试倒计时" : "EXAM COUNTDOWN"}</span>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] ui-muted pt-0.5">
+                <span className="inline-flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4" />
+                  <span className="text-[#1c1b1a] font-medium tabular-nums">
+                    {plan.examDate} {plan.examTime || "09:00"}
+                  </span>
                 </span>
-                <FlipCountdown
-                  days={countdown.days}
-                  hours={countdown.hours}
-                  minutes={countdown.minutes}
-                  seconds={countdown.seconds}
-                  language={language}
-                />
+                {plan.preferences?.targetScoreOrGrade && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Target className="w-4 h-4" />
+                    <span>
+                      {isZh ? "目标" : "Target"}{" "}
+                      <b className="text-[#1c1b1a] font-medium">{plan.preferences.targetScoreOrGrade}</b>
+                    </span>
+                  </span>
+                )}
               </div>
             )}
           </div>
-        </div>
-      </header>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-10">
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border border-[#111111] bg-white font-mono">
-          <div className="p-4 border-b sm:border-r border-[#111111] lg:border-b-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#666666]">
-              [{language === "zh" ? "任务进度" : "TASK PROGRESS"}]
-            </span>
-            <div className="mt-2 flex items-baseline space-x-2">
-              <span className="text-2xl font-bold text-[#111111]">{stats.progressPercent}%</span>
-              <span className="text-xs text-[#666666]">
+          {plan.examDate && (
+            <div className="shrink-0 flex flex-col items-start lg:items-end gap-1.5">
+              <span className="text-[12px] ui-muted inline-flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                {isZh ? "考试倒计时" : "Countdown"}
+              </span>
+              <FlipCountdown
+                days={countdown.days}
+                hours={countdown.hours}
+                minutes={countdown.minutes}
+                seconds={countdown.seconds}
+                language={language}
+              />
+            </div>
+          )}
+        </header>
+      </div>
+
+      <main className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-8">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="ui-card p-4">
+            <span className="text-[12px] ui-muted">{isZh ? "任务进度" : "Task progress"}</span>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-semibold tabular-nums tracking-tight">{stats.progressPercent}%</span>
+              <span className="text-[12px] ui-subtle tabular-nums">
                 {stats.completedCount}/{stats.totalCount}
               </span>
             </div>
-            <div className="mt-2 h-1.5 bg-[#e5e5e5] border border-[#111111]/20">
+            <div className="mt-2.5 h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
               <div
-                className="h-full bg-[#111111] transition-all duration-300"
+                className="h-full rounded-full bg-[#1c1b1a] transition-all duration-300"
                 style={{ width: `${stats.progressPercent}%` }}
               />
             </div>
           </div>
 
-          <div className="p-4 border-b lg:border-b-0 lg:border-r border-[#111111]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#666666]">
-              [{language === "zh" ? "学习投入" : "TIME INVESTED"}]
-            </span>
-            <div className="mt-2 flex items-baseline space-x-2">
-              <span className="text-2xl font-bold text-[#111111]">{stats.investedHours}</span>
-              <span className="text-xs text-[#666666]">
-                / {stats.plannedHours} {language === "zh" ? "小时" : "HRS"}
+          <div className="ui-card p-4">
+            <span className="text-[12px] ui-muted">{isZh ? "学习投入" : "Time invested"}</span>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-2xl font-semibold tabular-nums tracking-tight">{stats.investedHours}</span>
+              <span className="text-[12px] ui-subtle tabular-nums">
+                / {stats.plannedHours} {isZh ? "小时" : "hrs"}
               </span>
             </div>
-            <span className="mt-2 block text-[10px] text-[#888888]">
-              {language === "zh" ? "已完成任务实际用时 / 计划总时长" : "Logged time / planned time"}
-            </span>
           </div>
 
-          <div className="p-4 border-b sm:border-b-0 sm:border-r border-[#111111]">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#666666]">
-              [{language === "zh" ? "资料与考点" : "MATERIALS & TOPICS"}]
-            </span>
-            <div className="mt-2 flex items-center space-x-4">
-              <span className="flex items-center space-x-1.5 text-[#111111]">
-                <FileText className="w-3.5 h-3.5" />
-                <b className="text-lg">{stats.materialsCount}</b>
-                <span className="text-[10px] text-[#666666]">{language === "zh" ? "份资料" : "files"}</span>
+          <div className="ui-card p-4">
+            <span className="text-[12px] ui-muted">{isZh ? "资料与考点" : "Materials & topics"}</span>
+            <div className="mt-2 flex items-center gap-4">
+              <span className="inline-flex items-center gap-1.5">
+                <FileText className="w-4 h-4 ui-subtle" />
+                <b className="text-lg font-semibold tabular-nums">{stats.materialsCount}</b>
+                <span className="text-[12px] ui-subtle">{isZh ? "份" : "files"}</span>
               </span>
-              <span className="flex items-center space-x-1.5 text-[#111111]">
-                <BookOpen className="w-3.5 h-3.5" />
-                <b className="text-lg">{stats.topicsCount}</b>
-                <span className="text-[10px] text-[#666666]">{language === "zh" ? "个考点" : "topics"}</span>
+              <span className="inline-flex items-center gap-1.5">
+                <BookOpen className="w-4 h-4 ui-subtle" />
+                <b className="text-lg font-semibold tabular-nums">{stats.topicsCount}</b>
+                <span className="text-[12px] ui-subtle">{isZh ? "考点" : "topics"}</span>
               </span>
             </div>
-            <span className="mt-2 block text-[10px] text-[#888888]">
-              {language === "zh" ? "上传、预览与提炼都在这页完成" : "Upload, preview and extract on this page"}
-            </span>
           </div>
 
-          <div className="p-4">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#666666]">
-              [{language === "zh" ? "距离考试" : "DAYS LEFT"}]
-            </span>
-            <div className="mt-2 flex items-baseline space-x-2">
-              <span className="text-2xl font-bold text-[#111111]">{daysLeft}</span>
-              <span className="text-xs text-[#666666]">{language === "zh" ? "天" : "DAYS"}</span>
+          <div className="ui-card p-4">
+            <span className="text-[12px] ui-muted">{isZh ? "距离考试" : "Days left"}</span>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-2xl font-semibold tabular-nums tracking-tight">{daysLeft}</span>
+              <span className="text-[12px] ui-subtle">{isZh ? "天" : "days"}</span>
             </div>
-            <span className="mt-2 block text-[10px] text-[#888888]">
-              {plan.examDate || "--"} {plan.examTime || "09:00"}
-            </span>
           </div>
         </section>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-dashed border-[#111111] bg-[#FAF9F6] px-4 py-3 font-mono">
-          <div className="flex items-start space-x-2 text-xs text-[#444444]">
-            <Sun className="w-4 h-4 shrink-0 text-[#111111] mt-0.5" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-[#eae7e1] bg-white px-4 py-3">
+          <div className="flex items-start gap-2.5 text-[13px] ui-muted">
+            <Sun className="w-4 h-4 shrink-0 text-[#8a8580] mt-0.5" />
             <span className="leading-relaxed">
-              {language === "zh"
+              {isZh
                 ? "每日任务只在「今日」执行与勾选，本页专注于进度、阶段与课程资料。"
                 : "Daily tasks are executed in Today. This page focuses on progress, phases and course materials."}
             </span>
           </div>
           <button
             onClick={() => onNavigateToTab("today")}
-            className="shrink-0 inline-flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-[#111111] text-white text-xs font-bold border border-[#111111] hover:bg-[#333333] transition-colors cursor-pointer"
+            className="ui-btn ui-btn-primary shrink-0 px-3.5 py-1.5 text-[12px]"
           >
-            <span>[{language === "zh" ? "前往今日" : "OPEN TODAY"}]</span>
+            <span>{isZh ? "前往今日" : "Open Today"}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
         <section className="space-y-4">
-          <div className="flex items-center space-x-2 pb-2 border-b-2 border-[#111111] font-mono">
-            <span className="px-1.5 py-0.5 bg-[#FCD33B] border border-[#111111] text-[#111111] text-[10px] font-bold">01</span>
-            <h2 className="text-sm font-bold uppercase text-[#111111]">
-              {language === "zh" ? "进度、阶段与动态重排" : "PROGRESS, PHASES & REBALANCE"}
-            </h2>
-          </div>
+          <h2 className="ui-section-title">
+            {isZh ? "进度、阶段与动态重排" : "Progress, phases & rebalance"}
+          </h2>
           <RealTimeManager plan={plan} onUpdatePlan={onUpdatePlan} />
         </section>
 
-        <section className="border border-[#111111] bg-white">
+        <section className="ui-card overflow-hidden">
           <button
             onClick={() => setShowKnowledge((prev) => !prev)}
             aria-expanded={showKnowledge}
-            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left font-mono hover:bg-[#fafafa] transition-colors cursor-pointer"
+            className="flex w-full items-center justify-between gap-3 px-4 sm:px-5 py-4 text-left hover:bg-[#faf9f6] transition-colors cursor-pointer"
           >
-            <span className="flex items-center space-x-2 min-w-0">
-              <span className="px-1.5 py-0.5 bg-white border border-[#111111] text-[#111111] text-[10px] font-bold">02</span>
-              <span className="text-xs font-bold uppercase text-[#111111] truncate">
-                {language === "zh" ? "课程资料与考点体系" : "COURSE MATERIALS & TOPIC TREE"}
-              </span>
+            <span className="text-[14px] font-semibold text-[#1c1b1a] truncate min-w-0">
+              {isZh ? "课程资料与考点体系" : "Materials & topic tree"}
             </span>
-            <span className="flex items-center gap-2 shrink-0 text-[10px] font-bold text-[#666666]">
-              <span className="hidden sm:inline">
-                {stats.materialsCount} {language === "zh" ? "份资料" : "files"} · {stats.topicsCount} {language === "zh" ? "个考点" : "topics"}
+            <span className="flex items-center gap-2.5 shrink-0">
+              <span className="hidden sm:inline ui-chip tabular-nums">
+                {stats.materialsCount} {isZh ? "份资料" : "files"} · {stats.topicsCount} {isZh ? "个考点" : "topics"}
               </span>
-              <ChevronDown className={`w-4 h-4 transition-transform ${showKnowledge ? "rotate-180" : ""}`} />
+              <ChevronDown
+                className={`w-4 h-4 text-[#a39e97] transition-transform ${showKnowledge ? "rotate-180" : ""}`}
+              />
             </span>
           </button>
           {showKnowledge && (
-            <div className="border-t border-[#111111] p-4 sm:p-5">
+            <div className="border-t border-[#f0ede8] p-4 sm:p-5">
               <CourseKnowledgeHub
                 plan={plan}
                 onUpdatePlan={onUpdatePlan}

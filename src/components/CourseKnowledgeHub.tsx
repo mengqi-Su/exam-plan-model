@@ -164,19 +164,21 @@ export function CourseKnowledgeHub({
     });
   };
 
+  const isZh = language === "zh";
+
   return (
-    <div className="space-y-8 animate-fadeIn text-[#111111] font-mono">
+    <div className="space-y-8 animate-fadeIn text-[#1c1b1a]">
       {extractionSuccess && (
-        <div className="flex items-center space-x-2 p-3.5 bg-white border border-[#111111] text-[#111111] text-xs font-bold animate-fadeIn">
-          <Sparkles className="w-4 h-4 shrink-0 text-[#111111]" />
-          <span>[{language === "zh" ? "AI 考点架构已根据知识库资料更新完毕！" : "TOPIC BLUEPRINT EXTRACTED SUCCESSFULLY!"}]</span>
+        <div className="flex items-center gap-2 rounded-xl border border-[#d8e4dc] bg-[#EEF4EF] px-3.5 py-3 text-[12.5px] font-medium text-[#3F6B4F] animate-fadeIn">
+          <Sparkles className="w-4 h-4 shrink-0" />
+          <span>{isZh ? "AI 考点架构已根据知识库资料更新完毕。" : "Topic blueprint extracted successfully."}</span>
         </div>
       )}
 
       {extractError && (
-        <div className="flex items-center space-x-2 p-3 bg-white border border-[#111111] text-[#111111] text-xs font-bold">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>[ERROR] {extractError}</span>
+        <div className="flex items-start gap-2 rounded-xl border border-[#f0d0cc] bg-[#FDF0EE] px-3.5 py-3 text-[12.5px] text-[#B42318]">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span className="leading-relaxed">{extractError}</span>
         </div>
       )}
 
@@ -244,11 +246,11 @@ export function CourseKnowledgeHub({
       </section>
 
       <section className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#111111]">
-          <div className="flex items-center space-x-2">
-            <BrainCircuit className="w-4 h-4 text-[#111111]" />
-            <h3 className="text-sm font-bold uppercase text-[#111111]">
-              [{language === "zh" ? "AI 提炼的考点树状体系" : "TOPIC TREE HIERARCHY"}]
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#f0ede8]">
+          <div className="flex items-center gap-2">
+            <BrainCircuit className="w-4 h-4 ui-subtle" />
+            <h3 className="text-[14px] font-semibold text-[#1c1b1a]">
+              {isZh ? "AI 提炼的考点树状体系" : "Topic tree hierarchy"}
             </h3>
           </div>
 
@@ -256,39 +258,41 @@ export function CourseKnowledgeHub({
             <button
               onClick={handleExtractTopics}
               disabled={isExtracting}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-[#111111] text-[#111111] text-xs font-bold hover:bg-[#f2f0ea] disabled:opacity-50 transition-colors cursor-pointer"
+              className="ui-btn ui-btn-ghost px-3 py-1.5 text-[12px]"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>
-                [
                 {isExtracting
-                  ? language === "zh"
-                    ? "正在提炼..."
-                    : "EXTRACTING..."
-                  : language === "zh"
+                  ? isZh
+                    ? "正在提炼…"
+                    : "Extracting…"
+                  : isZh
                     ? "重新提炼考点"
-                    : "RE-EXTRACT"}
-                ]
+                    : "Re-extract"}
               </span>
             </button>
             <button
               onClick={() => setIsAddingTopic(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#111111] hover:bg-[#333333] text-white border border-[#111111] text-xs font-bold transition-colors cursor-pointer"
+              className="ui-btn ui-btn-primary px-3 py-1.5 text-[12px]"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>[{language === "zh" ? "+ 添加大单元" : "+ ADD UNIT"}]</span>
+              <span>{isZh ? "添加大单元" : "Add unit"}</span>
             </button>
           </div>
         </div>
 
         {isAddingTopic && (
-          <div className="bg-white border border-[#111111] p-4 space-y-3 animate-fadeIn">
+          <div className="ui-card p-4 space-y-3 animate-fadeIn">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold uppercase text-[#111111]">
-                [{language === "zh" ? "添加自定义大单元与考点树" : "ADD CUSTOM UNIT & TOPICS"}]
+              <h4 className="text-[13px] font-semibold text-[#1c1b1a]">
+                {isZh ? "添加自定义大单元与考点树" : "Add custom unit & topics"}
               </h4>
-              <button onClick={() => setIsAddingTopic(false)} className="text-[#111111] hover:underline cursor-pointer" aria-label={language === "zh" ? "关闭添加单元" : "Close add unit"}>
-                <X className="w-3.5 h-3.5" />
+              <button
+                onClick={() => setIsAddingTopic(false)}
+                className="p-1 rounded-md text-[#a39e97] hover:text-[#1c1b1a] hover:bg-black/[0.04] transition-colors cursor-pointer"
+                aria-label={isZh ? "关闭添加单元" : "Close add unit"}
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
@@ -296,61 +300,64 @@ export function CourseKnowledgeHub({
                 type="text"
                 value={newTopicTitle}
                 onChange={(e) => setNewTopicTitle(e.target.value)}
-                placeholder={language === "zh" ? "大单元名称（如：第 6 单元：红黑树平衡推导）" : "Unit title..."}
-                className="sm:col-span-2 px-3 py-1.5 bg-white border border-[#111111] text-xs text-[#111111] outline-none font-mono"
+                placeholder={isZh ? "大单元名称（如：第 6 单元：红黑树平衡推导）" : "Unit title..."}
+                className="sm:col-span-2 rounded-lg px-3 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] placeholder-[#a39e97] outline-none focus:border-[#cfc9c0]"
               />
-              <div className="flex items-center space-x-1">
-                <span className="text-[11px] text-[#666666] font-bold">{language === "zh" ? "权重" : "Weight"}:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[12px] ui-muted">{isZh ? "权重" : "Weight"}</span>
                 <input
                   type="number"
                   min={1}
                   max={100}
                   value={newTopicWeight}
                   onChange={(e) => setNewTopicWeight(Number(e.target.value))}
-                  className="w-16 px-2 py-1.5 bg-white border border-[#111111] text-xs text-[#111111] outline-none font-mono font-bold"
+                  className="w-16 rounded-lg px-2 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] tabular-nums outline-none focus:border-[#cfc9c0]"
                 />
-                <span className="text-xs text-[#666666] font-bold">%</span>
+                <span className="text-[12px] ui-muted">%</span>
               </div>
-              <div className="flex items-center space-x-1">
-                <span className="text-[11px] text-[#666666] font-bold">{language === "zh" ? "学时" : "Hours"}:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[12px] ui-muted">{isZh ? "学时" : "Hours"}</span>
                 <input
                   type="number"
                   min={1}
                   max={50}
                   value={newTopicHours}
                   onChange={(e) => setNewTopicHours(Number(e.target.value))}
-                  className="w-16 px-2 py-1.5 bg-white border border-[#111111] text-xs text-[#111111] outline-none font-mono font-bold"
+                  className="w-16 rounded-lg px-2 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] tabular-nums outline-none focus:border-[#cfc9c0]"
                 />
-                <span className="text-xs text-[#666666] font-bold">{language === "zh" ? "小时" : "HRS"}</span>
+                <span className="text-[12px] ui-muted">{isZh ? "小时" : "hrs"}</span>
               </div>
             </div>
             <input
               type="text"
               value={newTopicSubtopics}
               onChange={(e) => setNewTopicSubtopics(e.target.value)}
-              placeholder={language === "zh" ? "细分考点列表，逗号分隔（如：插入旋转、删除调整、时间复杂度）" : "Subtopics (comma separated)..."}
-              className="w-full px-3 py-1.5 bg-white border border-[#111111] text-xs text-[#111111] outline-none font-mono"
+              placeholder={isZh ? "细分考点列表，逗号分隔（如：插入旋转、删除调整、时间复杂度）" : "Subtopics (comma separated)..."}
+              className="w-full rounded-lg px-3 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] placeholder-[#a39e97] outline-none focus:border-[#cfc9c0]"
             />
-            <div className="flex justify-end space-x-2">
-              <button onClick={() => setIsAddingTopic(false)} className="px-3 py-1 text-xs text-[#666666] hover:text-[#111111] cursor-pointer font-bold">
-                [{language === "zh" ? "取消" : "CANCEL"}]
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setIsAddingTopic(false)}
+                className="ui-btn ui-btn-ghost px-3 py-1.5 text-[12px]"
+              >
+                {isZh ? "取消" : "Cancel"}
               </button>
               <button
                 onClick={handleAddCustomTopic}
                 disabled={!newTopicTitle.trim()}
-                className="px-4 py-1 bg-[#111111] text-white text-xs font-bold border border-[#111111] cursor-pointer"
+                className="ui-btn ui-btn-primary px-4 py-1.5 text-[12px]"
               >
-                [{language === "zh" ? "确认添加大单元" : "ADD UNIT"}]
+                {isZh ? "确认添加" : "Add unit"}
               </button>
             </div>
           </div>
         )}
 
         {topics.length === 0 ? (
-          <div className="border border-dashed border-[#111111]/40 bg-[#fafafa] px-5 py-8 text-center space-y-2">
-            <CheckCircle2 className="w-6 h-6 mx-auto text-[#888888]" />
-            <p className="text-xs text-[#666666] leading-relaxed">
-              {language === "zh"
+          <div className="rounded-xl border border-dashed border-[#ddd8d0] bg-[#faf9f6] px-5 py-8 text-center space-y-2">
+            <CheckCircle2 className="w-6 h-6 mx-auto text-[#a39e97]" />
+            <p className="text-[12.5px] ui-muted leading-relaxed max-w-md mx-auto">
+              {isZh
                 ? "还没有考点。上传资料后点击「重新提炼考点」，或手动添加一个大单元。"
                 : "No topics yet. Upload materials and click Re-extract, or add a unit manually."}
             </p>
