@@ -21,7 +21,7 @@ interface CourseDetailPageProps {
   plan: ExamStudyPlan;
   onUpdatePlan: (updatedPlan: ExamStudyPlan) => void;
   onRequestDeletePlan?: (plan: ExamStudyPlan) => void;
-  onNavigateToTab: (tab: "today" | "dashboard" | "master_calendar" | "course" | "add_subject" | "settings") => void;
+  onNavigateToTab: (tab: "today" | "dashboard" | "master_calendar" | "course" | "settings") => void;
 }
 
 export function CourseDetailPage({

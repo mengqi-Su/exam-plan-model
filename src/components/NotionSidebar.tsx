@@ -165,11 +165,7 @@ export function NotionSidebar({
 
         <button
           onClick={onNewPlan}
-          className={`ui-nav-item mt-1 border border-dashed ${
-            currentTab === "add_subject"
-              ? "ui-nav-active border-transparent"
-              : "border-[#d8d4cc] text-[#6b6660] hover:border-[#bdb8ae] hover:bg-black/[0.02]"
-          }`}
+          className="ui-nav-item mt-1 border border-dashed border-[#d8d4cc] text-[#6b6660] hover:border-[#bdb8ae] hover:bg-black/[0.02]"
         >
           <Plus className="w-4 h-4 shrink-0" />
           <span className="flex-1 truncate">{isZh ? "新建科目" : "New subject"}</span>

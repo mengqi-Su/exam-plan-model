@@ -37,6 +37,8 @@ interface AddExamSubjectWizardProps {
   onCancel: () => void;
   existingPlans: ExamStudyPlan[];
   defaultStudyPace: UserStudyPreferences["studyPace"];
+  /** "page" keeps the full-page tab layout; "modal" renders the floating one-layer-at-a-time card. */
+  variant?: "page" | "modal";
 }
 
 const DAY_NAMES_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
@@ -79,9 +81,11 @@ export function AddExamSubjectWizard({
   onCancel,
   existingPlans,
   defaultStudyPace,
+  variant = "page",
 }: AddExamSubjectWizardProps) {
   const { language } = useI18n();
   const tt = (zh: string, en: string) => (language === "zh" ? zh : en);
+  const isModal = variant === "modal";
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -116,6 +120,28 @@ export function AddExamSubjectWizard({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workingRef = useRef(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  // 悬浮卡片：Esc 关闭、锁定背景滚动、打开后聚焦第一栏
+  useEffect(() => {
+    if (!isModal) return;
+    const busy = () => workingRef.current || isParsingFiles;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !busy()) onCancel();
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+    const focusTimer = window.setTimeout(() => {
+      const field = cardRef.current?.querySelector<HTMLInputElement>("input:not([type=hidden]), textarea");
+      field?.focus();
+    }, 60);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+      window.clearTimeout(focusTimer);
+    };
+  }, [isModal, onCancel, isParsingFiles]);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,6 +200,11 @@ export function AddExamSubjectWizard({
     if (isWorking || target > step) return;
     clearTransientError();
     setStep(target);
+  };
+
+  const requestClose = () => {
+    if (isWorking || isParsingFiles) return;
+    onCancel();
   };
 
   const handleNext = () => {
@@ -550,30 +581,63 @@ export function AddExamSubjectWizard({
   const iconBtnCls =
     "rounded-lg border border-[#e5e2dc] bg-white p-1.5 text-[#6b6660] transition-colors hover:border-[#cfc9c0] hover:text-[#1c1b1a] cursor-pointer";
 
-  return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 font-sans text-[#1c1b1a] space-y-5">
-      <div className="flex items-center justify-between">
-        <button
-          onClick={onCancel}
-          disabled={isWorking}
-          className="ui-btn ui-btn-ghost flex items-center gap-1.5 text-[12px] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>{tt("返回现有计划", "Back to plans")}</span>
-        </button>
-        <span className="text-[12px] text-[#a39e97] tabular-nums">
-          {tt(`本地已有 ${existingPlans.length} 门科目`, `${existingPlans.length} subjects saved`)}
-        </span>
-      </div>
+  const wizardBody = (
+    <>
+      {isModal ? (
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-[#a39e97]">
+              <span>{tt("新建备考科目", "New subject")}</span>
+              <span className="ui-chip tabular-nums">
+                {tt(`已存 ${existingPlans.length} 门`, `${existingPlans.length} saved`)}
+              </span>
+            </div>
+            <h1 className="mt-1.5 text-[17px] font-semibold leading-tight tracking-tight text-[#1c1b1a]">
+              {tt("从资料生成学习计划", "Build a plan from your materials")}
+            </h1>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-[#8a8580]">
+              {tt(
+                "上传考纲、讲义或笔记，AI 自动识别考点并编排每日复习。",
+                "Upload a syllabus, slides, or notes — AI extracts topics and schedules your daily review."
+              )}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={requestClose}
+            disabled={isWorking || isParsingFiles}
+            className={iconBtnCls + " shrink-0"}
+            aria-label={tt("关闭", "Close")}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={onCancel}
+              disabled={isWorking}
+              className="ui-btn ui-btn-ghost flex items-center gap-1.5 text-[12px] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>{tt("返回现有计划", "Back to plans")}</span>
+            </button>
+            <span className="text-[12px] text-[#a39e97] tabular-nums">
+              {tt(`本地已有 ${existingPlans.length} 门科目`, `${existingPlans.length} subjects saved`)}
+            </span>
+          </div>
 
-      <header className="space-y-1">
-        <h1 className="ui-page-title">
-          {tt("从资料生成学习计划", "Build a plan from your materials")}
-        </h1>
-        <p className="text-[13px] text-[#8a8580]">
-          {tt("上传考纲、讲义或笔记，AI 自动识别考点并编排每日复习。", "Upload a syllabus, slides, or notes — AI extracts topics and schedules your daily review.")}
-        </p>
-      </header>
+          <header className="space-y-1">
+            <h1 className="ui-page-title">
+              {tt("从资料生成学习计划", "Build a plan from your materials")}
+            </h1>
+            <p className="text-[13px] text-[#8a8580]">
+              {tt("上传考纲、讲义或笔记，AI 自动识别考点并编排每日复习。", "Upload a syllabus, slides, or notes — AI extracts topics and schedules your daily review.")}
+            </p>
+          </header>
+        </>
+      )}
 
       <ol className="flex items-center gap-2">
         {steps.map((s, index) => {
@@ -608,8 +672,7 @@ export function AddExamSubjectWizard({
                     {isDone ? <Check className="h-3 w-3" /> : s.n}
                   </span>
                   <Icon className="hidden h-3.5 w-3.5 sm:block" />
-                  <span className="hidden truncate sm:inline">{s.label}</span>
-                  <span className="sm:hidden tabular-nums">{s.n}</span>
+                  <span className="truncate">{s.label}</span>
                 </button>
               </li>
             </React.Fragment>
@@ -1082,12 +1145,18 @@ export function AddExamSubjectWizard({
 
       <div className="flex flex-col gap-3 border-t border-[#f0ede8] pt-4 sm:flex-row sm:items-center sm:justify-between">
         <button
-          onClick={() => (step === 1 ? onCancel() : goToStep((step - 1) as 1 | 2 | 3))}
+          onClick={() => (step === 1 ? requestClose() : goToStep((step - 1) as 1 | 2 | 3))}
           disabled={isWorking}
           className="ui-btn ui-btn-ghost flex items-center justify-center gap-1.5 px-4 py-2.5 text-[13px] disabled:opacity-40 sm:w-auto"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          <span>{step === 1 ? tt("返回现有计划", "Back to plans") : tt("上一步", "Back")}</span>
+          <span>
+            {step === 1
+              ? isModal
+                ? tt("取消", "Cancel")
+                : tt("返回现有计划", "Back to plans")
+              : tt("上一步", "Back")}
+          </span>
         </button>
 
         {step < 3 ? (
@@ -1168,6 +1237,32 @@ export function AddExamSubjectWizard({
           </div>
         </div>
       )}
+    </>
+  );
+
+  if (!isModal) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 font-sans text-[#1c1b1a] space-y-5">
+        {wizardBody}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#1c1b1a]/40 p-4 backdrop-blur-sm animate-fadeIn sm:items-center sm:p-6"
+      onClick={requestClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={tt("新建备考科目", "New exam subject")}
+    >
+      <div
+        ref={cardRef}
+        onClick={(e) => e.stopPropagation()}
+        className="my-auto w-full max-w-2xl space-y-4 rounded-2xl border border-[#eae7e1] bg-[#fbfaf8] px-4 py-4 font-sans text-[13px] text-[#1c1b1a] shadow-[0_18px_50px_rgba(28,27,26,0.22)] sm:px-6 sm:py-5"
+      >
+        {wizardBody}
+      </div>
     </div>
   );
 }

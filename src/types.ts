@@ -5,7 +5,6 @@ export type AppTab =
   | 'dashboard'
   | 'master_calendar'
   | 'course'
-  | 'add_subject'
   | 'settings';
 
 export interface DaySchedulePreference {

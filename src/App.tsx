@@ -37,6 +37,7 @@ export default function App() {
   const [activePlanId, setActivePlanIdState] = useState<string>(() => getActivePlanId());
   const [currentTab, setCurrentTab] = useState<AppTab>("today");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isNewSubjectOpen, setIsNewSubjectOpen] = useState(false);
 
   const [appSettings, setAppSettings] = useState<AppSettings>(() => loadAppSettings());
 
@@ -133,7 +134,7 @@ export default function App() {
   };
 
   const handleNewPlan = () => {
-    setCurrentTab("add_subject");
+    setIsNewSubjectOpen(true);
   };
 
   const handleUpdatePlan = (updatedPlan: ExamStudyPlan) => {
@@ -162,6 +163,7 @@ export default function App() {
     setActivePlanIdState(newPlan.id);
     setActivePlanId(newPlan.id);
     setAppNotice(notice || null);
+    setIsNewSubjectOpen(false);
     setCurrentTab("today");
     setSelectedDate(newPlan.startDate || toLocalDateString());
   };
@@ -185,7 +187,7 @@ export default function App() {
 
   const isMobileNavActive = (tab: AppTab) => {
     if (tab === "dashboard") {
-      return ["dashboard", "course", "add_subject"].includes(currentTab);
+      return ["dashboard", "course"].includes(currentTab);
     }
     return currentTab === tab;
   };
@@ -342,15 +344,6 @@ export default function App() {
             </div>
           )}
 
-          {currentTab === "add_subject" && (
-            <AddExamSubjectWizard
-              existingPlans={plans}
-              onPlanCreated={handlePlanGenerated}
-              onCancel={() => setCurrentTab("today")}
-              defaultStudyPace={appSettings.defaultStudyPace}
-            />
-          )}
-
           {currentTab === "course" &&
             (activePlan ? (
               <CourseDetailPage
@@ -415,6 +408,16 @@ export default function App() {
         onClose={() => setPlanToDelete(null)}
         onConfirm={(planId) => handleDeletePlan(planId)}
       />
+
+      {isNewSubjectOpen && (
+        <AddExamSubjectWizard
+          variant="modal"
+          existingPlans={plans}
+          onPlanCreated={handlePlanGenerated}
+          onCancel={() => setIsNewSubjectOpen(false)}
+          defaultStudyPace={appSettings.defaultStudyPace}
+        />
+      )}
     </div>
   );
 }
