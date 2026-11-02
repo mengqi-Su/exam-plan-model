@@ -160,6 +160,7 @@ export function SettingsPage({
   const [importError, setImportError] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [showRelease, setShowRelease] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toastTimerRef = useRef<number | null>(null);
 
@@ -301,7 +302,6 @@ export function SettingsPage({
     { id: "pref", label: isZh ? "学习偏好" : "Preferences" },
     { id: "lang", label: isZh ? "界面语言" : "Language" },
     { id: "data", label: isZh ? "数据管理" : "Data" },
-    { id: "about", label: isZh ? "关于" : "About" },
   ];
 
   const stats = [
@@ -311,69 +311,28 @@ export function SettingsPage({
     { label: isZh ? "占用空间" : "Storage", value: storageInfo ? formatBytes(storageInfo.usage) : "—" },
   ];
 
-  const metaRows = [
-    { label: isZh ? "当前版本" : "Version", value: APP_VERSION_DATA.version },
-    { label: isZh ? "发布日期" : "Release date", value: APP_VERSION_DATA.buildDate },
-    { label: isZh ? "构建编号" : "Build", value: APP_VERSION_DATA.buildNumber },
-    { label: isZh ? "运行环境" : "Runtime", value: APP_VERSION_DATA.environment },
-  ];
-
-  const diagnostics = [
-    {
-      label: isZh ? "本地数据存储" : "Local storage",
-      value: isZh ? "IndexedDB · 已启用" : "IndexedDB · Active",
-      ok: true,
-    },
-    {
-      label: isZh ? "AI 规划服务" : "AI planner service",
-      value: isZh ? "服务端 Gemini · 按需调用" : "Server-side Gemini · On demand",
-      ok: true,
-    },
-    {
-      label: isZh ? "账号与云同步" : "Account & cloud",
-      value: isZh ? "已移除 · 无需登录" : "Removed · No sign-in",
-      ok: true,
-    },
-    {
-      label: isZh ? "网络状态" : "Network",
-      value: navigator.onLine
-        ? isZh
-          ? "在线 · AI 功能可用"
-          : "Online · AI available"
-        : isZh
-          ? "离线 · 仍可查看与编辑本地计划"
-          : "Offline · Local plans remain editable",
-      ok: navigator.onLine,
-    },
-  ];
-
   const ghostButton =
     "inline-flex items-center gap-2 rounded-lg border border-[#e5e2dc] bg-white px-4 py-2 text-[13px] font-medium text-[#1c1b1a] transition-colors hover:bg-[#faf9f6] cursor-pointer";
 
   return (
-    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12 animate-fadeIn text-[#1c1b1a]">
-      <header className="mb-8 flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{isZh ? "设置" : "Settings"}</h1>
-          <p className="mt-1 text-[13px] text-[#8a8580]">
-            {isZh
-              ? "本地优先，无需账号。更改会即时保存在此浏览器。"
-              : "Local-first, no account. Changes save instantly in this browser."}
-          </p>
-        </div>
-        <span className="shrink-0 rounded-full bg-[#f1efe9] px-3 py-1 text-[12px] font-medium tabular-nums text-[#6b6660]">
-          {APP_VERSION_DATA.version}
-        </span>
+    <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 animate-fadeIn pb-12 text-[#1c1b1a]">
+      <header className="sticky top-[56px] z-20 -mx-4 mb-8 border-b border-[#e7e4de] bg-[#f8f7f4]/85 px-4 py-3.5 backdrop-blur sm:-mx-6 sm:px-6 md:top-0 lg:-mx-8 lg:px-8">
+        <h1 className="text-[15px] font-semibold tracking-tight text-[#1c1b1a]">{isZh ? "设置" : "Settings"}</h1>
+        <p className="mt-0.5 truncate text-[12px] text-[#8a8580]">
+          {isZh
+            ? "本地优先，无需账号。更改会即时保存在此浏览器。"
+            : "Local-first, no account. Changes save instantly in this browser."}
+        </p>
       </header>
 
-      <div className="lg:grid lg:grid-cols-[180px_minmax(0,1fr)] lg:gap-10">
+      <div className="lg:grid lg:grid-cols-[150px_minmax(0,1fr)] lg:gap-10">
         <nav className="hidden lg:block" aria-label={isZh ? "设置导航" : "Settings navigation"}>
-          <div className="sticky top-24 space-y-1">
+          <div className="sticky top-[76px] space-y-0.5">
             {navItems.map((item) => (
               <a
                 key={item.id}
                 href={`#${item.id}`}
-                className="block rounded-md px-3 py-2 text-[13px] text-[#8a8580] transition-colors hover:bg-black/[0.03] hover:text-[#1c1b1a]"
+                className="block rounded-md px-3 py-1.5 text-[12px] text-[#a39e97] transition-colors hover:bg-black/[0.03] hover:text-[#1c1b1a]"
               >
                 {item.label}
               </a>
@@ -383,7 +342,7 @@ export function SettingsPage({
 
         <div className="min-w-0 space-y-10">
           {/* Preferences */}
-          <section id="pref" className="scroll-mt-24" aria-labelledby="settings-preferences-heading">
+          <section id="pref" className="scroll-mt-[136px] md:scroll-mt-24" aria-labelledby="settings-preferences-heading">
             <SectionHeader
               id="settings-preferences-heading"
               title={isZh ? "学习偏好" : "Study preferences"}
@@ -446,7 +405,7 @@ export function SettingsPage({
           </section>
 
           {/* Language */}
-          <section id="lang" className="scroll-mt-24" aria-labelledby="settings-language-heading">
+          <section id="lang" className="scroll-mt-[136px] md:scroll-mt-24" aria-labelledby="settings-language-heading">
             <SectionHeader
               id="settings-language-heading"
               title={isZh ? "界面语言" : "Language"}
@@ -468,7 +427,7 @@ export function SettingsPage({
           </section>
 
           {/* Data */}
-          <section id="data" className="scroll-mt-24" aria-labelledby="settings-data-heading">
+          <section id="data" className="scroll-mt-[136px] md:scroll-mt-24" aria-labelledby="settings-data-heading">
             <SectionHeader
               id="settings-data-heading"
               title={isZh ? "数据管理" : "Data"}
@@ -564,14 +523,14 @@ export function SettingsPage({
                 </div>
               </Card>
 
-              <div className="flex items-start gap-2.5 rounded-xl border border-[#eae7e1] bg-[#faf9f6] px-4 py-3 text-[13px] leading-relaxed text-[#6b6660]">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#8a8580]" />
+              <p className="flex items-start gap-2 px-1 text-[12px] leading-relaxed text-[#a39e97]">
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>
                   {isZh
-                    ? "本地模式，无需登录。清除浏览器站点数据或使用无痕模式会丢失计划，建议定期导出 JSON 备份。"
-                    : "Local mode, no sign-in. Clearing site data or using private browsing erases plans — export a JSON backup regularly."}
+                    ? "清除浏览器站点数据或使用无痕模式会丢失计划，建议定期导出 JSON 备份。"
+                    : "Clearing site data or using private browsing erases plans — export a JSON backup regularly."}
                 </span>
-              </div>
+              </p>
 
               <Card className="border-[#f0d8d4]">
                 <Row
@@ -610,56 +569,78 @@ export function SettingsPage({
             </div>
           </section>
 
-          {/* About */}
-          <section id="about" className="scroll-mt-24" aria-labelledby="settings-about-heading">
-            <SectionHeader
-              id="settings-about-heading"
-              title={isZh ? "关于" : "About"}
-              description={APP_VERSION_DATA.releaseName}
-            />
-            <div className="space-y-4">
-              <Card>
-                <div className="divide-y divide-[#f0ede8]">
-                  {metaRows.map((item) => (
-                    <div key={item.label} className="flex items-center justify-between gap-4 px-5 py-3">
-                      <span className="text-[13px] text-[#8a8580]">{item.label}</span>
-                      <span className="break-all text-right text-[13px] font-medium tabular-nums text-[#1c1b1a]">
-                        {item.value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
+          {/* Release info — deliberately quiet footer area */}
+          <footer className="border-t border-[#f0ede8] pt-5">
+            <p className="text-[12px] leading-relaxed text-[#a39e97]">
+              {isZh ? (
+                <>
+                  规划与执行安排在这里；题库练习、模拟考试请前往{" "}
+                  <a
+                    href={STARQUIZ_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-0.5 font-medium text-[#8a8580] underline underline-offset-2 transition-colors hover:text-[#1c1b1a]"
+                  >
+                    StarQuiz
+                    <ArrowUpRight className="h-3 w-3" />
+                  </a>
+                  。
+                </>
+              ) : (
+                <>
+                  Planning and execution live here; practice and mock exams are in{" "}
+                  <a
+                    href={STARQUIZ_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-0.5 font-medium text-[#8a8580] underline underline-offset-2 transition-colors hover:text-[#1c1b1a]"
+                  >
+                    StarQuiz
+                    <ArrowUpRight className="h-3 w-3" />
+                  </a>
+                  .
+                </>
+              )}
+            </p>
 
-              <Card>
-                <div className="divide-y divide-[#f0ede8]">
-                  {diagnostics.map((item) => (
-                    <div key={item.label} className="flex items-center justify-between gap-4 px-5 py-3">
-                      <span className="flex items-center gap-2.5 text-[13px] text-[#1c1b1a]">
-                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${item.ok ? "bg-[#3F6B4F]" : "bg-[#B42318]"}`} />
-                        {item.label}
-                      </span>
-                      <span className="text-right text-[13px] text-[#8a8580]">{item.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setShowRelease((prev) => !prev)}
+                aria-expanded={showRelease}
+                aria-controls="settings-release-details"
+                className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[12px] text-[#a39e97] transition-colors hover:bg-black/[0.03] hover:text-[#6b6660] cursor-pointer"
+              >
+                {isZh ? "版本与更新信息" : "Version & release notes"}
+                <ChevronDown
+                  className={`h-3.5 w-3.5 transition-transform duration-200 ${showRelease ? "rotate-180" : ""}`}
+                />
+              </button>
+              <span className="flex items-center gap-1.5 text-[12px] tabular-nums text-[#a39e97]">
+                <span className={`h-1.5 w-1.5 rounded-full ${navigator.onLine ? "bg-[#3F6B4F]" : "bg-[#B42318]"}`} />
+                {APP_VERSION_DATA.version}
+              </span>
+            </div>
 
-              <Card className="px-5 py-4">
-                <div className="mb-3 text-[13px] font-semibold text-[#1c1b1a]">{isZh ? "更新日志" : "Changelog"}</div>
-                <div className="space-y-4">
+            {showRelease && (
+              <div id="settings-release-details" className="mt-3 space-y-4 animate-fadeIn">
+                <p className="text-[12px] leading-relaxed text-[#a39e97]">
+                  {APP_VERSION_DATA.releaseName} · {APP_VERSION_DATA.buildDate} · {APP_VERSION_DATA.buildNumber} ·{" "}
+                  {APP_VERSION_DATA.environment}
+                </p>
+                <div className="space-y-3">
                   {APP_VERSION_DATA.changelog.map((entry) => (
                     <div key={entry.version}>
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <span className="text-[14px] font-medium text-[#1c1b1a]">{entry.title}</span>
-                        <span className="text-[12px] tabular-nums text-[#a39e97]">
+                      <div className="text-[12px] font-medium text-[#8a8580]">
+                        {entry.title}
+                        <span className="ml-1.5 tabular-nums text-[#a39e97]">
                           {entry.version} · {entry.date}
                         </span>
                       </div>
-                      <ul className="mt-1.5 space-y-1">
+                      <ul className="mt-1 space-y-0.5">
                         {entry.highlights.map((highlight) => (
-                          <li key={highlight} className="flex gap-2 text-[13px] leading-relaxed text-[#8a8580]">
-                            <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[#d8d4cc]" />
+                          <li key={highlight} className="flex gap-2 text-[12px] leading-relaxed text-[#a39e97]">
+                            <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-[#e0dcd4]" />
                             <span>{highlight}</span>
                           </li>
                         ))}
@@ -667,26 +648,9 @@ export function SettingsPage({
                     </div>
                   ))}
                 </div>
-              </Card>
-
-              <div className="flex flex-col gap-3 rounded-xl border border-[#eae7e1] bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-[13px] leading-relaxed text-[#6b6660]">
-                  {isZh
-                    ? "这里只负责规划与执行安排；题库练习、模拟考试请前往 StarQuiz。"
-                    : "This app handles planning and execution. Practice and mock exams live in StarQuiz."}
-                </p>
-                <a
-                  href={STARQUIZ_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#1c1b1a] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#333333] cursor-pointer"
-                >
-                  {isZh ? "去 StarQuiz 刷题" : "Open StarQuiz"}
-                  <ArrowUpRight className="h-4 w-4" />
-                </a>
               </div>
-            </div>
-          </section>
+            )}
+          </footer>
         </div>
       </div>
 

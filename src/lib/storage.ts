@@ -197,12 +197,23 @@ export function saveAppSettings(settings: AppSettings) {
 }
 
 export const APP_VERSION_DATA = {
-  version: "v3.0.0",
+  version: "v3.1.0",
   releaseName: "Local-First Planning Edition",
-  buildDate: "2026-10-31",
-  buildNumber: "build-20261031.300",
+  buildDate: "2026-11-02",
+  buildNumber: "build-20261102.310",
   environment: "Local Browser (IndexedDB)",
   changelog: [
+    {
+      version: "v3.1.0",
+      date: "2026-11-02",
+      title: "今日视图风格统一与规划后端切换",
+      highlights: [
+        "今日待办、任务路线便签与专注计时弹窗统一为全站编辑式排版 token（字号、圆角、间距、按钮）",
+        "设置页页头固定，次要信息（版本、更新日志）折叠到底部弱区",
+        "AI 考点提取与排程改为服务端 DeepSeek 模型，密钥仅保存在云函数环境变量，不进入浏览器",
+        "考点可一键跳转 StarQuiz 练习，规划与刷题各司其职",
+      ],
+    },
     {
       version: "v3.0.0",
       date: "2026-10-31",

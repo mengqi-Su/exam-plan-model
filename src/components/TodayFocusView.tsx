@@ -170,31 +170,28 @@ export function TodayFocusView({
   );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6 animate-fadeIn text-[#111111] font-mono">
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-3 border-b border-[#111111]">
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-5 animate-fadeIn text-[#1c1b1a]">
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-1">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#666666]">
-              DAILY TASKS
-            </span>
+            <span className="ui-chip">{isZh ? "每日任务" : "Daily tasks"}</span>
             {nearestExam && (
-              <span className="inline-flex items-center gap-1 border border-[#111111] bg-white px-2 py-0.5 font-mono text-[10px] font-bold">
+              <span className="ui-chip gap-1 tabular-nums">
                 <CalendarDays className="w-3 h-3" />
                 {nearestExam.plan.examName} ·{" "}
                 {nearestExam.days === 0
                   ? isZh
                     ? "今天考试"
-                    : "EXAM TODAY"
-                  : `D-${nearestExam.days}`}
+                    : "Exam today"
+                  : isZh
+                    ? `还剩 ${nearestExam.days} 天`
+                    : `${nearestExam.days} days left`}
               </span>
             )}
           </div>
 
-          <h1 className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2.5">
-            <Sun className="w-6 h-6" />
-            <span>{isZh ? "今日待办" : "Today Tasks"}</span>
-          </h1>
-          <p className="mt-1 text-[13px] text-[#666666]">
+          <h1 className="ui-page-title mt-2">{isZh ? "今日待办" : "Today Tasks"}</h1>
+          <p className="mt-1 text-[13px] text-[#8a8580] tabular-nums">
             {selectedDate}
             {" · "}
             {dayItems.length === 0
@@ -205,35 +202,39 @@ export function TodayFocusView({
           </p>
         </div>
 
-        <div className="flex items-center space-x-1 self-start sm:self-auto">
+        <div className="flex items-center gap-1.5 self-start sm:self-auto">
           <button
             onClick={() => onSelectDate(addDays(selectedDate, -1))}
-            className="p-1.5 min-w-9 min-h-9 border border-[#111111] hover:bg-[#ededed] text-[#111111] transition-colors cursor-pointer"
+            className="ui-btn ui-btn-ghost px-2 py-2 min-w-9 min-h-9"
             title={isZh ? "前一天" : "Previous day"}
             aria-label={isZh ? "前一天" : "Previous day"}
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => onSelectDate(todayStr)}
-            className={`px-2.5 min-h-9 text-xs font-bold border transition-colors cursor-pointer ${
-              isToday
-                ? "bg-[#111111] text-white border-[#111111]"
-                : "bg-white text-[#111111] border-[#111111] hover:bg-[#ededed]"
-            }`}
-          >
-            {isZh ? "今天" : "Today"}
-          </button>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(event) => event.target.value && onSelectDate(event.target.value)}
-            aria-label={isZh ? "选择日期" : "Choose date"}
-            className="px-2 min-h-9 text-xs bg-white border border-[#111111] text-[#111111] outline-none cursor-pointer font-mono font-bold"
-          />
+          <div className="flex items-center gap-0.5 rounded-lg bg-[#f1efe9] p-0.5">
+            <button
+              onClick={() => onSelectDate(todayStr)}
+              className={`px-3 min-h-8 rounded-[7px] text-[13px] font-medium transition-all cursor-pointer ${
+                isToday
+                  ? "bg-white text-[#1c1b1a] shadow-[0_1px_2px_rgba(28,27,26,0.08)]"
+                  : "text-[#6b6660] hover:text-[#1c1b1a]"
+              }`}
+            >
+              {isZh ? "今天" : "Today"}
+            </button>
+            <label className="relative min-h-8 flex items-center">
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(event) => event.target.value && onSelectDate(event.target.value)}
+                aria-label={isZh ? "选择日期" : "Choose date"}
+                className="h-8 rounded-[7px] border-0 bg-transparent px-2 text-[13px] tabular-nums text-[#1c1b1a] outline-none cursor-pointer"
+              />
+            </label>
+          </div>
           <button
             onClick={() => onSelectDate(addDays(selectedDate, 1))}
-            className="p-1.5 min-w-9 min-h-9 border border-[#111111] hover:bg-[#ededed] text-[#111111] transition-colors cursor-pointer"
+            className="ui-btn ui-btn-ghost px-2 py-2 min-w-9 min-h-9"
             title={isZh ? "后一天" : "Next day"}
             aria-label={isZh ? "后一天" : "Next day"}
           >
@@ -243,62 +244,61 @@ export function TodayFocusView({
       </header>
 
       {plans.length === 0 ? (
-        <div className="py-16 px-6 text-center space-y-4 bg-white border border-[#111111] shadow-[4px_4px_0px_#111111]">
-          <div className="w-12 h-12 bg-[#FCD33B] border border-[#111111] flex items-center justify-center mx-auto">
+        <div className="ui-card py-16 px-6 text-center space-y-4">
+          <div className="w-12 h-12 rounded-xl bg-[#f1efe9] text-[#8a8580] flex items-center justify-center mx-auto">
             <Sun className="w-6 h-6" />
           </div>
           <div className="space-y-1.5">
-            <h2 className="text-lg font-bold">{isZh ? "还没有备考科目" : "No exam subjects yet"}</h2>
-            <p className="text-[13px] text-[#666666] leading-relaxed max-w-md mx-auto">
+            <h2 className="text-[15px] font-semibold tracking-tight">
+              {isZh ? "还没有备考科目" : "No exam subjects yet"}
+            </h2>
+            <p className="ui-muted text-[13px] leading-relaxed max-w-md mx-auto">
               {isZh
                 ? "上传课程资料和考试日期，AI 会自动整理考点并排好每天的复习任务。"
                 : "Upload your course materials and exam date. AI will organize the syllabus and schedule daily study tasks."}
             </p>
           </div>
-          <button
-            onClick={onAddNewSubject}
-            className="inline-flex items-center gap-2 px-4 min-h-11 bg-[#111111] text-white text-[13px] font-bold hover:bg-[#333333] cursor-pointer"
-          >
+          <button onClick={onAddNewSubject} className="ui-btn ui-btn-primary">
             <Plus className="w-4 h-4" />
-            {isZh ? "新建备考科目" : "CREATE SUBJECT"}
+            {isZh ? "新建备考科目" : "Create subject"}
           </button>
         </div>
       ) : dayItems.length === 0 ? (
-        <div className="py-14 px-6 text-center space-y-3 bg-[#fafafa] border border-dashed border-[#111111]/40">
-          <CheckCircle2 className="w-8 h-8 text-[#888888] mx-auto" />
-          <p className="text-xs text-[#666666] font-mono">
+        <div className="ui-card py-14 px-6 text-center space-y-3 border-dashed">
+          <CheckCircle2 className="w-8 h-8 text-[#a39e97] mx-auto" />
+          <p className="text-[13px] text-[#8a8580]">
             {isZh
-              ? `[${selectedDate}] 这一天没有排程的学习任务。`
-              : `NO STUDY TASKS SCHEDULED FOR [${selectedDate}].`}
+              ? `${selectedDate} 这一天没有排程的学习任务。`
+              : `No study tasks scheduled for ${selectedDate}.`}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
             <button
               onClick={() => onNavigateToTab("master_calendar")}
-              className="px-3 min-h-10 border border-[#111111] bg-white text-[13px] font-semibold hover:bg-[#f2f0ea] cursor-pointer"
+              className="ui-btn ui-btn-ghost"
             >
-              <CalendarDays className="inline w-4 h-4 mr-1.5" />
-              {isZh ? "查看全科日历" : "VIEW CALENDAR"}
+              <CalendarDays className="w-4 h-4" />
+              {isZh ? "查看全科日历" : "View calendar"}
             </button>
             {!isToday && (
               <button
                 onClick={() => onSelectDate(todayStr)}
-                className="px-3 min-h-10 bg-[#111111] text-white text-[13px] font-bold hover:bg-[#333333] cursor-pointer"
+                className="ui-btn ui-btn-primary"
               >
-                {isZh ? "回到今天" : "BACK TO TODAY"}
+                {isZh ? "回到今天" : "Back to today"}
               </button>
             )}
           </div>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-4">
           {nextItem && (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-2 border-[#111111] bg-[#FCD33B] px-4 py-3.5 shadow-[4px_4px_0px_#111111]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-[#f0e4c0] bg-[#FFF6DD] px-4 py-3.5">
               <div className="min-w-0">
-                <div className="truncate text-sm font-bold text-[#111111]">
+                <div className="truncate text-[13px] font-medium text-[#1c1b1a]">
                   {nextItem.task.title}
                 </div>
-                <div className="mt-0.5 truncate font-mono text-[11px] text-[#5f4a00]">
-                  [{nextItem.plan.examName}] {nextItem.task.topicTitle} · {nextItem.task.durationMinutes}{" "}
+                <div className="mt-0.5 truncate text-[12px] text-[#8A5A00] tabular-nums">
+                  {nextItem.plan.examName} · {nextItem.task.topicTitle} · {nextItem.task.durationMinutes}{" "}
                   {isZh ? "分钟" : "min"}
                 </div>
               </div>
@@ -311,18 +311,18 @@ export function TodayFocusView({
                   })}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 px-3 min-h-11 border-2 border-[#111111] bg-white text-[#111111] text-[12px] font-bold hover:bg-[#f2f0ea] cursor-pointer"
+                  className="ui-btn ui-btn-ghost bg-white"
                   title={isZh ? "去 StarQuiz 练这个考点" : "Practice this topic in StarQuiz"}
                 >
-                  {isZh ? "练这个考点" : "PRACTICE"}
+                  {isZh ? "练这个考点" : "Practice"}
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </a>
                 <button
                   onClick={() => setActiveTimer(nextItem)}
-                  className="inline-flex items-center justify-center gap-2 px-5 min-h-11 bg-[#111111] text-white text-[13px] font-bold hover:bg-[#333333] cursor-pointer"
+                  className="ui-btn ui-btn-primary"
                 >
                   <Play className="w-4 h-4 fill-current" />
-                  {isZh ? "开始专注" : "START FOCUS"}
+                  {isZh ? "开始专注" : "Start focus"}
                 </button>
               </div>
             </div>
