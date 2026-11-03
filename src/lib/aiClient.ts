@@ -1,4 +1,5 @@
 import { StudyMaterial } from "../types";
+import { attachTaskTopicIds } from "./links";
 
 export const MAX_AI_MATERIALS = 20;
 // 单次 AI 调用只需要片段文本：本地阅读器仍保留完整原文
@@ -563,7 +564,7 @@ async function generatePlan(payload: Record<string, unknown>, ctx: CallContext) 
     });
   }
 
-  tasks = dedupeTasks(tasks);
+  tasks = attachTaskTopicIds(dedupeTasks(tasks), payload.topics);
   if (!tasks.length) {
     throw new GenerationError(
       ctx.tt("AI 没有返回可用的每日任务，请检查资料内容后重试。", "AI returned no usable daily tasks. Check your materials and try again."),

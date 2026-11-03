@@ -1,9 +1,11 @@
 // 出站联动契约回归：npm run test:links
 // 覆盖「三入口 → 完整路径参数」的构造规则与今日任务的路径反解，
-// 包括必要参数缺失时退化为旧链接、同名歧义时绝不猜路径。
+// 包括必要参数缺失时退化为旧链接、同名歧义时绝不猜路径，
+// 以及排程结果补写 topicId（AI 只回标题，没有 unit id 就带不上 v=1 上下文）。
 import assert from 'node:assert/strict';
 import {
   LINK_PROTOCOL_VERSION,
+  attachTaskTopicIds,
   resolvePracticeTopicPath,
   starquizPracticeUrl,
   starquizPracticeUrlForTask,
@@ -161,6 +163,57 @@ check('同一子考点在 tree 与字符串列表里重复出现时不算歧义'
   });
   // 单元与其子考点同名时仍是歧义，即使两种表示都指向同一标题
   assert.equal(resolvePracticeTopicPath(plan, { topicId: 'u7', topicTitle: '洋务运动' }), null);
+});
+
+check('排程结果补写 topicId：唯一归属才写，歧义与无归属留空', () => {
+  const tasks = [
+    { id: 't1', topicTitle: '辛亥革命' },            // 单元标题
+    { id: 't2', topicTitle: '武昌起义' },            // 子考点
+    { id: 't3', topicTitle: '北伐战争' },            // tree 与字符串重复出现，仍唯一归属
+    { id: 't4', topicTitle: '洋务运动' },            // 单元与子考点同名：attach 只看跨单元歧义，同单元内 unit/subtopic 层级歧义交给反解
+    { id: 't5', topicTitle: '自由探索' },            // 没有归属
+    { id: 't6', topicTitle: '辛亥革命', topicId: 'uX' }, // 已有值不覆盖
+  ];
+  const done = attachTaskTopicIds(tasks, plan.topics);
+  assert.equal(done[0].topicId, 'u1');
+  assert.equal(done[1].topicId, 'u1');
+  assert.equal(done[2].topicId, 'u6');
+  assert.equal(done[3].topicId, 'u7');
+  assert.equal(done[4].topicId, undefined);
+  assert.equal(done[5].topicId, 'uX');
+  // 不改动原对象，也不丢字段
+  assert.equal(tasks[0].topicId, undefined);
+  assert.equal(done[0].topicTitle, '辛亥革命');
+});
+
+check('重名标题跨单元出现时视为歧义，不补 topicId', () => {
+  const topics = [
+    { id: 'a', title: '甲单元', subtopics: ['同一子考点'] },
+    { id: 'b', title: '乙单元', subtopics: ['同一子考点'] },
+  ];
+  const done = attachTaskTopicIds([{ id: 't', topicTitle: '同一子考点' }], topics);
+  assert.equal(done[0].topicId, undefined);
+});
+
+check('补写 topicId 后今日任务入口才带上 v=1 联动上下文', () => {
+  const [linked] = attachTaskTopicIds(
+    [{ id: 'task-9', topicTitle: '武昌起义', date: '2026-11-03' }],
+    plan.topics
+  );
+  const q = query(starquizPracticeUrlForTask(plan, linked as any, { examName: plan.examName, date: '2026-11-03', taskId: linked.id }));
+  assert.equal(q.get('v'), LINK_PROTOCOL_VERSION);
+  assert.equal(q.get('level'), 'subtopic');
+  assert.equal(q.get('unit'), '辛亥革命');
+  assert.equal(q.get('topic'), '武昌起义');
+  // 没补上归属的任务仍然退化成普通跳转
+  const bare = query(starquizPracticeUrlForTask(plan, { id: 'task-10', topicTitle: '自由探索', date: '2026-11-03' } as any, {}));
+  assert.equal(bare.get('v'), null);
+});
+
+check('脏输入不抛异常', () => {
+  assert.deepEqual(attachTaskTopicIds(null, null), []);
+  assert.deepEqual(attachTaskTopicIds([null, 'x', 3], [{ id: '', title: '甲' }]).length, 3);
+  assert.equal(attachTaskTopicIds([{ topicTitle: '甲' }], [{ title: '甲' }])[0].topicId, undefined); // 单元没有 id
 });
 
 console.log(`\n${passed} links checks passed`);

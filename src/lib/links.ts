@@ -129,6 +129,45 @@ export function resolvePracticeTopicPath(plan: PlanLike | undefined | null, task
   return null;
 }
 
+/**
+ * 给每日任务补上所属单元 id：AI 排程只回 topicTitle，而联动深链要用 unit id 定位层级。
+ * 只接受唯一归属——一个标题同时出现在多个单元下就不写，保持「绝不按标题猜路径」的约定，
+ * 由链接构造端退化成普通跳转。
+ */
+export function attachTaskTopicIds<T extends { topicTitle?: unknown; topicId?: unknown }>(
+  tasks: readonly T[] | null | undefined,
+  topics: unknown
+): T[] {
+  const owners = new Map<string, Set<string>>();
+  const register = (title: string, unitId: string) => {
+    if (!title || !unitId) return;
+    const set = owners.get(title) || new Set<string>();
+    set.add(unitId);
+    owners.set(title, set);
+  };
+
+  (Array.isArray(topics) ? topics : []).forEach((unit: any) => {
+    const unitId = trimmed(unit?.id);
+    if (!unitId) return;
+    register(trimmed(unit?.title), unitId);
+    // subtopicTree 与 subtopics 是同一批子考点的两种表示，按标题去重后再登记，
+    // 否则同名子考点会在同一个单元里重复登记（size 仍为 1，不影响正确性，但语义更清楚）。
+    const subtitles = new Set<string>([
+      ...(Array.isArray(unit?.subtopicTree) ? unit.subtopicTree : []).map((sub: any) => trimmed(sub?.title || sub?.name || "")),
+      ...(Array.isArray(unit?.subtopics) ? unit.subtopics : []).map((sub: unknown) => trimmed(sub)),
+    ]);
+    subtitles.forEach((title) => register(title, unitId));
+  });
+
+  return (Array.isArray(tasks) ? tasks : []).map((task: any) => {
+    if (!task || typeof task !== "object") return task;
+    if (trimmed(task.topicId)) return task;
+    const candidates = owners.get(trimmed(task.topicTitle));
+    if (!candidates || candidates.size !== 1) return task;
+    return { ...task, topicId: [...candidates][0] };
+  });
+}
+
 /** 今日任务入口：能解析出完整路径就带联动上下文，否则退化为旧链接。 */
 export function starquizPracticeUrlForTask(plan: PlanLike | undefined | null, task: TaskLike | undefined | null, extra: { examName?: string; date?: string; taskId?: string } = {}): string {
   const path = resolvePracticeTopicPath(plan, task);

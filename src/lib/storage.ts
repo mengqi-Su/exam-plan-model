@@ -1,4 +1,5 @@
 import { ExamStudyPlan, AppSettings, DailyMemoNote, PracticeEvent, PracticeEventStatus } from "../types";
+import { attachTaskTopicIds } from "./links";
 
 const LEGACY_STORAGE_KEY_PLANS = "exam_planner_saved_plans_v1";
 const STORAGE_KEY_ACTIVE_ID = "exam_planner_active_plan_id_v1";
@@ -69,6 +70,21 @@ function readLegacyPlans(): ExamStudyPlan[] {
   }
 }
 
+/**
+ * 早期计划里的每日任务只带 topicTitle：读取时按考点表补写所属单元 id。
+ * 没有 unit id 就解析不出完整考点路径，「今日任务」入口会退化成普通跳转，
+ * 拿不到 v=1 联动上下文，练习结果也就无法回流。补写只认唯一归属，歧义保持留空。
+ */
+function backfillTaskTopicIds(plans: ExamStudyPlan[]): ExamStudyPlan[] {
+  return plans.map((plan) => {
+    const tasks = Array.isArray(plan?.tasks) ? plan.tasks : [];
+    const topics = Array.isArray(plan?.topics) ? plan.topics : [];
+    if (!tasks.length || !topics.length) return plan;
+    if (tasks.every((task) => Boolean(task?.topicId))) return plan;
+    return { ...plan, tasks: attachTaskTopicIds(tasks, topics) };
+  });
+}
+
 export async function loadSavedPlans(): Promise<ExamStudyPlan[]> {
   try {
     const db = await openPlanDatabase();
@@ -81,7 +97,7 @@ export async function loadSavedPlans(): Promise<ExamStudyPlan[]> {
       tx.onabort = () => db.close();
     });
     if (plans.length > 0) {
-      return plans.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      return backfillTaskTopicIds(plans.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")));
     }
   } catch (e) {
     console.warn("IndexedDB read failed, checking legacy localStorage", e);
@@ -96,7 +112,7 @@ export async function loadSavedPlans(): Promise<ExamStudyPlan[]> {
       console.warn("Legacy plan migration failed, keeping localStorage copy", e);
     }
   }
-  return legacyPlans;
+  return backfillTaskTopicIds(legacyPlans);
 }
 
 export async function savePlans(plans: ExamStudyPlan[]): Promise<void> {
