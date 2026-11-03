@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { SyllabusTopic, SyllabusSubtopicNode } from "../types";
 import {
   ChevronDown,
@@ -33,6 +33,14 @@ interface HierarchicalTopicTreeViewProps {
   examName?: string;
   /** 计划 ID：与层级、完整路径一起构成联动上下文，缺失时退化为普通跳转 */
   planId?: string;
+  /**
+   * 回程定位目标（联动 M2）：由入站流程给出的显式 id/标题，
+   * 组件按 data 属性展开并滚动，绝不拿标题文本去猜 DOM 结构。
+   */
+  focusUnitId?: string | null;
+  focusSubtopicTitle?: string;
+  /** 同一目标重复定位时用它重新触发动作 */
+  focusNonce?: number;
 }
 
 export function HierarchicalTopicTreeView({
@@ -47,6 +55,9 @@ export function HierarchicalTopicTreeView({
   subject,
   examName,
   planId,
+  focusUnitId = null,
+  focusSubtopicTitle = "",
+  focusNonce = 0,
 }: HierarchicalTopicTreeViewProps) {
   const isZh = language === "zh";
   const practiceSubject = (subject || examName || "").trim();
@@ -73,6 +84,61 @@ export function HierarchicalTopicTreeView({
   const [editTopicTitle, setEditTopicTitle] = useState("");
   const [editTopicWeight, setEditTopicWeight] = useState(20);
   const [editTopicHours, setEditTopicHours] = useState(4);
+
+  /** 回程定位后短暂高亮的那一行，靠 data 属性定位而不是标题文本搜索 */
+  const [highlightKey, setHighlightKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!focusUnitId) return;
+    const timers: number[] = [];
+    // 目标可能正被搜索框过滤掉：先清空搜索再展开，保证一定能滚到
+    setSearchQuery("");
+    setExpandedUnits((prev) => ({ ...prev, [focusUnitId]: true }));
+    const sub = focusSubtopicTitle || "";
+    const key = `${focusUnitId}:${sub}`;
+    const block: ScrollLogicalPosition = sub ? "center" : "start";
+    // 展开面板 + 列表渲染是异步的：轮询几次，直到目标行真的在 DOM 里
+    const locate = () => {
+      const escape = (value: string) => (typeof CSS !== "undefined" && CSS.escape ? CSS.escape(value) : value.replace(/["\\]/g, "\\$&"));
+      const selector = sub
+        ? `[data-topic-unit="${escape(focusUnitId)}"] [data-subtopic="${escape(sub)}"]`
+        : `[data-topic-unit="${escape(focusUnitId)}"]`;
+      return document.querySelector(selector);
+    };
+    const attempt = (delay: number, remaining: number) => {
+      const timer = window.setTimeout(() => {
+        const node = locate();
+        if (!node) {
+          if (remaining > 0) attempt(160, remaining - 1);
+          return;
+        }
+        // 高亮先落地：滚动只是辅助，不该决定用户能不能认出目标
+        setHighlightKey(key);
+        const reduceMotion = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        node.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block });
+        // 后台标签页里 smooth 动画可能整段不执行（合成器不跑）：
+        // 校验一次实际位置，仍在视口外就直接对齐，保证「回来能认出原考点」。
+        const check = window.setTimeout(() => {
+          const rect = node.getBoundingClientRect();
+          const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+          const center = rect.top + rect.height / 2;
+          if (center < 0 || center > viewportHeight) node.scrollIntoView({ behavior: "auto", block });
+        }, 600);
+        timers.push(check);
+      }, delay);
+      timers.push(timer);
+    };
+    attempt(80, 4);
+    return () => {
+      timers.splice(0, timers.length).forEach((id) => window.clearTimeout(id));
+    };
+  }, [focusUnitId, focusSubtopicTitle, focusNonce]);
+
+  useEffect(() => {
+    if (!highlightKey) return;
+    const timer = window.setTimeout(() => setHighlightKey(null), 2600);
+    return () => window.clearTimeout(timer);
+  }, [highlightKey]);
 
   // Total stats
   const totalSubtopicsCount = useMemo(() => {
@@ -294,8 +360,16 @@ export function HierarchicalTopicTreeView({
                 ? isZh ? "基础概念" : "Easy"
                 : isZh ? "核心中等" : "Medium";
 
+            const unitHighlighted = highlightKey === `${topic.id}:`;
+
             return (
-              <div key={topic.id || `topic-unit-${tIdx}`} className="ui-card overflow-hidden">
+              <div
+                key={topic.id || `topic-unit-${tIdx}`}
+                data-topic-unit={topic.id}
+                className={`ui-card overflow-hidden transition-shadow duration-300 ${
+                  unitHighlighted ? "ring-2 ring-[#1c1b1a]/15 border-[#cfc9c0]" : ""
+                }`}
+              >
                 {/* Root Node: Major Unit Header */}
                 <div
                   className={`p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b ${
@@ -520,7 +594,12 @@ export function HierarchicalTopicTreeView({
                           return (
                             <div
                               key={sub.id || `subnode-${sIdx}`}
-                              className="relative flex flex-col p-3 rounded-lg border border-[#eae7e1] bg-white space-y-2 hover:bg-[#faf9f6] transition-colors"
+                              data-subtopic={sub.title}
+                              className={`relative flex flex-col p-3 rounded-lg border bg-white space-y-2 transition-colors ${
+                                highlightKey === `${topic.id}:${sub.title}`
+                                  ? "border-[#1c1b1a]/25 bg-[#faf9f6] shadow-[0_0_0_2px_rgba(28,27,26,0.06)]"
+                                  : "border-[#eae7e1] hover:bg-[#faf9f6]"
+                              }`}
                             >
                               <div className="absolute -left-4 sm:-left-5 top-4 w-4 sm:w-5 h-px bg-[#eae7e1]" />
 

@@ -1,12 +1,15 @@
-import { ExamStudyPlan, AppSettings, DailyMemoNote } from "../types";
+import { ExamStudyPlan, AppSettings, DailyMemoNote, PracticeEvent, PracticeEventStatus } from "../types";
 
 const LEGACY_STORAGE_KEY_PLANS = "exam_planner_saved_plans_v1";
 const STORAGE_KEY_ACTIVE_ID = "exam_planner_active_plan_id_v1";
 const STORAGE_KEY_DAILY_MEMOS = "exam_planner_daily_memos_v1";
+const STORAGE_KEY_PRACTICE_EVENTS = "exam_planner_practice_events_v1";
 
 const DB_NAME = "exam_planner_local";
-const DB_VERSION = 1;
+/** v2：新增 practice_events（StarQuiz 回流的练习事件），旧 plans 数据原地保留 */
+const DB_VERSION = 2;
 const PLAN_STORE = "plans";
+const PRACTICE_STORE = "practice_events";
 
 export const DEFAULT_WEEK_SCHEDULE = [
   { dayOfWeek: 0, dayName: "周日", availableHours: 4, preferredTimeSlot: "afternoon" as const, enabled: true },
@@ -30,8 +33,22 @@ function openPlanDatabase(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(PLAN_STORE)) {
         db.createObjectStore(PLAN_STORE, { keyPath: "id" });
       }
+      // attemptId 即幂等键：同一次练习重复返回只会覆盖同一条记录，不会累加。
+      if (!db.objectStoreNames.contains(PRACTICE_STORE)) {
+        db.createObjectStore(PRACTICE_STORE, { keyPath: "attemptId" });
+      }
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onblocked = () => {
+      // 另一个标签页还占着旧版本；不报错也不挂死，交给调用方超时后走回退
+      console.warn("IndexedDB upgrade blocked by another tab holding an older connection");
+    };
+    request.onsuccess = () => {
+      const db = request.result;
+      // 本标签页被别的旧版本标签页升级时主动让路，避免读写事务永久等待
+      db.onversionchange = () => db.close();
+      db.onclose = () => console.warn("Local database closed unexpectedly");
+      resolve(db);
+    };
     request.onerror = () => reject(request.error || new Error("Failed to open local database"));
   });
 }
@@ -61,6 +78,7 @@ export async function loadSavedPlans(): Promise<ExamStudyPlan[]> {
       request.onsuccess = () => resolve((request.result || []) as ExamStudyPlan[]);
       request.onerror = () => reject(request.error || new Error("Failed to read local plans"));
       tx.oncomplete = () => db.close();
+      tx.onabort = () => db.close();
     });
     if (plans.length > 0) {
       return plans.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
@@ -94,8 +112,14 @@ export async function savePlans(plans: ExamStudyPlan[]): Promise<void> {
         db.close();
         resolve();
       };
-      tx.onerror = () => reject(tx.error || new Error("Failed to write local plans"));
-      tx.onabort = () => reject(tx.error || new Error("Local write was aborted"));
+      tx.onerror = () => {
+        db.close();
+        reject(tx.error || new Error("Failed to write local plans"));
+      };
+      tx.onabort = () => {
+        db.close();
+        reject(tx.error || new Error("Local write was aborted"));
+      };
     });
     localStorage.removeItem(LEGACY_STORAGE_KEY_PLANS);
     return;
@@ -137,20 +161,235 @@ export async function clearPlannerData(): Promise<void> {
   try {
     const db = await openPlanDatabase();
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(PLAN_STORE, "readwrite");
+      const tx = db.transaction([PLAN_STORE, PRACTICE_STORE], "readwrite");
       tx.objectStore(PLAN_STORE).clear();
+      tx.objectStore(PRACTICE_STORE).clear();
       tx.oncomplete = () => {
         db.close();
         resolve();
       };
-      tx.onerror = () => reject(tx.error || new Error("Failed to clear local plans"));
+      tx.onerror = () => {
+        db.close();
+        reject(tx.error || new Error("Failed to clear local planner data"));
+      };
+      tx.onabort = () => {
+        db.close();
+        reject(tx.error || new Error("Local clear was aborted"));
+      };
     });
   } catch (e) {
-    console.warn("Failed to clear IndexedDB plans", e);
+    console.warn("Failed to clear IndexedDB planner data", e);
   }
   localStorage.removeItem(LEGACY_STORAGE_KEY_PLANS);
   localStorage.removeItem(STORAGE_KEY_ACTIVE_ID);
   localStorage.removeItem(STORAGE_KEY_DAILY_MEMOS);
+  localStorage.removeItem(STORAGE_KEY_PRACTICE_EVENTS);
+}
+
+/** 回流的练习事件只允许这四种状态，导入或旧数据里的其他值一律丢弃整条记录。 */
+export const PRACTICE_EVENT_STATUSES: PracticeEventStatus[] = ["pending", "applied", "dismissed", "unmatched"];
+
+const PRACTICE_TEXT_LIMITS = { planId: 64, topicKey: 40, attemptId: 64, linkId: 128, setId: 64, exam: 150, subject: 100, unit: 400, topic: 400, date: 10, task: 128 };
+const PRACTICE_TOPIC_KEY_RE = /^t1_[0-9a-f]{32}$/;
+const PRACTICE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function practiceText(value: unknown, max: number): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  if (!text || text.length > max) return null;
+  return text;
+}
+
+/**
+ * 逐字段校验一条回流事件：任何不合法都返回 null，由调用方丢弃，
+ * 绝不用半合法的数据写进本地库（尤其是 status 和计数，否则统计会失真）。
+ */
+export function sanitizePracticeEvent(raw: unknown): PracticeEvent | null {
+  if (!raw || typeof raw !== "object") return null;
+  const value = raw as Record<string, unknown>;
+  if (value.schemaVersion !== 1) return null;
+
+  const attemptId = practiceText(value.attemptId, PRACTICE_TEXT_LIMITS.attemptId);
+  const planId = practiceText(value.planId, PRACTICE_TEXT_LIMITS.planId);
+  const topicKey = practiceText(value.topicKey, PRACTICE_TEXT_LIMITS.topicKey);
+  const linkId = practiceText(value.linkId, PRACTICE_TEXT_LIMITS.linkId);
+  if (!attemptId || !planId || !topicKey || !linkId) return null;
+  // 题库 id 只是来源展示信息，旧链接没带也不影响统计，缺失时留空
+  const setId = value.setId === undefined || value.setId === null ? "" : practiceText(value.setId, PRACTICE_TEXT_LIMITS.setId) ?? "";
+  if (!PRACTICE_TOPIC_KEY_RE.test(topicKey)) return null;
+  if (linkId !== `${planId}:${topicKey}`) return null;
+
+  const path = value.path as Record<string, unknown> | undefined;
+  const level = path && path.level;
+  if (level !== "unit" && level !== "subtopic") return null;
+  const subject = practiceText(path?.subject, PRACTICE_TEXT_LIMITS.subject);
+  const unit = practiceText(path?.unit, PRACTICE_TEXT_LIMITS.unit);
+  const topic = practiceText(path?.topic, PRACTICE_TEXT_LIMITS.topic);
+  if (!subject || !unit || !topic) return null;
+  const exam = path?.exam === undefined || path?.exam === null ? "" : practiceText(path.exam, PRACTICE_TEXT_LIMITS.exam) ?? "";
+
+  const graded = value.graded;
+  const correct = value.correct;
+  if (typeof graded !== "number" || !Number.isInteger(graded) || graded <= 0 || graded > 1000) return null;
+  if (typeof correct !== "number" || !Number.isInteger(correct) || correct < 0 || correct > graded) return null;
+
+  const completedAt = practiceText(value.completedAt, 40);
+  const receivedAt = practiceText(value.receivedAt, 40);
+  if (!completedAt || !receivedAt || Number.isNaN(Date.parse(completedAt)) || Number.isNaN(Date.parse(receivedAt))) return null;
+
+  const status = value.status;
+  if (typeof status !== "string" || !PRACTICE_EVENT_STATUSES.includes(status as PracticeEventStatus)) return null;
+
+  const source = value.sourceContext as Record<string, unknown> | undefined;
+  const rawDate = source?.date;
+  const date = typeof rawDate === "string" && PRACTICE_DATE_RE.test(rawDate.trim()) ? rawDate.trim() : undefined;
+  const task = source?.task === undefined || source?.task === null ? undefined : practiceText(source.task, PRACTICE_TEXT_LIMITS.task) ?? undefined;
+
+  const event: PracticeEvent = {
+    schemaVersion: 1,
+    attemptId,
+    linkId,
+    planId,
+    topicKey,
+    path: { level, exam, subject, unit, topic },
+    sourceContext: { date, task },
+    setId,
+    graded,
+    correct,
+    completedAt,
+    receivedAt,
+    status: status as PracticeEventStatus,
+  };
+
+  const appliedAt = value.appliedAt;
+  if (typeof appliedAt === "string" && !Number.isNaN(Date.parse(appliedAt))) {
+    event.appliedAt = appliedAt.trim();
+  }
+  const resolution = value.resolution as Record<string, unknown> | undefined;
+  if (resolution && typeof resolution === "object") {
+    const rPlan = practiceText(resolution.planId, PRACTICE_TEXT_LIMITS.planId);
+    const rTopic = practiceText(resolution.topicId, PRACTICE_TEXT_LIMITS.planId);
+    if (rPlan && rTopic) {
+      const subtopicTitle = resolution.subtopicTitle === undefined || resolution.subtopicTitle === null ? undefined : practiceText(resolution.subtopicTitle, PRACTICE_TEXT_LIMITS.topic) ?? undefined;
+      const taskId = resolution.taskId === undefined || resolution.taskId === null ? undefined : practiceText(resolution.taskId, PRACTICE_TEXT_LIMITS.task) ?? undefined;
+      event.resolution = { planId: rPlan, topicId: rTopic, subtopicTitle, taskId };
+    }
+  }
+  return event;
+}
+
+function readPracticeEventsFallback(): PracticeEvent[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PRACTICE_EVENTS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const valid = parsed.map(sanitizePracticeEvent).filter((e): e is PracticeEvent => !!e);
+    return dedupeByAttemptId(valid);
+  } catch (e) {
+    console.warn("Failed to read practice events from localStorage", e);
+    return [];
+  }
+}
+
+function writePracticeEventsFallback(events: PracticeEvent[]): void {
+  localStorage.setItem(STORAGE_KEY_PRACTICE_EVENTS, JSON.stringify(events));
+}
+
+function dedupeByAttemptId(events: PracticeEvent[]): PracticeEvent[] {
+  const byId = new Map<string, PracticeEvent>();
+  events.forEach((event) => {
+    if (!event) return;
+    byId.set(event.attemptId, event);
+  });
+  return Array.from(byId.values()).sort((a, b) => (b.receivedAt || "").localeCompare(a.receivedAt || ""));
+}
+
+export async function loadPracticeEvents(): Promise<PracticeEvent[]> {
+  try {
+    const db = await openPlanDatabase();
+    const events = await new Promise<PracticeEvent[]>((resolve, reject) => {
+      const tx = db.transaction(PRACTICE_STORE, "readonly");
+      const request = tx.objectStore(PRACTICE_STORE).getAll();
+      request.onsuccess = () => resolve((request.result || []).map(sanitizePracticeEvent).filter((e): e is PracticeEvent => !!e));
+      request.onerror = () => reject(request.error || new Error("Failed to read practice events"));
+      tx.oncomplete = () => db.close();
+      tx.onabort = () => db.close();
+    });
+    const merged = dedupeByAttemptId(events);
+    // IndexedDB 恢复可用但库是空的：把回退期间写进 localStorage 的回执迁回来，
+    // 否则下一次成功写入会顺手删掉回退键，回执就无声消失了。
+    if (merged.length === 0) {
+      const orphaned = readPracticeEventsFallback();
+      if (orphaned.length > 0) {
+        await savePracticeEvents(orphaned);
+        return orphaned;
+      }
+    }
+    return merged;
+  } catch (e) {
+    console.warn("IndexedDB practice event read failed, using localStorage copy", e);
+    return readPracticeEventsFallback();
+  }
+}
+
+/** 全量重写，与 savePlans 一致；同 attemptId 的记录在写入前就已合并，不会重复累积。 */
+export async function savePracticeEvents(events: PracticeEvent[]): Promise<void> {
+  const merged = dedupeByAttemptId(events.map(sanitizePracticeEvent).filter((e): e is PracticeEvent => !!e));
+  let indexedDbError: unknown = null;
+  try {
+    const db = await openPlanDatabase();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(PRACTICE_STORE, "readwrite");
+      const store = tx.objectStore(PRACTICE_STORE);
+      store.clear();
+      merged.forEach((event) => store.put(event));
+      tx.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      tx.onerror = () => {
+        db.close();
+        reject(tx.error || new Error("Failed to write practice events"));
+      };
+      tx.onabort = () => {
+        db.close();
+        reject(tx.error || new Error("Practice event write was aborted"));
+      };
+    });
+    localStorage.removeItem(STORAGE_KEY_PRACTICE_EVENTS);
+    return;
+  } catch (e) {
+    indexedDbError = e;
+    console.warn("IndexedDB practice event write failed, trying localStorage fallback", e);
+  }
+
+  try {
+    writePracticeEventsFallback(merged);
+  } catch (fallbackError) {
+    console.error("All local practice event persistence attempts failed", indexedDbError, fallbackError);
+    throw new Error("练习回执保存失败，请清理浏览器空间后重试。");
+  }
+}
+
+/** 幂等写入：attemptId 已存在就原样返回，不覆盖已有 status（重复点「带回」不产生第二条记录）。 */
+export async function putPracticeEventIfNew(event: PracticeEvent): Promise<{ created: boolean; events: PracticeEvent[]; existing: PracticeEvent | null }> {
+  const clean = sanitizePracticeEvent(event);
+  if (!clean) throw new Error("Invalid practice event");
+  const current = await loadPracticeEvents();
+  const existing = current.find((e) => e.attemptId === clean.attemptId) || null;
+  if (existing) return { created: false, events: current, existing };
+  const next = dedupeByAttemptId([clean, ...current]);
+  await savePracticeEvents(next);
+  return { created: true, events: next, existing: null };
+}
+
+export async function updatePracticeEvent(attemptId: string, patch: { status?: PracticeEventStatus; resolution?: PracticeEvent["resolution"]; appliedAt?: string }): Promise<PracticeEvent[]> {
+  const current = await loadPracticeEvents();
+  const next = current.map((event) => (event.attemptId === attemptId ? { ...event, ...patch } : event));
+  const clean = next.map(sanitizePracticeEvent).filter((e): e is PracticeEvent => !!e);
+  await savePracticeEvents(clean);
+  return dedupeByAttemptId(clean);
 }
 
 export async function getStorageEstimate(): Promise<{ usage: number; quota: number } | null> {

@@ -21,6 +21,10 @@ interface CourseKnowledgeHubProps {
   onUpdatePlan: (updatedPlan: ExamStudyPlan) => void;
   onDeleteCourse?: () => void;
   onRequestDeleteCourse?: (plan?: ExamStudyPlan | null) => void;
+  /** 回程联动定位：展开并滚动到指定单元/子考点 */
+  focusUnitId?: string | null;
+  focusSubtopicTitle?: string;
+  focusNonce?: number;
 }
 
 export function CourseKnowledgeHub({
@@ -28,6 +32,9 @@ export function CourseKnowledgeHub({
   onUpdatePlan,
   onDeleteCourse,
   onRequestDeleteCourse,
+  focusUnitId = null,
+  focusSubtopicTitle = "",
+  focusNonce = 0,
 }: CourseKnowledgeHubProps) {
   const { language } = useI18n();
 
@@ -360,6 +367,9 @@ export function CourseKnowledgeHub({
             subject={plan.subject || plan.preferences?.subject}
             examName={plan.examName}
             planId={plan.id}
+            focusUnitId={focusUnitId}
+            focusSubtopicTitle={focusSubtopicTitle}
+            focusNonce={focusNonce}
             onUpdateTopic={(index, updated) => {
               const updatedTopics = [...topics];
               updatedTopics[index] = { ...updatedTopics[index], ...updated };

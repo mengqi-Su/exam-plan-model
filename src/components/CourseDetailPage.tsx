@@ -10,11 +10,13 @@ import {
   Sun,
   Target,
 } from "lucide-react";
-import { ExamStudyPlan } from "../types";
+import { ExamStudyPlan, PracticeEvent } from "../types";
+import type { FocusTarget } from "../lib/inbound";
 import { useI18n } from "../lib/i18n";
 import { FlipCountdown } from "./FlipCountdown";
 import { RealTimeManager } from "./RealTimeManager";
 import { CourseKnowledgeHub } from "./CourseKnowledgeHub";
+import { PracticeReceiptCard } from "./PracticeReceiptCard";
 import { getPaletteByString } from "../lib/themePalettes";
 
 interface CourseDetailPageProps {
@@ -22,6 +24,14 @@ interface CourseDetailPageProps {
   onUpdatePlan: (updatedPlan: ExamStudyPlan) => void;
   onRequestDeletePlan?: (plan: ExamStudyPlan) => void;
   onNavigateToTab: (tab: "today" | "dashboard" | "master_calendar" | "course" | "settings") => void;
+  /** 回程联动定位到的考点；只有属于当前计划时才展开知识区并滚动 */
+  focusTarget?: FocusTarget | null;
+  /** 同一考点重复点「定位」时用它重新触发滚动 */
+  focusNonce?: number;
+  /** 本机已落盘的练习回执（仅当前计划） */
+  practiceEvents?: PracticeEvent[];
+  onLocateReceipt?: (event: PracticeEvent) => void;
+  onDismissReceipt?: (attemptId: string) => void;
 }
 
 export function CourseDetailPage({
@@ -29,12 +39,24 @@ export function CourseDetailPage({
   onUpdatePlan,
   onRequestDeletePlan,
   onNavigateToTab,
+  focusTarget = null,
+  focusNonce = 0,
+  practiceEvents = [],
+  onLocateReceipt,
+  onDismissReceipt,
 }: CourseDetailPageProps) {
   const { language } = useI18n();
   const isZh = language === "zh";
 
   // Secondary reference detail is disclosed on demand; progress stays primary.
   const [showKnowledge, setShowKnowledge] = useState(false);
+
+  const activeFocus = focusTarget && focusTarget.planId === plan.id ? focusTarget : null;
+
+  // 知识区默认收起，只切到本标签页并不会露出考点树：回程定位必须显式展开
+  useEffect(() => {
+    if (activeFocus) setShowKnowledge(true);
+  }, [activeFocus?.planId, activeFocus?.topicId, activeFocus?.subtopicTitle, focusNonce]);
 
   const [countdown, setCountdown] = useState({
     days: 0,
@@ -238,6 +260,12 @@ export function CourseDetailPage({
           </button>
         </div>
 
+        <PracticeReceiptCard
+          events={practiceEvents}
+          onLocate={(event) => onLocateReceipt?.(event)}
+          onDismiss={(attemptId) => onDismissReceipt?.(attemptId)}
+        />
+
         <section className="space-y-4">
           <h2 className="ui-section-title">
             {isZh ? "进度、阶段与动态重排" : "Progress, phases & rebalance"}
@@ -269,6 +297,9 @@ export function CourseDetailPage({
                 plan={plan}
                 onUpdatePlan={onUpdatePlan}
                 onRequestDeleteCourse={onRequestDeletePlan}
+                focusUnitId={activeFocus?.topicId ?? null}
+                focusSubtopicTitle={activeFocus?.subtopicTitle ?? ""}
+                focusNonce={focusNonce}
               />
             </div>
           )}

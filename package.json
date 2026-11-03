@@ -13,6 +13,7 @@
     "test:planner": "tsx dev/planner.test.ts",
     "test:topickey": "tsx dev/topicKey.test.ts",
     "test:links": "tsx dev/links.test.ts",
+    "test:inbound": "tsx dev/inbound.test.ts",
     "test:function": "tsx dev/function-smoke.ts",
     "test:client": "tsx dev/client-smoke.ts"
   },
