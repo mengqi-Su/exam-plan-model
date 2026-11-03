@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { SyllabusTopic, SyllabusSubtopicNode } from "../types";
+import { SyllabusTopic, SyllabusSubtopicNode, StudyMaterial } from "../types";
 import {
   ChevronDown,
   ChevronRight,
@@ -17,6 +17,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { starquizPracticeUrl } from "../lib/links";
+import { primeHandoffForPractice } from "../lib/handoff";
 
 interface HierarchicalTopicTreeViewProps {
   topics: SyllabusTopic[];
@@ -33,6 +34,8 @@ interface HierarchicalTopicTreeViewProps {
   examName?: string;
   /** 计划 ID：与层级、完整路径一起构成联动上下文，缺失时退化为普通跳转 */
   planId?: string;
+  /** 这场考试上传的资料与真题：点「练这个考点」时随同一次跳转本地交给 StarQuiz */
+  materials?: StudyMaterial[];
   /**
    * 回程定位目标（联动 M2）：由入站流程给出的显式 id/标题，
    * 组件按 data 属性展开并滚动，绝不拿标题文本去猜 DOM 结构。
@@ -55,6 +58,7 @@ export function HierarchicalTopicTreeView({
   subject,
   examName,
   planId,
+  materials,
   focusUnitId = null,
   focusSubtopicTitle = "",
   focusNonce = 0,
@@ -63,6 +67,14 @@ export function HierarchicalTopicTreeView({
   const practiceSubject = (subject || examName || "").trim();
   const canPractice = practiceSubject.length > 0;
   const linkBase = { subject: practiceSubject, examName, planId: (planId || "").trim() };
+  // 跳转前同步写一次标签页快照：StarQuiz 读到即清空，所以「点了哪场考试」只可能是这一场。
+  // 资料缺失或超预算时 primeHandoffForPractice 会写成空，链接自然退化成今天的普通跳转。
+  const handoffPlan = useMemo(
+    () => ({ id: (planId || "").trim(), examName, subject: (subject || "").trim(), materials }),
+    [planId, examName, subject, materials]
+  );
+  const primeHandoff = (level: string, unit: string, topic: string) => () =>
+    primeHandoffForPractice(handoffPlan, { level, unit, topic });
 
   // State for expanded unit cards
   const [expandedUnits, setExpandedUnits] = useState<Record<string, boolean>>(() => {
@@ -452,6 +464,7 @@ export function HierarchicalTopicTreeView({
                   {!isEditing && canPractice && (
                     <a
                       href={starquizPracticeUrl({ ...linkBase, level: "unit", unit: topic.title, topic: topic.title })}
+                      onClick={primeHandoff("unit", topic.title, topic.title)}
                       className="ui-btn ui-btn-ghost px-2.5 py-1.5 text-[12px] shrink-0 self-end sm:self-center"
                       title={isZh ? `去 StarQuiz 练「${topic.title}」` : `Practice "${topic.title}" in StarQuiz`}
                     >
@@ -619,6 +632,7 @@ export function HierarchicalTopicTreeView({
                                     {canPractice && (
                                       <a
                                         href={starquizPracticeUrl({ ...linkBase, level: "subtopic", unit: topic.title, topic: sub.title })}
+                                        onClick={primeHandoff("subtopic", topic.title, sub.title)}
                                         className="p-1.5 rounded-md text-[#a39e97] hover:bg-[#f1efe9] hover:text-[#1c1b1a] transition-colors cursor-pointer"
                                         title={isZh ? `去 StarQuiz 练「${sub.title}」` : `Practice "${sub.title}" in StarQuiz`}
                                       >

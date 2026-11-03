@@ -15,6 +15,7 @@ import { addDays, daysBetween, toLocalDateString } from "../lib/date";
 import { useI18n } from "../lib/i18n";
 import { playCompletionChime } from "../lib/audio";
 import { starquizPracticeUrlForTask } from "../lib/links";
+import { primeHandoffForTask } from "../lib/handoff";
 import { PinnedRoadmapTodoList } from "./PinnedRoadmapTodoList";
 import { TaskFocusTimerModal } from "./TaskFocusTimerModal";
 
@@ -309,6 +310,7 @@ export function TodayFocusView({
                     date: nextItem.task.date,
                     taskId: nextItem.task.id,
                   })}
+                  onClick={() => primeHandoffForTask(nextItem.plan, nextItem.task)}
                   className="ui-btn ui-btn-ghost bg-white"
                   title={isZh ? "去 StarQuiz 练这个考点" : "Practice this topic in StarQuiz"}
                 >

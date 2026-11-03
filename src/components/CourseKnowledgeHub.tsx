@@ -367,6 +367,7 @@ export function CourseKnowledgeHub({
             subject={plan.subject || plan.preferences?.subject}
             examName={plan.examName}
             planId={plan.id}
+            materials={plan.materials}
             focusUnitId={focusUnitId}
             focusSubtopicTitle={focusSubtopicTitle}
             focusNonce={focusNonce}
