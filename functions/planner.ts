@@ -607,7 +607,7 @@ export function buildPlanChunkPrompt(
   }
   const ragText = ragBlocks.length > 0
     ? `\n=== MATERIAL EXCERPTS ===\n${ragBlocks.join('\n\n')}\n`
-    : '';
+    : `\nNO MATERIAL EXCERPTS WERE PROVIDED FOR THIS CALL: keep "ragSource" an empty object, leave "formulaOrRules" empty, and never name a document, chapter or quote that is not shown above.\n`;
 
   const covered = (options.coveredTopicTitles || []).slice(0, 40).join(' | ').slice(0, 2_000);
   const coveredText = covered
@@ -615,7 +615,9 @@ export function buildPlanChunkPrompt(
     : '';
 
   const phasesBlock = options.includePhases
-    ? `First, group the whole timeline (${planningStart} to ${planningExam}) into 3-4 study phases derived from this specific material (not a generic template). Each phase needs concrete startDate/endDate and a focus tied to actual topics.
+    ? `First, group the WHOLE exam window ${planningStart} → ${planningExam} (not just the calendar days below) into 3-4 study phases derived from this specific material (not a generic template).
+   Phases must be contiguous and non-overlapping: phase 1 starts at ${planningStart}, the last phase ends at ${planningExam}, and each phase's startDate is the day after the previous phase's endDate. Spread them across the full window instead of stacking them on the first days.
+   Each phase needs concrete startDate/endDate and a focus tied to actual topics.
 `
     : `Do NOT output phases; they were already produced by an earlier call. Use "phases": [].
 `;
@@ -665,9 +667,21 @@ Output ONLY a single JSON object (no markdown fences, no commentary) with exactl
 }
 
 /** 段结果归一化：只保留落在本段日期内的任务，避免越界重复。 */
-export function sanitizePlanChunkResult(parsed: any, preferences: any, allowedDates: string[]): { phases: any[]; tasks: any[] } {
+export function sanitizePlanChunkResult(
+  parsed: any,
+  preferences: any,
+  allowedDates: string[],
+  options: { hasMaterials?: boolean } = {}
+): { phases: any[]; tasks: any[] } {
   const allowed = new Set(allowedDates);
   const tasks = normalizePlanTasks(parsed?.tasks || [], preferences).filter((task: any) => allowed.has(task.date));
+  if (options.hasMaterials === false) {
+    // 本次没有资料片段可引：模型自己编出来的出处不能展示给学生，宁缺毋滥
+    tasks.forEach((task: any) => {
+      task.ragSource = null;
+      task.formulaOrRules = [];
+    });
+  }
   const phases = Array.isArray(parsed?.phases)
     ? parsed.phases.slice(0, 6).map((phase: any, index: number) => ({
         id: clampText(phase?.id, 120) || `phase-${index + 1}`,

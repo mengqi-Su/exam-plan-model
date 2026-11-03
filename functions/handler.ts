@@ -271,7 +271,9 @@ async function handlePlanChunk(req: Request): Promise<Response> {
       maxTokens: Math.min(6_000, 1_400 + chunkDays.length * 1_100 + (includePhases ? 700 : 0)),
       temperature: 0.3,
     });
-    const result = sanitizePlanChunkResult(parseOutput(output, isZh), preferences, chunkDays.map((d) => d.date));
+    const result = sanitizePlanChunkResult(parseOutput(output, isZh), preferences, chunkDays.map((d) => d.date), {
+      hasMaterials: materials.length > 0,
+    });
     if (!result.tasks.length) {
       return fail('PLAN_CHUNK_EMPTY', isZh ? 'AI 未返回这几天的任务，请重试。' : 'AI returned no tasks for these days. Please try again.', 502);
     }

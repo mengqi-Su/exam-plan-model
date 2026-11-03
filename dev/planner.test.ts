@@ -287,10 +287,37 @@ check('sanitizePlanChunkResult 丢弃越界日期并清洗阶段', () => {
   assert.equal(result.phases[0].name, '基础阶段');
 });
 
+check('无资料的段不保留模型编造的出处', () => {
+  const allowed = studyDatesFromCalendar(buildStudyCalendar(preferences)).slice(0, 2);
+  const raw = {
+    phases: [],
+    tasks: [{
+      id: 't1',
+      title: '复习定义',
+      date: allowed[0],
+      durationMinutes: 45,
+      category: 'reading',
+      ragSource: { documentName: '并不存在的教材', sectionTitle: '第 9 章' },
+      formulaOrRules: ['材料里没有的公式'],
+    }],
+  };
+  const withoutMaterials = sanitizePlanChunkResult(raw, preferences, allowed, { hasMaterials: false });
+  assert.equal(withoutMaterials.tasks.length, 1);
+  assert.equal(withoutMaterials.tasks[0].ragSource, null, '没有资料时必须丢弃模型自报的出处');
+  assert.deepEqual(withoutMaterials.tasks[0].formulaOrRules, []);
+  const withMaterials = sanitizePlanChunkResult(raw, preferences, allowed, { hasMaterials: true });
+  assert.equal(withMaterials.tasks[0].ragSource.documentName, '并不存在的教材', '有资料时保留原样交给 UI');
+
+  const days = buildStudyCalendar(preferences);
+  const phasePrompt = buildPlanChunkPrompt(preferences, topics, [], days.slice(0, 2), { includePhases: true, isZh: true });
+  assert.ok(phasePrompt.includes('contiguous and non-overlapping'), '阶段必须覆盖整段窗口而不是堆在前两天');
+  assert.ok(phasePrompt.includes(String(preferences.examDate)), '阶段终点要用考试日');
+  assert.ok(phasePrompt.includes('NO MATERIAL EXCERPTS WERE PROVIDED'), '没有资料时要明确禁止编造出处');
+});
+
 check('normalizePlanTasks 空输入返回空数组', () => {
   assert.deepEqual(normalizePlanTasks([], preferences), []);
 });
-
 /* ---------------- 重排 ---------------- */
 
 check('buildRebalancePrompt 只提交未完成任务', () => {
