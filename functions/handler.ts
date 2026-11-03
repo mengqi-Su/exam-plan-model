@@ -7,8 +7,9 @@
 //   POST /ai/plan-schedule  偏好 -> 学习日历与分段（纯本地计算，不调模型）
 //   POST /ai/plan-chunk     一段日历 -> 该段每日任务（首段附带阶段）
 //   POST /ai/rebalance      过期/未完成任务重排（AI 不可用时走本地规则）
-// 站点网关对单个请求约 45 秒超时，而 DeepSeek 调用是同步的，
-// 因此这里不提供 start/poll：每次只让模型输出一小段结构化 JSON，由浏览器并发编排。
+// 站点网关对单个请求约 60 秒超时（实测 504 "upstream request timeout"），而 DeepSeek
+// 调用是同步的，因此这里不提供 start/poll：每次只让模型输出一小段结构化 JSON，
+// 由浏览器并发编排；函数自己的时间预算见 llm.ts 的 TOTAL_BUDGET_MS。
 // API Key 只存在于函数环境与请求头，绝不进入浏览器、提示词或日志。
 // ========================================
 
@@ -52,7 +53,7 @@ const JSON_HEADERS = {
 const MAX_LLM_MATERIAL_CHARS = 60_000;
 const MAX_LLM_MATERIALS = 20;
 const MAX_UNITS = 14;
-const MAX_CHUNK_DATES = 6;
+const MAX_CHUNK_DATES = 4;
 const REBALANCE_LLM_TASK_LIMIT = 30;
 
 // 重排是纯本地的日期再分配，AI 拿不到结果时不该卡住用户；这些错误码一律走本地兜底。
@@ -64,6 +65,8 @@ const LOCAL_REBALANCE_FALLBACK_CODES = new Set([
   'ai_rate_limited',
   'ai_request_rejected',
   'ai_bad_output',
+  'ai_output_capped',
+  'ai_timeout',
   'AI_EMPTY',
 ]);
 
@@ -215,8 +218,10 @@ async function handlePlanSchedule(req: Request): Promise<Response> {
       return fail('INVALID_DATE_RANGE', isZh ? '所选日期内没有可用的学习日，请调整日期或每日安排。' : 'No study days fall in the selected range.');
     }
     const chunks = chunkStudyDays(days, {
-      maxTasksPerChunk: 7,
-      maxDaysPerChunk: 4,
+      // 一天 1~3 个任务，每段最多 2 天：单次输出控制在两千字以内，
+      // DeepSeek 才会在网关切断之前写完，也不会撞上输出长度上限。
+      maxTasksPerChunk: 4,
+      maxDaysPerChunk: 2,
       sessionLengthMinutes: preferences.sessionLengthMinutes,
     });
     return json({ ok: true, studyDates, chunks, totalDays: days.length });
@@ -261,8 +266,9 @@ async function handlePlanChunk(req: Request): Promise<Response> {
     const prompt = buildPlanChunkPrompt(preferences, topics, materials, chunkDays, { includePhases, coveredTopicTitles, isZh });
     const output = await completeJson(prompt, {
       stage: includePhases ? 'plan-first-chunk' : 'plan-chunk',
-      // 输出被截断会毁掉整段任务，预算按天宽给，同时靠分段控制规模
-      maxTokens: Math.min(8_000, 1_200 + chunkDays.length * 900),
+      // 输出被截断会毁掉整段任务：预算按天宽给，同时靠分段控制规模。
+      // 思考模式已在 llm.ts 关闭，所以这段预算全部用于正文本身。
+      maxTokens: Math.min(6_000, 1_400 + chunkDays.length * 1_100 + (includePhases ? 700 : 0)),
       temperature: 0.3,
     });
     const result = sanitizePlanChunkResult(parseOutput(output, isZh), preferences, chunkDays.map((d) => d.date));

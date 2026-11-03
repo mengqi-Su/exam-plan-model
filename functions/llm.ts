@@ -1,24 +1,38 @@
 // ========================================
 // DeepSeek 对话补全客户端（只在云函数内运行）
-// - API Key 通过应用 Secret 注入：Deno.env.get('DEEPSEEK_API_KEY')
+// - API Key 通过应用 Secret 注入：Deno.env.get('DEEPSEEK_API_KEY') 或 'API_KEY'
 // - Key 绝不进入浏览器代码、提示词、构建产物或日志
-// - 单次调用必须在网关 45 秒超时之前返回，因此调用方要把任务切小
+// - 站点网关在 60 秒断开（实测 504 "upstream request timeout"），所以这里给自己
+//   留 48 秒总预算：预算用完就带着结构化错误码返回，绝不把请求拖到网关切断，
+//   否则浏览器收到的是一段非 JSON 文本，只能盲目重连同一个大请求。
 // - 上游异常只以稳定错误码 + 中性文案返回，原始异常文本不外泄
 // ========================================
 
 const ENDPOINT = 'https://api.deepseek.com/chat/completions';
-const API_KEY_ENV = 'DEEPSEEK_API_KEY';
+// 站点里实际配的是通用名 API_KEY，两者都认：显式的 DEEPSEEK_API_KEY 优先，
+// 换供应商时只要改 Secret 名，不用重新发布函数。
+const API_KEY_ENVS = ['DEEPSEEK_API_KEY', 'API_KEY'];
 const MODEL_ENV = 'DEEPSEEK_MODEL';
 
 // 模型名会随 DeepSeek 版本调整：逐个候选尝试，遇到「模型不存在」自动换下一个。
-const MODEL_CANDIDATES = ['deepseek-flash', 'deepseek-v4-pro', 'deepseek-chat'];
+// 旧别名 deepseek-chat / deepseek-reasoner 已于 2026-07-24 停用，不再列入候选。
+const MODEL_CANDIDATES = ['deepseek-flash', 'deepseek-v4-pro'];
 
-// 网关单请求约 45 秒断开，留出回退与网络余量
-const DEFAULT_TIMEOUT_MS = 35_000;
+// 网关 60 秒断开，函数侧总预算取 48 秒：留出回退与网络余量
+const TOTAL_BUDGET_MS = 48_000;
+const MIN_ATTEMPT_MS = 6_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 const MAX_REQUEST_BYTES = 240 * 1024;
 const MAX_RESPONSE_CHARS = 400_000;
 const DEFAULT_MAX_TOKENS = 3_000;
 const HARD_MAX_TOKENS = 8_000;
+
+interface RequestVariant {
+  /** 是否附带 max_tokens / temperature（400 时可以先去掉再试） */
+  fullParams: boolean;
+  /** 是否显式关闭思考模式（旧模型不认识这个参数时要去掉再试） */
+  thinking: boolean;
+}
 
 export type LlmFailureKind = 'model' | 'params' | 'transport' | 'fatal';
 
@@ -59,7 +73,11 @@ function env(name: string): string {
 }
 
 function apiKey(): string {
-  return env(API_KEY_ENV);
+  for (const name of API_KEY_ENVS) {
+    const value = env(name);
+    if (value) return value;
+  }
+  return '';
 }
 
 // 只记录安全元数据：事件、状态码、错误码、模型名，不含 Key 与上游正文
@@ -77,6 +95,10 @@ interface CompletionOptions {
   timeoutMs?: number;
   /** 排障用：把调用点标记带进日志，不进入响应 */
   stage?: string;
+  /** 本次调用允许占用的总时间（含模型回退），默认 48 秒 */
+  budgetMs?: number;
+  /** 结构化输出默认关闭思考模式；需要推理的调用可以显式打开 */
+  thinking?: boolean;
 }
 
 function upstreamCode(payload: unknown): string {
@@ -114,8 +136,14 @@ function classifyStatus(status: number, payload: unknown): LlmError {
   return new LlmError('ai_request_rejected', 'AI 服务拒绝了本次请求。', 400, 'fatal');
 }
 
-async function requestOnce(model: string, prompt: string, opts: CompletionOptions, fullParams: boolean): Promise<string> {
-  const timeoutMs = Math.min(40_000, Math.max(5_000, Number(opts.timeoutMs) || DEFAULT_TIMEOUT_MS));
+async function requestOnce(
+  model: string,
+  prompt: string,
+  opts: CompletionOptions,
+  variant: RequestVariant,
+  timeoutMs: number
+): Promise<string> {
+  const deadline = Math.min(40_000, Math.max(5_000, Math.round(timeoutMs)));
   const body: Record<string, unknown> = {
     model,
     messages: [
@@ -124,7 +152,10 @@ async function requestOnce(model: string, prompt: string, opts: CompletionOption
     ],
     stream: false
   };
-  if (fullParams) {
+  // 思考模式的思维链会占用输出预算：结构化输出默认显式关闭，
+  // 否则同一段 JSON 会被 thinking tokens 挤到 finish_reason='length'。
+  if (variant.thinking) body.thinking = { type: 'disabled' };
+  if (variant.fullParams) {
     const requested = Number(opts.maxTokens) || DEFAULT_MAX_TOKENS;
     body.max_tokens = Math.min(HARD_MAX_TOKENS, Math.max(256, Math.round(requested)));
     body.temperature = Number.isFinite(opts.temperature) ? Math.min(1, Math.max(0, opts.temperature)) : 0.2;
@@ -135,8 +166,9 @@ async function requestOnce(model: string, prompt: string, opts: CompletionOption
     throw new LlmError('invalid_request', '本次提交的内容过大，请减少资料量或分批生成。', 413, 'fatal');
   }
 
+  const startedAt = Date.now();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), deadline);
   let response: Response;
   try {
     response = await fetch(ENDPOINT, {
@@ -151,7 +183,19 @@ async function requestOnce(model: string, prompt: string, opts: CompletionOption
     });
   } catch {
     clearTimeout(timer);
-    return Promise.reject(new LlmError('ai_unavailable', 'AI 服务暂时不可用，请稍后重试。', 502, 'transport'));
+    const timedOut = controller.signal.aborted;
+    log('exam_plan_llm_attempt', {
+      model,
+      stage: opts.stage,
+      ms: Date.now() - startedAt,
+      ok: false,
+      reason: timedOut ? 'client_timeout' : 'fetch_failed',
+      deadline,
+      variant,
+    });
+    return Promise.reject(new LlmError(timedOut ? 'ai_timeout' : 'ai_unavailable', timedOut
+      ? 'AI 本次生成超过了时间预算，已改用更小的批次重试。'
+      : 'AI 服务暂时不可用，请稍后重试。', 502, 'transport'));
   }
   clearTimeout(timer);
 
@@ -170,21 +214,33 @@ async function requestOnce(model: string, prompt: string, opts: CompletionOption
 
   if (!response.ok) {
     const error = classifyStatus(response.status, payload);
-    log('exam_plan_llm_upstream_error', { model, stage: opts.stage, status: response.status, code: error.code, kind: error.kind });
+    log('exam_plan_llm_attempt', {
+      model,
+      stage: opts.stage,
+      ms: Date.now() - startedAt,
+      ok: false,
+      status: response.status,
+      code: error.code,
+      kind: error.kind,
+      variant,
+    });
     throw error;
   }
 
   const choice = (payload as any)?.choices?.[0];
   const text = String(choice?.message?.content ?? '').trim();
+  const finishReason = String(choice?.finish_reason ?? '');
   if (!text) {
-    log('exam_plan_llm_empty_output', { model, stage: opts.stage, finishReason: String(choice?.finish_reason ?? '') });
+    log('exam_plan_llm_attempt', { model, stage: opts.stage, ms: Date.now() - startedAt, ok: false, reason: 'empty_output', finishReason });
     throw new LlmError('AI_EMPTY', 'AI 本次没有返回内容，请重试。', 502, 'model');
   }
-  if (choice?.finish_reason === 'length') {
-    // 输出被 max_tokens 截断：换下一个模型（上限可能更高）再试
-    log('exam_plan_llm_truncated', { model, stage: opts.stage, chars: text.length });
-    throw new LlmError('ai_bad_output', 'AI 输出被截断，正在重试。', 502, 'model');
+  if (finishReason === 'length') {
+    // 输出被 max_tokens 截断：这段 JSON 一定解析不出来，换模型只会更慢，
+    // 交给调用方把批次切小，所以标记为 budget 而不是 model。
+    log('exam_plan_llm_attempt', { model, stage: opts.stage, ms: Date.now() - startedAt, ok: false, reason: 'truncated', chars: text.length });
+    throw new LlmError('ai_output_capped', 'AI 这次输出被长度上限截断，已改用更小的批次重试。', 502, 'model');
   }
+  log('exam_plan_llm_attempt', { model, stage: opts.stage, ms: Date.now() - startedAt, ok: true, chars: text.length, finishReason });
   return text;
 }
 
@@ -195,30 +251,54 @@ export async function completeJson(prompt: string, opts: CompletionOptions = {})
   }
 
   const models = modelCandidates();
+  const budgetMs = Math.min(TOTAL_BUDGET_MS, Math.max(5_000, Number(opts.budgetMs) || TOTAL_BUDGET_MS));
+  const startedAt = Date.now();
+  const remaining = () => budgetMs - (Date.now() - startedAt);
   let lastError: LlmError | null = null;
 
   for (const model of models) {
-    let simplified = false;
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    // 变体阶梯：完整参数 + 关闭思考 → 不认识 thinking 就去掉它 → 再退到只发必填参数
+    const variants: RequestVariant[] = [
+      { fullParams: true, thinking: opts.thinking !== true },
+      { fullParams: true, thinking: false },
+      { fullParams: false, thinking: false },
+    ];
+    let switchedModel = false;
+    for (const variant of variants) {
+      if (remaining() < MIN_ATTEMPT_MS) break;
       try {
-        return await requestOnce(model, prompt, opts, !simplified);
+        return await requestOnce(
+          model,
+          prompt,
+          opts,
+          variant,
+          Math.min(Number(opts.timeoutMs) || DEFAULT_TIMEOUT_MS, Math.max(5_000, remaining() - 2_000)),
+        );
       } catch (error) {
         if (!(error instanceof LlmError)) {
           lastError = new LlmError('ai_unavailable', 'AI 服务暂时不可用，请稍后重试。', 502, 'transport');
+          switchedModel = true;
           break;
         }
         lastError = error;
         if (error.kind === 'fatal') throw error;
-        if (error.kind === 'params' && !simplified) {
-          simplified = true;
-          continue;
+        if (error.code === 'ai_output_capped') {
+          // 长度上限是模型侧的，换模型只会再等一次超时：直接告诉调用方切小批次
+          throw error;
         }
-        // model / params(已简化) / transport：换下一个候选模型
+        if (error.kind === 'params') continue;
+        switchedModel = true;
         break;
       }
     }
+    if (switchedModel && lastError?.kind === 'transport' && remaining() < MIN_ATTEMPT_MS) break;
   }
 
-  log('exam_plan_llm_exhausted', { stage: opts.stage, code: lastError?.code });
+  const elapsed = Date.now() - startedAt;
+  if (elapsed + MIN_ATTEMPT_MS > budgetMs && lastError?.kind !== 'model') {
+    log('exam_plan_llm_budget_exceeded', { stage: opts.stage, elapsed, budgetMs, code: lastError?.code });
+    throw new LlmError('ai_timeout', 'AI 这次没有在规定时间内返回，已改用更小的批次重试。', 504, 'fatal');
+  }
+  log('exam_plan_llm_exhausted', { stage: opts.stage, elapsed, code: lastError?.code });
   throw lastError || new LlmError('ai_unavailable', 'AI 服务暂时不可用，请稍后重试。', 502, 'fatal');
 }

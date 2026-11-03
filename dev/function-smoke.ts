@@ -2,6 +2,7 @@
 // 验证路由、校验、日历分段与本地兜底；跑完即可删除。
 import assert from 'node:assert/strict';
 import { handler } from '../functions/handler.ts';
+import { completeJson, LlmError } from '../functions/llm.ts';
 
 const base = 'https://example.com/functions/v1/app';
 
@@ -157,5 +158,100 @@ assert.equal(badMode.status, 404);
 const wrongMethod = await handler(new Request(`${base}/ai/units`, { method: 'DELETE' }));
 assert.equal(wrongMethod.status, 405);
 console.log('  ok  空资料 / 未知路由 / 非 POST 都有明确响应');
+
+/* ---------------- 上游客户端：用假 fetch 验证调用形状、截断与时间预算 ---------------- */
+
+const realFetch = globalThis.fetch;
+type MockReply = { status?: number; body?: any; hang?: boolean };
+
+async function withMockedUpstream(replies: MockReply[], run: () => Promise<void>): Promise<Record<string, any>[]> {
+  const seen: Record<string, any>[] = [];
+  globalThis.fetch = (async (_url: any, init: any) => {
+    const reply = replies[Math.min(seen.length, replies.length - 1)];
+    seen.push(JSON.parse(init.body));
+    if (reply.hang) {
+      // 上游不返回：只有调用方自己的超时能结束它
+      return await new Promise((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+      });
+    }
+    return new Response(JSON.stringify(reply.body ?? {}), {
+      status: reply.status ?? 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }) as typeof fetch;
+  try {
+    await run();
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  return seen;
+}
+
+const completion = (content: string, finish = 'stop') => ({
+  choices: [{ message: { content }, finish_reason: finish }]
+});
+
+(process.env as any).DEEPSEEK_API_KEY = 'smoke-placeholder-not-a-real-key';
+try {
+  const seen = await withMockedUpstream(
+    [{ body: completion('{"units":[]}') }],
+    async () => {
+      const text = await completeJson('smoke prompt', { stage: 'smoke', maxTokens: 2_000 });
+      assert.equal(text, '{"units":[]}');
+    }
+  );
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].model, 'deepseek-flash');
+  assert.deepEqual(seen[0].thinking, { type: 'disabled' }, '结构化输出必须显式关闭思考模式');
+  assert.equal(seen[0].max_tokens, 2_000);
+  assert.equal(seen[0].stream, false);
+  console.log('  ok  默认走 deepseek-flash 并显式关闭思考模式');
+
+  await withMockedUpstream(
+    [
+      { status: 400, body: { error: { message: 'unknown parameter thinking' } } },
+      { body: completion('{"ok":true}') },
+    ],
+    async () => {
+      const text = await completeJson('smoke prompt', { stage: 'smoke-400' });
+      assert.equal(text, '{"ok":true}');
+    }
+  );
+  console.log('  ok  旧模型不认识 thinking 时自动去掉该参数再试');
+
+  const capped: MockReply[] = [{ body: completion('{"tasks":[', 'length') }, { body: completion('{}') }];
+  const seenCapped = await withMockedUpstream(capped, async () => {
+    let code = '';
+    try {
+      await completeJson('smoke prompt', { stage: 'smoke-cap' });
+    } catch (error) {
+      code = (error as LlmError).code;
+    }
+    assert.equal(code, 'ai_output_capped');
+  });
+  assert.equal(seenCapped.length, 1, '输出截断不该再级联换模型白等一次');
+  console.log('  ok  输出被截断立刻回 ai_output_capped，不做无谓的模型级联');
+
+  const startedAt = Date.now();
+  const seenHang = await withMockedUpstream([{ hang: true }], async () => {
+    let code = '';
+    let status = 0;
+    try {
+      await completeJson('smoke prompt', { stage: 'smoke-hang', budgetMs: 6_000 });
+    } catch (error) {
+      code = (error as LlmError).code;
+      status = (error as LlmError).status;
+    }
+    assert.equal(code, 'ai_timeout');
+    assert.equal(status, 504);
+  });
+  const hungFor = Date.now() - startedAt;
+  assert.equal(seenHang.length, 1, '预算用完就不再发起下一次上游调用');
+  assert.ok(hungFor < 9_000, `预算应在网关之前收口，实际 ${hungFor}ms`);
+  console.log(`  ok  上游挂起时按总预算收口（${hungFor}ms 后返回 ai_timeout）`);
+} finally {
+  delete (process.env as any).DEEPSEEK_API_KEY;
+}
 
 console.log('\nfunction smoke checks passed');

@@ -6,6 +6,7 @@ import { runGeneration, GenerationError } from '../src/lib/aiClient.ts';
 const requests: Array<{ path: string; body: any }> = [];
 let chunkAttempts = 0;
 let rateLimitedOnce = false;
+let capMultiDayChunks = false;
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -62,6 +63,10 @@ async function fakeFetch(input: any, init: any): Promise<Response> {
   if (path === '/ai/plan-chunk') {
     chunkAttempts += 1;
     const dates: string[] = body.dates;
+    // 模拟 DeepSeek 单次输出长度到顶：多天段一律拒绝，只有拆成单天才成功
+    if (capMultiDayChunks && dates.length > 1) {
+      return jsonResponse({ ok: false, code: 'ai_output_capped', error: 'output capped' }, 502);
+    }
     // 第一段第一次返回限流，验证自动重试
     if (!rateLimitedOnce && dates[0] === '2026-11-03') {
       rateLimitedOnce = true;
@@ -137,6 +142,25 @@ try {
   assert.equal(rebalance.meta?.source, 'ai');
   assert.ok(String(rebalance.result.rebalanceSummary).includes('分摊'));
   console.log('  ok  重排：直接返回函数结果');
+
+  // 输出长度到顶：多天段必须自动拆成逐日，而不是把整份计划判失败
+  capMultiDayChunks = true;
+  requests.length = 0;
+  const splitStatuses: string[] = [];
+  const splitPlan = await runGeneration(
+    'plan',
+    { topics: [{ id: 'unit-1', title: '第 1 章 体系结构' }], preferences: { startDate: '2026-11-03', examDate: '2026-11-10' }, materials: [] },
+    { language: 'zh', onStatus: (text) => splitStatuses.push(text) }
+  );
+  capMultiDayChunks = false;
+  const splitTasks = splitPlan.result.tasks as any[];
+  assert.equal(new Set(splitTasks.map((t) => t.date)).size, studyDates.length, '逐日拆开后每天仍要有任务');
+  assert.equal(splitPlan.result.phases.length, 1, '阶段只取第一天的那次调用');
+  const chunkCalls = requests.filter((r) => r.path === '/ai/plan-chunk').map((r) => r.body.dates as string[]);
+  assert.ok(chunkCalls.some((d) => d.length > 1), '应先按整段请求一次');
+  assert.equal(chunkCalls.filter((d) => d.length === 1).length, studyDates.length, '每天各请求一次');
+  assert.ok(splitStatuses.some((s) => s.includes('逐日编排')), splitStatuses.join(' | '));
+  console.log('  ok  输出到顶：自动逐日重排，不丢日期也不重复阶段');
 
   // 终局错误必须原样透传，不能被当成网络问题反复重试
   let sawFailing = 0;

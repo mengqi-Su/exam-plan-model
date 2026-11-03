@@ -182,6 +182,14 @@ const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
     zh: "生成超时了，请稍后重试，或减少资料量。",
     en: "Generation timed out. Try again later or reduce the materials.",
   },
+  ai_timeout: {
+    zh: "AI 这一段生成太慢了，已自动拆成更小的批次重试。",
+    en: "That segment was too slow for AI, so it is being retried in smaller batches.",
+  },
+  ai_output_capped: {
+    zh: "AI 单次输出长度到顶了，已自动拆成逐日生成。",
+    en: "AI hit its per-call output limit, so the days are being generated one by one.",
+  },
   invalid_request: {
     zh: "请求内容格式无效，请刷新页面后重试。",
     en: "Invalid request format. Refresh the page and try again.",
@@ -245,8 +253,8 @@ export interface RunGenerationOptions {
 
 const FUNCTION_BASE = "/functions/v1/app";
 
-// 站点网关单请求约 45 秒超时，因此每次只让模型产出一小段 JSON，由浏览器并发调用拼接。
-const CONCURRENCY = 3;
+// 站点网关单请求约 60 秒超时，因此每次只让模型产出一小段 JSON，由浏览器并发调用拼接。
+const CONCURRENCY = 4;
 const CALL_RETRY_DELAYS = [2500, 9000];
 // 这些错误码是瞬时的（限流、抖动、坏输出），自动重试；配置与额度类错误直接告诉用户。
 const RETRYABLE_CODES = new Set([
@@ -257,6 +265,8 @@ const RETRYABLE_CODES = new Set([
   "PLAN_CHUNK_EMPTY",
   "internal_error",
 ]);
+// 输出长度上限/时间预算用完：同一份大请求重试只会再撞一次，改成把这段日历拆成单天再要。
+const SPLITTABLE_CODES = new Set(["ai_output_capped", "ai_timeout", "PLAN_CHUNK_EMPTY"]);
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -483,19 +493,38 @@ async function generatePlan(payload: Record<string, unknown>, ctx: CallContext) 
 
   const covered: string[] = [];
   let finished = 0;
-  const chunkResults = await mapLimit(chunks, CONCURRENCY, async (chunk, index) => {
-    const res = await callAi<{ phases: any[]; tasks: any[] }>(
+  const requestChunk = (dates: string[], withPhases: boolean) =>
+    callAi<{ phases: any[]; tasks: any[] }>(
       "/ai/plan-chunk",
       {
         preferences: payload.preferences,
         topics: payload.topics,
         materials: payload.materials,
-        dates: chunk.dates,
-        includePhases: index === 0,
+        dates,
+        includePhases: withPhases,
         coveredTopicTitles: covered.slice(-40),
       },
       ctx
     );
+
+  const chunkResults = await mapLimit(chunks, CONCURRENCY, async (chunk, index) => {
+    let res: { phases: any[]; tasks: any[] };
+    try {
+      res = await requestChunk(chunk.dates, index === 0);
+    } catch (error) {
+      const code = (error as GenerationError)?.code;
+      // 输出长度上限 / 时间预算到顶：原样重试只会再撞一次，改成逐日要；仍空就如实抛出
+      if (!code || !SPLITTABLE_CODES.has(code) || chunk.dates.length < 2) throw error;
+      ctx.onStatus?.(ctx.tt("这一段太大了，逐日编排…", "Segment too large, scheduling day by day…"));
+      const singles = await mapLimit(chunk.dates, 2, (date, dayIndex) =>
+        requestChunk([date], index === 0 && dayIndex === 0).catch(() => ({ phases: [], tasks: [] }))
+      );
+      res = {
+        phases: singles.flatMap((one) => one?.phases || []),
+        tasks: singles.flatMap((one) => one?.tasks || []),
+      };
+      if (!res.tasks.length) throw error;
+    }
     (res.tasks || []).forEach((task: any) => {
       const title = typeof task?.topicTitle === "string" ? task.topicTitle : "";
       if (title && !covered.includes(title)) covered.push(title);
@@ -518,8 +547,8 @@ async function generatePlan(payload: Record<string, unknown>, ctx: CallContext) 
   if (missing.length > 0 && missing.length < studyDates.length) {
     ctx.onStatus?.(ctx.tt(`补齐 ${missing.length} 个空缺日期…`, `Filling ${missing.length} missing days…`));
     const groups: string[][] = [];
-    for (let i = 0; i < missing.length; i += 3) groups.push(missing.slice(i, i + 3));
-    const repairs = await mapLimit(groups.slice(0, 4), CONCURRENCY, (group) =>
+    for (let i = 0; i < missing.length; i += 2) groups.push(missing.slice(i, i + 2));
+    const repairs = await mapLimit(groups.slice(0, 10), CONCURRENCY, (group) =>
       callAi<{ tasks: any[] }>("/ai/plan-chunk", {
         preferences: payload.preferences,
         topics: payload.topics,
@@ -583,8 +612,8 @@ export async function runGeneration<T = any>(
   const isZh = opts.language !== "en";
   const tt = (zh: string, en: string) => (isZh ? zh : en);
   const { signal, abort } = linkSignal(opts.signal);
-  // 长计划由多段小调用拼成：给整体留足时间，单段仍受网关 45 秒约束
-  const deadlineMs = opts.deadlineMs ?? (mode === "plan" ? 600_000 : mode === "syllabus" ? 300_000 : 90_000);
+  // 长计划由多段小调用拼成：给整体留足时间，单段仍受函数内 48 秒预算约束
+  const deadlineMs = opts.deadlineMs ?? (mode === "plan" ? 900_000 : mode === "syllabus" ? 420_000 : 90_000);
   const ctx: CallContext = {
     lang: isZh ? "zh" : "en",
     tt,
