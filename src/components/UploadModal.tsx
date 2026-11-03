@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Upload, RefreshCw, AlertCircle } from "lucide-react";
+import { Upload, RefreshCw, AlertCircle, X } from "lucide-react";
 import { StudyMaterial } from "../types";
 import { parseDocumentFile } from "../lib/documentParser";
 import { useI18n } from "../lib/i18n";
@@ -20,6 +20,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   initialType,
 }) => {
   const { language } = useI18n();
+  const isZh = language === "zh";
   const [isDragging, setIsDragging] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [parsingStatus, setParsingStatus] = useState("");
@@ -34,6 +35,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
     const newAttachedMaterials: StudyMaterial[] = [];
     let combinedContent = currentSyllabusContent ? currentSyllabusContent + "\n\n" : "";
+    let hadError = false;
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -67,7 +69,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         newAttachedMaterials.push(materialItem);
         combinedContent += `=== ${file.name} ===\n${text}\n\n`;
       } catch (err: any) {
-        setErrorMessage(`${file.name}: ${err?.message || (language === "zh" ? "解析失败" : "Error")}`);
+        hadError = true;
+        setErrorMessage(`${file.name}: ${err?.message || (isZh ? "解析失败" : "Error")}`);
       }
     }
 
@@ -76,34 +79,39 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
     if (newAttachedMaterials.length > 0) {
       onUploadSuccess(newAttachedMaterials, combinedContent.trim());
-      onClose();
+      if (!hadError) onClose();
     }
   };
 
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-[#111111]/50 flex items-center justify-center p-4 font-mono"
+      className="fixed inset-0 z-50 bg-[#1c1b1a]/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn"
     >
       <div
-        className="bg-white border border-[#111111] w-full max-w-sm p-4 space-y-3 shadow-none"
+        className="w-full max-w-md rounded-2xl border border-[#eae7e1] bg-white p-5 space-y-4 shadow-[0_12px_40px_rgba(28,27,26,0.18)]"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header: Title + Close ✕ */}
-        <div className="flex items-center justify-between border-b border-[#111111] pb-2">
-          <span className="text-xs font-bold uppercase text-[#111111]">
-            +{language === "zh" ? "上传文件" : "Upload"}
-          </span>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-[#f1efe9] flex items-center justify-center">
+              <Upload className="w-4 h-4 text-[#6b6660]" />
+            </span>
+            <span className="text-base font-semibold text-[#1c1b1a]">
+              {isZh ? "上传文件" : "Upload files"}
+            </span>
+          </div>
           <button
             onClick={onClose}
-            className="text-xs font-bold text-[#111111] hover:text-[#777777] cursor-pointer p-0.5"
-            aria-label="Close"
+            className="p-1.5 rounded-md text-[#a39e97] hover:bg-[#f1efe9] hover:text-[#1c1b1a] transition-colors cursor-pointer"
+            aria-label={isZh ? "关闭" : "Close"}
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Minimalist dashed dropzone */}
+        {/* Dropzone */}
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -120,39 +128,41 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               document.getElementById("modal-file-upload-input")?.click();
             }
           }}
-          className={`border border-dashed border-[#111111] py-8 px-4 text-center cursor-pointer transition-colors ${
-            isDragging ? "bg-[#ededed]" : "bg-white hover:bg-[#fafafa]"
+          className={`rounded-xl border border-dashed py-9 px-4 text-center cursor-pointer transition-colors ${
+            isDragging
+              ? "border-[#1c1b1a] bg-[#f1efe9]"
+              : "border-[#ddd8d0] bg-[#faf9f6] hover:bg-[#f1efe9] hover:border-[#cfc9c0]"
           }`}
         >
           <input
             id="modal-file-upload-input"
             type="file"
             multiple
-            accept=".pdf,.docx,.doc,.txt,.md,.ppt,.pptx"
+            accept=".pdf,.docx,.pptx,.txt,.md,.markdown,.csv,.json,.rtf"
             onChange={(e) => handleFiles(e.target.files)}
             className="hidden"
           />
 
-          <div className="flex flex-col items-center justify-center space-y-2">
-            {isParsing ? (
-              <RefreshCw className="w-4 h-4 animate-spin text-[#111111]" />
-            ) : (
-              <Upload className="w-4 h-4 text-[#111111]" />
-            )}
+          <div className="flex flex-col items-center justify-center gap-2.5">
+            <span className="w-11 h-11 rounded-full bg-white border border-[#eae7e1] flex items-center justify-center">
+              {isParsing ? (
+                <RefreshCw className="w-4 h-4 animate-spin text-[#6b6660]" />
+              ) : (
+                <Upload className="w-4 h-4 text-[#6b6660]" />
+              )}
+            </span>
 
-            <p className="text-xs font-bold text-[#111111]">
-              {isParsing
-                ? parsingStatus
-                : (language === "zh" ? "点击选择 或 拖入文件" : "Click or drop files")}
+            <p className="text-[13px] font-medium text-[#1c1b1a]">
+              {isParsing ? parsingStatus : isZh ? "点击选择 或 拖入文件" : "Click or drop files"}
             </p>
-            <p className="text-[10px] text-[#666666]">
-              PDF / DOCX / PPT / TXT / MD
+            <p className="text-[11px] text-[#8a8580]">
+              {isZh ? "PDF / DOCX / PPTX / TXT / MD · 单文件 ≤ 10 MB" : "PDF / DOCX / PPTX / TXT / MD · max 10 MB each"}
             </p>
           </div>
         </div>
 
         {errorMessage && (
-          <div className="flex items-center space-x-1 p-2 border border-red-600 text-red-600 text-[11px] font-bold">
+          <div className="flex items-center gap-1.5 p-2.5 rounded-lg bg-[#FDF0EE] border border-[#f5d6d0] text-[#B42318] text-[11px]">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
             <span>{errorMessage}</span>
           </div>

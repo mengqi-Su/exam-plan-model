@@ -1,106 +1,30 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import {
-  BarChart3,
   RefreshCw,
-  Sparkles,
-  TrendingUp,
-  Clock,
-  Target,
-  CheckCircle2,
-  AlertTriangle,
-  Award,
-  Zap,
-  Check,
-  Flame,
-  HelpCircle,
-  GraduationCap,
-  Star,
   Calendar,
-  Sliders,
+  AlertTriangle,
+  CheckCircle2,
   ChevronDown,
-  ChevronUp,
-  ArrowRight,
-  FolderOpen,
-  FileText
+  PieChart,
 } from "lucide-react";
-import { ExamStudyPlan, StudyTask, SyllabusTopic, UserStudyPreferences, DaySchedulePreference } from "../types";
+import { ExamStudyPlan } from "../types";
 import { playCompletionChime } from "../lib/audio";
 import { useI18n } from "../lib/i18n";
-import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
-import { fallbackGeneratePlanClient } from "../lib/fallbackPlanner";
-import { RulerTimePicker } from "./RulerTimePicker";
+import { getAiFallbackNotice, runGeneration } from "../lib/aiClient";
+import { addDays, toLocalDateString } from "../lib/date";
 import { DomainMasteryWheelChart } from "./DomainMasteryWheelChart";
-import { PieChart, Table } from "lucide-react";
 
 interface RealTimeManagerProps {
   plan: ExamStudyPlan;
-  plans?: ExamStudyPlan[];
-  onSelectPlan?: (planId: string) => void;
-  onAddNewSubject?: () => void;
   onUpdatePlan: (updatedPlan: ExamStudyPlan) => void;
-  onNavigateToTab: (tab: "todo" | "calendar" | "materials" | "add_subject" | "course") => void;
-  isRebalanceModalOpen: boolean;
-  onCloseRebalanceModal: () => void;
 }
 
-export function RealTimeManager({
-  plan,
-  plans = [],
-  onSelectPlan,
-  onAddNewSubject,
-  onUpdatePlan,
-  onNavigateToTab,
-  isRebalanceModalOpen,
-  onCloseRebalanceModal,
-}: RealTimeManagerProps) {
-  const { t, language } = useI18n();
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
+  const { language } = useI18n();
+  const isZh = language === "zh";
+  const todayStr = useMemo(() => toLocalDateString(), []);
 
-  const defaultExamDate = useMemo(() => {
-    if (plan?.examDate) return plan.examDate;
-    const d = new Date();
-    d.setDate(d.getDate() + 21);
-    return d.toISOString().split("T")[0];
-  }, [plan?.examDate]);
-
-  const [startDate, setStartDate] = useState(plan?.startDate || todayStr);
-  const [examDate, setExamDate] = useState(plan?.examDate || defaultExamDate);
-  const [examTime, setExamTime] = useState(plan?.examTime || "09:00");
-  const [targetScore, setTargetScore] = useState(plan?.preferences?.targetScoreOrGrade || "A (90%+ / 优秀)");
-  const [studyPace, setStudyPace] = useState<UserStudyPreferences["studyPace"]>(plan?.preferences?.studyPace || "deep_mastery");
-  const [sessionLength, setSessionLength] = useState<number>(plan?.preferences?.sessionLengthMinutes || 45);
-  const [includePracticeExams, setIncludePracticeExams] = useState(plan?.preferences?.includePracticeExams ?? true);
-  const [includeBufferDays, setIncludeBufferDays] = useState(plan?.preferences?.includeBufferDays ?? true);
-  const [bufferDaysCount, setBufferDaysCount] = useState(plan?.preferences?.bufferDaysCount ?? 2);
-  const [dailySchedules, setDailySchedules] = useState<DaySchedulePreference[]>(
-    plan?.preferences?.dailySchedules || DEFAULT_WEEK_SCHEDULE
-  );
-
-  useEffect(() => {
-    if (plan) {
-      if (plan.startDate) setStartDate(plan.startDate);
-      if (plan.examDate) setExamDate(plan.examDate);
-      if (plan.examTime) setExamTime(plan.examTime);
-      if (plan.preferences?.targetScoreOrGrade) setTargetScore(plan.preferences.targetScoreOrGrade);
-      if (plan.preferences?.studyPace) setStudyPace(plan.preferences.studyPace);
-      if (plan.preferences?.sessionLengthMinutes) setSessionLength(plan.preferences.sessionLengthMinutes);
-      if (plan.preferences?.dailySchedules) setDailySchedules(plan.preferences.dailySchedules);
-    }
-  }, [plan?.id]);
-
-  const [showPlanSettings, setShowPlanSettings] = useState(false);
-  const [showScheduleRuler, setShowScheduleRuler] = useState(false);
   const [showRoadmap, setShowRoadmap] = useState(true);
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
-  const [planGenerateError, setPlanGenerateError] = useState<string | null>(null);
-  const [planSuccessNotice, setPlanSuccessNotice] = useState(false);
-
-  const [countdown, setCountdown] = useState<{ days: number; hours: number; minutes: number; seconds: number }>({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-  });
 
   const [isRebalancing, setIsRebalancing] = useState(false);
   const [rebalanceReason, setRebalanceReason] = useState(
@@ -110,251 +34,83 @@ export function RealTimeManager({
   );
   const [rebalanceResultSummary, setRebalanceResultSummary] = useState<string | null>(null);
   const [rebalanceError, setRebalanceError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const update = () => {
-      if (!plan.examDate) return;
-      const [y, m, d] = plan.examDate.split("-").map(Number);
-      const [h, min] = (plan.examTime || "09:00").split(":").map(Number);
-      const targetTime = new Date(y, m - 1, d, h, min, 0).getTime();
-      const now = new Date().getTime();
-      const diff = targetTime - now;
-
-      if (diff <= 0) {
-        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-      } else {
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        setCountdown({ days, hours, minutes, seconds });
-      }
-    };
-
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [plan.examDate, plan.examTime]);
+  const [aiNotice, setAiNotice] = useState<string | null>(null);
 
   const daysUntilExam = useMemo(() => {
-    if (!examDate) return 0;
+    if (!plan.examDate) return 0;
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    const [y, m, d] = examDate.split("-").map(Number);
+    const [y, m, d] = plan.examDate.split("-").map(Number);
     const target = new Date(y, m - 1, d);
     const diff = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     return diff > 0 ? diff : 0;
-  }, [examDate]);
+  }, [plan.examDate]);
 
-  const totalEstHours = useMemo(() => {
-    return (plan.topics || []).reduce((sum, t) => sum + (t.estimatedHours || 0), 0);
-  }, [plan.topics]);
+  const overdueCount = useMemo(
+    () =>
+      (plan.tasks || []).filter(
+        (t) => t.date < todayStr && t.status !== "completed" && t.status !== "skipped"
+      ).length,
+    [plan.tasks, todayStr]
+  );
 
-  const handleUpdateDayHours = (dayOfWeek: number, hours: number) => {
-    setDailySchedules((prev) =>
-      prev.map((s) => (s.dayOfWeek === dayOfWeek ? { ...s, availableHours: hours, enabled: hours > 0 } : s))
-    );
-  };
-
-  const handleToggleDayEnabled = (dayOfWeek: number) => {
-    setDailySchedules((prev) =>
-      prev.map((s) => (s.dayOfWeek === dayOfWeek ? { ...s, enabled: !s.enabled } : s))
-    );
-  };
-
-  const handleGenerateStudyPlan = async () => {
-    setIsGeneratingPlan(true);
-    setPlanGenerateError(null);
-    setPlanSuccessNotice(false);
-
-    const preferences: UserStudyPreferences = {
-      examName: plan.examName,
-      subject: plan.subject,
-      startDate,
-      examDate,
-      examTime,
-      targetScoreOrGrade: targetScore,
-      studyPace,
-      sessionLengthMinutes: sessionLength,
-      dailySchedules,
-      includePracticeExams,
-      includeBufferDays,
-      bufferDaysCount,
-      weakTopicsFocus: (plan.topics || []).filter(t => t.difficulty === "hard").map(t => t.title),
-    };
-
-    const topics = plan.topics && plan.topics.length > 0 ? plan.topics : [
-      {
-        id: "top-1",
-        title: "基础概念与核心理论",
-        category: "基础概念",
-        weightPercentage: 30,
-        difficulty: "easy" as const,
-        subtopics: ["核心定理推导", "基础应用"],
-        estimatedHours: 8,
-      },
-      {
-        id: "top-2",
-        title: "典型考题与高频题型精解",
-        category: "实战演练",
-        weightPercentage: 40,
-        difficulty: "hard" as const,
-        subtopics: ["经典大题演练", "易错点与解题模板"],
-        estimatedHours: 14,
-      },
-      {
-        id: "top-3",
-        title: "全真模拟与真题冲刺",
-        category: "模拟冲刺",
-        weightPercentage: 30,
-        difficulty: "hard" as const,
-        subtopics: ["历年真题实战", "查漏补缺与考前押密"],
-        estimatedHours: 10,
-      },
-    ];
-
-    try {
-      let data: any = null;
-      try {
-        const res = await fetch("/api/generate-plan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            topics,
-            preferences,
-            materialsSummary: plan.materialsSummary || "",
-            language,
-          }),
-        });
-
-        if (res.ok) {
-          data = await res.json();
-        }
-      } catch (fetchErr) {
-        console.warn("Network fetch error for generate-plan, generating local plan:", fetchErr);
-      }
-
-      if (!data || !data.tasks || data.tasks.length === 0) {
-        data = fallbackGeneratePlanClient(topics, preferences);
-      }
-
-      const newPlan: ExamStudyPlan = {
-        ...plan,
-        updatedAt: new Date().toISOString(),
-        examName: preferences.examName,
-        subject: preferences.subject,
-        startDate: preferences.startDate,
-        examDate: preferences.examDate,
-        examTime: preferences.examTime,
-        totalPlannedHours: data.totalPlannedHours || totalEstHours || 35,
-        phases: data.phases || plan.phases || [],
-        topics: topics,
-        tasks: data.tasks || [],
-        preferences,
-      };
-
-      onUpdatePlan(newPlan);
-      setPlanSuccessNotice(true);
-      playCompletionChime();
-      setTimeout(() => setPlanSuccessNotice(false), 5000);
-    } catch (err: any) {
-      console.error("Plan generation error, using safe fallback", err);
-      const safeData = fallbackGeneratePlanClient(topics, preferences);
-      const safePlan: ExamStudyPlan = {
-        ...plan,
-        updatedAt: new Date().toISOString(),
-        startDate: preferences.startDate,
-        examDate: preferences.examDate,
-        examTime: preferences.examTime,
-        totalPlannedHours: safeData.totalPlannedHours || 30,
-        phases: safeData.phases || [],
-        topics: topics,
-        tasks: safeData.tasks,
-        preferences,
-      };
-      onUpdatePlan(safePlan);
-      setPlanSuccessNotice(true);
-      setTimeout(() => setPlanSuccessNotice(false), 5000);
-    } finally {
-      setIsGeneratingPlan(false);
-    }
-  };
-
-  const totalTasks = plan.tasks.length;
-  const completedTasks = plan.tasks.filter((t) => t.status === "completed").length;
-  const pendingTasks = plan.tasks.filter((t) => t.status !== "completed").length;
-
-  const totalPlannedMinutes = plan.tasks.reduce((acc, t) => acc + t.durationMinutes, 0);
-  const totalCompletedMinutes = plan.tasks
-    .filter((t) => t.status === "completed")
-    .reduce((acc, t) => acc + (t.actualMinutesSpent || t.durationMinutes), 0);
-
-  const syllabusCompletionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-  const overdueTasks = plan.tasks.filter((t) => t.date < todayStr && t.status !== "completed");
-
-  const topicMastery = React.useMemo(() => {
+  const topicMastery = useMemo(() => {
     return (plan.topics || []).map((top) => {
       const topicTasks = plan.tasks.filter((t) => t.topicTitle === top.title);
       const done = topicTasks.filter((t) => t.status === "completed");
-      const doneCount = done.length;
-      const totalCount = topicTasks.length;
 
       const ratings = done.map((t) => t.confidenceRating || 3);
       const avgRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
 
-      const progressPercent = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+      const progressPercent =
+        topicTasks.length > 0 ? Math.round((done.length / topicTasks.length) * 100) : 0;
 
       return {
         ...top,
-        totalTasks: totalCount,
-        completedTasks: doneCount,
+        totalTasks: topicTasks.length,
+        completedTasks: done.length,
         progressPercent,
         avgRating,
       };
     });
   }, [plan.topics, plan.tasks]);
 
-  const readinessIndex = React.useMemo(() => {
-    if (totalTasks === 0) return 0;
-    const taskFactor = (completedTasks / totalTasks) * 0.6;
-    const timeFactor = Math.min(1, totalCompletedMinutes / (totalPlannedMinutes || 1)) * 0.2;
-
-    const ratings = plan.tasks.filter((t) => t.status === "completed" && t.confidenceRating);
-    const masteryFactor = ratings.length > 0
-      ? (ratings.reduce((acc, t) => acc + (t.confidenceRating || 3), 0) / (ratings.length * 5)) * 0.2
-      : 0.1;
-
-    return Math.round((taskFactor + timeFactor + masteryFactor) * 100);
-  }, [totalTasks, completedTasks, totalCompletedMinutes, totalPlannedMinutes, plan.tasks]);
-
   const handleTriggerRebalance = async () => {
     setIsRebalancing(true);
     setRebalanceError(null);
     setRebalanceResultSummary(null);
+    setAiNotice(null);
 
     try {
       let data: any = null;
+      let notice: string | null = null;
       try {
-        const res = await fetch("/api/rebalance-plan", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            currentPlan: plan,
-            currentDate: todayStr,
-            reason: rebalanceReason,
-            language,
-          }),
-        });
-
-        if (res.ok) {
-          data = await res.json();
-        }
-      } catch (fetchErr) {
-        console.warn("Network error during rebalance fetch, using local scheduler:", fetchErr);
+        const { result, meta } = await runGeneration<{ rebalanceSummary?: string; tasks?: any[] }>(
+          "rebalance",
+          { currentPlan: plan, currentDate: todayStr, reason: rebalanceReason },
+          { language }
+        );
+        data = result;
+        notice = getAiFallbackNotice(meta, language);
+      } catch (fetchErr: any) {
+        console.warn("Rebalance via AI failed, using local scheduler:", fetchErr);
+        const msg = fetchErr?.message;
+        notice = msg
+          ? language === "zh"
+            ? `${msg} 已改用本地排程规则。`
+            : `${msg} A local scheduling rule was used instead.`
+          : language === "zh"
+            ? "无法连接 AI 服务，已改用本地排程规则重排计划。"
+            : "Could not reach the AI service. A local scheduling rule was used instead.";
       }
 
       if (!data || !data.tasks || !Array.isArray(data.tasks)) {
+        if (!notice) {
+          notice =
+            language === "zh"
+              ? "AI 未返回有效排程，已改用本地排程规则。"
+              : "AI returned no usable schedule. A local scheduling rule was used instead.";
+        }
 
         const overdueTasks = (plan.tasks || []).filter(
           (t) => t.date < todayStr && t.status !== "completed" && t.status !== "skipped"
@@ -366,7 +122,7 @@ export function RealTimeManager({
           ...completedOrCurrent,
           ...overdueTasks.map((t, idx) => {
             const shiftDays = Math.floor(idx / 2);
-            const targetDate = new Date(Date.now() + shiftDays * 86400000).toISOString().split("T")[0];
+            const targetDate = addDays(todayStr, shiftDays);
             return {
               ...t,
               date: targetDate,
@@ -385,6 +141,7 @@ export function RealTimeManager({
       }
 
       if (data.tasks && Array.isArray(data.tasks)) {
+        setAiNotice(notice);
         onUpdatePlan({
           ...plan,
           tasks: data.tasks,
@@ -393,15 +150,15 @@ export function RealTimeManager({
         setRebalanceResultSummary(
           data.rebalanceSummary ||
             (language === "zh"
-              ? "学习计划已成功根据剩余天数平摊与动态重排！"
+              ? "学习计划已根据剩余天数平摊与动态重排！"
               : "Study plan successfully rebalanced across remaining days!")
         );
         playCompletionChime();
       }
     } catch (err: any) {
-      console.error("Rebalance handled:", err);
-      setRebalanceResultSummary(
-        language === "zh" ? "学习计划已根据当前备考节奏自动更新！" : "Study plan updated to match your current pace."
+      console.error("Rebalance failed:", err);
+      setRebalanceError(
+        language === "zh" ? "计划重排失败，请稍后重试。" : "Rebalance failed. Please try again later."
       );
     } finally {
       setIsRebalancing(false);
@@ -409,157 +166,186 @@ export function RealTimeManager({
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6">
-      {planSuccessNotice && (
-        <div className="p-3.5 bg-white border-2 border-[#111111] text-[#111111] font-mono text-xs flex items-center justify-between animate-fadeIn">
-          <div className="flex items-center space-x-2">
-            <CheckCircle2 className="w-4 h-4 text-[#111111]" />
-            <span className="font-bold">
-              {language === "zh" ? "个性化复习排程已成功生成并同步至系统！" : "Personalized study schedule successfully updated!"}
-            </span>
+    <div className="space-y-8">
+      {aiNotice && (
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-3.5 py-3 text-[12.5px] text-[#8A5A00] animate-fadeIn">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span className="leading-relaxed">{aiNotice}</span>
           </div>
           <button
-            onClick={() => setPlanSuccessNotice(false)}
-            className="px-2 py-0.5 border border-[#111111] text-[11px] hover:bg-[#111111] hover:text-white cursor-pointer"
+            onClick={() => setAiNotice(null)}
+            className="shrink-0 font-medium underline underline-offset-2 cursor-pointer"
           >
-            [{language === "zh" ? "知道了" : "DISMISS"}]
+            {isZh ? "知道了" : "Dismiss"}
           </button>
         </div>
       )}
 
       {plan?.phases && plan.phases.length > 0 && (
-        <section className="space-y-3 font-mono">
-          <div className="flex items-center justify-between pb-2 border-b border-[#111111]">
-            <div className="flex items-center space-x-2">
-              <Calendar className="w-4 h-4 text-[#111111]" />
-              <h2 className="text-xs font-bold uppercase text-[#111111]">
-                [1. {language === "zh" ? "备考阶段推进路线" : "PHASE REVIEW ROADMAP"}]
-              </h2>
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 ui-subtle" />
+              <h3 className="text-[14px] font-semibold text-[#1c1b1a]">
+                {isZh ? "备考阶段推进路线" : "Phase review roadmap"}
+              </h3>
             </div>
-
             <button
               onClick={() => setShowRoadmap(!showRoadmap)}
-              className="text-xs font-bold text-[#111111] hover:underline cursor-pointer"
+              className="inline-flex items-center gap-1 text-[12px] font-medium ui-muted hover:text-[#1c1b1a] transition-colors cursor-pointer"
             >
-              [{showRoadmap ? (language === "zh" ? "收起" : "COLLAPSE") : (language === "zh" ? "展开" : "EXPAND")}]
+              {showRoadmap ? (isZh ? "收起" : "Collapse") : isZh ? "展开" : "Expand"}
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showRoadmap ? "rotate-180" : ""}`} />
             </button>
           </div>
 
           {showRoadmap && (
-            <div className="bg-[#faf9f6] border border-[#111111] py-8 px-6 sm:px-12 select-none animate-fadeIn">
-              <div className="relative">
-                <div className="absolute left-6 sm:left-12 top-10 bottom-0 w-[1px] bg-[#111111]" />
-
-                <div className="flex items-center space-x-4 mb-8">
-                  <div className="w-12 h-12 rounded-full border border-[#999999] bg-[#eae8e1] flex items-center justify-center shrink-0 z-10">
-                    <span className="text-[10px] font-bold text-[#666666]">
-                      {daysUntilExam}D
-                    </span>
-                  </div>
-
-                  <div className="text-xs text-[#555555] font-sans">
-                    <span className="font-bold text-[#111111] text-sm tracking-wide">
-                      {language === "zh" ? "备考推进全流程" : "Phase Timeline"}
-                    </span>{" "}
-                    <span className="text-xs text-[#888888]">
-                      {language === "zh" ? `· 距离考试还有 ${daysUntilExam} 天` : `· ${daysUntilExam} days remaining`}
-                    </span>
-                  </div>
+            <div className="ui-card p-5 sm:p-7 select-none animate-fadeIn">
+              <div className="flex items-center gap-3.5 mb-6">
+                <div className="w-11 h-11 rounded-full bg-[#f1efe9] flex items-center justify-center shrink-0">
+                  <span className="text-[12px] font-semibold tabular-nums text-[#1c1b1a]">{daysUntilExam}D</span>
                 </div>
-
-                <div className="relative h-20 mb-3">
-                  <div className="absolute left-[-16px] sm:left-0 top-3 text-[11px] font-bold tracking-[0.3em] text-[#111111] uppercase select-none -rotate-90 origin-center w-12 text-center">
-                    STUDIO
-                  </div>
-                </div>
-
-                <div className="relative w-full border-t border-[#111111] my-4">
-                  <div className="absolute left-6 sm:left-12 -translate-x-1/2 -top-3.5 bg-[#111111] text-white text-[11px] font-bold px-3.5 py-0.5 rounded-full flex items-center justify-center tracking-widest z-20 shadow-sm">
-                    00
-                  </div>
-                </div>
-
-                <div className="pt-8 space-y-10 sm:space-y-12">
-                  {plan.phases.map((phase, pIdx) => {
-                    const currentNum = String(pIdx + 1).padStart(2, "0");
-                    const isCurrent = pIdx === 0;
-
-                    return (
-                      <div
-                        key={phase.id || `phase-step-${pIdx}`}
-                        className="relative flex items-center group"
-                      >
-                        <div className="absolute left-6 sm:left-12 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#111111] z-20 transition-transform group-hover:scale-125" />
-
-                        <div className="pl-16 sm:pl-28 flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-12 flex-1">
-                          <span className="text-sm sm:text-base font-bold text-[#111111] tracking-widest shrink-0 w-10">
-                            {currentNum}
-                          </span>
-
-                          <div className="flex-1 space-y-1">
-                            <div className="flex flex-wrap items-center gap-3">
-                              <span className="text-sm sm:text-base font-normal font-sans text-[#111111] tracking-tight">
-                                {phase.name}
-                              </span>
-
-                              <span className="text-[10px] text-[#777777] font-mono border-b border-[#cccccc] pb-0.5">
-                                {phase.startDate?.slice(5)} ~ {phase.endDate?.slice(5)}
-                              </span>
-
-                              {isCurrent && (
-                                <span className="text-[9px] px-1.5 py-0.2 bg-[#111111] text-white font-bold uppercase font-mono">
-                                  {language === "zh" ? "进行中" : "CURRENT"}
-                                </span>
-                              )}
-                            </div>
-
-                            {phase.description && (
-                              <p className="text-xs text-[#666666] leading-relaxed max-w-xl font-sans">
-                                {phase.description || phase.focus}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  <div className="relative flex items-center pt-2">
-                    <div className="absolute left-6 sm:left-12 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-[#111111] z-20" />
-
-                    <div className="pl-16 sm:pl-28 flex flex-col sm:flex-row sm:items-baseline gap-2 sm:gap-12 flex-1">
-                      <span className="text-sm sm:text-base font-bold text-[#111111] tracking-widest shrink-0 w-10">
-                        {String(plan.phases.length + 1).padStart(2, "0")}
-                      </span>
-                      <div className="flex items-center space-x-3">
-                        <span className="text-sm sm:text-base font-bold font-sans text-[#111111]">
-                          {language === "zh" ? "终点 · 目标考试日" : "Final · Exam Day"}
-                        </span>
-                        <span className="text-xs text-[#111111] font-bold font-mono px-2 py-0.5 border border-[#111111] bg-white">
-                          {plan.examDate || "--"} {plan.examTime || ""}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="text-[13px] min-w-0">
+                  <span className="font-semibold text-[#1c1b1a]">
+                    {isZh ? "备考推进全流程" : "Phase timeline"}
+                  </span>
+                  <span className="ui-muted">
+                    {" · "}
+                    {isZh ? `距离考试还有 ${daysUntilExam} 天` : `${daysUntilExam} days remaining`}
+                  </span>
                 </div>
               </div>
+
+              <ol className="relative space-y-6">
+                <span className="absolute left-[5px] top-2 bottom-2 w-px bg-[#eae7e1]" aria-hidden="true" />
+
+                {plan.phases.map((phase, pIdx) => {
+                  const isCurrent = pIdx === 0;
+                  return (
+                    <li key={phase.id || `phase-step-${pIdx}`} className="relative flex gap-4 group">
+                      <span
+                        className={`relative z-10 mt-1.5 w-2.5 h-2.5 rounded-full shrink-0 ring-4 ring-white transition-transform group-hover:scale-125 ${
+                          isCurrent ? "bg-[#1c1b1a]" : "bg-[#cfc9c0]"
+                        }`}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                          <span className="text-[11px] font-medium tabular-nums ui-subtle">
+                            {String(pIdx + 1).padStart(2, "0")}
+                          </span>
+                          <span className="text-[14px] font-medium text-[#1c1b1a] tracking-tight">
+                            {phase.name}
+                          </span>
+                          <span className="ui-chip tabular-nums">
+                            {phase.startDate?.slice(5)} ~ {phase.endDate?.slice(5)}
+                          </span>
+                          {isCurrent && (
+                            <span className="inline-flex items-center rounded-full bg-[#1c1b1a] text-white px-2 py-0.5 text-[10px] font-medium">
+                              {isZh ? "进行中" : "Current"}
+                            </span>
+                          )}
+                        </div>
+                        {phase.description && (
+                          <p className="mt-1 text-[12.5px] ui-muted leading-relaxed max-w-xl">
+                            {phase.description || phase.focus}
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+
+                <li className="relative flex gap-4">
+                  <span className="relative z-10 mt-1.5 w-2.5 h-2.5 rounded-full shrink-0 ring-4 ring-white bg-[#FCD33B]" />
+                  <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                    <span className="text-[11px] font-medium tabular-nums ui-subtle">
+                      {String(plan.phases.length + 1).padStart(2, "0")}
+                    </span>
+                    <span className="text-[14px] font-semibold text-[#1c1b1a]">
+                      {isZh ? "终点 · 目标考试日" : "Final · Exam day"}
+                    </span>
+                    <span className="ui-chip tabular-nums">
+                      {plan.examDate || "—"} {plan.examTime || ""}
+                    </span>
+                  </div>
+                </li>
+              </ol>
             </div>
           )}
         </section>
       )}
 
-      <section className="space-y-3 font-mono">
-        <div className="flex items-center space-x-2 pb-2 border-b border-[#111111]">
-          <PieChart className="w-4 h-4 text-[#111111]" />
-          <h2 className="text-xs font-bold uppercase text-[#111111]">
-            [2. {language === "zh" ? "考点知识掌握度追踪" : "TOPIC MASTERY TRACKER"}]
-          </h2>
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <RefreshCw className="w-4 h-4 ui-subtle" />
+          <h3 className="text-[14px] font-semibold text-[#1c1b1a]">
+            {isZh ? "计划动态重排" : "Adaptive rebalance"}
+          </h3>
         </div>
 
-        <DomainMasteryWheelChart
-          topics={topicMastery}
-          language={language}
-        />
+        <div className="ui-card p-4 space-y-3">
+          <p className="text-[12.5px] ui-muted leading-relaxed">
+            {isZh
+              ? "当作息变动或出现积压任务时，可将未完成任务平摊到剩余备考时间。AI 不可用时会自动改用本地排程规则。"
+              : "Redistribute overdue tasks across the remaining study days. If AI is unavailable, local scheduling rules are used automatically."}
+          </p>
+
+          <textarea
+            value={rebalanceReason}
+            onChange={(e) => setRebalanceReason(e.target.value)}
+            rows={2}
+            placeholder={isZh ? "说明本次调整原因（可选）" : "Why are you rebalancing? (optional)"}
+            className="w-full rounded-lg bg-[#faf9f6] border border-[#e5e2dc] px-3 py-2 text-[13px] text-[#1c1b1a] placeholder-[#a39e97] focus:outline-none focus:border-[#cfc9c0] resize-none"
+          />
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-[12px] ui-muted tabular-nums">
+              {isZh ? `积压任务 ${overdueCount} 项` : `${overdueCount} overdue tasks`}
+            </span>
+            <button
+              onClick={handleTriggerRebalance}
+              disabled={isRebalancing}
+              className="ui-btn ui-btn-primary px-3.5 py-1.5 text-[12px]"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRebalancing ? "animate-spin" : ""}`} />
+              <span>
+                {isRebalancing
+                  ? isZh
+                    ? "正在重排…"
+                    : "Rebalancing…"
+                  : isZh
+                    ? "重排剩余任务"
+                    : "Rebalance tasks"}
+              </span>
+            </button>
+          </div>
+
+          {rebalanceError && (
+            <div className="flex items-start gap-2 rounded-lg border border-[#f0d0cc] bg-[#FDF0EE] p-2.5 text-[12px] text-[#B42318]">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>{rebalanceError}</span>
+            </div>
+          )}
+
+          {rebalanceResultSummary && (
+            <div className="flex items-start gap-2 rounded-lg border border-[#d8e4dc] bg-[#EEF4EF] p-2.5 text-[12px] text-[#3F6B4F]">
+              <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>{rebalanceResultSummary}</span>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <div className="flex items-center gap-2">
+          <PieChart className="w-4 h-4 ui-subtle" />
+          <h3 className="text-[14px] font-semibold text-[#1c1b1a]">
+            {isZh ? "考点知识掌握度追踪" : "Topic mastery tracker"}
+          </h3>
+        </div>
+
+        <DomainMasteryWheelChart topics={topicMastery} language={language} />
       </section>
     </div>
   );

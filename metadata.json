@@ -1,6 +1,6 @@
 {
   "name": "Exam Plan AI",
-  "description": "Upload exam materials and syllabus to generate personalized study plans with calendar sync, daily to-dos, and real-time adaptive progress tracking.",
+  "description": "Local-first study planner: upload exam materials, extract topics with a third-party model API (DeepSeek), and get a day-by-day review plan with calendar, daily to-dos and adaptive rebalancing.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_FUNCTIONS"]
 }

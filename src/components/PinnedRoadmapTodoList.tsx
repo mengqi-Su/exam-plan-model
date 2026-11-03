@@ -2,10 +2,10 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   Check,
   Play,
-  Sparkles,
+  Star,
   Trash2,
+  X,
   Calendar as CalendarIcon,
-  Plus,
   FileText,
 } from "lucide-react";
 import { StudyTask, ExamStudyPlan } from "../types";
@@ -20,9 +20,6 @@ interface PinnedRoadmapTodoListProps {
   onSaveNotes: (taskId: string, notes: string) => void;
   onDeleteTask: (taskId: string) => void;
   onStartTimer: (task: StudyTask) => void;
-  onStartQuiz: (task: StudyTask) => void;
-  onStartRag: (task: StudyTask) => void;
-  onAddNewTask: () => void;
   selectedDate: string;
 }
 
@@ -32,15 +29,9 @@ interface NoteTheme {
   name: string;
   pinGradient: string;
   pinShadow: string;
-  pinRing: string;
   headerBg: string;
-  headerBorder: string;
   badgeColor: string;
   titleColor: string;
-  subTextColor: string;
-  timeBg: string;
-  timeText: string;
-  timeBorder: string;
 }
 
 const FOUR_NOTE_THEMES: NoteTheme[] = [
@@ -50,15 +41,9 @@ const FOUR_NOTE_THEMES: NoteTheme[] = [
     name: "Canary Yellow",
     pinGradient: "radial-gradient(circle at 35% 35%, #FFF9C4 0%, #FCD33B 45%, #F59E0B 85%, #B45309 100%)",
     pinShadow: "rgba(180, 83, 9, 0.4)",
-    pinRing: "#D97706",
     headerBg: "#FCD33B",
-    headerBorder: "#111111",
-    badgeColor: "#111111",
-    titleColor: "#111111",
-    subTextColor: "#333333",
-    timeBg: "#FFFFFF",
-    timeText: "#111111",
-    timeBorder: "#111111",
+    badgeColor: "#1c1b1a",
+    titleColor: "#1c1b1a",
   },
   // 02: Concrete Gray (水泥浅灰)
   {
@@ -66,15 +51,9 @@ const FOUR_NOTE_THEMES: NoteTheme[] = [
     name: "Concrete Gray",
     pinGradient: "radial-gradient(circle at 35% 35%, #FFFFFF 0%, #D8D8D8 45%, #9E9E9E 85%, #616161 100%)",
     pinShadow: "rgba(97, 97, 97, 0.4)",
-    pinRing: "#9E9E9E",
     headerBg: "#D8D8D8",
-    headerBorder: "#111111",
-    badgeColor: "#111111",
-    titleColor: "#111111",
-    subTextColor: "#444444",
-    timeBg: "#FFFFFF",
-    timeText: "#111111",
-    timeBorder: "#111111",
+    badgeColor: "#1c1b1a",
+    titleColor: "#1c1b1a",
   },
   // 03: Stone Gray (岩石中灰)
   {
@@ -82,15 +61,9 @@ const FOUR_NOTE_THEMES: NoteTheme[] = [
     name: "Stone Gray",
     pinGradient: "radial-gradient(circle at 35% 35%, #F5F5F5 0%, #B5B5B5 45%, #757575 85%, #424242 100%)",
     pinShadow: "rgba(66, 66, 66, 0.4)",
-    pinRing: "#757575",
     headerBg: "#B5B5B5",
-    headerBorder: "#111111",
-    badgeColor: "#111111",
-    titleColor: "#111111",
-    subTextColor: "#222222",
-    timeBg: "#FFFFFF",
-    timeText: "#111111",
-    timeBorder: "#111111",
+    badgeColor: "#1c1b1a",
+    titleColor: "#1c1b1a",
   },
   // 04: Dark Slate (黑曜曜岩)
   {
@@ -98,15 +71,9 @@ const FOUR_NOTE_THEMES: NoteTheme[] = [
     name: "Dark Slate",
     pinGradient: "radial-gradient(circle at 35% 35%, #6B7280 0%, #374151 45%, #1F2937 85%, #111111 100%)",
     pinShadow: "rgba(17, 17, 17, 0.5)",
-    pinRing: "#374151",
     headerBg: "#282828",
-    headerBorder: "#111111",
     badgeColor: "#FCD33B",
     titleColor: "#FFFFFF",
-    subTextColor: "#D1D5DB",
-    timeBg: "#111111",
-    timeText: "#FFFFFF",
-    timeBorder: "#444444",
   },
 ];
 
@@ -185,10 +152,6 @@ export function PinnedRoadmapTodoList({
   onSaveNotes,
   onDeleteTask,
   onStartTimer,
-  onStartQuiz,
-  onStartRag,
-  onAddNewTask,
-  selectedDate,
 }: PinnedRoadmapTodoListProps) {
   const { t, language } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -267,16 +230,16 @@ export function PinnedRoadmapTodoList({
   return (
     <div
       ref={containerRef}
-      className="relative w-full py-6 px-4 sm:px-8 md:px-12 min-h-[480px] overflow-hidden select-text border border-[#111111] bg-[#FAF9F6] shadow-xs"
+      className="relative w-full p-4 sm:p-6 min-h-[420px] overflow-hidden select-text rounded-xl border border-[#eae7e1] bg-[#faf9f6] shadow-[0_1px_2px_rgba(28,27,26,0.04)]"
     >
       {/* Top Header Bar */}
-      <div className="flex items-center justify-between pb-4 mb-6 border-b border-[#111111]">
-        <div className="flex items-center space-x-2 font-mono">
-          <span className="w-2.5 h-2.5 bg-[#FCD33B] border border-[#111111] inline-block" />
-          <h2 className="text-xs font-bold uppercase tracking-wider text-[#111111]">
-            {language === "zh" ? "今日待办轨迹" : "DAILY ROADMAP"}
+      <div className="flex items-center justify-between pb-3 mb-5 border-b ui-divider">
+        <div className="flex items-center gap-2.5">
+          <span className="w-2 h-2 rounded-full bg-[#FCD33B] inline-block shrink-0" />
+          <h2 className="text-[15px] font-semibold tracking-tight text-[#1c1b1a]">
+            {language === "zh" ? "今日任务路线" : "Study roadmap"}
           </h2>
-          <span className="text-xs font-bold text-[#111111] bg-white border border-[#111111] px-2 py-0.2">
+          <span className="ui-chip tabular-nums">
             {tasks.filter((t) => t.status === "completed").length} / {tasks.length}
           </span>
         </div>
@@ -288,30 +251,20 @@ export function PinnedRoadmapTodoList({
         style={{ overflow: "visible" }}
       >
         {svgPaths.map((d, idx) => (
-          <g key={idx}>
-            <path
-              d={d}
-              fill="none"
-              stroke="#FFFFFF"
-              strokeWidth="4"
-              strokeDasharray="6 6"
-              strokeLinecap="round"
-              opacity="0.9"
-            />
-            <path
-              d={d}
-              fill="none"
-              stroke="#111111"
-              strokeWidth="1.8"
-              strokeDasharray="6 6"
-              strokeLinecap="round"
-            />
-          </g>
+          <path
+            key={idx}
+            d={d}
+            fill="none"
+            stroke="#d8d4cc"
+            strokeWidth="1.5"
+            strokeDasharray="5 6"
+            strokeLinecap="round"
+          />
         ))}
       </svg>
 
       {/* Alternating Zigzag Pinned Cards */}
-      <div className="relative z-10 flex flex-col space-y-8 sm:space-y-10 pb-4">
+      <div className="relative z-10 flex flex-col space-y-6 sm:space-y-7 pb-2">
         {tasks.map((task, index) => {
           const isCompleted = task.status === "completed";
           // Strict rotation through the 4 app palettes
@@ -320,7 +273,7 @@ export function PinnedRoadmapTodoList({
           const numberStr = String(index + 1).padStart(2, "0");
 
           // Natural subtle tilt
-          const rotationAngles = [-2.0, 2.2, -1.6, 2.4];
+          const rotationAngles = [-1.2, 1.4, -0.9, 1.1];
           const currentRotation = isCompleted ? 0 : rotationAngles[index % rotationAngles.length];
 
           return (
@@ -334,29 +287,31 @@ export function PinnedRoadmapTodoList({
                 isRightAligned ? "justify-end sm:pl-12 md:pl-24" : "justify-start sm:pr-12 md:pr-24"
               } transition-all duration-300`}
             >
-              {/* Sticky Card strictly matching the 4-color palette and brutalist borders */}
+              {/* Sticky card: keeps the coloured note head and pushpin, uses the shared card language */}
               <div
-                className={`relative w-full max-w-sm sm:max-w-md bg-white border-2 border-[#111111] transition-all duration-300 group overflow-visible ${
+                className={`relative w-full max-w-sm sm:max-w-md rounded-xl bg-white overflow-visible transition-all duration-300 group ${
                   isCompleted
-                    ? "opacity-65 grayscale-[0.2] shadow-[2px_2px_0px_#111111]"
-                    : "shadow-[4px_4px_0px_#111111] hover:shadow-[6px_6px_0px_#111111] hover:-translate-y-0.5"
+                    ? "border border-[#eae7e1] opacity-70 shadow-[0_1px_2px_rgba(28,27,26,0.04)]"
+                    : "ui-card ui-card-hover hover:-translate-y-0.5"
                 }`}
                 style={{
                   transform: `rotate(${currentRotation}deg)`,
                 }}
               >
                 {/* 3D Pushpin Centered Top */}
-                <div
+                <button
+                  type="button"
                   className="pin-anchor absolute -top-3.5 left-1/2 -translate-x-1/2 z-30 cursor-pointer transition-transform duration-200 group-hover:scale-110 active:scale-95"
                   onClick={() => onToggleComplete(task.id)}
-                  title={isCompleted ? t("pending") : t("completed")}
+                  title={isCompleted ? t("statusPending") : t("statusDone")}
+                  aria-label={isCompleted ? t("statusPending") : t("statusDone")}
                 >
-                  <JellyPushpin theme={theme} size={26} />
-                </div>
+                  <JellyPushpin theme={theme} size={24} />
+                </button>
 
                 {/* Card Top Block in One of the 4 App Theme Colors */}
                 <div
-                  className="px-4 pt-5 pb-3 border-b-2 border-[#111111] transition-colors"
+                  className="px-4 pt-5 pb-3 rounded-t-xl border-b border-black/10 transition-colors"
                   style={{
                     backgroundColor: theme.headerBg,
                   }}
@@ -364,43 +319,43 @@ export function PinnedRoadmapTodoList({
                   <div className="flex items-center justify-between">
                     {/* Number (01, 02, 03...) */}
                     <span
-                      className="text-xl sm:text-2xl font-bold font-mono tracking-tight leading-none select-none"
+                      className="text-[15px] font-semibold leading-none select-none tabular-nums"
                       style={{ color: theme.badgeColor }}
                     >
                       {numberStr}
                     </span>
 
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2">
                       {/* Duration Tag */}
                       <span
-                        className="text-[10px] font-mono font-bold px-2 py-0.5 border"
+                        className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium tabular-nums"
                         style={{
-                          backgroundColor: theme.timeBg,
-                          color: theme.timeText,
-                          borderColor: theme.timeBorder,
+                          backgroundColor: "rgba(255,255,255,0.72)",
+                          color: theme.titleColor,
                         }}
                       >
-                        {task.durationMinutes}m
+                        {task.durationMinutes} {language === "zh" ? "分钟" : "min"}
                       </span>
 
                       {/* Complete Checkbox */}
                       <button
                         onClick={() => onToggleComplete(task.id)}
-                        className={`w-6 h-6 border-2 flex items-center justify-center transition-all cursor-pointer ${
+                        className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
                           isCompleted
-                            ? "bg-[#111111] border-[#111111] text-white scale-105"
-                            : "bg-white border-[#111111] text-transparent hover:text-gray-400"
+                            ? "bg-[#1c1b1a] border-[#1c1b1a] text-white"
+                            : "bg-white/80 border-black/15 text-transparent hover:text-[#8a8580]"
                         }`}
-                        title={isCompleted ? t("completed") : t("pending")}
+                        title={isCompleted ? t("statusPending") : t("statusDone")}
+                        aria-label={isCompleted ? t("statusPending") : t("statusDone")}
                       >
-                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                       </button>
                     </div>
                   </div>
 
                   {/* Title directly inside colored header block */}
                   <h3
-                    className={`mt-2 text-sm sm:text-base font-bold leading-snug cursor-pointer transition-colors ${
+                    className={`mt-2 text-[13px] sm:text-[14px] font-medium leading-snug cursor-pointer transition-colors ${
                       isCompleted ? "line-through opacity-60" : ""
                     }`}
                     style={{ color: theme.titleColor }}
@@ -411,12 +366,12 @@ export function PinnedRoadmapTodoList({
                 </div>
 
                 {/* Card White Body */}
-                <div className="p-4 space-y-2.5 bg-white">
+                <div className="p-4 space-y-2.5 bg-white rounded-b-xl">
                   {/* Task Description */}
                   {task.description && (
                     <p
-                      className={`text-xs text-[#333333] leading-relaxed ${
-                        isCompleted ? "line-through text-gray-400" : ""
+                      className={`text-[13px] leading-relaxed ${
+                        isCompleted ? "line-through text-[#a39e97]" : "text-[#1c1b1a]"
                       }`}
                     >
                       {task.description}
@@ -427,9 +382,9 @@ export function PinnedRoadmapTodoList({
                   {task.keyObjectives && task.keyObjectives.length > 0 && (
                     <div className="space-y-1 pt-0.5">
                       {task.keyObjectives.map((obj, i) => (
-                        <div key={i} className="flex items-start space-x-1.5 text-xs text-[#444444]">
-                          <span className="w-1.5 h-1.5 bg-[#111111] mt-1.5 shrink-0" />
-                          <span className={isCompleted ? "line-through text-gray-400" : ""}>
+                        <div key={i} className="flex items-start gap-1.5 text-[13px] leading-relaxed text-[#6b6660]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#d8d4cc] mt-1.5 shrink-0" />
+                          <span className={isCompleted ? "line-through text-[#a39e97]" : ""}>
                             {obj}
                           </span>
                         </div>
@@ -439,98 +394,94 @@ export function PinnedRoadmapTodoList({
 
                   {/* Notes Drawer */}
                   {activeNotesId === task.id && (
-                    <div className="pt-2 border-t border-[#111111]/20 space-y-1.5">
-                      <div className="flex items-center justify-between text-[10px] font-mono font-bold text-[#666666]">
-                        <span>{language === "zh" ? "随堂笔记" : "NOTES"}</span>
+                    <div className="pt-2.5 border-t ui-divider space-y-1.5">
+                      <div className="flex items-center justify-between text-[12px] font-medium text-[#8a8580]">
+                        <span>{language === "zh" ? "任务笔记" : "Task notes"}</span>
                         <button
                           onClick={() => setActiveNotesId(null)}
-                          className="text-gray-400 hover:text-[#111111] text-xs cursor-pointer"
+                          className="p-1 rounded-md text-[#a39e97] hover:text-[#1c1b1a] cursor-pointer"
+                          aria-label={language === "zh" ? "关闭笔记" : "Close notes"}
                         >
-                          ✕
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
                       <textarea
-                        rows={2}
+                        rows={3}
                         value={task.notes || ""}
                         onChange={(e) => onSaveNotes(task.id, e.target.value)}
-                        placeholder={language === "zh" ? "输入笔记..." : "Add notes..."}
-                        className="w-full bg-[#FAF9F6] border border-[#111111] p-2 text-xs text-[#111111] placeholder-gray-400 focus:outline-none font-mono leading-relaxed"
+                        placeholder={language === "zh" ? "记录卡点、易错点或下一步..." : "Capture blockers, traps, or the next step..."}
+                        className="w-full bg-[#faf9f6] rounded-lg border border-[#e5e2dc] p-2.5 text-[13px] text-[#1c1b1a] placeholder-[#a39e97] focus:outline-none focus:border-[#1c1b1a] leading-relaxed"
                         autoFocus
+                        aria-label={language === "zh" ? "任务笔记" : "Task notes"}
                       />
                     </div>
                   )}
 
                   {/* Action Footer */}
-                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                  <div className="pt-2.5 border-t ui-divider flex items-center justify-between">
                     {/* Mastery rating */}
-                    <div className="flex items-center space-x-0.5">
+                    <div className="flex items-center gap-0.5">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
                           key={star}
                           onClick={() => onUpdateConfidence(task.id, star as any)}
-                          className={`p-0.5 transition-colors cursor-pointer text-xs ${
+                          className={`p-1 min-w-6 min-h-6 rounded-md transition-colors cursor-pointer ${
                             (task.confidenceRating || 0) >= star
-                              ? "text-[#FCD33B] drop-shadow-xs font-bold"
-                              : "text-gray-300 hover:text-amber-400"
+                              ? "text-[#FCD33B]"
+                              : "text-[#d8d4cc] hover:text-[#FCD33B]"
                           }`}
                           title={`${star} / 5`}
+                          aria-label={language === "zh" ? `掌握程度 ${star} 星` : `Confidence ${star} of 5`}
+                          aria-pressed={(task.confidenceRating || 0) >= star}
                         >
-                          ★
+                          <Star className="w-3.5 h-3.5" fill="currentColor" strokeWidth={0} />
                         </button>
                       ))}
                     </div>
 
                     {/* Tool Buttons */}
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center gap-1">
                       {/* Focus Timer */}
                       <button
                         onClick={() => onStartTimer(task)}
-                        className="p-1 border border-transparent hover:border-[#111111] hover:bg-[#FAF9F6] text-[#333333] transition-colors cursor-pointer"
+                        className="p-2 min-w-8 min-h-8 rounded-lg border border-transparent hover:border-[#eae7e1] hover:bg-[#f1efe9] text-[#6b6660] hover:text-[#1c1b1a] transition-colors cursor-pointer"
                         title={t("startFocusTimer")}
+                        aria-label={t("startFocusTimer")}
                       >
-                        <Play className="w-3.5 h-3.5" />
+                        <Play className="w-4 h-4" />
                       </button>
 
-                      {/* AI Quiz */}
-                      <button
-                        onClick={() => onStartQuiz(task)}
-                        className="p-1 border border-transparent hover:border-[#111111] hover:bg-[#FAF9F6] text-[#333333] transition-colors cursor-pointer"
-                        title={t("generateQuiz")}
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                      </button>
-
-                      {/* Notes */}
                       <button
                         onClick={() => setActiveNotesId(activeNotesId === task.id ? null : task.id)}
-                        className={`p-1 border transition-colors cursor-pointer ${
+                        className={`p-2 min-w-8 min-h-8 rounded-lg border transition-colors cursor-pointer ${
                           task.notes
-                            ? "border-[#111111] bg-[#FCD33B] text-[#111111]"
-                            : "border-transparent hover:border-[#111111] text-[#333333] hover:bg-[#FAF9F6]"
+                            ? "border-[#f0e4c0] bg-[#FFF6DD] text-[#8A5A00]"
+                            : "border-transparent text-[#6b6660] hover:border-[#eae7e1] hover:bg-[#f1efe9] hover:text-[#1c1b1a]"
                         }`}
-                        title={t("viewNotes")}
+                        title={language === "zh" ? "任务笔记" : "Task notes"}
+                        aria-label={language === "zh" ? "任务笔记" : "Task notes"}
                       >
-                        <FileText className="w-3.5 h-3.5" />
+                        <FileText className="w-4 h-4" />
                       </button>
 
-                      {/* Google Calendar */}
                       <a
                         href={generateGoogleCalendarUrl(task, plan)}
                         target="_blank"
                         rel="noreferrer"
-                        className="p-1 border border-transparent hover:border-[#111111] hover:bg-[#FAF9F6] text-[#333333] transition-colors cursor-pointer"
+                        className="p-2 min-w-8 min-h-8 rounded-lg border border-transparent hover:border-[#eae7e1] hover:bg-[#f1efe9] text-[#6b6660] hover:text-[#1c1b1a] transition-colors cursor-pointer"
                         title={t("addToGCal")}
+                        aria-label={t("addToGCal")}
                       >
-                        <CalendarIcon className="w-3.5 h-3.5" />
+                        <CalendarIcon className="w-4 h-4" />
                       </a>
 
-                      {/* Delete */}
                       <button
                         onClick={() => onDeleteTask(task.id)}
-                        className="p-1 border border-transparent hover:border-red-600 hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
+                        className="p-2 min-w-8 min-h-8 rounded-lg border border-transparent text-[#a39e97] hover:border-[#FDF0EE] hover:bg-[#FDF0EE] hover:text-[#B42318] transition-colors cursor-pointer"
                         title={t("delete")}
+                        aria-label={t("delete")}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
