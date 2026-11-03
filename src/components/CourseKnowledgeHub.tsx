@@ -359,6 +359,7 @@ export function CourseKnowledgeHub({
             editable={true}
             subject={plan.subject || plan.preferences?.subject}
             examName={plan.examName}
+            planId={plan.id}
             onUpdateTopic={(index, updated) => {
               const updatedTopics = [...topics];
               updatedTopics[index] = { ...updatedTopics[index], ...updated };

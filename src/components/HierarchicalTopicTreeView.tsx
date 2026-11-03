@@ -31,6 +31,8 @@ interface HierarchicalTopicTreeViewProps {
   subject?: string;
   /** 考试名称，作为 StarQuiz 备考上下文 */
   examName?: string;
+  /** 计划 ID：与层级、完整路径一起构成联动上下文，缺失时退化为普通跳转 */
+  planId?: string;
 }
 
 export function HierarchicalTopicTreeView({
@@ -44,10 +46,12 @@ export function HierarchicalTopicTreeView({
   isExtracting = false,
   subject,
   examName,
+  planId,
 }: HierarchicalTopicTreeViewProps) {
   const isZh = language === "zh";
   const practiceSubject = (subject || examName || "").trim();
   const canPractice = practiceSubject.length > 0;
+  const linkBase = { subject: practiceSubject, examName, planId: (planId || "").trim() };
 
   // State for expanded unit cards
   const [expandedUnits, setExpandedUnits] = useState<Record<string, boolean>>(() => {
@@ -373,9 +377,7 @@ export function HierarchicalTopicTreeView({
 
                   {!isEditing && canPractice && (
                     <a
-                      href={starquizPracticeUrl({ subject: practiceSubject, topic: topic.title, examName })}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={starquizPracticeUrl({ ...linkBase, level: "unit", unit: topic.title, topic: topic.title })}
                       className="ui-btn ui-btn-ghost px-2.5 py-1.5 text-[12px] shrink-0 self-end sm:self-center"
                       title={isZh ? `去 StarQuiz 练「${topic.title}」` : `Practice "${topic.title}" in StarQuiz`}
                     >
@@ -537,9 +539,7 @@ export function HierarchicalTopicTreeView({
                                   <div className="flex items-center gap-1 shrink-0 self-end sm:self-center">
                                     {canPractice && (
                                       <a
-                                        href={starquizPracticeUrl({ subject: practiceSubject, topic: sub.title, examName })}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                        href={starquizPracticeUrl({ ...linkBase, level: "subtopic", unit: topic.title, topic: sub.title })}
                                         className="p-1.5 rounded-md text-[#a39e97] hover:bg-[#f1efe9] hover:text-[#1c1b1a] transition-colors cursor-pointer"
                                         title={isZh ? `去 StarQuiz 练「${sub.title}」` : `Practice "${sub.title}" in StarQuiz`}
                                       >

@@ -14,7 +14,7 @@ import { AppTab, ExamStudyPlan, StudyTask } from "../types";
 import { addDays, daysBetween, toLocalDateString } from "../lib/date";
 import { useI18n } from "../lib/i18n";
 import { playCompletionChime } from "../lib/audio";
-import { starquizPracticeUrl } from "../lib/links";
+import { starquizPracticeUrlForTask } from "../lib/links";
 import { PinnedRoadmapTodoList } from "./PinnedRoadmapTodoList";
 import { TaskFocusTimerModal } from "./TaskFocusTimerModal";
 
@@ -304,13 +304,11 @@ export function TodayFocusView({
               </div>
               <div className="shrink-0 flex items-center gap-2">
                 <a
-                  href={starquizPracticeUrl({
-                    subject: nextItem.plan.subject || nextItem.plan.preferences?.subject,
-                    topic: nextItem.task.topicTitle,
+                  href={starquizPracticeUrlForTask(nextItem.plan, nextItem.task, {
                     examName: nextItem.plan.examName,
+                    date: nextItem.task.date,
+                    taskId: nextItem.task.id,
                   })}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className="ui-btn ui-btn-ghost bg-white"
                   title={isZh ? "去 StarQuiz 练这个考点" : "Practice this topic in StarQuiz"}
                 >

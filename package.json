@@ -11,6 +11,8 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "test:planner": "tsx dev/planner.test.ts",
+    "test:topickey": "tsx dev/topicKey.test.ts",
+    "test:links": "tsx dev/links.test.ts",
     "test:function": "tsx dev/function-smoke.ts",
     "test:client": "tsx dev/client-smoke.ts"
   },
