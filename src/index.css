@@ -176,6 +176,10 @@
   .ui-field {
     @apply w-full rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] text-[#1c1b1a] outline-none transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97];
   }
+  /* 表单标签走元信息层（12），但比 ui-row-meta 深一档，才能在白底上压住输入框。 */
+  .ui-field-label {
+    @apply mb-1.5 block text-[12px] font-medium text-[#6b6660];
+  }
 }
 
 .editorial-border {

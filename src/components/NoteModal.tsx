@@ -55,9 +55,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({
     onClose();
   };
 
-  const labelCls = "block text-[11px] font-medium text-[#6b6660] mb-1";
-  const fieldCls =
-    "w-full px-3 py-2 rounded-lg border border-[#e5e2dc] bg-white text-[13px] text-[#1c1b1a] placeholder-[#a39e97] outline-none focus:border-[#cfc9c0] transition-colors";
+  const labelCls = "ui-field-label";
+  const fieldCls = "ui-field";
 
   return (
     <ModalShell

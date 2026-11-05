@@ -84,7 +84,7 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
     onSave({ ...draft, examName: draft.examName.trim(), subject: draft.subject.trim(), examDate, examTime, target: draft.target.trim() });
   };
 
-  const labelCls = "ui-row-meta block";
+  const labelCls = "ui-field-label";
 
   return (
     <ModalShell
@@ -112,7 +112,7 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
           <input
             value={draft.examName}
             onChange={(event) => patch("examName", event.target.value)}
-            className="ui-field mt-1.5"
+            className="ui-field"
             autoFocus
           />
         </label>
@@ -121,7 +121,7 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
           <input
             value={draft.subject}
             onChange={(event) => patch("subject", event.target.value)}
-            className="ui-field mt-1.5"
+            className="ui-field"
           />
         </label>
         <label className="block min-w-0">
@@ -130,7 +130,7 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
             type="date"
             value={draft.examDate}
             onChange={(event) => patch("examDate", event.target.value)}
-            className="ui-field mt-1.5 tabular-nums"
+            className="ui-field tabular-nums"
           />
         </label>
         <label className="block min-w-0">
@@ -139,7 +139,7 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
             type="time"
             value={draft.examTime}
             onChange={(event) => patch("examTime", event.target.value)}
-            className="ui-field mt-1.5 tabular-nums"
+            className="ui-field tabular-nums"
           />
         </label>
         <label className="block min-w-0 sm:col-span-2">
@@ -148,7 +148,7 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
             value={draft.target}
             onChange={(event) => patch("target", event.target.value)}
             placeholder={isZh ? "例如：90 分 / 优秀" : "e.g. 90 / A"}
-            className="ui-field mt-1.5"
+            className="ui-field"
           />
         </label>
       </div>

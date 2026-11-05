@@ -93,63 +93,62 @@ export const UploadModal: React.FC<UploadModalProps> = ({
       icon={<Upload className="h-4 w-4" />}
       size="sm"
     >
+      {/* Dropzone */}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+          handleFiles(e.dataTransfer.files);
+        }}
+        onClick={() => {
+          if (!isParsing) {
+            document.getElementById("modal-file-upload-input")?.click();
+          }
+        }}
+        className={`rounded-xl border border-dashed py-9 px-4 text-center cursor-pointer transition-colors ${
+          isDragging
+            ? "border-[#1c1b1a] bg-[#f1efe9]"
+            : "border-[#ddd8d0] bg-[#faf9f6] hover:bg-[#f1efe9] hover:border-[#cfc9c0]"
+        }`}
+      >
+        <input
+          id="modal-file-upload-input"
+          type="file"
+          multiple
+          accept=".pdf,.docx,.pptx,.txt,.md,.markdown,.csv,.json,.rtf"
+          onChange={(e) => handleFiles(e.target.files)}
+          className="hidden"
+        />
 
-        {/* Dropzone */}
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setIsDragging(true);
-          }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setIsDragging(false);
-            handleFiles(e.dataTransfer.files);
-          }}
-          onClick={() => {
-            if (!isParsing) {
-              document.getElementById("modal-file-upload-input")?.click();
-            }
-          }}
-          className={`rounded-xl border border-dashed py-9 px-4 text-center cursor-pointer transition-colors ${
-            isDragging
-              ? "border-[#1c1b1a] bg-[#f1efe9]"
-              : "border-[#ddd8d0] bg-[#faf9f6] hover:bg-[#f1efe9] hover:border-[#cfc9c0]"
-          }`}
-        >
-          <input
-            id="modal-file-upload-input"
-            type="file"
-            multiple
-            accept=".pdf,.docx,.pptx,.txt,.md,.markdown,.csv,.json,.rtf"
-            onChange={(e) => handleFiles(e.target.files)}
-            className="hidden"
-          />
+        <div className="flex flex-col items-center justify-center gap-2.5">
+          <span className="w-11 h-11 rounded-full bg-white border border-[#eae7e1] flex items-center justify-center">
+            {isParsing ? (
+              <RefreshCw className="w-4 h-4 animate-spin text-[#6b6660]" />
+            ) : (
+              <Upload className="w-4 h-4 text-[#6b6660]" />
+            )}
+          </span>
 
-          <div className="flex flex-col items-center justify-center gap-2.5">
-            <span className="w-11 h-11 rounded-full bg-white border border-[#eae7e1] flex items-center justify-center">
-              {isParsing ? (
-                <RefreshCw className="w-4 h-4 animate-spin text-[#6b6660]" />
-              ) : (
-                <Upload className="w-4 h-4 text-[#6b6660]" />
-              )}
-            </span>
-
-            <p className="text-[13px] font-medium text-[#1c1b1a]">
-              {isParsing ? parsingStatus : isZh ? "点击选择 或 拖入文件" : "Click or drop files"}
-            </p>
-            <p className="text-[11px] text-[#8a8580]">
-              {isZh ? "PDF / DOCX / PPTX / TXT / MD · 单文件 ≤ 10 MB" : "PDF / DOCX / PPTX / TXT / MD · max 10 MB each"}
-            </p>
-          </div>
+          <p className="ui-row-title">
+            {isParsing ? parsingStatus : isZh ? "点击选择 或 拖入文件" : "Click or drop files"}
+          </p>
+          <p className="ui-row-meta">
+            {isZh ? "PDF / DOCX / PPTX / TXT / MD · 单文件 ≤ 10 MB" : "PDF / DOCX / PPTX / TXT / MD · max 10 MB each"}
+          </p>
         </div>
+      </div>
 
-        {errorMessage && (
-          <div className="flex items-center gap-1.5 p-2.5 rounded-lg bg-[#FDF0EE] border border-[#f5d6d0] text-[#B42318] text-[11px]">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
+      {errorMessage && (
+        <div className="flex items-center gap-1.5 p-2.5 rounded-lg bg-[#FDF0EE] border border-[#f5d6d0] text-[#B42318]">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+          <span className="text-[12px] text-[#B42318]">{errorMessage}</span>
+        </div>
+      )}
     </ModalShell>
   );
 };
