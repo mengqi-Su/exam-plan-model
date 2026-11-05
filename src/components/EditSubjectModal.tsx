@@ -1,10 +1,17 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Pencil } from "lucide-react";
+import { ImagePlus, Pencil } from "lucide-react";
 import { ModalShell } from "./ModalShell";
 import { ExamStudyPlan } from "../types";
 import { useI18n } from "../lib/i18n";
 import { daysBetween, toLocalDateString } from "../lib/date";
 import { PAGE_ICON_CHOICES, autoPageIcon } from "../lib/pageIcon";
+import {
+  COVER_PRESETS,
+  coverErrorMessage,
+  coverImageSrc,
+  findPreset,
+  readCoverImage,
+} from "../lib/pageCover";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}$/;
@@ -14,6 +21,8 @@ export interface ExamDraft {
   subject: string;
   /** 页面图标（一个 emoji）；空串表示「跟着学科自动配」 */
   icon: string;
+  /** 页头封面带："" 没有，"preset:<id>" 内置纹理，"data:image/..." 上传的图 */
+  cover: string;
   examDate: string;
   examTime: string;
   target: string;
@@ -24,6 +33,7 @@ export function toExamDraft(plan: ExamStudyPlan): ExamDraft {
     examName: plan.examName || "",
     subject: plan.subject || "",
     icon: plan.icon || "",
+    cover: plan.cover || "",
     examDate: plan.examDate || "",
     examTime: plan.examTime || "09:00",
     target: plan.preferences?.targetScoreOrGrade || "",
@@ -44,17 +54,42 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
 
   const [draft, setDraft] = useState<ExamDraft>(() => toExamDraft(plan));
   const [error, setError] = useState<string | null>(null);
+  const [coverBusy, setCoverBusy] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
+  // 传过的图留在这一轮草稿里当一格备选：换成纹理再换回来，不用重新挑文件。
+  const [uploadedCover, setUploadedCover] = useState<string | null>(null);
 
   // 每次打开都从当前计划重新起稿，上次没保存的改动不留存
   useEffect(() => {
     if (!open) return;
     setDraft(toExamDraft(plan));
     setError(null);
+    setCoverError(null);
+    setCoverBusy(false);
+    setUploadedCover(coverImageSrc(plan.cover));
   }, [open, plan]);
 
   const patch = (key: keyof ExamDraft, value: string) => {
     setDraft((prev) => ({ ...prev, [key]: value }));
     if (error) setError(null);
+  };
+
+  // 上传的图先在本地压一遍再存 data URL：封面是装饰，不值得把用户的本地库撑爆。
+  const handleCoverFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setCoverBusy(true);
+    setCoverError(null);
+    try {
+      const next = await readCoverImage(file);
+      setUploadedCover(next);
+      patch("cover", next);
+    } catch (e) {
+      setCoverError(coverErrorMessage((e as { code?: string }).code, isZh));
+    } finally {
+      setCoverBusy(false);
+    }
   };
 
   const remainingDays = useMemo(() => {
@@ -85,7 +120,7 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
       );
       return;
     }
-    onSave({ ...draft, examName: draft.examName.trim(), subject: draft.subject.trim(), icon: draft.icon.trim(), examDate, examTime, target: draft.target.trim() });
+    onSave({ ...draft, examName: draft.examName.trim(), subject: draft.subject.trim(), icon: draft.icon.trim(), cover: draft.cover, examDate, examTime, target: draft.target.trim() });
   };
 
   const labelCls = "ui-field-label";
@@ -146,6 +181,85 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
               : isZh
                 ? `不选就按学科自动配，当前是 ${autoIcon}。`
                 : `Leave unset and it follows the subject — currently ${autoIcon}.`}
+          </span>
+        </div>
+
+        <div className="min-w-0 sm:col-span-2">
+          <span className={labelCls}>{isZh ? "封面" : "Cover"}</span>
+          {/* 和 Notion 一样：先给一串现成的纸质纹理，再留一个传自己图的口子。
+              「无」也占一格——选回它就是撤掉封面，不需要另找删除按钮。 */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              aria-pressed={draft.cover === ""}
+              onClick={() => patch("cover", "")}
+              title={isZh ? "不用封面" : "No cover"}
+              className={`flex h-10 w-16 cursor-pointer items-center justify-center rounded-lg border text-[11px] transition-colors ${
+                draft.cover === ""
+                  ? "border-[#1c1b1a]/60 bg-[#f1efe9] text-[#1c1b1a]"
+                  : "border-[#e5e1d9] bg-[#fbfaf7] text-[#a39e97] hover:border-[#cfc9c0]"
+              }`}
+            >
+              {isZh ? "无" : "None"}
+            </button>
+
+            {COVER_PRESETS.map((preset) => {
+              const selected = findPreset(draft.cover)?.id === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => patch("cover", selected ? "" : `preset:${preset.id}`)}
+                  title={isZh ? preset.zh : preset.en}
+                  style={{ background: preset.background }}
+                  className={`h-10 w-16 cursor-pointer rounded-lg border transition-[box-shadow,border-color] ${
+                    selected
+                      ? "border-[#1c1b1a]/60 shadow-[0_0_0_2px_rgba(28,27,26,0.10)]"
+                      : "border-[#e5e1d9] hover:border-[#cfc9c0]"
+                  }`}
+                />
+              );
+            })}
+
+            {uploadedCover && (
+              <button
+                type="button"
+                aria-pressed={draft.cover === uploadedCover}
+                onClick={() => patch("cover", draft.cover === uploadedCover ? "" : uploadedCover)}
+                title={isZh ? "用上传的图" : "Use the uploaded image"}
+                className={`h-10 w-16 cursor-pointer overflow-hidden rounded-lg border transition-[box-shadow,border-color] ${
+                  draft.cover === uploadedCover
+                    ? "border-[#1c1b1a]/60 shadow-[0_0_0_2px_rgba(28,27,26,0.10)]"
+                    : "border-[#e5e1d9] hover:border-[#cfc9c0]"
+                }`}
+              >
+                <img src={uploadedCover} alt="" className="h-full w-full object-cover" />
+              </button>
+            )}
+
+            <label
+              className={`ui-btn ui-btn-ghost flex h-10 cursor-pointer items-center gap-1.5 px-3 text-[12px] ${
+                coverBusy ? "opacity-60" : ""
+              }`}
+            >
+              <ImagePlus className="h-3.5 w-3.5" />
+              {coverBusy ? (isZh ? "处理中…" : "Working…") : isZh ? "上传图片" : "Upload image"}
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={handleCoverFile}
+                disabled={coverBusy}
+              />
+            </label>
+          </div>
+          <span className="mt-1.5 block ui-row-meta">
+            {coverError
+              ? <span className="text-[#B42318]">{coverError}</span>
+              : isZh
+                ? "封面只是页头那条背景带，不改任务也不影响计划。"
+                : "A cover is only the band behind the header; tasks and schedule stay untouched."}
           </span>
         </div>
 

@@ -16,6 +16,8 @@ import { useI18n } from "../lib/i18n";
 import { toLocalDateString } from "../lib/date";
 import { SectionBlock } from "./SectionBlock";
 import { PageIconGlyph } from "./PageIconGlyph";
+import { PageCover } from "./PageCover";
+import { hasCover } from "../lib/pageCover";
 import { EditSubjectModal, type ExamDraft } from "./EditSubjectModal";
 import { PhaseRoadmapSection } from "./PhaseRoadmapSection";
 import { TopicMasterySection } from "./TopicMasterySection";
@@ -120,6 +122,9 @@ export function CourseDetailPage({
     return `${plan.examDate} ${plan.examTime || "09:00"}`;
   }, [plan.examDate, plan.examTime, isZh]);
 
+  // 有没有封面决定页头怎么排：有就把图标压在带子下沿、编辑挪到右上角，没有就沿用原来的三段。
+  const pageHasCover = hasCover(plan);
+
   const stats = useMemo(() => {
     const completedCount = plan.tasks.filter((task) => task.status === "completed").length;
     const totalCount = plan.tasks.length;
@@ -178,6 +183,7 @@ export function CourseDetailPage({
       examName: draft.examName,
       subject: draft.subject || plan.subject,
       icon: draft.icon,
+      cover: draft.cover,
       examDate: draft.examDate,
       examTime: draft.examTime,
       preferences: {
@@ -219,19 +225,33 @@ export function CourseDetailPage({
           {isZh ? "科目" : "Subjects"}
         </button>
 
-        <header>
-          {/* Notion 三段：页面图标 → 文档标题 → 属性。动作是图标上方那行小字并常驻——
-              这一页只有这一个编辑入口，藏进 hover 等于没有。一条属性是「图标+标签+取值」，
-              桌面两行两列、窄屏退成一行一条，标签定宽所以取值对齐成列；
-              日期和时间合成一条，因为它们是同一个事实而不是两个字段。 */}
-          <div className="mb-1 flex h-6 items-center">
-            <button onClick={() => setEditOpen(true)} className="ui-btn-text -ml-2">
+        <header className="relative">
+          {/* Notion 三段：页面图标 → 文档标题 → 属性，上面可以压一条封面带。
+              封面只是底，不承载信息也不放内容；科目身份仍然是 planIcon。
+              属性一条是「图标+标签+取值」，桌面两行两列、窄屏退成一行一条，
+              标签定宽所以取值对齐成列；日期和时间合成一条，因为它们是同一个事实。 */}
+          {pageHasCover && <PageCover plan={plan} />}
+
+          {/* 编辑入口全站只有一个：没封面时是图标上方那行常驻小字，
+              有封面时按 Notion 挪到封面右上角——同一颗按钮，不另加第二处。 */}
+          <div className={pageHasCover ? "absolute right-1.5 top-1.5 z-10" : "mb-1 flex h-6 items-center"}>
+            <button
+              onClick={() => setEditOpen(true)}
+              className={
+                pageHasCover
+                  ? "ui-btn-text rounded-md bg-white/80 px-2 py-1 shadow-[0_1px_3px_rgba(28,27,26,0.10)] backdrop-blur-sm"
+                  : "ui-btn-text -ml-2"
+              }
+            >
               <Pencil className="w-3.5 h-3.5" />
               {t("edit")}
             </button>
           </div>
 
-          <PageIconGlyph plan={plan} className="ui-page-icon" />
+          <PageIconGlyph
+            plan={plan}
+            className={pageHasCover ? "ui-page-icon relative z-10 -mt-8" : "ui-page-icon"}
+          />
 
           <h1 className="ui-doc-title mt-2 break-words">{plan.examName}</h1>
 

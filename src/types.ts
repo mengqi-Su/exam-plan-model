@@ -144,6 +144,11 @@ export interface ExamStudyPlan {
    * 它是「这份科目文档」的身份标记：侧栏、总览卡、页头都取同一个值。
    */
   icon?: string;
+  /**
+   * Notion 式页面封面：内置纹理存 "preset:<id>"，上传的图存压缩后的 data URL。
+   * 只当页头那条背景带用，不承载信息；见 lib/pageCover。
+   */
+  cover?: string;
   examDate: string;
   examTime?: string;
   startDate: string;
