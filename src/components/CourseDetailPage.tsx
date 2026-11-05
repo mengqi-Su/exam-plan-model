@@ -250,7 +250,7 @@ export function CourseDetailPage({
 
           <PageIconGlyph
             plan={plan}
-            className={pageHasCover ? "ui-page-icon relative z-10 -mt-12" : "ui-page-icon"}
+            className={pageHasCover ? "ui-page-icon relative z-10 -mt-4" : "ui-page-icon"}
           />
 
           <h1 className="ui-doc-title mt-2 break-words">{plan.examName}</h1>

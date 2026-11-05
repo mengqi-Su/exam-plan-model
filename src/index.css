@@ -119,7 +119,7 @@
     @apply text-[28px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1c1b1a] sm:text-[36px];
   }
   .ui-page-icon {
-    @apply select-none text-[48px] leading-none sm:text-[64px];
+    @apply block select-none text-[48px] leading-none sm:text-[64px];
   }
   /* 属性一条 = 「图标 + 标签 + 取值」三元组，走 15 档，和段标题同档：
      Notion 的标签和取值同字号同字重，只靠颜色分深浅，所以取值不加粗；
