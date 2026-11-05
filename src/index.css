@@ -120,7 +120,11 @@
   .ui-page-icon {
     @apply select-none text-[38px] leading-none sm:text-[46px];
   }
-  /* 属性行成对出现，走 13 档：标签浅、取值实，未填的取值比标签更浅。 */
+  /* 属性行按 Notion 的「图标 + 标签 + 取值」三元组排，横着排不下就换行，走 13 档：
+     前导图标只是标记不是按钮，标签浅、取值实，未填的取值比标签更浅。 */
+  .ui-prop-icon {
+    @apply h-[13px] w-[13px] shrink-0 text-[#a39e97];
+  }
   .ui-prop-label {
     @apply text-[13px] font-normal text-[#8a8580];
   }

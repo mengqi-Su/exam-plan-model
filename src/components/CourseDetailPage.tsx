@@ -1,10 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  CalendarDays,
   CheckCircle2,
   ChevronDown,
+  Hourglass,
+  Layers,
   Pencil,
+  Target,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { ExamStudyPlan, PracticeEvent } from "../types";
 import type { FocusTarget } from "../lib/inbound";
 import { useI18n } from "../lib/i18n";
@@ -215,8 +220,10 @@ export function CourseDetailPage({
         </button>
 
         <header>
-          {/* Notion 三段：页面图标 → 文档标题 → 一行属性。动作是图标上方那行小字并常驻——
-              这一页只有这一个编辑入口，藏进 hover 等于没有；日期和时间合成一条属性，四对正好一行。 */}
+          {/* Notion 三段：页面图标 → 文档标题 → 属性行。动作是图标上方那行小字并常驻——
+              这一页只有这一个编辑入口，藏进 hover 等于没有。属性照 Notion 做成
+              「前导图标 + 浅标签 + 取值」一个单元，但我们横着排，放不下才换行；
+              日期和时间合成一条，因为它们是同一个事实而不是两个字段。 */}
           <div className="mb-1 flex h-6 items-center">
             <button onClick={() => setEditOpen(true)} className="ui-btn-text -ml-2">
               <Pencil className="w-3.5 h-3.5" />
@@ -228,15 +235,26 @@ export function CourseDetailPage({
 
           <h1 className="ui-doc-title mt-2 break-words">{plan.examName}</h1>
 
-          <div className="mt-2.5 flex flex-wrap items-baseline gap-x-5 gap-y-1.5">
-            <PropItem label={isZh ? "学科" : "Subject"} value={plan.subject || notSet(isZh)} muted={!plan.subject} />
-            <PropItem label={isZh ? "考试" : "Exam"} value={examWhenText} muted={!plan.examDate} />
+          <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
             <PropItem
+              icon={Layers}
+              label={isZh ? "学科" : "Subject"}
+              value={plan.subject || notSet(isZh)}
+              muted={!plan.subject}
+            />
+            <PropItem
+              icon={CalendarDays}
+              label={isZh ? "考试" : "Exam"}
+              value={examWhenText}
+              muted={!plan.examDate}
+            />
+            <PropItem
+              icon={Target}
               label={isZh ? "目标" : "Target"}
               value={plan.preferences?.targetScoreOrGrade || notSet(isZh)}
               muted={!plan.preferences?.targetScoreOrGrade}
             />
-            <PropItem label={isZh ? "距考试" : "Time to exam"} value={countdownText} />
+            <PropItem icon={Hourglass} label={isZh ? "距考试" : "Time to exam"} value={countdownText} />
           </div>
 
           {scheduleNotice && (
@@ -406,12 +424,28 @@ export function CourseDetailPage({
   );
 }
 
-/** 文档页头的属性项：13 的浅标签紧跟同一档取值，成对排在一条线上（ui-prop-*）。 */
-function PropItem({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+/**
+ * 文档页头的属性单元，照 Notion 的三段结构：前导图标（ui-prop-icon，纯标记不可点）
+ * + 13 档浅标签 + 同一档取值。横排时它是一个整体，换行也是整体换行。
+ */
+function PropItem({
+  icon: Icon,
+  label,
+  value,
+  muted,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  muted?: boolean;
+}) {
   return (
-    <span className="flex min-w-0 items-baseline gap-1.5">
-      <span className="ui-prop-label shrink-0">{label}</span>
-      <span className={muted ? "ui-prop-empty truncate" : "ui-prop-value truncate"}>{value}</span>
+    <span className="flex min-w-0 items-center gap-1.5">
+      <Icon className="ui-prop-icon" aria-hidden="true" />
+      <span className="flex min-w-0 items-baseline gap-2">
+        <span className="ui-prop-label shrink-0">{label}</span>
+        <span className={muted ? "ui-prop-empty truncate" : "ui-prop-value truncate"}>{value}</span>
+      </span>
     </span>
   );
 }
