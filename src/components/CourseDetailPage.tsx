@@ -214,10 +214,10 @@ export function CourseDetailPage({
           {isZh ? "科目" : "Subjects"}
         </button>
 
-        <header className="group">
-          {/* Notion 三段：页面图标 → 文档标题 → 一行属性。动作是 hover 才现身的小字，
-              不再有色块、右上角孤立按钮；日期和时间合成一条属性，四对正好一行。 */}
-          <div className="mb-1 h-6 transition-opacity focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
+        <header>
+          {/* Notion 三段：页面图标 → 文档标题 → 一行属性。动作是图标上方那行小字并常驻——
+              这一页只有这一个编辑入口，藏进 hover 等于没有；日期和时间合成一条属性，四对正好一行。 */}
+          <div className="mb-1 flex h-6 items-center">
             <button onClick={() => setEditOpen(true)} className="ui-btn-text -ml-2">
               <Pencil className="w-3.5 h-3.5" />
               {t("edit")}
@@ -230,11 +230,7 @@ export function CourseDetailPage({
 
           <div className="mt-2.5 flex flex-wrap items-baseline gap-x-5 gap-y-1.5">
             <PropItem label={isZh ? "学科" : "Subject"} value={plan.subject || notSet(isZh)} muted={!plan.subject} />
-            <PropItem
-              label={isZh ? "考试" : "Exam"}
-              value={examWhenText}
-              muted={!plan.examDate}
-            />
+            <PropItem label={isZh ? "考试" : "Exam"} value={examWhenText} muted={!plan.examDate} />
             <PropItem
               label={isZh ? "目标" : "Target"}
               value={plan.preferences?.targetScoreOrGrade || notSet(isZh)}
