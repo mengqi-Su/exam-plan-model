@@ -132,6 +132,10 @@
   .ui-row-value {
     @apply text-[12px] font-medium tabular-nums text-[#1c1b1a];
   }
+  /* 属性没填时的占位取值：和标签同一档灰，避免「未设定」看起来像真数据。 */
+  .ui-row-value-empty {
+    @apply text-[12px] font-medium text-[#a39e97];
+  }
   .ui-note {
     @apply text-[13px] font-normal leading-relaxed text-[#6b6660];
   }
@@ -159,6 +163,10 @@
   /* 不可恢复操作的按钮只多这一档颜色，其他规格沿用 ui-btn。 */
   .ui-btn-danger {
     @apply bg-[#B42318] text-white hover:bg-[#9a1d14];
+  }
+  /* 页头的次要动作走 Notion 那种无框文字按钮：平时浅灰， hover 才垫一层底色。 */
+  .ui-btn-text {
+    @apply inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium text-[#8a8580] transition-colors hover:bg-[#f1efe9] hover:text-[#1c1b1a] cursor-pointer;
   }
   .ui-nav-item {
     @apply w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors cursor-pointer;

@@ -209,45 +209,36 @@ export function CourseDetailPage({
           {isZh ? "科目" : "Subjects"}
         </button>
 
-        <header className="space-y-5">
+        <header className="space-y-3">
+          {/* Notion 式页头：页面图标 → 大标题 → 一行行内属性，动作是无框文字按钮，不再用色块胶囊开场。 */}
           <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span
-                  className="w-2.5 h-2.5 rounded-full shrink-0"
-                  style={{ backgroundColor: palette.accentColor }}
-                  aria-hidden="true"
-                />
-                <span className="ui-chip">{plan.subject || (isZh ? "学科考试" : "Subject")}</span>
-              </div>
-              <h1 className="ui-page-title mt-2.5 leading-tight break-words">{plan.examName}</h1>
-            </div>
-
-            <button
-              onClick={() => setEditOpen(true)}
-              className="ui-btn ui-btn-ghost shrink-0 px-3 py-1.5 text-[12px]"
-            >
+            <span
+              className="mt-0.5 h-8 w-8 shrink-0 rounded-md"
+              style={{ backgroundColor: palette.accentColor }}
+              aria-hidden="true"
+            />
+            <button onClick={() => setEditOpen(true)} className="ui-btn-text shrink-0">
               <Pencil className="w-3.5 h-3.5" />
               {t("edit")}
             </button>
           </div>
 
-          {/* 考试事实压成一条规格带：12 的标签配 13 的取值，靠发丝线和下方板块接上同一节奏。 */}
-          <div className="grid grid-cols-2 gap-x-8 gap-y-4 border-t border-[#eeece6] pt-4 sm:grid-cols-4">
-            <SpecCell
-              label={isZh ? "考试日期" : "Exam date"}
-              value={plan.examDate || (isZh ? "未设定" : "Not set")}
-            />
-            <SpecCell
+          <h1 className="ui-page-title -mt-1 leading-tight break-words">{plan.examName}</h1>
+
+          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1.5">
+            <PropItem label={isZh ? "学科" : "Subject"} value={plan.subject || notSet(isZh)} muted={!plan.subject} />
+            <PropItem label={isZh ? "考试日期" : "Exam date"} value={plan.examDate || notSet(isZh)} muted={!plan.examDate} />
+            <PropItem
               label={isZh ? "考试时间" : "Exam time"}
-              value={plan.examDate ? plan.examTime || "09:00" : "—"}
+              value={plan.examDate ? plan.examTime || "09:00" : notSet(isZh)}
+              muted={!plan.examDate}
             />
-            <SpecCell
-              label={isZh ? "目标分数或等级" : "Target"}
-              value={plan.preferences?.targetScoreOrGrade || (isZh ? "未设定" : "Not set")}
+            <PropItem
+              label={isZh ? "目标" : "Target"}
+              value={plan.preferences?.targetScoreOrGrade || notSet(isZh)}
               muted={!plan.preferences?.targetScoreOrGrade}
             />
-            <SpecCell label={isZh ? "距考试" : "Time to exam"} value={countdownText} />
+            <PropItem label={isZh ? "距考试" : "Time to exam"} value={countdownText} />
           </div>
 
           {scheduleNotice && (
@@ -417,13 +408,18 @@ export function CourseDetailPage({
   );
 }
 
-/** 页头事实条的一格：12 的标签在上，13 的取值在下。 */
-function SpecCell({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+/** Notion 式行内属性：12 的灰标签紧跟 12 的取值，成对排在同一行，不再各占一格。 */
+function PropItem({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   return (
-    <div className="min-w-0">
-      <span className="ui-row-meta block">{label}</span>
-      <span className={`ui-row-title mt-1 block tabular-nums ${muted ? "text-[#a39e97]" : ""}`}>{value}</span>
-    </div>
+    <span className="flex min-w-0 items-baseline gap-1.5">
+      <span className="ui-row-meta shrink-0">{label}</span>
+      <span className={muted ? "ui-row-value-empty truncate" : "ui-row-value truncate tabular-nums"}>{value}</span>
+    </span>
   );
+}
+
+/** 属性还没填时的占位取值，与空状态同一档灰。 */
+function notSet(isZh: boolean) {
+  return isZh ? "未设定" : "Not set";
 }
 
