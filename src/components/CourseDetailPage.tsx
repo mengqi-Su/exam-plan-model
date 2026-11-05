@@ -315,7 +315,8 @@ export function CourseDetailPage({
         />
       </div>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-8">
+      {/* 页头和正文之间留一整段呼吸（全站块间距 24），发丝分隔线才不会紧贴在属性行底下。 */}
+      <main className="max-w-6xl mx-auto px-4 sm:px-8 mt-6">
         {/* 段落靠左标栏 + 发丝分隔线排布；白卡只留给内容，不再一块块等宽平铺。 */}
         <div className="border-t border-[#eeece6] divide-y divide-[#eeece6]">
           <SectionBlock
