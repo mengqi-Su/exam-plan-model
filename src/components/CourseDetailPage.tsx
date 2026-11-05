@@ -214,44 +214,60 @@ export function CourseDetailPage({
     }
   };
 
+  // 返回和编辑各自全站只有一颗：有封面时浮在封面带上沿的左右角（垫一层半透明白才读得清），
+  // 没封面时退回图标上方那两行常驻小字。按钮本身只在这里定义一次，两个分支只会渲染其中一个。
+  const backButton = (
+    <button
+      onClick={() => onNavigateToTab("dashboard")}
+      className={
+        pageHasCover
+          ? "ui-btn-text ui-cover-chip"
+          : "inline-flex items-center gap-1.5 text-[13px] ui-muted hover:text-[#1c1b1a] transition-colors cursor-pointer mb-4"
+      }
+    >
+      <ArrowLeft className="w-4 h-4" />
+      {isZh ? "科目" : "Subjects"}
+    </button>
+  );
+
+  const editButton = (
+    <button
+      onClick={() => setEditOpen(true)}
+      className={pageHasCover ? "ui-btn-text ui-cover-chip" : "ui-btn-text -ml-2"}
+    >
+      <Pencil className="w-3.5 h-3.5" />
+      {t("edit")}
+    </button>
+  );
+
   return (
     <div className="relative min-h-screen bg-[#f8f7f4] text-[#1c1b1a] pb-20 animate-fadeIn">
-      <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-6 sm:pt-8">
-        <button
-          onClick={() => onNavigateToTab("dashboard")}
-          className="inline-flex items-center gap-1.5 text-[13px] ui-muted hover:text-[#1c1b1a] transition-colors cursor-pointer mb-4"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          {isZh ? "科目" : "Subjects"}
-        </button>
+      {/* 封面带满宽贴顶，占的是整个页面区，不是内容列里的一张卡；
+          所以它是这一层的第一个块，返回 / 编辑压在它上沿的左右角。 */}
+      {pageHasCover && (
+        <div className="relative">
+          <PageCover plan={plan} />
+          <div className="absolute inset-x-0 top-0 z-10 mx-auto flex max-w-6xl items-start justify-between px-4 pt-3 sm:px-8">
+            {backButton}
+            {editButton}
+          </div>
+        </div>
+      )}
+
+      {/* 内容列往上压 1/4 个图标盒高，页图标就骑在封面下沿上；没封面时才是普通的顶部留白。 */}
+      <div
+        className={`mx-auto max-w-6xl px-4 sm:px-8 ${pageHasCover ? "-mt-3 sm:-mt-4" : "pt-6 sm:pt-8"}`}
+      >
+        {!pageHasCover && backButton}
 
         <header className="relative">
-          {/* Notion 三段：页面图标 → 文档标题 → 属性，上面可以压一条封面带。
+          {/* Notion 三段：页面图标 → 文档标题 → 属性。
               封面只是底，不承载信息也不放内容；科目身份仍然是 planIcon。
               属性一条是「图标+标签+取值」，桌面两行两列、窄屏退成一行一条，
               标签定宽所以取值对齐成列；日期和时间合成一条，因为它们是同一个事实。 */}
-          {pageHasCover && <PageCover plan={plan} />}
+          {!pageHasCover && <div className="mb-1 flex h-6 items-center">{editButton}</div>}
 
-          {/* 编辑入口全站只有一个：没封面时是图标上方那行常驻小字，
-              有封面时按 Notion 挪到封面右上角——同一颗按钮，不另加第二处。 */}
-          <div className={pageHasCover ? "absolute right-1.5 top-1.5 z-10" : "mb-1 flex h-6 items-center"}>
-            <button
-              onClick={() => setEditOpen(true)}
-              className={
-                pageHasCover
-                  ? "ui-btn-text rounded-md bg-white/80 px-2 py-1 shadow-[0_1px_3px_rgba(28,27,26,0.10)] backdrop-blur-sm"
-                  : "ui-btn-text -ml-2"
-              }
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              {t("edit")}
-            </button>
-          </div>
-
-          <PageIconGlyph
-            plan={plan}
-            className={pageHasCover ? "ui-page-icon relative z-10 -mt-4" : "ui-page-icon"}
-          />
+          <PageIconGlyph plan={plan} className="ui-page-icon relative z-20" />
 
           <h1 className="ui-doc-title mt-2 break-words">{plan.examName}</h1>
 

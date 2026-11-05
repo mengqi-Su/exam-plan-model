@@ -121,6 +121,12 @@
   .ui-page-icon {
     @apply block select-none text-[48px] leading-none sm:text-[64px];
   }
+  /* 封面带：和 Notion 一样占满整个页面区的宽度、贴着顶边，不缩进内容列、不做圆角——
+     它是这份文档的底，不是内容列里的一张卡。高度只在这一处定义，
+     页图标靠内容列的负边距骑回它的下沿（约图标盒高的四分之一）。 */
+  .ui-cover-band {
+    @apply block h-[168px] w-full overflow-hidden sm:h-[240px];
+  }
   /* 属性一条 = 「图标 + 标签 + 取值」三元组，走 15 档，和段标题同档：
      Notion 的标签和取值同字号同字重，只靠颜色分深浅，所以取值不加粗；
      标签定宽一列，取值才会在两行两列里对齐成表。前导图标只是标记，不是按钮。 */
@@ -188,6 +194,11 @@
   /* 页头的次要动作走 Notion 那种无框文字按钮：平时浅灰， hover 才垫一层底色。 */
   .ui-btn-text {
     @apply inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium text-[#8a8580] transition-colors hover:bg-[#f1efe9] hover:text-[#1c1b1a] cursor-pointer;
+  }
+  /* 压在封面上的那几颗（返回 / 编辑）只多一层半透明白垫，字号和档位沿用 ui-btn-text：
+     浅纹理上也保证读得清，但不许再长成第二套按钮。 */
+  .ui-cover-chip {
+    @apply bg-white/80 shadow-[0_1px_3px_rgba(28,27,26,0.10)] backdrop-blur-sm hover:bg-white;
   }
   .ui-nav-item {
     @apply w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors cursor-pointer;
