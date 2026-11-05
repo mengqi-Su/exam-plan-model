@@ -327,9 +327,10 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
         <div className="space-y-6 animate-fadeIn">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
-              <h2 className="ui-group-title">
+              {/* 段标题（h2 / 15px）已经给了「课程资料与考点体系」，这里只是段内的子面板。 */}
+              <h3 className="ui-group-title">
                 {isZh ? "知识库" : "Knowledge base"}
-              </h2>
+              </h3>
               <p className="ui-row-meta mt-1">
                 {isZh
                   ? "考纲、讲义、真题与笔记分类归档，点击文件夹进入。"
