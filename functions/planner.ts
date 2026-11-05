@@ -93,6 +93,9 @@ export function sanitizeTopics(raw: unknown): any[] {
     title: clampText(topic?.title, 300) || `Topic ${index + 1}`,
     category: clampText(topic?.category, 120),
     description: clampText(topic?.description, 2_000),
+    // 来源只有三种：资料提炼（默认，不写）、教材目录回忆、用户手加。
+    // 留着它，界面上才分得清哪几条是 AI 凭教材名回忆的，可以放心删。
+    source: ['material', 'textbook', 'manual'].includes(topic?.source) ? topic.source : undefined,
     weightPercentage: Number(topic?.weightPercentage) || 0,
     difficulty: clampText(topic?.difficulty, 20) || 'medium',
     userKnowledgeLevel: clampText(topic?.userKnowledgeLevel, 20) || 'intermediate',
@@ -453,6 +456,10 @@ export interface SyllabusUnit {
   unitIndex: number;
   /** 由 /ai/units 预先检索出的原文片段，随单元回传，展开时不必再上传整份资料 */
   excerpts?: string;
+  /** textbook = 这一章来自教材目录回忆，没有原文片段可接地，展开要用另一套提示词 */
+  source?: 'material' | 'textbook';
+  /** 教材目录里给出的小节名：展开考点时当作回忆锚点，比空手回忆靠谱 */
+  sections?: string[];
 }
 
 export function sanitizeUnitsResult(parsed: any): { summary: string; units: SyllabusUnit[] } {
@@ -489,6 +496,7 @@ export function normalizeUnitTopic(unit: SyllabusUnit, parsed: any): any {
     title: unit.title,
     category: unit.category || clampText(parsed?.category, 120),
     description: clampText(parsed?.description, 2_000) || unit.description,
+    source: unit.source,
     weightPercentage: unit.weightPercentage,
     difficulty: unit.difficulty,
     estimatedHours: unit.estimatedHours,
@@ -499,6 +507,156 @@ export function normalizeUnitTopic(unit: SyllabusUnit, parsed: any): any {
   if (!topic) return null;
   const hasDetail = topic.subtopics.length > 0 || (topic.subtopicTree || []).length > 0;
   return hasDetail ? topic : null;
+}
+
+/* ---------------- 教材目录：没有资料时，按教材名回忆通行目录 ----------------
+ * 资料提取靠原文接地（GROUNDING_RULES），这里靠模型记忆，两套规矩不能混用：
+ * 允许回忆通行章节，但不许编页码、题号与「新版改动」，拿不准就不写。
+ * 产出只是章节目录，用户在预览里勾选后才逐章展开成考点——记错的章节在勾选这一步就被拦掉。 */
+
+const TEXTBOOK_RULES = `TEXTBOOK RECALL RULES:
+- Reconstruct the table of contents this book is actually known for. If the name is an exam subject rather than one book, use its standard syllabus outline instead.
+- Keep the real chapter order and the names the book uses; fold labs and appendices into the chapter they belong to.
+- Never invent page numbers, exercise numbers, quotes or "changes in the new edition". If you are not sure a chapter exists, drop it.
+- estimatedHours means one honest study pass for this chapter, not book length.`;
+
+export interface TextbookChapter {
+  id: string;
+  index: number;
+  title: string;
+  sections: string[];
+  weightPercentage: number;
+  difficulty: string;
+  estimatedHours: number;
+}
+
+export function buildTextbookTocPrompt(
+  textbook: string,
+  examName: string,
+  subject: string,
+  isZh: boolean
+): string {
+  const safeTextbook = clampText(textbook, 200) || 'The course textbook';
+  const safeExamName = clampText(examName, 200);
+  const safeSubject = clampText(subject, 200);
+  const context = [safeExamName && `Exam it prepares for: ${safeExamName}`, safeSubject && `Subject: ${safeSubject}`]
+    .filter(Boolean)
+    .join(' | ');
+
+  return `You are an experienced course designer. Reconstruct the teaching outline of the textbook below so a student can plan a full study cycle around it.
+
+Textbook / syllabus: "${safeTextbook}"${context ? `\n${context}` : ''}
+
+${TEXTBOOK_RULES}
+- List 6-14 chapters and cover the whole book; do not stop at the front half.
+- Give each chapter 2-6 section names exactly as the book titles them, so the list can be checked against the real table of contents.
+- weightPercentage is what this chapter is worth on the exam, or what share of one full pass it takes; keep the list summing to roughly 100.
+- "confidence" says how sure you are about this outline as a whole; "note" is one short honest sentence about what you are least sure about (use "" when nothing).
+${isZh ? '- Write every title, section name, summary and note in natural academic Simplified Chinese (简体中文).' : ''}
+
+Output ONLY a single JSON object (no markdown fences, no commentary) with exactly this shape:
+{
+  "textbook": "the name as recognized",
+  "summary": "2 sentences: what the book covers and where the load concentrates",
+  "confidence": "high" | "medium" | "low",
+  "note": "one short honest caveat, or \"\"",
+  "chapters": [
+    {
+      "id": "ch-1",
+      "title": "chapter title as the book prints it",
+      "sections": ["1.1 section name", "1.2 section name"],
+      "weightPercentage": 5-30,
+      "difficulty": "easy" | "medium" | "hard",
+      "estimatedHours": 2-24
+    }
+  ]
+}`;
+}
+
+/** 目录归一化：章节限量、去重、学时权重兜底，宁少不假。 */
+export function sanitizeTocResult(parsed: any): {
+  textbook: string;
+  summary: string;
+  confidence: string;
+  note: string;
+  chapters: TextbookChapter[];
+} {
+  const rawChapters = Array.isArray(parsed?.chapters) ? parsed.chapters : [];
+  const seenTitles = new Set<string>();
+  const chapters: TextbookChapter[] = [];
+  rawChapters.forEach((chapter: any) => {
+    if (!chapter || typeof chapter !== 'object') return;
+    const title = clampText(chapter.title, 300);
+    if (!title) return;
+    const key = title.toLowerCase().replace(/\s+/g, '');
+    if (seenTitles.has(key)) return;
+    seenTitles.add(key);
+    const weight = Number(chapter.weightPercentage);
+    const hours = Number(chapter.estimatedHours);
+    chapters.push({
+      id: clampText(chapter.id, 120) || `ch-${chapters.length + 1}`,
+      index: chapters.length + 1,
+      title,
+      sections: Array.isArray(chapter.sections)
+        ? chapter.sections.slice(0, 8).map((item: unknown) => clampText(item, 300)).filter(Boolean)
+        : [],
+      weightPercentage: Number.isFinite(weight) && weight > 0 ? Math.min(100, Math.round(weight)) : 0,
+      difficulty: ['easy', 'medium', 'hard'].includes(String(chapter.difficulty)) ? String(chapter.difficulty) : 'medium',
+      estimatedHours: Number.isFinite(hours) && hours > 0 ? Math.min(120, Math.round(hours)) : 0,
+    });
+  });
+  const limited = chapters.slice(0, 16);
+  return {
+    textbook: clampText(parsed?.textbook, 200),
+    summary: clampText(parsed?.summary, 2_000),
+    confidence: ['high', 'medium', 'low'].includes(String(parsed?.confidence)) ? String(parsed.confidence) : 'medium',
+    note: clampText(parsed?.note, 500),
+    chapters: limited,
+  };
+}
+
+/** 教材章节展开成考点：与 /ai/unit-tree 同一套输出形状，排程那边不用区分来源。 */
+export function buildTextbookTreePrompt(
+  unit: SyllabusUnit,
+  textbook: string,
+  totalUnits: number,
+  isZh: boolean
+): string {
+  const sections = (unit.sections || []).slice(0, 8).map((title, idx) => `${idx + 1}. ${title}`).join('\n');
+
+  return `You are a knowledge tree architect expanding ONE chapter of a textbook into topics a student can actually check off.
+Textbook: "${clampText(textbook, 200) || 'the book named above'}"
+Chapter to expand: "${unit.title}" — chapter ${unit.unitIndex + 1} of ${totalUnits}. Other chapters are handled separately, so stay inside this one.
+${sections ? `Sections the book lists for this chapter:\n${sections}` : 'No section list was provided for this chapter.'}
+
+${TEXTBOOK_RULES}
+- Extract 3-6 granular subtopics for THIS chapter only, each with 2-4 key points: the definitions, formulas and typical problem types the student must be able to reproduce from memory.
+- Stay inside the sections listed above when they are given. Do not pull in material from other chapters.
+- If you do not really know this chapter, return 1-2 honest subtopics instead of padding with generic advice.
+- Keep the chapter title, category, weight and estimated hours exactly as given.
+${isZh ? '- Write titles, key points and formula/trap notes in natural academic Simplified Chinese (简体中文).' : ''}
+
+Output ONLY a single JSON object (no markdown fences, no commentary) with exactly this shape:
+{
+  "title": ${JSON.stringify(unit.title)},
+  "category": ${JSON.stringify(unit.category)},
+  "description": "one sentence on what this chapter asks the student to master",
+  "weightPercentage": ${unit.weightPercentage},
+  "difficulty": "${unit.difficulty}",
+  "userKnowledgeLevel": "beginner" | "intermediate" | "advanced",
+  "estimatedHours": ${unit.estimatedHours},
+  "subtopics": ["section-level topic title", "..."],
+  "subtopicTree": [
+    {
+      "id": "sub-${unit.id}-1",
+      "title": "specific subtopic title",
+      "keyPoints": ["2-4 concrete points, formulas or typical question types"],
+      "difficulty": "easy" | "medium" | "hard",
+      "examFrequency": "high" | "medium" | "low",
+      "formulaOrTrap": "brief tip, formula, or common mistake"
+    }
+  ]
+}`;
 }
 
 /* ---------------- 排程日历（纯本地计算，不调用模型） ---------------- */

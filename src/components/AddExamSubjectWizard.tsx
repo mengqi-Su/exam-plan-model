@@ -3,6 +3,7 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  BookOpen,
   CalendarDays,
   Check,
   CheckCircle2,
@@ -23,6 +24,7 @@ import {
   ExamStudyPlan,
   StudyMaterial,
   SyllabusTopic,
+  TextbookOutline,
   UserStudyPreferences,
 } from "../types";
 import { useI18n } from "../lib/i18n";
@@ -30,7 +32,9 @@ import { parseDocumentFile } from "../lib/documentParser";
 import { GenerationError, MAX_AI_MATERIALS, prepareMaterialsForAI, runGeneration } from "../lib/aiClient";
 import { daysBetween, toLocalDateString } from "../lib/date";
 import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
+import { mergeTopics, nonTextbookTitles, replaceTextbookTopics } from "../lib/topics";
 import { RulerTimePicker } from "./RulerTimePicker";
+import { TextbookOutlineDialog } from "./TextbookOutlineDialog";
 
 interface AddExamSubjectWizardProps {
   onPlanCreated: (newPlan: ExamStudyPlan, notice?: string | null) => void;
@@ -117,6 +121,8 @@ export function AddExamSubjectWizard({
   const [error, setError] = useState<{ message: string; code?: string } | null>(null);
   const [aiReady, setAiReady] = useState<boolean | null>(null);
   const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
+  const [textbookDialogOpen, setTextbookDialogOpen] = useState(false);
+  const [textbookLabel, setTextbookLabel] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workingRef = useRef(false);
@@ -127,12 +133,14 @@ export function AddExamSubjectWizard({
     if (!isModal) return;
     const busy = () => workingRef.current || isParsingFiles;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy()) onCancel();
+      // 教材目录弹窗浮在向导上面时，Esc 只该退掉最上面那一层，不能连向导一起关掉。
+      if (e.key === "Escape" && !busy() && !textbookDialogOpen) onCancel();
     };
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
     const focusTimer = window.setTimeout(() => {
+      if (textbookDialogOpen) return;
       const field = cardRef.current?.querySelector<HTMLInputElement>("input:not([type=hidden]), textarea");
       field?.focus();
     }, 60);
@@ -141,7 +149,7 @@ export function AddExamSubjectWizard({
       window.removeEventListener("keydown", onKeyDown);
       window.clearTimeout(focusTimer);
     };
-  }, [isModal, onCancel, isParsingFiles]);
+  }, [isModal, onCancel, isParsingFiles, textbookDialogOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -182,17 +190,31 @@ export function AddExamSubjectWizard({
     [topics]
   );
 
+  // 教材目录回忆的考点不依赖上传的文件，所以资料的增删只该作废「从资料提炼」那部分。
+  const textbookTopics = useMemo(() => topics.filter((topic) => topic.source === "textbook"), [topics]);
+  const textbookTopicCount = textbookTopics.length;
+
+  const applyTextbookTopics = (nextTopics: SyllabusTopic[], outline: TextbookOutline) => {
+    setTopics((prev) => replaceTextbookTopics(prev, nextTopics));
+    setTextbookLabel(outline.textbook || "");
+    setTextbookDialogOpen(false);
+    setError(null);
+  };
+
   const detailsReady =
     !!examName.trim() &&
     !!startDate &&
     !!examDate &&
     daysBetween(startDate, examDate) >= 0 &&
     hoursReady;
-  const materialsReady = courseDocuments.length > 0 && !isParsingFiles;
+  // 考点有两种来路：上传资料提炼，或只填教材名让 AI 回忆目录。任意一条走通都算「有了输入」，
+  // 所以只有两者都空时才拦住下一步。
+  const materialsReady = (courseDocuments.length > 0 || topics.length > 0) && !isParsingFiles;
 
   const steps = [
     { n: 1 as const, label: tt("考试信息", "Exam details"), icon: CalendarDays },
-    { n: 2 as const, label: tt("上传资料", "Materials"), icon: Upload },
+    // 第二步现在有两个并列入口（上传资料 / 教材名整理目录），标签不能再只说「上传」。
+    { n: 2 as const, label: tt("考点来源", "Topic source"), icon: Upload },
     { n: 3 as const, label: tt("生成计划", "Generate"), icon: Sparkles },
   ];
 
@@ -283,7 +305,8 @@ export function AddExamSubjectWizard({
   };
 
   const invalidateAiResult = () => {
-    setTopics([]);
+    // 资料变了只作废资料提炼的考点；用户逐章勾选确认过的教材目录不是这份资料的产物，不该被抹掉。
+    setTopics((prev) => prev.filter((topic) => topic.source === "textbook"));
     setShowTopics(false);
     setError(null);
   };
@@ -514,10 +537,16 @@ export function AddExamSubjectWizard({
       materials: courseDocuments,
       phases: Array.isArray(result?.phases) ? result.phases : [],
       tasks,
-      materialsSummary: tt(
-        `${courseDocuments.length} 份资料 · AI 识别 ${activeTopics.length} 个考点`,
-        `${courseDocuments.length} materials · ${activeTopics.length} topics extracted by AI`
-      ),
+      materialsSummary:
+        courseDocuments.length > 0
+          ? tt(
+            `${courseDocuments.length} 份资料 · AI 识别 ${activeTopics.length} 个考点`,
+            `${courseDocuments.length} materials · ${activeTopics.length} topics extracted by AI`
+          )
+          : tt(
+            `《${textbookLabel || tt("教材", "textbook")}》目录 · AI 整理 ${activeTopics.length} 个考点`,
+            `Outline of "${textbookLabel || "the textbook"}" · ${activeTopics.length} topics recalled by AI`
+          ),
     };
   };
 
@@ -529,11 +558,11 @@ export function AddExamSubjectWizard({
       setStep(1);
       return;
     }
-    if (courseDocuments.length === 0) {
+    if (courseDocuments.length === 0 && topics.length === 0) {
       setError({
         message: tt(
-          "请至少上传一份考纲、讲义、真题或笔记。",
-          "Upload at least one syllabus, slide deck, past paper, or notes file."
+          "先上传一份考纲、讲义、真题或笔记，或者用「整理教材目录」按教材名拿考点。",
+          "Upload a syllabus, slides, past paper, or notes first — or outline a textbook by name to get topics."
         ),
       });
       setStep(2);
@@ -547,9 +576,14 @@ export function AddExamSubjectWizard({
 
     try {
       let activeTopics = topics;
-      if (activeTopics.length === 0) {
+      // 已有资料但还没提炼过（教材目录先走了一步），这次就把资料也读进来；
+      // 两条来路的考点按标题合并，排程看到的是完整的考点列表。
+      const needsMaterialExtraction =
+        courseDocuments.length > 0 && !activeTopics.some((topic) => topic.source !== "textbook");
+      if (needsMaterialExtraction) {
         setWorkStage("extracting");
-        activeTopics = await requestTopics();
+        const extracted = await requestTopics();
+        activeTopics = mergeTopics(activeTopics, extracted);
         setTopics(activeTopics);
       }
       setWorkStage("planning");
@@ -892,13 +926,13 @@ export function AddExamSubjectWizard({
         </section>
       )}
 
-      {/* STEP 2 — Materials */}
+      {/* STEP 2 — 考点来源：上传资料，或只填教材名让 AI 整理目录 */}
       {step === 2 && (
         <section className="ui-card overflow-hidden">
           <div className={sectionHeadCls}>
             <h2 className="ui-section-title flex items-center gap-2">
               <Upload className="h-4 w-4 text-[#8a8580]" />
-              <span>{tt("上传资料", "Materials")}</span>
+              <span>{tt("考点来源", "Topic source")}</span>
             </h2>
             <span className="text-[12px] text-[#a39e97] tabular-nums">
               {courseDocuments.length} / {MAX_AI_MATERIALS}
@@ -1030,6 +1064,39 @@ export function AddExamSubjectWizard({
                 </div>
               </div>
             )}
+
+            {/* 第二条来路：一份资料都没有时，只填教材名也能拿到考点。放在资料之后，
+                因为它不产生资料文件，只产生考点，所以不复用上面的上传口径。 */}
+            <div className="flex items-center gap-3 pt-1">
+              <span className="h-px flex-1 bg-[#f0ede8]" />
+              <span className="ui-row-meta shrink-0">{tt("或者", "or")}</span>
+              <span className="h-px flex-1 bg-[#f0ede8]" />
+            </div>
+
+            <div className="flex flex-col items-start justify-between gap-2 rounded-xl border border-[#eae7e1] bg-[#faf9f6] px-4 py-3 sm:flex-row sm:items-center">
+              <div className="min-w-0">
+                <h3 className="ui-subgroup-title">{tt("只填教材名，按目录整理考点", "No files? Name the textbook instead")}</h3>
+                <p className="ui-row-meta mt-1 leading-relaxed">
+                  {textbookTopicCount > 0
+                    ? tt(
+                      `已按《${textbookLabel || tt("教材", "textbook")}》目录整理 ${textbookTopicCount} 个考点`,
+                      `${textbookTopicCount} topics from "${textbookLabel || "the textbook"}"`
+                    )
+                    : tt(
+                      "AI 先回忆这本教材的章节给你勾选，确认后才展开成考点。",
+                      "AI recalls the chapter list for you to tick, then expands it into topics."
+                    )}
+                </p>
+              </div>
+              <button
+                onClick={() => setTextbookDialogOpen(true)}
+                disabled={isWorking}
+                className="ui-btn ui-btn-ghost shrink-0 px-3 py-1.5 text-[12px] disabled:opacity-40"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>{textbookTopicCount > 0 ? tt("重新整理目录", "Re-outline") : tt("整理教材目录", "Outline a textbook")}</span>
+              </button>
+            </div>
           </fieldset>
         </section>
       )}
@@ -1057,9 +1124,11 @@ export function AddExamSubjectWizard({
                 </div>
               </div>
               <div className="min-w-0">
-                <div className="text-[11px] text-[#8a8580]">{tt("资料", "Materials")}</div>
-                <div className="mt-0.5 font-medium text-[#1c1b1a] tabular-nums">
-                  {courseDocuments.length} {tt("份", "files")}
+                <div className="text-[11px] text-[#8a8580]">{tt("考点来源", "Source")}</div>
+                <div className="mt-0.5 truncate font-medium text-[#1c1b1a] tabular-nums">
+                  {courseDocuments.length > 0
+                    ? `${courseDocuments.length} ${tt("份资料", "files")}`
+                    : tt(`《${textbookLabel || tt("教材", "textbook")}》目录`, `outline of "${textbookLabel || "textbook"}"`)}
                 </div>
               </div>
             </div>
@@ -1099,8 +1168,12 @@ export function AddExamSubjectWizard({
                   <div className="divide-y divide-[#f0ede8] bg-white">
                     {topics.map((topic, index) => (
                       <div key={topic.id || index} className="flex items-start justify-between gap-3 px-3 py-2">
-                        <span className="text-[13px] leading-relaxed text-[#1c1b1a]">
-                          <span className="text-[#a39e97] tabular-nums">{index + 1}.</span> {topic.title}
+                        <span className="flex min-w-0 items-start gap-2 text-[13px] leading-relaxed text-[#1c1b1a]">
+                          <span className="shrink-0 text-[#a39e97] tabular-nums">{index + 1}.</span>
+                          <span className="min-w-0">{topic.title}</span>
+                          {topic.source === "textbook" && (
+                            <span className="ui-chip shrink-0">{tt("教材目录", "Textbook")}</span>
+                          )}
                         </span>
                         <span className="shrink-0 text-[11px] text-[#8a8580] tabular-nums">
                           {topic.weightPercentage || 0}% · ~{topic.estimatedHours || 0}h
@@ -1235,6 +1308,15 @@ export function AddExamSubjectWizard({
           </div>
         </div>
       )}
+
+      <TextbookOutlineDialog
+        open={textbookDialogOpen}
+        onClose={() => setTextbookDialogOpen(false)}
+        examName={examName.trim()}
+        subject={subject.trim()}
+        existingTopicTitles={nonTextbookTitles(topics)}
+        onApply={applyTextbookTopics}
+      />
     </>
   );
 

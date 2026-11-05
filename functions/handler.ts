@@ -3,7 +3,8 @@
 // 能力（全部同源 /functions/v1/app 下）：
 //   GET  /health            AI 服务与 Key 配置状态（DeepSeek）
 //   POST /ai/units          资料 -> 核心大单元（小输出）
-//   POST /ai/unit-tree      单个大单元 -> 细分考点树
+//   POST /ai/textbook-toc   教材名 -> 章节目录（供用户勾选，凭模型回忆，不接地资料）
+//   POST /ai/unit-tree      单个大单元 -> 细分考点树（资料提取 / 教材回忆两套规矩）
 //   POST /ai/plan-schedule  偏好 -> 学习日历与分段（纯本地计算，不调模型）
 //   POST /ai/plan-chunk     一段日历 -> 该段每日任务（首段附带阶段）
 //   POST /ai/rebalance      过期/未完成任务重排（AI 不可用时走本地规则）
@@ -19,6 +20,8 @@ import {
   buildPlanChunkPrompt,
   buildRebalancePrompt,
   buildStudyCalendar,
+  buildTextbookTocPrompt,
+  buildTextbookTreePrompt,
   buildUnitTreePrompt,
   buildUnitsPrompt,
   chunkAllMaterials,
@@ -35,6 +38,7 @@ import {
   sanitizePlanForRebalance,
   sanitizePreferences,
   sanitizeRebalanceResult,
+  sanitizeTocResult,
   sanitizeUnitsResult,
   selectUnitExcerpts,
   sanitizeTopics,
@@ -169,6 +173,9 @@ async function handleUnitTree(req: Request): Promise<Response> {
     const unitId = clampText((rawUnit as any)?.id, 120);
     const title = clampText((rawUnit as any)?.title, 300);
     if (!title) return fail('invalid_request', isZh ? '缺少要展开的单元。' : 'Missing unit to expand.');
+    // 教材目录来的章节没有原文片段可接地，走另一套回忆规矩；输出形状与资料提取完全一致。
+    const source = clampText((rawUnit as any)?.source, 20) === 'textbook' ? 'textbook' : 'material';
+    const textbook = clampText(body.textbook, 200);
     const unit: SyllabusUnit = {
       id: unitId || `unit-${Number(body.unitIndex) + 1 || 1}`,
       title,
@@ -179,16 +186,55 @@ async function handleUnitTree(req: Request): Promise<Response> {
       estimatedHours: Math.max(0, Math.min(120, Number((rawUnit as any)?.estimatedHours) || 0)),
       unitIndex: Math.max(0, Number(body.unitIndex) || 0),
       excerpts: clampText((rawUnit as any)?.excerpts, 14_000),
+      source,
+      sections: Array.isArray((rawUnit as any)?.sections)
+        ? (rawUnit as any).sections.slice(0, 8).map((item: unknown) => clampText(item, 300)).filter(Boolean)
+        : [],
     };
     const unitsCount = Math.max(1, Number(body.unitsCount) || unit.unitIndex + 1);
     const zh = resolveIsChinese(body.language, unit.title, unit.category);
-    const prompt = buildUnitTreePrompt(unit, unitsCount, zh);
+    const prompt = source === 'textbook'
+      ? buildTextbookTreePrompt(unit, textbook, unitsCount, zh)
+      : buildUnitTreePrompt(unit, unitsCount, zh);
     const output = await completeJson(prompt, { stage: 'unit-tree', maxTokens: 2_400, temperature: 0.25 });
     const topic = normalizeUnitTopic(unit, parseOutput(output, isZh));
     if (!topic) {
       return fail('ai_bad_output', isZh ? 'AI 未返回该单元的有效考点，请重试。' : 'AI returned no valid topics for this unit. Please try again.', 502);
     }
     return json({ ok: true, topic, unitId: unit.id });
+  } catch (error) {
+    return failFromError(error, isZh);
+  }
+}
+
+/* ---------------- 教材目录：只给教材名，回忆章节目录供勾选 ---------------- */
+
+async function handleTextbookToc(req: Request): Promise<Response> {
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonBody(req, 256 * 1024);
+  } catch {
+    return fail('invalid_request', '请求格式错误');
+  }
+  const isZh = resolveIsChinese(body.language);
+
+  try {
+    const textbook = clampText(body.textbook, 200);
+    if (!textbook) {
+      return fail('invalid_request', isZh ? '请先填写教材名称。' : 'Enter the textbook name first.');
+    }
+    const examName = clampText(body.examName, 200);
+    const subject = clampText(body.subject, 200);
+    const zh = resolveIsChinese(body.language, textbook, examName, subject);
+    const prompt = buildTextbookTocPrompt(textbook, examName, subject, zh);
+    const output = await completeJson(prompt, { stage: 'textbook-toc', maxTokens: 2_000, temperature: 0.3 });
+    const result = sanitizeTocResult(parseOutput(output, isZh));
+    if (!result.chapters.length) {
+      return fail('SYLLABUS_EMPTY', isZh
+        ? `AI 没能整理出《${textbook}》的可靠目录，换成本人教全称（含版次）或补一份资料再试。`
+        : `AI could not reconstruct a reliable outline for "${textbook}". Try the full title with edition, or upload a syllabus.`, 502);
+    }
+    return json({ ok: true, ...result, chapterCount: result.chapters.length });
   } catch (error) {
     return failFromError(error, isZh);
   }
@@ -380,6 +426,7 @@ export async function handler(req: Request): Promise<Response> {
 
     // 网关会重写函数名路径段，因此用 endsWith 匹配子路由。
     if (path.endsWith('/ai/units')) return await handleUnits(req);
+    if (path.endsWith('/ai/textbook-toc')) return await handleTextbookToc(req);
     if (path.endsWith('/ai/unit-tree')) return await handleUnitTree(req);
     if (path.endsWith('/ai/plan-schedule')) return await handlePlanSchedule(req);
     if (path.endsWith('/ai/plan-chunk')) return await handlePlanChunk(req);

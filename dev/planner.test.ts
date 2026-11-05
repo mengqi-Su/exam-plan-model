@@ -7,6 +7,8 @@ import {
   buildPlanChunkPrompt,
   buildRebalancePrompt,
   buildStudyCalendar,
+  buildTextbookTocPrompt,
+  buildTextbookTreePrompt,
   buildUnitTreePrompt,
   buildUnitsPrompt,
   chunkAllMaterials,
@@ -25,6 +27,7 @@ import {
   sanitizePreferences,
   sanitizeRebalanceResult,
   sanitizeSyllabusResult,
+  sanitizeTocResult,
   sanitizeTopics,
   sanitizeUnitsResult,
   selectUnitExcerpts,
@@ -200,6 +203,71 @@ const topics = sanitizeTopics([
   { id: 'topic-1', title: '第 1 章 体系结构', difficulty: 'easy', subtopics: ['OSI 模型'], estimatedHours: 4 },
   { id: 'topic-2', title: '第 2 章 传输层', difficulty: 'hard', subtopics: ['TCP 握手', '拥塞控制'], estimatedHours: 8 },
 ]);
+
+check('教材目录提示词只回忆章节并禁止编造', () => {
+  const prompt = buildTextbookTocPrompt('数据结构（C语言版）', '计算机考研 408', '数据结构', true);
+  assert.ok(prompt.includes('数据结构（C语言版）'));
+  assert.ok(prompt.includes('计算机考研 408'), '应带上备考的考试，权重才有依据');
+  assert.ok(prompt.includes('TEXTBOOK RECALL RULES'), '教材回忆走另一套规矩');
+  assert.ok(prompt.includes('Never invent page numbers'), '不许编页码题号');
+  assert.ok(prompt.includes('"chapters"'), '输出章节目录形状');
+  assert.ok(prompt.includes('简体中文'));
+  assert.ok(!prompt.includes('GROUNDING RULES'), '没有原文时不该宣称接地');
+  assert.ok(prompt.length <= 6_000, `prompt length ${prompt.length}`);
+  const en = buildTextbookTocPrompt('Intro to Algorithms', '', '', false);
+  assert.ok(!en.includes('简体中文'));
+  assert.ok(buildTextbookTocPrompt('   ', '', '', false).includes('The course textbook'), '空教材名用占位，不让提示词断在引号里');
+});
+
+check('sanitizeTocResult 去重限量并把权重学时兜底', () => {
+  const result = sanitizeTocResult({
+    textbook: '数据结构（C语言版）',
+    summary: '在线性表到图之间分配复习量。',
+    confidence: 'weird',
+    chapters: [
+      { title: '第 1 章 绪论', sections: ['1.1', ' ', '1.3'], weightPercentage: 8, estimatedHours: 3 },
+      { title: '第 1 章  绪论', weightPercentage: 50 },          // 大小写/空格同名，丢弃
+      { title: '第 2 章 线性表', weightPercentage: 220, estimatedHours: 999, difficulty: 'brutal' },
+      { title: '', estimatedHours: 4 },
+      ...Array.from({ length: 20 }, (_, i) => ({ title: `第 ${i + 3} 章` })),
+    ],
+  });
+  assert.equal(result.confidence, 'medium', '不认识的信心一律降级为 medium');
+  assert.equal(result.chapters.length, 16, '章节限量，避免一次生成拖垮排程');
+  assert.deepEqual(result.chapters[0].sections, ['1.1', '1.3']);
+  assert.equal(result.chapters[1].weightPercentage, 100, '权重封顶 100');
+  assert.equal(result.chapters[1].estimatedHours, 120, '学时封顶 120');
+  assert.equal(result.chapters[1].difficulty, 'medium');
+  assert.equal(result.chapters[2].title, '第 3 章');
+  assert.deepEqual(result.chapters.map((c: any) => c.index), result.chapters.map((_: any, i: number) => i + 1), '重排后编号连续');
+  assert.deepEqual(sanitizeTocResult(null).chapters, []);
+});
+
+check('buildTextbookTreePrompt 展开章节时不需要原文片段', () => {
+  const chapter: SyllabusUnit = { ...sampleUnit, excerpts: '', source: 'textbook', sections: ['2.1 TCP 报文段', '2.2 可靠传输'] };
+  const prompt = buildTextbookTreePrompt(chapter, '计算机网络（第 8 版）', 9, true);
+  assert.ok(prompt.includes('计算机网络（第 8 版）'), '要知道是哪本教材');
+  assert.ok(prompt.includes('第 2 章 传输层'));
+  assert.ok(prompt.includes('chapter 2 of 9'));
+  assert.ok(prompt.includes('2.1 TCP 报文段'), '把章节小标题交给模型，防止越界到别的章');
+  assert.ok(prompt.includes('TEXTBOOK RECALL RULES'));
+  assert.ok(prompt.includes('"weightPercentage": 35'), '权重学时原样保留，排程才认');
+  assert.ok(!prompt.includes('no supporting excerpts'), '教材路径不该走资料缺失的措辞');
+  assert.ok(buildTextbookTreePrompt({ ...chapter, sections: [] }, '', 9, true).includes('No section list was provided'));
+});
+
+check('考点来源标记只认三种且默认不写', () => {
+  const topics = sanitizeTopics([
+    { title: 'A', source: 'textbook', subtopics: ['a1'] },
+    { title: 'B', source: 'manual', subtopics: ['b1'] },
+    { title: 'C', source: 'material', subtopics: ['c1'] },
+    { title: 'D', source: 'ai', subtopics: ['d1'] },
+    { title: 'E', subtopics: ['e1'] },
+  ]);
+  assert.deepEqual(topics.map((t: any) => t.source), ['textbook', 'manual', 'material', undefined, undefined]);
+  const topic = normalizeUnitTopic({ ...sampleUnit, source: 'textbook' }, { subtopics: ['TCP 握手'] });
+  assert.equal(topic.source, 'textbook', '单元来源要一路带到考点，界面才分得清谁是谁回忆的');
+});
 
 check('资料分块与检索命中相关章节', () => {
   const chunks = chunkAllMaterials(sanitizeMaterials([material]));

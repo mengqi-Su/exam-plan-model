@@ -36,6 +36,27 @@ export interface SyllabusTopic {
   subtopics: string[];
   subtopicTree?: SyllabusSubtopicNode[];
   estimatedHours: number;
+  // 考点从哪来：资料提炼（默认）/ 教材目录回忆 / 手动添加。界面上要分得清，教材回忆的可以随时删。
+  source?: 'material' | 'textbook' | 'manual';
+}
+
+/** 教材目录里的一章：用户在预览里勾选、改名后才展开成考点。 */
+export interface TextbookChapter {
+  id: string;
+  index: number;
+  title: string;
+  sections: string[];
+  weightPercentage: number;
+  difficulty: 'easy' | 'medium' | 'hard';
+  estimatedHours: number;
+}
+
+export interface TextbookOutline {
+  textbook: string;
+  summary: string;
+  confidence: 'high' | 'medium' | 'low';
+  note: string;
+  chapters: TextbookChapter[];
 }
 
 export interface RagSourceCitation {

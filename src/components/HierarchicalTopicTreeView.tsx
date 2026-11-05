@@ -416,6 +416,17 @@ export function HierarchicalTopicTreeView({
                           {topic.title}
                         </span>
                         <span className="ui-chip shrink-0">{diffBadge}</span>
+                        {/* 来源只有 AI 回忆的教材目录和手动加的需要标出来：资料提炼是默认，标了反而吵。
+                            标出来也是为了告诉你哪几条可以整批删掉。 */}
+                        {topic.source === "textbook" && (
+                          <span className="ui-chip flex items-center gap-1 shrink-0">
+                            <BookOpen className="w-3 h-3" />
+                            {isZh ? "教材目录" : "Textbook"}
+                          </span>
+                        )}
+                        {topic.source === "manual" && (
+                          <span className="ui-chip shrink-0">{isZh ? "手动添加" : "Manual"}</span>
+                        )}
                         <span className="ui-chip tabular-nums shrink-0">
                           {isZh ? "占比" : "Weight"} {topic.weightPercentage || 20}%
                         </span>

@@ -1,20 +1,23 @@
 import React, { useState } from "react";
 import {
   AlertCircle,
+  BookOpen,
   BrainCircuit,
   CheckCircle2,
   Plus,
   Sparkles,
   X,
 } from "lucide-react";
-import { SyllabusTopic, StudyMaterial, ExamStudyPlan } from "../types";
+import { SyllabusTopic, StudyMaterial, ExamStudyPlan, TextbookOutline } from "../types";
 import { useI18n } from "../lib/i18n";
 import { prepareMaterialsForAI, runGeneration } from "../lib/aiClient";
+import { mergeTopics, nonTextbookTitles, replaceTextbookTopics } from "../lib/topics";
 import { TabbedFolderArchive } from "./TabbedFolderArchive";
 import { UploadModal } from "./UploadModal";
 import { NoteModal } from "./NoteModal";
 import { DocumentReaderModal } from "./DocumentReaderModal";
 import { HierarchicalTopicTreeView } from "./HierarchicalTopicTreeView";
+import { TextbookOutlineDialog } from "./TextbookOutlineDialog";
 
 interface CourseKnowledgeHubProps {
   plan: ExamStudyPlan;
@@ -45,7 +48,7 @@ export function CourseKnowledgeHub({
   const [activeFolderDocType, setActiveFolderDocType] = useState<StudyMaterial["type"]>("notes");
 
   const [isExtracting, setIsExtracting] = useState(false);
-  const [extractionSuccess, setExtractionSuccess] = useState(false);
+  const [successNote, setSuccessNote] = useState<string | null>(null);
   const [isAddingTopic, setIsAddingTopic] = useState(false);
   const [newTopicTitle, setNewTopicTitle] = useState("");
   const [newTopicWeight, setNewTopicWeight] = useState(15);
@@ -53,6 +56,7 @@ export function CourseKnowledgeHub({
   const [newTopicSubtopics, setNewTopicSubtopics] = useState("");
 
   const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
+  const [textbookDialogOpen, setTextbookDialogOpen] = useState(false);
 
   const materials: StudyMaterial[] = plan.materials || [];
   const topics: SyllabusTopic[] = plan.topics || [];
@@ -74,15 +78,15 @@ export function CourseKnowledgeHub({
     if (materials.length === 0) {
       setExtractError(
         language === "zh"
-          ? "请先在上方知识库中上传课程资料或粘贴笔记，AI 将为您提炼考点架构。"
-          : "Upload course materials or paste notes above first so AI can extract the topic blueprint."
+          ? "请先在上方知识库中上传课程资料或粘贴笔记，AI 将为您提炼考点架构；一份资料都没有时，可以改用「按教材目录整理」。"
+          : "Upload course materials or paste notes above first so AI can extract the topic blueprint — or use “From a textbook” when you have no files."
       );
       return;
     }
 
     setIsExtracting(true);
     setExtractError(null);
-    setExtractionSuccess(false);
+    setSuccessNote(null);
 
     try {
       const { result } = await runGeneration<{ summary?: string; topics?: SyllabusTopic[] }>(
@@ -106,12 +110,20 @@ export function CourseKnowledgeHub({
 
       onUpdatePlan({
         ...plan,
-        topics: result.topics,
+        // 「重新提炼」重建的是资料提炼那一份；教材目录回忆的和你手动加的考点不属于它，不能跟着一起没。
+        topics: mergeTopics(
+          topics.filter((topic) => topic.source === "textbook" || topic.source === "manual"),
+          result.topics
+        ),
         materialsSummary: result.summary || plan.materialsSummary,
         updatedAt: new Date().toISOString(),
       });
-      setExtractionSuccess(true);
-      window.setTimeout(() => setExtractionSuccess(false), 4000);
+      setSuccessNote(
+        language === "zh"
+          ? "AI 考点架构已根据知识库资料更新完毕。"
+          : "Topic blueprint extracted successfully."
+      );
+      window.setTimeout(() => setSuccessNote(null), 4000);
     } catch (error: any) {
       console.error("Topic extraction failed:", error);
       setExtractError(
@@ -141,6 +153,7 @@ export function CourseKnowledgeHub({
       userKnowledgeLevel: "intermediate",
       subtopics: subtopicsList.length > 0 ? subtopicsList : [newTopicTitle.trim()],
       estimatedHours: Number(newTopicHours) || 4,
+      source: "manual",
     };
 
     onUpdatePlan({
@@ -151,6 +164,28 @@ export function CourseKnowledgeHub({
     setNewTopicTitle("");
     setNewTopicSubtopics("");
     setIsAddingTopic(false);
+  };
+
+  // 教材目录回忆出来的考点整批换掉旧的教材考点；资料提炼的、你手动加的都按原样留着。
+  const applyTextbookTopics = (nextTopics: SyllabusTopic[], outline: TextbookOutline) => {
+    const zh = language === "zh";
+    const bookTitle = outline.textbook || (zh ? "教材" : "the textbook");
+    onUpdatePlan({
+      ...plan,
+      topics: replaceTextbookTopics(topics, nextTopics),
+      materialsSummary: zh
+        ? `《${bookTitle}》目录 · AI 整理 ${nextTopics.length} 个考点`
+        : `Outline of "${bookTitle}" · ${nextTopics.length} topics recalled by AI`,
+      updatedAt: new Date().toISOString(),
+    });
+    setTextbookDialogOpen(false);
+    setExtractError(null);
+    setSuccessNote(
+      zh
+        ? `已按《${bookTitle}》目录整理 ${nextTopics.length} 个考点，标着「教材目录」，随时可以删。`
+        : `${nextTopics.length} topics added from "${bookTitle}", marked “Textbook” and removable any time.`
+    );
+    window.setTimeout(() => setSuccessNote(null), 6000);
   };
 
   const handleDeleteTopic = (topicId: string) => {
@@ -165,10 +200,10 @@ export function CourseKnowledgeHub({
 
   return (
     <div className="space-y-8 animate-fadeIn text-[#1c1b1a]">
-      {extractionSuccess && (
+      {successNote && (
         <div className="flex items-center gap-2 rounded-xl border border-[#d8e4dc] bg-[#EEF4EF] px-3.5 py-3 text-[12px] font-medium text-[#3F6B4F] animate-fadeIn">
           <Sparkles className="w-4 h-4 shrink-0" />
-          <span>{isZh ? "AI 考点架构已根据知识库资料更新完毕。" : "Topic blueprint extracted successfully."}</span>
+          <span>{successNote}</span>
         </div>
       )}
 
@@ -269,6 +304,14 @@ export function CourseKnowledgeHub({
               </span>
             </button>
             <button
+              onClick={() => setTextbookDialogOpen(true)}
+              disabled={isExtracting}
+              className="ui-btn ui-btn-ghost px-3 py-1.5 text-[12px]"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>{isZh ? "按教材目录整理" : "From a textbook"}</span>
+            </button>
+            <button
               onClick={() => setIsAddingTopic(true)}
               className="ui-btn ui-btn-primary px-3 py-1.5 text-[12px]"
             >
@@ -355,8 +398,8 @@ export function CourseKnowledgeHub({
             <CheckCircle2 className="w-6 h-6 mx-auto text-[#a39e97]" />
             <p className="ui-note max-w-md mx-auto">
               {isZh
-                ? "还没有考点。上传资料后点击「重新提炼考点」，或手动添加一个大单元。"
-                : "No topics yet. Upload materials and click Re-extract, or add a unit manually."}
+                ? "还没有考点。上传资料后点「重新提炼考点」，用「按教材目录整理」只填教材名，或手动添加一个大单元。"
+                : "No topics yet. Upload materials and click Re-extract, outline a textbook by name, or add a unit manually."}
             </p>
           </div>
         ) : (
@@ -385,6 +428,15 @@ export function CourseKnowledgeHub({
         doc={previewDoc}
         isOpen={Boolean(previewDoc)}
         onClose={() => setPreviewDoc(null)}
+      />
+
+      <TextbookOutlineDialog
+        open={textbookDialogOpen}
+        onClose={() => setTextbookDialogOpen(false)}
+        examName={plan.examName}
+        subject={plan.subject || plan.preferences?.subject}
+        existingTopicTitles={nonTextbookTitles(topics)}
+        onApply={applyTextbookTopics}
       />
     </div>
   );

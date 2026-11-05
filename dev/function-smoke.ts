@@ -82,6 +82,25 @@ const tree = await call('/ai/unit-tree', {
 assert.equal(tree.data.code, 'ai_not_configured');
 console.log('  ok  /ai/unit-tree 无 Key 时返回 ai_not_configured');
 
+const tocMissingName = await call('/ai/textbook-toc', { textbook: '   ', language: 'zh' });
+assert.equal(tocMissingName.status, 400, JSON.stringify(tocMissingName.data));
+assert.equal(tocMissingName.data.code, 'invalid_request');
+console.log('  ok  /ai/textbook-toc 没有教材名时直接拦下');
+
+const toc = await call('/ai/textbook-toc', { textbook: '计算机网络（第 8 版）', examName: '考研 408', subject: '计算机网络', language: 'zh' });
+assert.equal(toc.data.code, 'ai_not_configured');
+console.log('  ok  /ai/textbook-toc 无 Key 时返回 ai_not_configured');
+
+const textbookTree = await call('/ai/unit-tree', {
+  unit: { id: 'ch-1', title: '第 1 章 概述', weightPercentage: 12, difficulty: 'easy', estimatedHours: 4, source: 'textbook', sections: ['1.1 网络在信息时代的作用'] },
+  textbook: '计算机网络（第 8 版）',
+  unitIndex: 0,
+  unitsCount: 9,
+  language: 'zh'
+});
+assert.equal(textbookTree.data.code, 'ai_not_configured', '教材章节没有原文片段也应正常进入模型调用');
+console.log('  ok  /ai/unit-tree 教材来源分支不要求原文片段');
+
 const schedule = await call('/ai/plan-schedule', { preferences, language: 'zh' });
 assert.equal(schedule.status, 200, JSON.stringify(schedule.data));
 assert.ok(schedule.data.studyDates.length > 0);

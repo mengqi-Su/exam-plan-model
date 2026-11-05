@@ -1,4 +1,4 @@
-import { StudyMaterial } from "../types";
+import { StudyMaterial, TextbookChapter, TextbookOutline } from "../types";
 import { attachTaskTopicIds } from "./links";
 
 export const MAX_AI_MATERIALS = 20;
@@ -243,7 +243,8 @@ export class GenerationError extends Error {
   }
 }
 
-export type GenerationMode = "syllabus" | "plan" | "rebalance";
+// textbook-toc：只回忆章节目录，一次调用；textbook-topics：把勾选的章节逐章展开，和 syllabus 同样是并发多段。
+export type GenerationMode = "syllabus" | "plan" | "rebalance" | "textbook-toc" | "textbook-topics";
 
 export interface RunGenerationOptions {
   language: string;
@@ -471,6 +472,72 @@ async function generateSyllabus(payload: Record<string, unknown>, ctx: CallConte
   return { result: { summary: unitsRes.summary || "", topics: clean }, meta: { source: "ai" as const } };
 }
 
+/* ---------------- 教材目录：先给章节，勾选后再展开成考点 ---------------- */
+
+async function generateTextbookToc(payload: Record<string, unknown>, ctx: CallContext) {
+  ctx.onStatus?.(ctx.tt("整理教材目录…", "Rebuilding the textbook outline…"));
+  const res = await callAi<TextbookOutline>(
+    "/ai/textbook-toc",
+    { textbook: payload.textbook, examName: payload.examName, subject: payload.subject },
+    ctx
+  );
+  const chapters = Array.isArray(res?.chapters) ? res.chapters : [];
+  if (!chapters.length) {
+    throw new GenerationError(
+      ctx.tt(
+        "AI 没能整理出这本教材的可靠目录，换成本教材全称（含版次）再试，或直接上传目录/考纲。",
+        "AI could not rebuild a reliable outline for this textbook. Try the full title with edition, or upload the table of contents."
+      ),
+      "SYLLABUS_EMPTY"
+    );
+  }
+  return { result: { ...res, chapters }, meta: { source: "ai" as const } };
+}
+
+async function generateTextbookTopics(payload: Record<string, unknown>, ctx: CallContext) {
+  const chapters = (Array.isArray(payload.chapters) ? payload.chapters : []) as TextbookChapter[];
+  const textbook = String(payload.textbook || "");
+  if (!chapters.length) {
+    throw new GenerationError(
+      ctx.tt("至少勾选一个章节。", "Select at least one chapter."),
+      "INVALID_REQUEST"
+    );
+  }
+
+  let done = 0;
+  const topics = await mapLimit(chapters, CONCURRENCY, async (chapter, index) => {
+    const res = await callAi<{ topic: any }>(
+      "/ai/unit-tree",
+      {
+        // 章节即单元：来源标成 textbook，函数才会走教材回忆规矩（没有原文片段可接地）。
+        unit: { ...chapter, source: "textbook" },
+        textbook,
+        unitIndex: index,
+        unitsCount: chapters.length,
+      },
+      ctx
+    );
+    done += 1;
+    ctx.onStatus?.(ctx.tt(`考点已展开 ${done}/${chapters.length}`, `Topics expanded ${done}/${chapters.length}`));
+    return res.topic;
+  });
+
+  const clean = topics.filter(Boolean);
+  if (!clean.length) {
+    throw new GenerationError(
+      ctx.tt(
+        "AI 没能把这些章节展开成考点，可以少勾几章再试，或补一份目录/讲义资料。",
+        "AI could not expand these chapters into topics. Select fewer chapters, or add a syllabus/outline material."
+      ),
+      "SYLLABUS_EMPTY"
+    );
+  }
+  const summary = textbook
+    ? ctx.tt(`按《${textbook}》的 ${clean.length} 个章节整理`, `From ${clean.length} chapters of "${textbook}"`)
+    : "";
+  return { result: { summary, topics: clean }, meta: { source: "ai" as const } };
+}
+
 /* ---------------- 计划生成：日历分段 -> 并发排程 -> 补缺 ---------------- */
 
 async function generatePlan(payload: Record<string, unknown>, ctx: CallContext) {
@@ -614,7 +681,8 @@ export async function runGeneration<T = any>(
   const tt = (zh: string, en: string) => (isZh ? zh : en);
   const { signal, abort } = linkSignal(opts.signal);
   // 长计划由多段小调用拼成：给整体留足时间，单段仍受函数内 48 秒预算约束
-  const deadlineMs = opts.deadlineMs ?? (mode === "plan" ? 900_000 : mode === "syllabus" ? 420_000 : 90_000);
+  const deadlineMs =
+    opts.deadlineMs ?? (mode === "plan" ? 900_000 : mode === "syllabus" || mode === "textbook-topics" ? 420_000 : 90_000);
   const ctx: CallContext = {
     lang: isZh ? "zh" : "en",
     tt,
@@ -625,6 +693,8 @@ export async function runGeneration<T = any>(
 
   try {
     if (mode === "syllabus") return (await generateSyllabus(payload, ctx)) as unknown as { result: T; meta?: AiResponseMeta };
+    if (mode === "textbook-toc") return (await generateTextbookToc(payload, ctx)) as unknown as { result: T; meta?: AiResponseMeta };
+    if (mode === "textbook-topics") return (await generateTextbookTopics(payload, ctx)) as unknown as { result: T; meta?: AiResponseMeta };
     if (mode === "plan") return (await generatePlan(payload, ctx)) as unknown as { result: T; meta?: AiResponseMeta };
     return (await generateRebalance(payload, ctx)) as unknown as { result: T; meta?: AiResponseMeta };
   } catch (error: any) {
