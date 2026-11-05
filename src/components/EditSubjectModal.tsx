@@ -4,6 +4,7 @@ import { ModalShell } from "./ModalShell";
 import { ExamStudyPlan } from "../types";
 import { useI18n } from "../lib/i18n";
 import { daysBetween, toLocalDateString } from "../lib/date";
+import { PAGE_ICON_CHOICES, autoPageIcon } from "../lib/pageIcon";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}$/;
@@ -11,6 +12,8 @@ const TIME_RE = /^\d{2}:\d{2}$/;
 export interface ExamDraft {
   examName: string;
   subject: string;
+  /** 页面图标（一个 emoji）；空串表示「跟着学科自动配」 */
+  icon: string;
   examDate: string;
   examTime: string;
   target: string;
@@ -20,6 +23,7 @@ export function toExamDraft(plan: ExamStudyPlan): ExamDraft {
   return {
     examName: plan.examName || "",
     subject: plan.subject || "",
+    icon: plan.icon || "",
     examDate: plan.examDate || "",
     examTime: plan.examTime || "09:00",
     target: plan.preferences?.targetScoreOrGrade || "",
@@ -81,10 +85,13 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
       );
       return;
     }
-    onSave({ ...draft, examName: draft.examName.trim(), subject: draft.subject.trim(), examDate, examTime, target: draft.target.trim() });
+    onSave({ ...draft, examName: draft.examName.trim(), subject: draft.subject.trim(), icon: draft.icon.trim(), examDate, examTime, target: draft.target.trim() });
   };
 
   const labelCls = "ui-field-label";
+
+  // 图标留空时的实际取值：跟着草稿里的学科与名称实时变，保存前就能看到页头会显示什么。
+  const autoIcon = autoPageIcon(draft.subject, draft.examName);
 
   return (
     <ModalShell
@@ -107,6 +114,41 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
       }
     >
       <div className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+        <div className="min-w-0 sm:col-span-2">
+          <span className={labelCls}>{isZh ? "页面图标" : "Page icon"}</span>
+          {/* 和 Notion 一样：图标是一串无框小格子，选中才垫底色，取消选中就交回自动配。 */}
+          <div className="flex flex-wrap gap-1">
+            {PAGE_ICON_CHOICES.map((emoji) => {
+              const selected = draft.icon === emoji;
+              return (
+                <button
+                  key={emoji}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => patch("icon", selected ? "" : emoji)}
+                  className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border text-[18px] leading-none transition-colors ${
+                    selected
+                      ? "border-[#cfc9c0] bg-[#f1efe9]"
+                      : "border-transparent hover:bg-[#f1efe9]"
+                  }`}
+                  title={isZh ? `用 ${emoji} 作页面图标` : `Use ${emoji} as the page icon`}
+                >
+                  {emoji}
+                </button>
+              );
+            })}
+          </div>
+          <span className="mt-1.5 block ui-row-meta">
+            {draft.icon
+              ? isZh
+                ? `已选 ${draft.icon}，再点一次交回自动配。`
+                : `${draft.icon} selected. Click it again to go back to auto.`
+              : isZh
+                ? `不选就按学科自动配，当前是 ${autoIcon}。`
+                : `Leave unset and it follows the subject — currently ${autoIcon}.`}
+          </span>
+        </div>
+
         <label className="block min-w-0 sm:col-span-2">
           <span className={labelCls}>{isZh ? "科目名称" : "Exam title"}</span>
           <input

@@ -10,13 +10,13 @@ import type { FocusTarget } from "../lib/inbound";
 import { useI18n } from "../lib/i18n";
 import { toLocalDateString } from "../lib/date";
 import { SectionBlock } from "./SectionBlock";
+import { PageIconGlyph } from "./PageIconGlyph";
 import { EditSubjectModal, type ExamDraft } from "./EditSubjectModal";
 import { PhaseRoadmapSection } from "./PhaseRoadmapSection";
 import { TopicMasterySection } from "./TopicMasterySection";
 import { RebalanceSection } from "./RebalanceSection";
 import { CourseKnowledgeHub } from "./CourseKnowledgeHub";
 import { PracticeReceiptCard } from "./PracticeReceiptCard";
-import { getPaletteByString } from "../lib/themePalettes";
 
 interface CourseDetailPageProps {
   plan: ExamStudyPlan;
@@ -99,9 +99,7 @@ export function CourseDetailPage({
     return () => clearInterval(interval);
   }, [plan?.examDate, plan?.examTime]);
 
-  const palette = useMemo(() => getPaletteByString(plan.id || plan.examName), [plan.id, plan.examName]);
-
-  // 倒计时收进页头事实条：一行文字，不再挂一块黑色翻页钟。
+  // 倒计时收进页头属性行：一行文字，不再挂一块黑色翻页钟。
   const countdownText = useMemo(() => {
     if (!plan.examDate) return isZh ? "未设定" : "Not set";
     const pad = (value: number) => String(value).padStart(2, "0");
@@ -110,6 +108,12 @@ export function CourseDetailPage({
     const clock = `${pad(countdown.hours)}:${pad(countdown.minutes)}:${pad(countdown.seconds)}`;
     return isZh ? `${countdown.days} 天 ${clock}` : `${countdown.days}d ${clock}`;
   }, [countdown, plan.examDate, isZh]);
+
+  // 日期和时间合成一条属性：属性行按「事实」分行，不按录入字段分行。
+  const examWhenText = useMemo(() => {
+    if (!plan.examDate) return notSet(isZh);
+    return `${plan.examDate} ${plan.examTime || "09:00"}`;
+  }, [plan.examDate, plan.examTime, isZh]);
 
   const stats = useMemo(() => {
     const completedCount = plan.tasks.filter((task) => task.status === "completed").length;
@@ -168,6 +172,7 @@ export function CourseDetailPage({
       ...plan,
       examName: draft.examName,
       subject: draft.subject || plan.subject,
+      icon: draft.icon,
       examDate: draft.examDate,
       examTime: draft.examTime,
       preferences: {
@@ -209,28 +214,25 @@ export function CourseDetailPage({
           {isZh ? "科目" : "Subjects"}
         </button>
 
-        <header className="space-y-3">
-          {/* Notion 式页头：页面图标 → 大标题 → 一行行内属性，动作是无框文字按钮，不再用色块胶囊开场。 */}
-          <div className="flex items-start justify-between gap-4">
-            <span
-              className="mt-0.5 h-8 w-8 shrink-0 rounded-md"
-              style={{ backgroundColor: palette.accentColor }}
-              aria-hidden="true"
-            />
-            <button onClick={() => setEditOpen(true)} className="ui-btn-text shrink-0">
+        <header className="group">
+          {/* Notion 三段：页面图标 → 文档标题 → 一行属性。动作是 hover 才现身的小字，
+              不再有色块、右上角孤立按钮；日期和时间合成一条属性，四对正好一行。 */}
+          <div className="mb-1 h-6 transition-opacity focus-within:opacity-100 md:opacity-0 md:group-hover:opacity-100">
+            <button onClick={() => setEditOpen(true)} className="ui-btn-text -ml-2">
               <Pencil className="w-3.5 h-3.5" />
               {t("edit")}
             </button>
           </div>
 
-          <h1 className="ui-page-title -mt-1 leading-tight break-words">{plan.examName}</h1>
+          <PageIconGlyph plan={plan} className="ui-page-icon" />
 
-          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1.5">
+          <h1 className="ui-doc-title mt-2 break-words">{plan.examName}</h1>
+
+          <div className="mt-2.5 flex flex-wrap items-baseline gap-x-5 gap-y-1.5">
             <PropItem label={isZh ? "学科" : "Subject"} value={plan.subject || notSet(isZh)} muted={!plan.subject} />
-            <PropItem label={isZh ? "考试日期" : "Exam date"} value={plan.examDate || notSet(isZh)} muted={!plan.examDate} />
             <PropItem
-              label={isZh ? "考试时间" : "Exam time"}
-              value={plan.examDate ? plan.examTime || "09:00" : notSet(isZh)}
+              label={isZh ? "考试" : "Exam"}
+              value={examWhenText}
               muted={!plan.examDate}
             />
             <PropItem
@@ -408,12 +410,12 @@ export function CourseDetailPage({
   );
 }
 
-/** Notion 式行内属性：12 的灰标签紧跟 12 的取值，成对排在同一行，不再各占一格。 */
+/** 文档页头的属性项：13 的浅标签紧跟同一档取值，成对排在一条线上（ui-prop-*）。 */
 function PropItem({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   return (
     <span className="flex min-w-0 items-baseline gap-1.5">
-      <span className="ui-row-meta shrink-0">{label}</span>
-      <span className={muted ? "ui-row-value-empty truncate" : "ui-row-value truncate tabular-nums"}>{value}</span>
+      <span className="ui-prop-label shrink-0">{label}</span>
+      <span className={muted ? "ui-prop-empty truncate" : "ui-prop-value truncate"}>{value}</span>
     </span>
   );
 }

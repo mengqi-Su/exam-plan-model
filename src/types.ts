@@ -139,6 +139,11 @@ export interface ExamStudyPlan {
   updatedAt: string;
   examName: string;
   subject: string;
+  /**
+   * Notion 式页面图标（一个 emoji）。留空则按学科关键词自动配，见 lib/pageIcon。
+   * 它是「这份科目文档」的身份标记：侧栏、总览卡、页头都取同一个值。
+   */
+  icon?: string;
   examDate: string;
   examTime?: string;
   startDate: string;

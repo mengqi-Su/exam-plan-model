@@ -111,10 +111,29 @@
   .ui-page-title {
     @apply text-2xl font-semibold tracking-tight text-[#1c1b1a];
   }
+  /* 文档页头（Notion 三段：页面图标 → 文档标题 → 属性行）。
+     文档标题只用于「打开一份科目文档」的那一页，其余页面仍是 ui-page-title 24；
+     图标是科目身份标记，侧栏 / 总览卡 / 页头共用 planIcon。 */
+  .ui-doc-title {
+    @apply text-[26px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1c1b1a] sm:text-[32px];
+  }
+  .ui-page-icon {
+    @apply select-none text-[38px] leading-none sm:text-[46px];
+  }
+  /* 属性行成对出现，走 13 档：标签浅、取值实，未填的取值比标签更浅。 */
+  .ui-prop-label {
+    @apply text-[13px] font-normal text-[#8a8580];
+  }
+  .ui-prop-value {
+    @apply text-[13px] font-medium tabular-nums text-[#1c1b1a];
+  }
+  .ui-prop-empty {
+    @apply text-[13px] font-normal text-[#a39e97];
+  }
   .ui-section-title {
     @apply text-[15px] font-semibold tracking-tight text-[#1c1b1a];
   }
-  /* 一把标尺，和 StarQuiz 同一规格：页面/数字 24 › 段 15 › 组 13.5 › 子组·行·说明 13 › 元信息 12 › 胶囊 11 › 徽标 10。
+  /* 一把标尺，和 StarQuiz 同一规格：文档 32 › 页面/数字 24 › 段 15 › 组 13.5 › 子组·行·属性 13 › 元信息 12 › 胶囊 11 › 徽标 10。
      嵌套深度由缩进、字重、颜色和分组底色表达；不再用 0.5px 的字号差冒充层级。
      12 层成对出现：ui-row-meta 是标签，ui-row-value 是紧跟其后的取值。 */
   .ui-group-title {
@@ -131,10 +150,6 @@
   }
   .ui-row-value {
     @apply text-[12px] font-medium tabular-nums text-[#1c1b1a];
-  }
-  /* 属性没填时的占位取值：和标签同一档灰，避免「未设定」看起来像真数据。 */
-  .ui-row-value-empty {
-    @apply text-[12px] font-medium text-[#a39e97];
   }
   .ui-note {
     @apply text-[13px] font-normal leading-relaxed text-[#6b6660];

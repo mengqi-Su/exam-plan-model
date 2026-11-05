@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { AppTab, ExamStudyPlan } from "../types";
 import { useI18n } from "../lib/i18n";
-import { getPaletteByIndex } from "../lib/themePalettes";
+import { PageIconGlyph } from "./PageIconGlyph";
 
 interface NotionSidebarProps {
   isOpen: boolean;
@@ -111,9 +111,8 @@ export function NotionSidebar({
           <span className="ui-chip tabular-nums">{plans.length}</span>
         </div>
 
-        {plans.map((p, idx) => {
+        {plans.map((p) => {
           const isActivePlan = activePlan?.id === p.id && currentTab === "course";
-          const palette = getPaletteByIndex(idx);
 
           return (
             <div
@@ -129,10 +128,8 @@ export function NotionSidebar({
                 }}
                 className="flex-1 flex items-center gap-2.5 px-2.5 py-2 text-left truncate cursor-pointer min-w-0 rounded-lg"
               >
-                <span
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: palette.accentColor }}
-                />
+                {/* 科目身份在侧栏就是页面图标，和详情页页头取同一个值，不再另配一套色点。 */}
+                <PageIconGlyph plan={p} className="w-4 text-center text-[13px]" />
                 <span className={`flex-1 truncate text-[13px] ${isActivePlan ? "font-medium text-[#1c1b1a]" : "text-[#6b6660]"}`}>
                   {p.examName}
                 </span>

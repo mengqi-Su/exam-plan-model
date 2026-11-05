@@ -17,6 +17,7 @@ import { useI18n } from "../lib/i18n";
 import { getPaletteByIndex } from "../lib/themePalettes";
 import { getDailyMemos } from "../lib/storage";
 import { DailyMoodMemoPad } from "./DailyMoodMemoPad";
+import { PageIconGlyph } from "./PageIconGlyph";
 import { parseLocalDate, toLocalDateString } from "../lib/date";
 
 interface MasterCalendarViewProps {
@@ -465,7 +466,6 @@ export function MasterCalendarView({
               <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
                 {activeDayTasks.map(({ task, plan }) => {
                   const isCompleted = task.status === "completed";
-                  const coursePalette = getPlanPalette(plan.id);
 
                   return (
                     <div
@@ -492,10 +492,8 @@ export function MasterCalendarView({
                         <div className="min-w-0 flex-1 space-y-1">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className="inline-flex items-center gap-1 rounded-full bg-[#f1efe9] px-2 py-0.5 text-[10px] font-medium text-[#6b6660] truncate max-w-[140px]">
-                              <span
-                                className="w-1.5 h-1.5 rounded-full shrink-0"
-                                style={{ backgroundColor: coursePalette.accentColor }}
-                              />
+                              {/* 点名科目就用页面图标，和侧栏 / 总览 / 页头一致；日历格里的色点留给任务色标。 */}
+                              <PageIconGlyph plan={plan} className="text-[10px]" />
                               <span className="truncate">{plan.examName}</span>
                             </span>
                             <span className="text-[10px] text-[#8a8580] flex items-center gap-0.5 tabular-nums">

@@ -8,7 +8,7 @@ import {
   Plus,
 } from "lucide-react";
 import { AppTab, ExamStudyPlan } from "../types";
-import { getPaletteByIndex } from "../lib/themePalettes";
+import { PageIconGlyph } from "./PageIconGlyph";
 
 interface CourseAccordionGalleryProps {
   plans: ExamStudyPlan[];
@@ -92,9 +92,8 @@ export function CourseAccordionGallery({
         className="hidden md:flex w-full h-[400px] gap-3 overflow-hidden items-stretch"
         onMouseLeave={() => setActiveHoverId(null)}
       >
-        {plans.map((plan, idx) => {
+        {plans.map((plan) => {
           const isExpanded = effectiveExpandedId === plan.id;
-          const palette = getPaletteByIndex(idx);
           const completedCount = plan.tasks.filter((t) => t.status === "completed").length;
           const totalCount = plan.tasks.length;
           const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
@@ -134,25 +133,23 @@ export function CourseAccordionGallery({
                   : "border-[#eae7e1] p-3 items-center justify-between hover:border-[#ddd8d0]"
               }`}
             >
-              <span
-                className="absolute left-0 top-0 h-full w-[3px]"
-                style={{ backgroundColor: palette.accentColor }}
-                aria-hidden="true"
-              />
-
               {isExpanded ? (
-                <div className="flex flex-col justify-between h-full w-full space-y-4 pl-1.5">
+                <div className="flex flex-col justify-between h-full w-full space-y-4">
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-3">
-                      <h3
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          enterCourse(plan.id);
-                        }}
-                        className="text-lg font-semibold text-[#1c1b1a] hover:underline cursor-pointer tracking-tight leading-snug line-clamp-2"
-                      >
-                        {plan.examName}
-                      </h3>
+                      {/* 科目身份就是页面图标，与详情页页头、侧栏取同一个值；不再靠一根色条区分。 */}
+                      <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                        <PageIconGlyph plan={plan} className="mt-[3px] text-[20px]" />
+                        <h3
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            enterCourse(plan.id);
+                          }}
+                          className="min-w-0 text-lg font-semibold text-[#1c1b1a] hover:underline cursor-pointer tracking-tight leading-snug line-clamp-2"
+                        >
+                          {plan.examName}
+                        </h3>
+                      </div>
                       {daysLeft !== null && (
                         <span className="ui-chip shrink-0 tabular-nums">
                           {daysLeft <= 0 ? (isZh ? "今天考试" : "Today") : `D-${daysLeft}`}
@@ -213,7 +210,8 @@ export function CourseAccordionGallery({
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-between h-full w-full py-2">
-                  <div className="flex-1 flex items-center justify-center overflow-hidden">
+                  <PageIconGlyph plan={plan} className="text-[17px]" />
+                  <div className="flex-1 flex items-center justify-center overflow-hidden pt-2">
                     <span className="text-[12px] font-medium text-[#6b6660] whitespace-nowrap rotate-90 origin-center max-w-[220px] truncate">
                       {plan.examName}
                     </span>
@@ -334,9 +332,8 @@ export function CourseAccordionGallery({
           </div>
         )}
 
-        {plans.map((plan, idx) => {
+        {plans.map((plan) => {
           const isExpanded = effectiveExpandedId === plan.id;
-          const palette = getPaletteByIndex(idx);
           const completedCount = plan.tasks.filter((t) => t.status === "completed").length;
           const totalCount = plan.tasks.length;
           const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
@@ -362,11 +359,7 @@ export function CourseAccordionGallery({
                 className="p-4 flex items-center justify-between gap-3 cursor-pointer"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: palette.accentColor }}
-                    aria-hidden="true"
-                  />
+                  <PageIconGlyph plan={plan} className="text-[18px]" />
                   <div className="min-w-0">
                     <h4 className="text-[14px] font-semibold text-[#1c1b1a] truncate">{plan.examName}</h4>
                     <span className="text-[12px] ui-muted block mt-0.5 truncate">
