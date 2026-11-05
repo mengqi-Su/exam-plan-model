@@ -168,6 +168,10 @@
   .ui-chip {
     @apply inline-flex items-center rounded-full bg-[#f1efe9] px-2.5 py-0.5 text-[11px] font-medium text-[#6b6660];
   }
+  /* 表单控件统一规格：字重与行文字同层（13px/400），边框比卡片再浅一档，聚焦才加深。 */
+  .ui-field {
+    @apply w-full rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] text-[#1c1b1a] outline-none transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97];
+  }
 }
 
 .editorial-border {

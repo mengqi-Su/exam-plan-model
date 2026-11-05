@@ -1,18 +1,22 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
-  ArrowRight,
   Calendar,
+  CheckCircle2,
   ChevronDown,
   Clock,
-  Sun,
+  Pencil,
   Target,
 } from "lucide-react";
 import { ExamStudyPlan, PracticeEvent } from "../types";
 import type { FocusTarget } from "../lib/inbound";
 import { useI18n } from "../lib/i18n";
+import { toLocalDateString } from "../lib/date";
 import { FlipCountdown } from "./FlipCountdown";
-import { RealTimeManager } from "./RealTimeManager";
+import { SectionBlock } from "./SectionBlock";
+import { PhaseRoadmapSection } from "./PhaseRoadmapSection";
+import { TopicMasterySection } from "./TopicMasterySection";
+import { RebalanceSection } from "./RebalanceSection";
 import { CourseKnowledgeHub } from "./CourseKnowledgeHub";
 import { PracticeReceiptCard } from "./PracticeReceiptCard";
 import { getPaletteByString } from "../lib/themePalettes";
@@ -32,6 +36,17 @@ interface CourseDetailPageProps {
   onDismissReceipt?: (attemptId: string) => void;
 }
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^\d{2}:\d{2}$/;
+
+interface ExamForm {
+  examName: string;
+  subject: string;
+  examDate: string;
+  examTime: string;
+  target: string;
+}
+
 export function CourseDetailPage({
   plan,
   onUpdatePlan,
@@ -43,11 +58,16 @@ export function CourseDetailPage({
   onLocateReceipt,
   onDismissReceipt,
 }: CourseDetailPageProps) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const isZh = language === "zh";
 
   // Secondary reference detail is disclosed on demand; progress stays primary.
   const [showKnowledge, setShowKnowledge] = useState(false);
+
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<ExamForm>(() => toForm(plan));
+  const [formError, setFormError] = useState<string | null>(null);
+  const [scheduleNotice, setScheduleNotice] = useState<string | null>(null);
 
   const activeFocus = focusTarget && focusTarget.planId === plan.id ? focusTarget : null;
 
@@ -55,6 +75,14 @@ export function CourseDetailPage({
   useEffect(() => {
     if (activeFocus) setShowKnowledge(true);
   }, [activeFocus?.planId, activeFocus?.topicId, activeFocus?.subtopicTitle, focusNonce]);
+
+  // 切换科目时丢掉上一份草稿，编辑表单始终跟着当前计划
+  useEffect(() => {
+    setEditing(false);
+    setFormError(null);
+    setScheduleNotice(null);
+    setForm(toForm(plan));
+  }, [plan.id]);
 
   const [countdown, setCountdown] = useState({
     days: 0,
@@ -88,9 +116,7 @@ export function CourseDetailPage({
     return () => clearInterval(interval);
   }, [plan?.examDate, plan?.examTime]);
 
-  const palette = useMemo(() => {
-    return getPaletteByString(plan.id || plan.examName);
-  }, [plan.id, plan.examName]);
+  const palette = useMemo(() => getPaletteByString(plan.id || plan.examName), [plan.id, plan.examName]);
 
   const stats = useMemo(() => {
     const completedCount = plan.tasks.filter((task) => task.status === "completed").length;
@@ -112,6 +138,92 @@ export function CourseDetailPage({
       topicsCount: plan.topics?.length || 0,
     };
   }, [plan.tasks, plan.materials, plan.topics]);
+
+  const todayStr = useMemo(() => toLocalDateString(), []);
+
+  // 本页只列今天的任务；执行与勾选仍然只有「今日」一处。
+  const todayTasks = useMemo(
+    () =>
+      plan.tasks
+        .filter((task) => task.date === todayStr)
+        .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || "")),
+    [plan.tasks, todayStr]
+  );
+
+  const nextBatch = useMemo(() => {
+    const upcoming = plan.tasks
+      .filter((task) => task.date > todayStr && task.status !== "completed" && task.status !== "skipped")
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (upcoming.length === 0) return null;
+    return { date: upcoming[0].date, count: upcoming.filter((task) => task.date === upcoming[0].date).length };
+  }, [plan.tasks, todayStr]);
+
+  const emptyTodayLine = (() => {
+    if (stats.totalCount === 0) return isZh ? "这份计划还没有排任务。" : "This plan has no tasks scheduled yet.";
+    if (nextBatch) {
+      return isZh
+        ? `今天没有安排任务，下一批在 ${nextBatch.date}（${nextBatch.count} 项）。`
+        : `Nothing today. Next batch is ${nextBatch.date} (${nextBatch.count} tasks).`;
+    }
+    return isZh ? "今天没有安排任务，后面也没有排任务。" : "Nothing scheduled today or later.";
+  })();
+
+  const handleSaveExam = () => {
+    const examDate = form.examDate.trim();
+    const examTime = form.examTime.trim() || "09:00";
+    if (!form.examName.trim()) {
+      setFormError(isZh ? "请填写科目名称。" : "Exam title is required.");
+      return;
+    }
+    if (!DATE_RE.test(examDate)) {
+      setFormError(isZh ? "考试日期格式应为 2026-12-20。" : "Exam date must look like 2026-12-20.");
+      return;
+    }
+    if (!TIME_RE.test(examTime)) {
+      setFormError(isZh ? "考试时间格式应为 09:00。" : "Exam time must look like 09:00.");
+      return;
+    }
+    if (plan.startDate && examDate < plan.startDate) {
+      setFormError(
+        isZh
+          ? `考试日期不能早于计划开始日期（${plan.startDate}）。`
+          : `Exam date cannot be earlier than the plan start date (${plan.startDate}).`
+      );
+      return;
+    }
+
+    const examName = form.examName.trim();
+    const subject = form.subject.trim() || plan.subject;
+    const target = form.target.trim();
+    const dateChanged = examDate !== plan.examDate;
+
+    onUpdatePlan({
+      ...plan,
+      examName,
+      subject,
+      examDate,
+      examTime,
+      preferences: { ...plan.preferences, examName, subject, examDate, examTime, targetScoreOrGrade: target },
+      updatedAt: new Date().toISOString(),
+    });
+
+    setEditing(false);
+    setFormError(null);
+    if (dateChanged) {
+      const stranded = plan.tasks.filter(
+        (task) => task.date > examDate && task.status !== "completed" && task.status !== "skipped"
+      ).length;
+      setScheduleNotice(
+        stranded > 0
+          ? isZh
+            ? `考试日期已改到 ${examDate}，仍有 ${stranded} 项任务排在它之后，可在下方「计划动态重排」重新平摊。`
+            : `Exam moved to ${examDate}, but ${stranded} tasks fall after it. Use Adaptive rebalance below.`
+          : isZh
+            ? `考试日期已更新为 ${examDate} ${examTime}。`
+            : `Exam date updated to ${examDate} ${examTime}.`
+      );
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-[#f8f7f4] text-[#1c1b1a] pb-20 animate-fadeIn">
@@ -137,23 +249,116 @@ export function CourseDetailPage({
 
             <h1 className="ui-page-title leading-tight">{plan.examName}</h1>
 
-            {plan.examDate && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 ui-row-meta pt-0.5">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 ui-row-meta pt-0.5">
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="w-4 h-4" />
+                <span className="ui-row-title tabular-nums">
+                  {plan.examDate} {plan.examTime || "09:00"}
+                </span>
+              </span>
+              {plan.preferences?.targetScoreOrGrade && (
                 <span className="inline-flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4" />
-                  <span className="ui-row-title tabular-nums">
-                    {plan.examDate} {plan.examTime || "09:00"}
+                  <Target className="w-4 h-4" />
+                  <span>
+                    {isZh ? "目标" : "Target"}{" "}
+                    <b className="ui-row-value">{plan.preferences.targetScoreOrGrade}</b>
                   </span>
                 </span>
-                {plan.preferences?.targetScoreOrGrade && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Target className="w-4 h-4" />
-                    <span>
-                      {isZh ? "目标" : "Target"}{" "}
-                      <b className="ui-row-value">{plan.preferences.targetScoreOrGrade}</b>
-                    </span>
+              )}
+              <button
+                onClick={() => {
+                  setForm(toForm(plan));
+                  setFormError(null);
+                  setEditing((prev) => !prev);
+                }}
+                aria-expanded={editing}
+                className="inline-flex items-center gap-1 ui-row-meta hover:text-[#1c1b1a] transition-colors cursor-pointer"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span className="font-medium">{editing ? (isZh ? "收起" : "Close") : t("edit")}</span>
+              </button>
+            </div>
+
+            {scheduleNotice && (
+              <div className="flex items-start justify-between gap-3 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-3.5 py-2.5 text-[12px] text-[#8A5A00] animate-fadeIn">
+                <span className="leading-relaxed">{scheduleNotice}</span>
+                <button
+                  onClick={() => setScheduleNotice(null)}
+                  className="shrink-0 font-medium underline underline-offset-2 cursor-pointer"
+                >
+                  {isZh ? "知道了" : "Dismiss"}
+                </button>
+              </div>
+            )}
+
+            {editing && (
+              <div className="ui-card p-4 sm:p-5 space-y-4 animate-fadeIn">
+                <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
+                  <label className="block min-w-0">
+                    <span className="ui-row-meta">{isZh ? "科目名称" : "Exam title"}</span>
+                    <input
+                      value={form.examName}
+                      onChange={(e) => setForm({ ...form, examName: e.target.value })}
+                      className="ui-field mt-1.5"
+                    />
+                  </label>
+                  <label className="block min-w-0">
+                    <span className="ui-row-meta">{isZh ? "学科" : "Subject"}</span>
+                    <input
+                      value={form.subject}
+                      onChange={(e) => setForm({ ...form, subject: e.target.value })}
+                      className="ui-field mt-1.5"
+                    />
+                  </label>
+                  <label className="block min-w-0">
+                    <span className="ui-row-meta">{isZh ? "考试日期" : "Exam date"}</span>
+                    <input
+                      type="date"
+                      value={form.examDate}
+                      onChange={(e) => setForm({ ...form, examDate: e.target.value })}
+                      className="ui-field mt-1.5 tabular-nums"
+                    />
+                  </label>
+                  <label className="block min-w-0">
+                    <span className="ui-row-meta">{isZh ? "考试时间" : "Exam time"}</span>
+                    <input
+                      type="time"
+                      value={form.examTime}
+                      onChange={(e) => setForm({ ...form, examTime: e.target.value })}
+                      className="ui-field mt-1.5 tabular-nums"
+                    />
+                  </label>
+                  <label className="block min-w-0 sm:col-span-2">
+                    <span className="ui-row-meta">{isZh ? "目标分数或等级（可选）" : "Target score or grade (optional)"}</span>
+                    <input
+                      value={form.target}
+                      onChange={(e) => setForm({ ...form, target: e.target.value })}
+                      placeholder={isZh ? "例如：90 分 / 优秀" : "e.g. 90 / A"}
+                      className="ui-field mt-1.5"
+                    />
+                  </label>
+                </div>
+
+                {formError && <p className="text-[12px] text-[#B42318]">{formError}</p>}
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button onClick={handleSaveExam} className="ui-btn ui-btn-primary px-3.5 py-1.5 text-[12px]">
+                    {isZh ? "保存" : "Save"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditing(false);
+                      setFormError(null);
+                      setForm(toForm(plan));
+                    }}
+                    className="ui-btn ui-btn-ghost px-3 py-1.5 text-[12px]"
+                  >
+                    {t("cancel")}
+                  </button>
+                  <span className="ui-row-meta">
+                    {isZh ? "只改考试信息，已生成的任务不会被重写。" : "Only exam info changes; tasks stay as scheduled."}
                   </span>
-                )}
+                </div>
               </div>
             )}
           </div>
@@ -176,112 +381,157 @@ export function CourseDetailPage({
         </header>
       </div>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-8">
-        {/* 数字只用标尺上的 stat 层：进度与投入并成一张条卡。
-            剩余天数由页头倒计时负责、资料/考点数由知识区胶囊负责，各自只出现一次。 */}
-        <section className="ui-card px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:gap-0 gap-4">
-          <div className="sm:flex-1 sm:pr-6 sm:border-r sm:border-[#f0ede8] min-w-0">
-            <span className="ui-row-meta">{isZh ? "任务进度" : "Task progress"}</span>
-            <div className="mt-1.5 flex items-baseline gap-2">
-              <span className="ui-stat-value">{stats.progressPercent}%</span>
-              <span className="ui-row-meta tabular-nums">
-                {stats.completedCount}/{stats.totalCount}
+      <main className="max-w-6xl mx-auto px-4 sm:px-8">
+        {/* 段落靠左标栏 + 发丝分隔线排布；白卡只留给内容，不再一块块等宽平铺。 */}
+        <div className="border-t border-[#eeece6] divide-y divide-[#eeece6]">
+          <SectionBlock
+            title={isZh ? "今日任务" : "Today"}
+            hint={todayStr}
+            aside={
+              <span className="ui-chip tabular-nums">
+                {todayTasks.filter((task) => task.status === "completed").length}/{todayTasks.length}
               </span>
-            </div>
-            <div className="mt-2.5 h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
-              <div
-                className="h-full rounded-full bg-[#1c1b1a] transition-all duration-300"
-                style={{ width: `${stats.progressPercent}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="sm:flex-1 sm:pl-6 min-w-0">
-            <span className="ui-row-meta">{isZh ? "学习投入" : "Time invested"}</span>
-            <div className="mt-1.5 flex items-baseline gap-1.5">
-              <span className="ui-stat-value">{stats.investedHours}</span>
-              <span className="ui-row-meta tabular-nums">
-                / {stats.plannedHours} {isZh ? "小时" : "hrs"}
-              </span>
-            </div>
-            <div className="mt-2.5 h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
-              <div
-                className="h-full rounded-full bg-[#cfc9c0] transition-all duration-300"
-                style={{
-                  width: `${
-                    stats.plannedHours > 0
-                      ? Math.min(100, Math.round((stats.investedHours / stats.plannedHours) * 100))
-                      : 0
-                  }%`,
-                }}
-              />
-            </div>
-          </div>
-        </section>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-[#eae7e1] bg-white px-4 py-3">
-          <div className="flex items-start gap-2.5 ui-note">
-            <Sun className="w-4 h-4 shrink-0 text-[#8a8580] mt-0.5" />
-            <span>
-              {isZh
-                ? "每日任务只在「今日」执行与勾选，本页专注于进度、阶段与课程资料。"
-                : "Daily tasks are executed in Today. This page focuses on progress, phases and course materials."}
-            </span>
-          </div>
-          <button
-            onClick={() => onNavigateToTab("today")}
-            className="ui-btn ui-btn-primary shrink-0 px-3.5 py-1.5 text-[12px]"
+            }
           >
-            <span>{isZh ? "前往今日" : "Open Today"}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+            {todayTasks.length > 0 ? (
+              <ul className="ui-card divide-y divide-[#f0ede8] overflow-hidden">
+                {todayTasks.map((task) => {
+                  const done = task.status === "completed";
+                  return (
+                    <li key={task.id} className="flex items-start gap-3 px-4 sm:px-5 py-3.5">
+                      <span className="mt-[3px] w-[46px] shrink-0 ui-row-value">{task.startTime || "—"}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className={`ui-row-title ${done ? "text-[#a39e97]" : ""}`}>{task.title}</p>
+                        <p className="mt-1 ui-row-meta truncate">
+                          {task.topicTitle}
+                          {task.durationMinutes ? ` · ${task.durationMinutes} ${isZh ? "分钟" : "min"}` : ""}
+                          {done && ` · ${isZh ? "已完成" : "done"}`}
+                        </p>
+                      </div>
+                      {done && <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-[#3F6B4F]" />}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="ui-note">{emptyTodayLine}</p>
+            )}
+
+            {/* 两个计量挂在今天下面：进度是这套计划的进度，不再单独占一张大卡。 */}
+            <div className="mt-4 ui-card px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:gap-0 gap-4">
+              <div className="sm:flex-1 sm:pr-6 sm:border-r sm:border-[#f0ede8] min-w-0">
+                <span className="ui-row-meta">{isZh ? "任务进度" : "Task progress"}</span>
+                <div className="mt-1.5 flex items-baseline gap-2">
+                  <span className="ui-stat-value">{stats.progressPercent}%</span>
+                  <span className="ui-row-meta tabular-nums">
+                    {stats.completedCount}/{stats.totalCount}
+                  </span>
+                </div>
+                <div className="mt-2.5 h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[#1c1b1a] transition-all duration-300"
+                    style={{ width: `${stats.progressPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="sm:flex-1 sm:pl-6 min-w-0">
+                <span className="ui-row-meta">{isZh ? "学习投入" : "Time invested"}</span>
+                <div className="mt-1.5 flex items-baseline gap-1.5">
+                  <span className="ui-stat-value">{stats.investedHours}</span>
+                  <span className="ui-row-meta tabular-nums">
+                    / {stats.plannedHours} {isZh ? "小时" : "hrs"}
+                  </span>
+                </div>
+                <div className="mt-2.5 h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[#cfc9c0] transition-all duration-300"
+                    style={{
+                      width: `${
+                        stats.plannedHours > 0
+                          ? Math.min(100, Math.round((stats.investedHours / stats.plannedHours) * 100))
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <PracticeReceiptCard
+              events={practiceEvents}
+              onLocate={(event) => onLocateReceipt?.(event)}
+              onDismiss={(attemptId) => onDismissReceipt?.(attemptId)}
+            />
+          </SectionBlock>
+
+          <PhaseRoadmapSection plan={plan} />
+
+          <TopicMasterySection plan={plan} />
+
+          <SectionBlock
+            title={isZh ? "课程资料与考点体系" : "Materials & topics"}
+            hint={
+              <span className="tabular-nums">
+                {stats.materialsCount} {isZh ? "份资料" : "files"} · {stats.topicsCount}{" "}
+                {isZh ? "个考点" : "topics"}
+              </span>
+            }
+            action={
+              <button
+                onClick={() => setShowKnowledge((prev) => !prev)}
+                aria-expanded={showKnowledge}
+                className="inline-flex items-center gap-1 ui-row-meta hover:text-[#1c1b1a] transition-colors cursor-pointer"
+              >
+                <span className="font-medium">
+                  {showKnowledge ? (isZh ? "收起" : "Collapse") : isZh ? "展开" : "Expand"}
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-[#a39e97] transition-transform ${showKnowledge ? "rotate-180" : ""}`}
+                />
+              </button>
+            }
+          >
+            {showKnowledge ? (
+              <div className="ui-card p-4 sm:p-5 animate-fadeIn">
+                <CourseKnowledgeHub
+                  plan={plan}
+                  onUpdatePlan={onUpdatePlan}
+                  onRequestDeleteCourse={onRequestDeletePlan}
+                  focusUnitId={activeFocus?.topicId ?? null}
+                  focusSubtopicTitle={activeFocus?.subtopicTitle ?? ""}
+                  focusNonce={focusNonce}
+                />
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowKnowledge(true)}
+                className="w-full ui-card ui-card-hover px-4 sm:px-5 py-4 text-left flex items-center justify-between gap-3 cursor-pointer"
+              >
+                <span className="ui-note min-w-0 truncate">
+                  {isZh ? "考点树与资料归档" : "Topic tree and material archive"}
+                </span>
+                <span className="ui-row-meta shrink-0">
+                  {isZh ? "展开" : "Expand"}
+                  <ChevronDown className="w-3.5 h-3.5 inline ml-1" />
+                </span>
+              </button>
+            )}
+          </SectionBlock>
+
+          <RebalanceSection plan={plan} onUpdatePlan={onUpdatePlan} />
         </div>
-
-        <PracticeReceiptCard
-          events={practiceEvents}
-          onLocate={(event) => onLocateReceipt?.(event)}
-          onDismiss={(attemptId) => onDismissReceipt?.(attemptId)}
-        />
-
-        <section className="space-y-4">
-          <h2 className="ui-section-title">
-            {isZh ? "进度、阶段与动态重排" : "Progress, phases & rebalance"}
-          </h2>
-          <RealTimeManager plan={plan} onUpdatePlan={onUpdatePlan} />
-        </section>
-
-        <section className="ui-card overflow-hidden">
-          <button
-            onClick={() => setShowKnowledge((prev) => !prev)}
-            aria-expanded={showKnowledge}
-            className="flex w-full items-center justify-between gap-3 px-4 sm:px-5 py-4 text-left hover:bg-[#faf9f6] transition-colors cursor-pointer"
-          >
-            <span className="ui-section-title truncate min-w-0">
-              {isZh ? "课程资料与考点体系" : "Materials & topic tree"}
-            </span>
-            <span className="flex items-center gap-2.5 shrink-0">
-              <span className="hidden sm:inline ui-chip tabular-nums">
-                {stats.materialsCount} {isZh ? "份资料" : "files"} · {stats.topicsCount} {isZh ? "个考点" : "topics"}
-              </span>
-              <ChevronDown
-                className={`w-4 h-4 text-[#a39e97] transition-transform ${showKnowledge ? "rotate-180" : ""}`}
-              />
-            </span>
-          </button>
-          {showKnowledge && (
-            <div className="border-t border-[#f0ede8] p-4 sm:p-5">
-              <CourseKnowledgeHub
-                plan={plan}
-                onUpdatePlan={onUpdatePlan}
-                onRequestDeleteCourse={onRequestDeletePlan}
-                focusUnitId={activeFocus?.topicId ?? null}
-                focusSubtopicTitle={activeFocus?.subtopicTitle ?? ""}
-                focusNonce={focusNonce}
-              />
-            </div>
-          )}
-        </section>
       </main>
     </div>
   );
+}
+
+function toForm(plan: ExamStudyPlan): ExamForm {
+  return {
+    examName: plan.examName || "",
+    subject: plan.subject || "",
+    examDate: plan.examDate || "",
+    examTime: plan.examTime || "09:00",
+    target: plan.preferences?.targetScoreOrGrade || "",
+  };
 }
