@@ -1,57 +1,79 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
-  Calendar,
-  Clock,
-  TrendingUp,
-  BookOpen,
-  X,
-  Sparkles
+  ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  Hourglass,
+  Layers,
+  Pencil,
+  Target,
 } from "lucide-react";
-import { ExamStudyPlan } from "../types";
+import type { LucideIcon } from "lucide-react";
+import { ExamStudyPlan, PracticeEvent } from "../types";
+import type { FocusTarget } from "../lib/inbound";
 import { useI18n } from "../lib/i18n";
-import { FlipCountdown } from "./FlipCountdown";
-import { DailyTodoList } from "./DailyTodoList";
-import { RealTimeManager } from "./RealTimeManager";
+import { toLocalDateString } from "../lib/date";
+import { SectionBlock } from "./SectionBlock";
+import { PageIconGlyph } from "./PageIconGlyph";
+import { PageCover } from "./PageCover";
+import { hasCover } from "../lib/pageCover";
+import { EditSubjectModal, type ExamDraft } from "./EditSubjectModal";
+import { PhaseRoadmapSection } from "./PhaseRoadmapSection";
+import { TopicMasterySection } from "./TopicMasterySection";
+import { RebalanceSection } from "./RebalanceSection";
 import { CourseKnowledgeHub } from "./CourseKnowledgeHub";
-import { getPaletteByString } from "../lib/themePalettes";
+import { PracticeReceiptCard } from "./PracticeReceiptCard";
 
 interface CourseDetailPageProps {
   plan: ExamStudyPlan;
-  plans: ExamStudyPlan[];
   onUpdatePlan: (updatedPlan: ExamStudyPlan) => void;
-  onDeletePlan: (planId: string) => void;
   onRequestDeletePlan?: (plan: ExamStudyPlan) => void;
-  onNavigateToTab: (tab: any, planId?: string) => void;
-  initialDrawer?: "progress" | "syllabus" | null;
+  onNavigateToTab: (tab: "today" | "dashboard" | "master_calendar" | "course" | "settings") => void;
+  /** 回程联动定位到的考点；只有属于当前计划时才展开知识区并滚动 */
+  focusTarget?: FocusTarget | null;
+  /** 同一考点重复点「定位」时用它重新触发滚动 */
+  focusNonce?: number;
+  /** 本机已落盘的练习回执（仅当前计划） */
+  practiceEvents?: PracticeEvent[];
+  onLocateReceipt?: (event: PracticeEvent) => void;
+  onDismissReceipt?: (attemptId: string) => void;
 }
 
 export function CourseDetailPage({
   plan,
-  plans,
   onUpdatePlan,
-  onDeletePlan,
   onRequestDeletePlan,
   onNavigateToTab,
-  initialDrawer = null,
+  focusTarget = null,
+  focusNonce = 0,
+  practiceEvents = [],
+  onLocateReceipt,
+  onDismissReceipt,
 }: CourseDetailPageProps) {
-  const { t, language } = useI18n();
+  const { language, t } = useI18n();
+  const isZh = language === "zh";
 
-  // Drawer state: null, 'progress', or 'syllabus'
-  const [activeDrawer, setActiveDrawer] = useState<"progress" | "syllabus" | null>(initialDrawer);
-  const [isHoveringRightZone, setIsHoveringRightZone] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    return new Date().toISOString().split("T")[0];
-  });
-  const [searchQuery, setSearchQuery] = useState("");
+  // Secondary reference detail is disclosed on demand; progress stays primary.
+  const [showKnowledge, setShowKnowledge] = useState(false);
 
-  // Sync drawer state if initialDrawer changes
+  // 考试信息是低频动作，收进悬浮窗，页头只留身份与事实。
+  const [editOpen, setEditOpen] = useState(false);
+  const [scheduleNotice, setScheduleNotice] = useState<string | null>(null);
+
+  const activeFocus = focusTarget && focusTarget.planId === plan.id ? focusTarget : null;
+
+  // 知识区默认收起，只切到本标签页并不会露出考点树：回程定位必须显式展开
   useEffect(() => {
-    if (initialDrawer) {
-      setActiveDrawer(initialDrawer);
-    }
-  }, [initialDrawer]);
+    if (activeFocus) setShowKnowledge(true);
+  }, [activeFocus?.planId, activeFocus?.topicId, activeFocus?.subtopicTitle, focusNonce]);
 
-  // Exam Countdown calculation
+  // 切换科目时收起上一份草稿与提示，页头事实跟着当前计划
+  useEffect(() => {
+    setEditOpen(false);
+    setScheduleNotice(null);
+  }, [plan.id]);
+
   const [countdown, setCountdown] = useState({
     days: 0,
     hours: 0,
@@ -62,10 +84,10 @@ export function CourseDetailPage({
   useEffect(() => {
     if (!plan?.examDate) return;
     const calculateCountdown = () => {
-      const targetStr = `${plan.examDate}T${plan.examTime || "09:00"}:00`;
-      const target = new Date(targetStr).getTime();
-      const now = new Date().getTime();
-      const diff = target - now;
+      const [y, m, d] = plan.examDate.split("-").map(Number);
+      const [h, min] = (plan.examTime || "09:00").split(":").map(Number);
+      const target = new Date(y, m - 1, d, h, min, 0).getTime();
+      const diff = target - new Date().getTime();
 
       if (diff > 0) {
         setCountdown({
@@ -84,283 +106,387 @@ export function CourseDetailPage({
     return () => clearInterval(interval);
   }, [plan?.examDate, plan?.examTime]);
 
-  const palette = useMemo(() => {
-    return getPaletteByString(plan.id || plan.examName);
-  }, [plan.id, plan.examName]);
+  // 倒计时收进页头属性行：一行文字，不再挂一块黑色翻页钟。
+  const countdownText = useMemo(() => {
+    if (!plan.examDate) return isZh ? "未设定" : "Not set";
+    const pad = (value: number) => String(value).padStart(2, "0");
+    const total = countdown.days * 86400 + countdown.hours * 3600 + countdown.minutes * 60 + countdown.seconds;
+    if (total <= 0) return isZh ? "已到期" : "Passed";
+    const clock = `${pad(countdown.hours)}:${pad(countdown.minutes)}:${pad(countdown.seconds)}`;
+    return isZh ? `${countdown.days} 天 ${clock}` : `${countdown.days}d ${clock}`;
+  }, [countdown, plan.examDate, isZh]);
 
-  const completedCount = useMemo(() => {
-    return plan.tasks.filter((t) => t.status === "completed").length;
-  }, [plan.tasks]);
+  // 日期和时间合成一条属性：属性行按「事实」分行，不按录入字段分行。
+  const examWhenText = useMemo(() => {
+    if (!plan.examDate) return notSet(isZh);
+    return `${plan.examDate} ${plan.examTime || "09:00"}`;
+  }, [plan.examDate, plan.examTime, isZh]);
 
-  const totalCount = plan.tasks.length;
-  const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+  // 有没有封面决定页头怎么排：有就把图标压在带子下沿、编辑挪到右上角，没有就沿用原来的三段。
+  const pageHasCover = hasCover(plan);
 
-  // Escape key closes drawer
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && activeDrawer) {
-        setActiveDrawer(null);
-      }
+  const stats = useMemo(() => {
+    const completedCount = plan.tasks.filter((task) => task.status === "completed").length;
+    const totalCount = plan.tasks.length;
+    const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+    const totalPlannedMinutes = plan.tasks.reduce((sum, task) => sum + (task.durationMinutes || 0), 0);
+    const completedMinutes = plan.tasks
+      .filter((task) => task.status === "completed")
+      .reduce((sum, task) => sum + (task.actualMinutesSpent || task.durationMinutes || 0), 0);
+
+    return {
+      completedCount,
+      totalCount,
+      progressPercent,
+      plannedHours: Math.round((totalPlannedMinutes / 60) * 10) / 10,
+      investedHours: Math.round((completedMinutes / 60) * 10) / 10,
+      materialsCount: plan.materials?.length || 0,
+      topicsCount: plan.topics?.length || 0,
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeDrawer]);
+  }, [plan.tasks, plan.materials, plan.topics]);
+
+  const todayStr = useMemo(() => toLocalDateString(), []);
+
+  // 本页只列今天的任务；执行与勾选仍然只有「今日」一处。
+  const todayTasks = useMemo(
+    () =>
+      plan.tasks
+        .filter((task) => task.date === todayStr)
+        .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || "")),
+    [plan.tasks, todayStr]
+  );
+
+  const nextBatch = useMemo(() => {
+    const upcoming = plan.tasks
+      .filter((task) => task.date > todayStr && task.status !== "completed" && task.status !== "skipped")
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (upcoming.length === 0) return null;
+    return { date: upcoming[0].date, count: upcoming.filter((task) => task.date === upcoming[0].date).length };
+  }, [plan.tasks, todayStr]);
+
+  const emptyTodayLine = (() => {
+    if (stats.totalCount === 0) return isZh ? "这份计划还没有排任务。" : "This plan has no tasks scheduled yet.";
+    if (nextBatch) {
+      return isZh
+        ? `今天没有安排任务，下一批在 ${nextBatch.date}（${nextBatch.count} 项）。`
+        : `Nothing today. Next batch is ${nextBatch.date} (${nextBatch.count} tasks).`;
+    }
+    return isZh ? "今天没有安排任务，后面也没有排任务。" : "Nothing scheduled today or later.";
+  })();
+
+  const handleSaveExam = (draft: ExamDraft) => {
+    const dateChanged = draft.examDate !== plan.examDate;
+
+    onUpdatePlan({
+      ...plan,
+      examName: draft.examName,
+      subject: draft.subject || plan.subject,
+      icon: draft.icon,
+      cover: draft.cover,
+      examDate: draft.examDate,
+      examTime: draft.examTime,
+      preferences: {
+        ...plan.preferences,
+        examName: draft.examName,
+        subject: draft.subject || plan.subject,
+        examDate: draft.examDate,
+        examTime: draft.examTime,
+        targetScoreOrGrade: draft.target,
+      },
+      updatedAt: new Date().toISOString(),
+    });
+
+    setEditOpen(false);
+    if (dateChanged) {
+      const stranded = plan.tasks.filter(
+        (task) => task.date > draft.examDate && task.status !== "completed" && task.status !== "skipped"
+      ).length;
+      setScheduleNotice(
+        stranded > 0
+          ? isZh
+            ? `考试日期已改到 ${draft.examDate}，仍有 ${stranded} 项任务排在它之后，可在下方「计划动态重排」重新平摊。`
+            : `Exam moved to ${draft.examDate}, but ${stranded} tasks fall after it. Use Adaptive rebalance below.`
+          : isZh
+            ? `考试日期已更新为 ${draft.examDate} ${draft.examTime}。`
+            : `Exam date updated to ${draft.examDate} ${draft.examTime}.`
+      );
+    }
+  };
+
+  // 返回和编辑各自全站只有一颗：有封面时浮在封面带上沿的左右角（垫一层半透明白才读得清），
+  // 没封面时退回图标上方那两行常驻小字。按钮本身只在这里定义一次，两个分支只会渲染其中一个。
+  const backButton = (
+    <button
+      onClick={() => onNavigateToTab("dashboard")}
+      className={
+        pageHasCover
+          ? "ui-btn-text ui-cover-chip"
+          : "inline-flex items-center gap-1.5 text-[13px] ui-muted hover:text-[#1c1b1a] transition-colors cursor-pointer mb-4"
+      }
+    >
+      <ArrowLeft className="w-4 h-4" />
+      {isZh ? "科目" : "Subjects"}
+    </button>
+  );
+
+  const editButton = (
+    <button
+      onClick={() => setEditOpen(true)}
+      className={pageHasCover ? "ui-btn-text ui-cover-chip" : "ui-btn-text -ml-2"}
+    >
+      <Pencil className="w-3.5 h-3.5" />
+      {t("edit")}
+    </button>
+  );
 
   return (
-    <div className="relative min-h-screen bg-[#F8F7F4] text-[#111111] font-sans pb-20">
-      {/* 1. Header (页头部分: 课程名称、考试时间、倒计时) */}
-      <header className="w-full bg-[#FAF9F6] border-b border-[#111111] shadow-2xs">
-        {/* Top Breadcrumb Navigation */}
-        <div className="h-10 px-4 sm:px-8 flex items-center justify-between border-b border-[#DEDAD1] text-xs font-mono text-[#666666]">
-          <div className="flex items-center space-x-2 truncate">
-            <button
-              onClick={() => onNavigateToTab("dashboard")}
-              className="hover:text-[#111111] transition-colors cursor-pointer"
-            >
-              WORKSPACE
-            </button>
-            <span>/</span>
-            <button
-              onClick={() => onNavigateToTab("dashboard")}
-              className="hover:text-[#111111] transition-colors cursor-pointer"
-            >
-              COURSES
-            </button>
-            <span>/</span>
-            <span className="font-bold text-[#111111] truncate flex items-center space-x-1.5 font-sans">
-              <span>[{plan.examName}]</span>
-            </span>
-          </div>
-        </div>
-
-        {/* Main Course Header Banner */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            {/* Left: Course Name & Exam Date */}
-            <div className="space-y-3 min-w-0 flex-1">
-              <div className="flex items-center space-x-2.5">
-                <span
-                  className="w-4 h-4 border border-[#111111] shrink-0 inline-block shadow-2xs"
-                  style={{ backgroundColor: palette.accentColor }}
-                />
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#666666] bg-white px-2 py-0.5 border border-[#DEDAD1]">
-                  {plan.subject || (language === "zh" ? "学科考试" : "EXAM SUBJECT")}
-                </span>
-                <span className="text-xs font-mono text-[#888888]">
-                  ID: #{plan.id.slice(-6).toUpperCase()}
-                </span>
-              </div>
-
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#111111] leading-tight font-sans">
-                {plan.examName}
-              </h1>
-
-              {plan.examDate && (
-                <div className="flex flex-wrap items-center gap-2.5 text-xs font-mono text-[#444444] pt-1">
-                  <span className="text-[#666666] uppercase font-bold flex items-center space-x-1">
-                    <Calendar className="w-3.5 h-3.5 text-[#111111]" />
-                    <span>{language === "zh" ? "考试时间" : "EXAM DATE"}:</span>
-                  </span>
-                  <strong className="text-[#111111] bg-white px-2.5 py-1 border border-[#111111] shadow-2xs font-bold text-xs">
-                    {plan.examDate} {plan.examTime || "09:00"}
-                  </strong>
-                  {plan.preferences?.targetScoreOrGrade && (
-                    <span className="text-[#666666] border border-[#DEDAD1] bg-white px-2 py-1">
-                      {language === "zh" ? "目标" : "TARGET"}: <b className="text-[#111111]">{plan.preferences.targetScoreOrGrade}</b>
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Right: Real-Time Flip / Digital Countdown */}
-            {plan.examDate && (
-              <div className="shrink-0 flex flex-col items-start lg:items-end space-y-1">
-                <span className="text-[10px] font-mono font-bold text-[#888888] uppercase tracking-widest flex items-center space-x-1">
-                  <Clock className="w-3 h-3 text-[#111111]" />
-                  <span>{language === "zh" ? "考试倒计时" : "EXAM COUNTDOWN"}</span>
-                </span>
-                <FlipCountdown
-                  days={countdown.days}
-                  hours={countdown.hours}
-                  minutes={countdown.minutes}
-                  seconds={countdown.seconds}
-                  language={language}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
-      {/* 2. Core Main Content: 每日待办 (Daily Todo List with Pin Roadmap) */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-8 py-6">
-        <DailyTodoList
-          plan={plan}
-          onUpdatePlan={onUpdatePlan}
-          selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
-          searchQuery={searchQuery}
-        />
-      </main>
-
-      {/* 3. Right-Side Hover / Floating Side Tabs (鼠标移向右侧才有，否则完全隐藏) */}
-      {/* Invisible hover trigger zone along the right screen edge (w-6 to catch hover) */}
-      <div
-        onMouseEnter={() => setIsHoveringRightZone(true)}
-        onMouseLeave={() => setIsHoveringRightZone(false)}
-        className="fixed right-0 top-0 bottom-0 w-8 z-30 pointer-events-auto flex flex-col justify-center items-end"
-        style={{ pointerEvents: activeDrawer ? "none" : "auto" }}
-      >
-        <div
-          className={`flex flex-col space-y-2.5 transition-all duration-300 transform ${
-            isHoveringRightZone
-              ? "translate-x-0 opacity-100 pointer-events-auto"
-              : "translate-x-full opacity-0 pointer-events-none"
-          }`}
-        >
-          {/* Tab 1: 进度追踪 */}
-          <button
-            onClick={() => setActiveDrawer("progress")}
-            className="group/tab flex items-center bg-[#111111] text-white border-y border-l border-[#111111] px-3.5 py-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.3)] rounded-l-lg cursor-pointer hover:bg-[#FCD33B] hover:text-[#111111] transition-all"
-            title={language === "zh" ? "打开进度追踪" : "Open Progress Tracker"}
-          >
-            <div className="flex items-center space-x-2">
-              <TrendingUp className="w-4 h-4 text-[#FCD33B] group-hover/tab:text-[#111111] shrink-0" />
-              <span className="font-bold text-xs tracking-tight font-mono whitespace-nowrap">
-                {language === "zh" ? "进度追踪" : "PROGRESS"}
-              </span>
-            </div>
-            <span className="ml-2 px-1.5 py-0.2 bg-white/20 group-hover/tab:bg-[#111111]/20 text-[10px] font-mono rounded font-bold">
-              {progressPercent}%
-            </span>
-          </button>
-
-          {/* Tab 2: 考纲资料 */}
-          <button
-            onClick={() => setActiveDrawer("syllabus")}
-            className="group/tab flex items-center bg-[#FAF9F6] text-[#111111] border-y border-l border-[#111111] px-3.5 py-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.2)] rounded-l-lg cursor-pointer hover:bg-[#111111] hover:text-white transition-all"
-            title={language === "zh" ? "打开考纲资料" : "Open Syllabus & Materials"}
-          >
-            <div className="flex items-center space-x-2">
-              <BookOpen className="w-4 h-4 text-[#111111] group-hover/tab:text-[#FCD33B] shrink-0" />
-              <span className="font-bold text-xs tracking-tight font-mono whitespace-nowrap">
-                {language === "zh" ? "考纲资料" : "SYLLABUS"}
-              </span>
-            </div>
-            <span className="ml-2 px-1.5 py-0.2 bg-[#111111]/10 group-hover/tab:bg-white/20 text-[10px] font-mono rounded font-bold">
-              {plan.topics?.length || 0}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* 4. Slide-Over Drawers (右侧抽屉面板) */}
-      {activeDrawer && (
-        <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
-          {/* Backdrop Overlay */}
-          <div
-            onClick={() => setActiveDrawer(null)}
-            className="fixed inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity animate-fadeIn"
-          />
-
-          {/* Drawer Panel */}
-          <div className="relative w-full max-w-3xl bg-[#F8F7F4] border-l-2 border-[#111111] shadow-2xl h-full flex flex-col z-10 animate-slideLeft">
-            {/* Drawer Top Header */}
-            <div className="p-4 bg-[#FAF9F6] border-b border-[#111111] flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="p-1.5 bg-[#111111] text-white">
-                  {activeDrawer === "progress" ? (
-                    <TrendingUp className="w-4 h-4 text-[#FCD33B]" />
-                  ) : (
-                    <BookOpen className="w-4 h-4 text-[#FCD33B]" />
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-[#111111] font-sans">
-                    {activeDrawer === "progress"
-                      ? (language === "zh" ? "进度追踪与智能排期" : "PROGRESS TRACKER & REBALANCER")
-                      : (language === "zh" ? "考纲考点与资料库" : "SYLLABUS & KNOWLEDGE HUB")}
-                  </h3>
-                  <p className="text-[11px] text-[#666666] font-mono">
-                    {plan.examName}
-                  </p>
-                </div>
-              </div>
-
-              {/* Drawer Switcher Tabs & Close Button */}
-              <div className="flex items-center space-x-2 font-mono">
-                <button
-                  onClick={() => setActiveDrawer(activeDrawer === "progress" ? "syllabus" : "progress")}
-                  className="px-2.5 py-1 text-xs border border-[#111111] bg-white hover:bg-[#111111] hover:text-white transition-colors cursor-pointer"
-                >
-                  {activeDrawer === "progress"
-                    ? (language === "zh" ? "切换至考纲资料 →" : "SWITCH TO SYLLABUS →")
-                    : (language === "zh" ? "← 切换至进度追踪" : "← SWITCH TO PROGRESS")}
-                </button>
-                <button
-                  onClick={() => setActiveDrawer(null)}
-                  className="p-1.5 border border-[#111111] hover:bg-[#111111] hover:text-white transition-colors cursor-pointer"
-                  title="Close Drawer (Esc)"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Drawer Body Content */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-              {activeDrawer === "progress" ? (
-                <div className="space-y-6">
-                  <RealTimeManager
-                    plan={plan}
-                    plans={plans}
-                    onUpdatePlan={onUpdatePlan}
-                    onNavigateToTab={(tab) => {
-                      if (tab === "todo") {
-                        setActiveDrawer(null);
-                      } else {
-                        onNavigateToTab(tab);
-                      }
-                    }}
-                    isRebalanceModalOpen={false}
-                    onCloseRebalanceModal={() => {}}
-                  />
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <CourseKnowledgeHub
-                    plan={plan}
-                    examName={plan.examName}
-                    onExamNameChange={(name) => onUpdatePlan({ ...plan, examName: name })}
-                    subject={plan.subject}
-                    onSubjectChange={(subj) => onUpdatePlan({ ...plan, subject: subj })}
-                    syllabusContent=""
-                    onSyllabusContentChange={() => {}}
-                    syllabusDocName=""
-                    onSyllabusDocNameChange={() => {}}
-                    topics={plan.topics || []}
-                    onTopicsChange={(topics) => onUpdatePlan({ ...plan, topics })}
-                    materialsSummary={plan.materialsSummary || ""}
-                    onMaterialsSummaryChange={(summary) => onUpdatePlan({ ...plan, materialsSummary: summary })}
-                    onUpdatePlan={onUpdatePlan}
-                    onDeleteCourse={() => onDeletePlan(plan.id)}
-                    onRequestDeleteCourse={(p) => onRequestDeletePlan && onRequestDeletePlan(p || plan)}
-                    onProceedToPlanConfig={() => {}}
-                    onNavigateToTab={(tab) => {
-                      if (tab === "todo") {
-                        setActiveDrawer(null);
-                      } else {
-                        onNavigateToTab(tab as any);
-                      }
-                    }}
-                  />
-                </div>
-              )}
-            </div>
+    <div className="relative min-h-screen bg-[#f8f7f4] text-[#1c1b1a] pb-20 animate-fadeIn">
+      {/* 封面带满宽贴顶，占的是整个页面区，不是内容列里的一张卡；
+          所以它是这一层的第一个块，返回 / 编辑压在它上沿的左右角。 */}
+      {pageHasCover && (
+        <div className="relative">
+          <PageCover plan={plan} />
+          <div className="absolute inset-x-0 top-0 z-10 mx-auto flex max-w-6xl items-start justify-between px-4 pt-3 sm:px-8">
+            {backButton}
+            {editButton}
           </div>
         </div>
       )}
+
+      {/* 内容列往上压 1/4 个图标盒高，页图标就骑在封面下沿上；没封面时才是普通的顶部留白。 */}
+      <div
+        className={`mx-auto max-w-6xl px-4 sm:px-8 ${pageHasCover ? "-mt-3 sm:-mt-4" : "pt-6 sm:pt-8"}`}
+      >
+        {!pageHasCover && backButton}
+
+        <header className="relative">
+          {/* Notion 三段：页面图标 → 文档标题 → 属性。
+              封面只是底，不承载信息也不放内容；科目身份仍然是 planIcon。
+              属性一条是「图标+标签+取值」，桌面两行两列、窄屏退成一行一条，
+              标签定宽所以取值对齐成列；日期和时间合成一条，因为它们是同一个事实。 */}
+          {!pageHasCover && <div className="mb-1 flex h-6 items-center">{editButton}</div>}
+
+          <PageIconGlyph plan={plan} className="ui-page-icon relative z-20" />
+
+          <h1 className="ui-doc-title mt-2 break-words">{plan.examName}</h1>
+
+          <div className="mt-4 grid gap-x-8 gap-y-2.5 sm:grid-cols-2">
+            <PropItem
+              icon={Layers}
+              label={isZh ? "学科" : "Subject"}
+              value={plan.subject || notSet(isZh)}
+              muted={!plan.subject}
+            />
+            <PropItem
+              icon={CalendarDays}
+              label={isZh ? "考试" : "Exam"}
+              value={examWhenText}
+              muted={!plan.examDate}
+            />
+            <PropItem
+              icon={Target}
+              label={isZh ? "目标" : "Target"}
+              value={plan.preferences?.targetScoreOrGrade || notSet(isZh)}
+              muted={!plan.preferences?.targetScoreOrGrade}
+            />
+            <PropItem icon={Hourglass} label={isZh ? "距考试" : "Days left"} value={countdownText} />
+          </div>
+
+          {scheduleNotice && (
+            <div className="flex items-start justify-between gap-3 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-3.5 py-2.5 text-[12px] text-[#8A5A00] animate-fadeIn">
+              <span className="leading-relaxed">{scheduleNotice}</span>
+              <button
+                onClick={() => setScheduleNotice(null)}
+                className="shrink-0 font-medium underline underline-offset-2 cursor-pointer"
+              >
+                {isZh ? "知道了" : "Dismiss"}
+              </button>
+            </div>
+          )}
+
+        </header>
+
+        <EditSubjectModal
+          open={editOpen}
+          plan={plan}
+          onClose={() => setEditOpen(false)}
+          onSave={handleSaveExam}
+        />
+      </div>
+
+      {/* 页头和正文之间留一整段呼吸（全站块间距 24），发丝分隔线才不会紧贴在属性行底下。 */}
+      <main className="max-w-6xl mx-auto px-4 sm:px-8 mt-6">
+        {/* 段落靠左标栏 + 发丝分隔线排布；白卡只留给内容，不再一块块等宽平铺。 */}
+        <div className="border-t border-[#eeece6] divide-y divide-[#eeece6]">
+          <SectionBlock
+            title={isZh ? "今日任务" : "Today"}
+            hint={todayStr}
+            aside={
+              <span className="ui-chip tabular-nums">
+                {todayTasks.filter((task) => task.status === "completed").length}/{todayTasks.length}
+              </span>
+            }
+          >
+            {todayTasks.length > 0 ? (
+              <ul className="ui-card divide-y divide-[#f0ede8] overflow-hidden">
+                {todayTasks.map((task) => {
+                  const done = task.status === "completed";
+                  return (
+                    <li key={task.id} className="flex items-start gap-3 px-4 sm:px-5 py-3.5">
+                      <span className="mt-[3px] w-[46px] shrink-0 ui-row-value">{task.startTime || "—"}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className={`ui-row-title ${done ? "text-[#a39e97]" : ""}`}>{task.title}</p>
+                        <p className="mt-1 ui-row-meta truncate">
+                          {task.topicTitle}
+                          {task.durationMinutes ? ` · ${task.durationMinutes} ${isZh ? "分钟" : "min"}` : ""}
+                          {done && ` · ${isZh ? "已完成" : "done"}`}
+                        </p>
+                      </div>
+                      {done && <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-[#3F6B4F]" />}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="ui-note">{emptyTodayLine}</p>
+            )}
+
+            {/* 两个计量挂在今天下面：进度是这套计划的进度，不再单独占一张大卡。 */}
+            <div className="mt-4 ui-card px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:gap-0 gap-4">
+              <div className="sm:flex-1 sm:pr-6 sm:border-r sm:border-[#f0ede8] min-w-0">
+                <span className="ui-row-meta">{isZh ? "任务进度" : "Task progress"}</span>
+                <div className="mt-1.5 flex items-baseline gap-2">
+                  <span className="ui-stat-value">{stats.progressPercent}%</span>
+                  <span className="ui-row-meta tabular-nums">
+                    {stats.completedCount}/{stats.totalCount}
+                  </span>
+                </div>
+                <div className="mt-2.5 h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[#1c1b1a] transition-all duration-300"
+                    style={{ width: `${stats.progressPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="sm:flex-1 sm:pl-6 min-w-0">
+                <span className="ui-row-meta">{isZh ? "学习投入" : "Time invested"}</span>
+                <div className="mt-1.5 flex items-baseline gap-1.5">
+                  <span className="ui-stat-value">{stats.investedHours}</span>
+                  <span className="ui-row-meta tabular-nums">
+                    / {stats.plannedHours} {isZh ? "小时" : "hrs"}
+                  </span>
+                </div>
+                <div className="mt-2.5 h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[#cfc9c0] transition-all duration-300"
+                    style={{
+                      width: `${
+                        stats.plannedHours > 0
+                          ? Math.min(100, Math.round((stats.investedHours / stats.plannedHours) * 100))
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <PracticeReceiptCard
+              events={practiceEvents}
+              onLocate={(event) => onLocateReceipt?.(event)}
+              onDismiss={(attemptId) => onDismissReceipt?.(attemptId)}
+            />
+          </SectionBlock>
+
+          <PhaseRoadmapSection plan={plan} />
+
+          <TopicMasterySection plan={plan} />
+
+          <SectionBlock
+            title={isZh ? "课程资料与考点体系" : "Materials & topics"}
+            hint={
+              <span className="tabular-nums">
+                {stats.materialsCount} {isZh ? "份资料" : "files"} · {stats.topicsCount}{" "}
+                {isZh ? "个考点" : "topics"}
+              </span>
+            }
+            action={
+              <button
+                onClick={() => setShowKnowledge((prev) => !prev)}
+                aria-expanded={showKnowledge}
+                className="inline-flex items-center gap-1 ui-row-meta hover:text-[#1c1b1a] transition-colors cursor-pointer"
+              >
+                <span className="font-medium">
+                  {showKnowledge ? (isZh ? "收起" : "Collapse") : isZh ? "展开" : "Expand"}
+                </span>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-[#a39e97] transition-transform ${showKnowledge ? "rotate-180" : ""}`}
+                />
+              </button>
+            }
+          >
+            {showKnowledge ? (
+              <div className="ui-card p-4 sm:p-5 animate-fadeIn">
+                <CourseKnowledgeHub
+                  plan={plan}
+                  onUpdatePlan={onUpdatePlan}
+                  onRequestDeleteCourse={onRequestDeletePlan}
+                  focusUnitId={activeFocus?.topicId ?? null}
+                  focusSubtopicTitle={activeFocus?.subtopicTitle ?? ""}
+                  focusNonce={focusNonce}
+                />
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowKnowledge(true)}
+                className="w-full ui-card ui-card-hover px-4 sm:px-5 py-4 text-left flex items-center justify-between gap-3 cursor-pointer"
+              >
+                <span className="ui-note min-w-0 truncate">
+                  {isZh ? "考点树与资料归档" : "Topic tree and material archive"}
+                </span>
+                <span className="ui-row-meta shrink-0">
+                  {isZh ? "展开" : "Expand"}
+                  <ChevronDown className="w-3.5 h-3.5 inline ml-1" />
+                </span>
+              </button>
+            )}
+          </SectionBlock>
+
+          <RebalanceSection plan={plan} onUpdatePlan={onUpdatePlan} />
+        </div>
+      </main>
     </div>
   );
 }
+
+/**
+ * 文档页头的一条属性：前导图标（ui-prop-icon，纯标记不可点）+ 定宽浅标签 + 同一档取值。
+ * 三者的字号、标签列宽、取值字重都在 ui-prop-* token 里，组件只管内容不管排版。
+ */
+function PropItem({
+  icon: Icon,
+  label,
+  value,
+  muted,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  muted?: boolean;
+}) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <Icon className="ui-prop-icon" aria-hidden="true" />
+      <span className="ui-prop-label">{label}</span>
+      <span className={muted ? "ui-prop-empty" : "ui-prop-value"}>{value}</span>
+    </span>
+  );
+}
+
+/** 属性还没填时的占位取值，与空状态同一档灰。 */
+function notSet(isZh: boolean) {
+  return isZh ? "未设定" : "Not set";
+}
+

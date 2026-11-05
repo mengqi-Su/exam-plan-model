@@ -18,6 +18,16 @@
     --palette-concrete: #D8D8D8;
     --palette-stone: #B5B5B5;
     --palette-slate: #282828;
+
+    /* Semantic roles: success / warning / danger / info */
+    --semantic-success: #3F6B4F;
+    --semantic-success-bg: #EEF4EF;
+    --semantic-warning: #8A5A00;
+    --semantic-warning-bg: #FFF6DD;
+    --semantic-danger: #B42318;
+    --semantic-danger-bg: #FDF0EE;
+    --semantic-info: #1D4ED8;
+    --semantic-info-bg: #EEF3FE;
   }
 
   *, *::before, *::after {
@@ -34,7 +44,32 @@
   body {
     color: #111111;
     background-color: #f8f7f4;
+    font-size: 14px;
+    line-height: 1.6;
+    text-rendering: optimizeLegibility;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  :focus-visible {
+    outline: 2px solid #111111;
+    outline-offset: 2px;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline-offset: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   .font-mono, code, kbd, samp, pre {
@@ -65,6 +100,127 @@
   }
 }
 
+
+@layer components {
+  .ui-card {
+    @apply rounded-xl border border-[#eae7e1] bg-white shadow-[0_1px_2px_rgba(28,27,26,0.04)];
+  }
+  .ui-card-hover {
+    @apply transition-all duration-200 hover:border-[#ddd8d0] hover:shadow-[0_2px_10px_rgba(28,27,26,0.07)];
+  }
+  .ui-page-title {
+    @apply text-2xl font-semibold tracking-tight text-[#1c1b1a];
+  }
+  /* 文档页头（Notion 三段：页面图标 → 文档标题 → 属性行）。
+     体量按 Notion 的比例来：页面图标 ≈ 标题字高的 1.8 倍，图标压得住标题；
+     文档标题只用于「打开一份科目文档」的那一页，其余页面仍是 ui-page-title 24；
+     图标是科目身份标记，侧栏 / 总览卡 / 页头共用 planIcon。 */
+  .ui-doc-title {
+    @apply text-[28px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1c1b1a] sm:text-[36px];
+  }
+  .ui-page-icon {
+    @apply block select-none text-[48px] leading-none sm:text-[64px];
+  }
+  /* 封面带：和 Notion 一样占满整个页面区的宽度、贴着顶边，不缩进内容列、不做圆角——
+     它是这份文档的底，不是内容列里的一张卡。高度只在这一处定义，
+     页图标靠内容列的负边距骑回它的下沿（约图标盒高的四分之一）。 */
+  .ui-cover-band {
+    @apply block h-[168px] w-full overflow-hidden sm:h-[240px];
+  }
+  /* 属性一条 = 「图标 + 标签 + 取值」三元组，走 15 档，和段标题同档：
+     Notion 的标签和取值同字号同字重，只靠颜色分深浅，所以取值不加粗；
+     标签定宽一列，取值才会在两行两列里对齐成表。前导图标只是标记，不是按钮。 */
+  .ui-prop-icon {
+    @apply h-[15px] w-[15px] shrink-0 text-[#a39e97];
+  }
+  .ui-prop-label {
+    @apply w-[4.2em] shrink-0 text-[15px] font-normal text-[#8a8580];
+  }
+  .ui-prop-value {
+    @apply min-w-0 truncate text-[15px] font-normal tabular-nums text-[#1c1b1a];
+  }
+  .ui-prop-empty {
+    @apply min-w-0 truncate text-[15px] font-normal text-[#a39e97];
+  }
+  .ui-section-title {
+    @apply text-[15px] font-semibold tracking-tight text-[#1c1b1a];
+  }
+  /* 一把标尺，和 StarQuiz 同一规格：文档 36（只有科目页头用）› 页面/数字 24 › 段·属性 15 › 组 13.5 › 子组·行 13 › 元信息 12 › 胶囊 11 › 徽标 10。
+     嵌套深度由缩进、字重、颜色和分组底色表达；不再用 0.5px 的字号差冒充层级。
+     12 层成对出现：ui-row-meta 是标签，ui-row-value 是紧跟其后的取值。 */
+  .ui-group-title {
+    @apply text-[13.5px] font-semibold tracking-tight text-[#1c1b1a];
+  }
+  .ui-subgroup-title {
+    @apply text-[13px] font-semibold tracking-tight text-[#1c1b1a];
+  }
+  .ui-row-title {
+    @apply text-[13px] font-medium tracking-tight text-[#1c1b1a];
+  }
+  .ui-row-meta {
+    @apply text-[12px] font-normal text-[#8a8580];
+  }
+  .ui-row-value {
+    @apply text-[12px] font-medium tabular-nums text-[#1c1b1a];
+  }
+  .ui-note {
+    @apply text-[13px] font-normal leading-relaxed text-[#6b6660];
+  }
+  .ui-stat-value {
+    @apply text-2xl font-semibold tracking-tight tabular-nums text-[#1c1b1a];
+  }
+  .ui-muted {
+    @apply text-[#8a8580];
+  }
+  .ui-subtle {
+    @apply text-[#a39e97];
+  }
+  .ui-divider {
+    @apply border-[#f0ede8];
+  }
+  .ui-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .ui-btn-primary {
+    @apply bg-[#1c1b1a] text-white hover:bg-[#333333];
+  }
+  .ui-btn-ghost {
+    @apply border border-[#e5e2dc] bg-white text-[#1c1b1a] hover:bg-[#faf9f6];
+  }
+  /* 不可恢复操作的按钮只多这一档颜色，其他规格沿用 ui-btn。 */
+  .ui-btn-danger {
+    @apply bg-[#B42318] text-white hover:bg-[#9a1d14];
+  }
+  /* 页头的次要动作走 Notion 那种无框文字按钮：平时浅灰， hover 才垫一层底色。 */
+  .ui-btn-text {
+    @apply inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium text-[#8a8580] transition-colors hover:bg-[#f1efe9] hover:text-[#1c1b1a] cursor-pointer;
+  }
+  /* 压在封面上的那几颗（返回 / 编辑）只多一层半透明白垫，字号和档位沿用 ui-btn-text：
+     浅纹理上也保证读得清，但不许再长成第二套按钮。 */
+  .ui-cover-chip {
+    @apply bg-white/80 shadow-[0_1px_3px_rgba(28,27,26,0.10)] backdrop-blur-sm hover:bg-white;
+  }
+  .ui-nav-item {
+    @apply w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors cursor-pointer;
+  }
+  .ui-nav-idle {
+    @apply text-[#6b6660] hover:bg-black/[0.04] hover:text-[#1c1b1a];
+  }
+  .ui-nav-active {
+    @apply bg-white text-[#1c1b1a] font-medium shadow-[0_1px_2px_rgba(28,27,26,0.08)];
+  }
+  .ui-chip {
+    @apply inline-flex items-center rounded-full bg-[#f1efe9] px-2.5 py-0.5 text-[11px] font-medium text-[#6b6660];
+  }
+  /* 表单控件统一规格：字重与行文字同层（13px/400），边框比卡片再浅一档，聚焦才加深。 */
+  .ui-field {
+    @apply w-full rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] text-[#1c1b1a] outline-none transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97];
+  }
+  /* 表单标签走元信息层（12），但比 ui-row-meta 深一档，才能在白底上压住输入框。 */
+  .ui-field-label {
+    @apply mb-1.5 block text-[12px] font-medium text-[#6b6660];
+  }
+}
 
 .editorial-border {
   border-color: #111111;
@@ -193,23 +349,5 @@
 .notion-callout {
   background-color: #fafafa;
   border: 1px solid #111111;
-}
-
-@keyframes flipUpperLeaf {
-  0% {
-    transform: rotateX(0deg);
-  }
-  100% {
-    transform: rotateX(-90deg);
-  }
-}
-
-@keyframes flipLowerLeaf {
-  0% {
-    transform: rotateX(90deg);
-  }
-  100% {
-    transform: rotateX(0deg);
-  }
 }
 

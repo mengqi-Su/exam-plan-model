@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { SyllabusTopic } from "../types";
-import { PieChart, CheckCircle2, Award, Zap, BookOpen, Clock, Target } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { getPaletteByIndex } from "../lib/themePalettes";
 
 export interface TopicMasteryItem extends SyllabusTopic {
@@ -21,6 +21,7 @@ export function DomainMasteryWheelChart({
   language = "zh",
   onSelectTopic,
 }: DomainMasteryWheelChartProps) {
+  const isZh = language === "zh";
   const [activeMetric, setActiveMetric] = useState<"progress" | "weight" | "tasks" | "score">("progress");
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [selectedIdx, setSelectedIdx] = useState<number>(0);
@@ -153,98 +154,57 @@ export function DomainMasteryWheelChart({
 
   const activeItem = itemsToRender[selectedIdx] || itemsToRender[0];
 
+  const metrics: { id: typeof activeMetric; label: string }[] = [
+    { id: "progress", label: isZh ? "掌握进度" : "Progress" },
+    { id: "weight", label: isZh ? "考点权重" : "Weight" },
+    { id: "tasks", label: isZh ? "任务单元" : "Tasks" },
+    { id: "score", label: isZh ? "自评得分" : "Rating" },
+  ];
+
+  const difficultyLabel = (d?: string) => {
+    if (d === "easy") return isZh ? "基础" : "Easy";
+    if (d === "hard") return isZh ? "困难" : "Hard";
+    return isZh ? "中等" : "Medium";
+  };
+
   return (
-    <div className="flex flex-col lg:flex-row items-center justify-between gap-8 p-6 bg-white border border-[#111111] font-mono">
+    <div className="flex flex-col lg:flex-row items-center justify-between gap-8 p-6 ui-card">
       {/* Left: Circular Dial / Wheel View */}
       <div className="flex flex-col items-center justify-center space-y-4">
-        {/* Metric Selector Pills */}
-        <div className="flex items-center space-x-1.5 p-1 bg-[#faf9f6] border border-[#111111] text-[10px] font-bold">
-          <span className="text-[#888888] px-1.5">{language === "zh" ? "圆盘指标:" : "METRIC:"}</span>
-          <button
-            onClick={() => setActiveMetric("progress")}
-            className={`px-2.5 py-1 transition-colors cursor-pointer ${
-              activeMetric === "progress"
-                ? "bg-[#111111] text-white"
-                : "text-[#111111] hover:bg-[#e4e1d8]"
-            }`}
-          >
-            {language === "zh" ? "掌握进度 %" : "Progress %"}
-          </button>
-          <button
-            onClick={() => setActiveMetric("weight")}
-            className={`px-2.5 py-1 transition-colors cursor-pointer ${
-              activeMetric === "weight"
-                ? "bg-[#111111] text-white"
-                : "text-[#111111] hover:bg-[#e4e1d8]"
-            }`}
-          >
-            {language === "zh" ? "考点权重 %" : "Weight %"}
-          </button>
-          <button
-            onClick={() => setActiveMetric("tasks")}
-            className={`px-2.5 py-1 transition-colors cursor-pointer ${
-              activeMetric === "tasks"
-                ? "bg-[#111111] text-white"
-                : "text-[#111111] hover:bg-[#e4e1d8]"
-            }`}
-          >
-            {language === "zh" ? "任务单元数" : "Tasks"}
-          </button>
-          <button
-            onClick={() => setActiveMetric("score")}
-            className={`px-2.5 py-1 transition-colors cursor-pointer ${
-              activeMetric === "score"
-                ? "bg-[#111111] text-white"
-                : "text-[#111111] hover:bg-[#e4e1d8]"
-            }`}
-          >
-            {language === "zh" ? "自评得分" : "Rating"}
-          </button>
+        {/* Metric Selector (segmented) */}
+        <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-[#f1efe9]">
+          {metrics.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => setActiveMetric(m.id)}
+              aria-pressed={activeMetric === m.id}
+              className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors cursor-pointer ${
+                activeMetric === m.id
+                  ? "bg-white text-[#1c1b1a] shadow-[0_1px_2px_rgba(28,27,26,0.08)]"
+                  : "text-[#6b6660] hover:text-[#1c1b1a]"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
         </div>
 
         {/* SVG Circular Dial Container */}
         <div className="relative w-[320px] h-[320px] sm:w-[370px] sm:h-[370px] select-none flex items-center justify-center">
-          <svg
-            viewBox={`0 0 ${size} ${size}`}
-            className="w-full h-full drop-shadow-sm overflow-visible"
-          >
-            {/* Outer Precision Circular Rim & Tick Guides */}
-            <circle
-              cx={center}
-              cy={center}
-              r={outerRadius + 8}
-              fill="none"
-              stroke="#e5e5e5"
-              strokeWidth="1"
-              strokeDasharray="2 3"
-            />
-            <circle
-              cx={center}
-              cy={center}
-              r={outerRadius + 3}
-              fill="none"
-              stroke="#111111"
-              strokeWidth="1"
-            />
+          <svg viewBox={`0 0 ${size} ${size}`} className="w-full h-full overflow-visible">
+            {/* Outer rim & tick guides */}
+            <circle cx={center} cy={center} r={outerRadius + 8} fill="none" stroke="#eae7e1" strokeWidth="1" strokeDasharray="2 3" />
+            <circle cx={center} cy={center} r={outerRadius + 3} fill="none" stroke="#ddd8d0" strokeWidth="1" />
 
-            {/* Concentric Guide Grid Rings */}
+            {/* Concentric guide rings */}
             {[0.25, 0.5, 0.75, 1.0].map((ratio) => {
               const r = innerRadius + (outerRadius - innerRadius) * ratio;
               return (
-                <circle
-                  key={ratio}
-                  cx={center}
-                  cy={center}
-                  r={r}
-                  fill="none"
-                  stroke="#e0dfd5"
-                  strokeWidth="0.75"
-                  strokeDasharray="2 2"
-                />
+                <circle key={ratio} cx={center} cy={center} r={r} fill="none" stroke="#f0ede8" strokeWidth="0.75" strokeDasharray="2 2" />
               );
             })}
 
-            {/* Calibration tick marks on outer rim */}
+            {/* Calibration tick marks */}
             {Array.from({ length: 36 }).map((_, tickIdx) => {
               const angle = (tickIdx * 10 * Math.PI) / 180;
               const isMajor = tickIdx % 9 === 0;
@@ -257,7 +217,7 @@ export function DomainMasteryWheelChart({
                   y1={center + r1 * Math.sin(angle)}
                   x2={center + r2 * Math.cos(angle)}
                   y2={center + r2 * Math.sin(angle)}
-                  stroke="#111111"
+                  stroke={isMajor ? "#a39e97" : "#ddd8d0"}
                   strokeWidth={isMajor ? "1.5" : "0.75"}
                 />
               );
@@ -286,7 +246,6 @@ export function DomainMasteryWheelChart({
                 fillRatio = (item.avgRating || 3.5) / 5;
               }
 
-              // Clamp fillRatio between 0.15 and 1.0 for visual balance
               const clampedRatio = Math.max(0.18, Math.min(1.0, fillRatio));
               const { x: textX, y: textY } = getTextCenter(idx, 0.64);
 
@@ -301,45 +260,45 @@ export function DomainMasteryWheelChart({
                   onMouseLeave={() => setHoveredIdx(null)}
                   className="cursor-pointer transition-all duration-200"
                 >
-                  {/* Background Full Sector Track */}
+                  {/* Background full sector track */}
                   <path
                     d={getCircularSectorPath(idx, 1.0)}
-                    fill={isSelected ? "#f5f5f0" : isHovered ? "#faf9f6" : "#ffffff"}
-                    stroke="#111111"
-                    strokeWidth={isSelected ? "2" : "1"}
+                    fill={isSelected ? "#f5f3ee" : isHovered ? "#faf9f6" : "#ffffff"}
+                    stroke="#eae7e1"
+                    strokeWidth={isSelected ? "1.5" : "1"}
                     className="transition-colors duration-150"
                   />
 
-                  {/* Active Value Arc Fill */}
+                  {/* Active value arc fill */}
                   <path
                     d={getCircularSectorPath(idx, clampedRatio)}
-                    fill={isSelected ? "#111111" : palette.accentColor}
-                    fillOpacity={isSelected ? 1 : 0.85}
-                    stroke="#111111"
-                    strokeWidth={isSelected ? "2" : "1"}
+                    fill={isSelected ? "#1c1b1a" : palette.accentColor}
+                    fillOpacity={isSelected ? 1 : 0.9}
+                    stroke={isSelected ? "#1c1b1a" : "#ddd8d0"}
+                    strokeWidth={isSelected ? "1.5" : "1"}
                     className="transition-all duration-200"
                   />
 
-                  {/* Sector Metric Value Text */}
+                  {/* Sector metric value */}
                   <text
                     x={textX}
                     y={textY - 3}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fill={isSelected ? (clampedRatio > 0.45 ? "#ffffff" : "#111111") : "#111111"}
-                    className="font-bold font-mono text-[12px] sm:text-[13px] pointer-events-none select-none"
+                    fill={isSelected ? (clampedRatio > 0.45 ? "#ffffff" : "#1c1b1a") : "#1c1b1a"}
+                    className="font-semibold text-[12px] sm:text-[13px] pointer-events-none select-none"
                   >
                     {valDisplay}
                   </text>
 
-                  {/* Sector Short Title Text */}
+                  {/* Sector short title */}
                   <text
                     x={textX}
                     y={textY + 11}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fill={isSelected ? (clampedRatio > 0.45 ? "#ffffff" : "#333333") : "#444444"}
-                    className="font-mono font-bold text-[9px] sm:text-[10px] pointer-events-none select-none"
+                    fill={isSelected ? (clampedRatio > 0.45 ? "#ffffff" : "#6b6660") : "#8a8580"}
+                    className="font-medium text-[9px] sm:text-[10px] pointer-events-none select-none"
                   >
                     {item.title.length > 5 ? `${item.title.slice(0, 4)}..` : item.title}
                   </text>
@@ -347,112 +306,64 @@ export function DomainMasteryWheelChart({
               );
             })}
 
-            {/* Central Precision Hub Dial */}
-            <circle
-              cx={center}
-              cy={center}
-              r={innerRadius - 2}
-              fill="#ffffff"
-              stroke="#111111"
-              strokeWidth="2"
-            />
-            <circle
-              cx={center}
-              cy={center}
-              r={innerRadius - 6}
-              fill="#faf9f6"
-              stroke="#e0dfd5"
-              strokeWidth="1"
-            />
+            {/* Central hub */}
+            <circle cx={center} cy={center} r={innerRadius - 2} fill="#ffffff" stroke="#ddd8d0" strokeWidth="1.5" />
+            <circle cx={center} cy={center} r={innerRadius - 6} fill="#faf9f6" stroke="#f0ede8" strokeWidth="1" />
 
-            {/* Center Dial Information */}
-            <text
-              x={center}
-              y={center - 11}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="text-[8px] font-bold fill-[#888888] uppercase tracking-wider font-mono"
-            >
-              {language === "zh" ? "平均掌握度" : "AVG MASTERY"}
+            <text x={center} y={center - 13} textAnchor="middle" dominantBaseline="middle" className="text-[10px] font-medium fill-[#a39e97]">
+              {isZh ? "平均掌握度" : "Avg mastery"}
             </text>
-            <text
-              x={center}
-              y={center + 3}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="text-[16px] font-bold fill-[#111111] font-mono tracking-tight"
-            >
+            <text x={center} y={center + 3} textAnchor="middle" dominantBaseline="middle" className="text-[16px] font-semibold fill-[#1c1b1a] tracking-tight">
               {overallAvgProgress}%
             </text>
-            <text
-              x={center}
-              y={center + 17}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="text-[8px] font-bold fill-[#666666] font-mono"
-            >
-              {totalSectors} {language === "zh" ? "考点扇区" : "SECTORS"}
+            <text x={center} y={center + 18} textAnchor="middle" dominantBaseline="middle" className="text-[10px] font-medium fill-[#8a8580]">
+              {totalSectors} {isZh ? "个考点" : "topics"}
             </text>
           </svg>
         </div>
-
-        {/* Caption Hint */}
-        <span className="text-[11px] text-[#666666] text-center max-w-xs">
-          {language === "zh"
-            ? "✦ 点击圆盘各考点扇区，右侧实时联动深度掌握明细"
-            : "✦ Click circular sectors to inspect domain deconstruction and subtopics"}
-        </span>
       </div>
 
-      {/* Right: Topic Deconstruction Card */}
-      <div className="flex-1 w-full max-w-md bg-[#faf9f6] border border-[#111111] p-5 space-y-4 font-mono">
-        <div className="flex items-center justify-between border-b border-[#111111] pb-3">
-          <div className="flex items-center space-x-2">
-            <div
-              className="w-3.5 h-3.5 border border-[#111111]"
+      {/* Right: Topic detail card */}
+      <div className="flex-1 w-full max-w-md ui-card p-5 space-y-4">
+        {/* 卡片标题就是考点名本身：不再先摆一个「考点深度解构」的样板标题，再重复一次名字 */}
+        <div className="flex items-start justify-between gap-2 border-b border-[#f0ede8] pb-3 min-w-0">
+          <div className="flex items-start gap-2 min-w-0">
+            <span
+              className="w-3 h-3 rounded-full shrink-0 mt-1"
               style={{ backgroundColor: getPaletteByIndex(selectedIdx).accentColor }}
+              aria-hidden="true"
             />
-            <span className="text-xs font-bold uppercase text-[#111111]">
-              [{language === "zh" ? "考点深度解构" : "TOPIC DECONSTRUCTION"}]
-            </span>
+            <h4 className="ui-group-title min-w-0 break-words">{activeItem.title}</h4>
           </div>
-          <span
-            className={`text-[10px] px-2 py-0.5 border border-[#111111] font-bold ${getPaletteByIndex(selectedIdx).textPrimary}`}
-            style={{
-              backgroundColor: getPaletteByIndex(selectedIdx).accentColor,
-            }}
-          >
-            {activeItem.category || (language === "zh" ? "重点考点" : "CORE DOMAIN")}
+          <span className="ui-chip shrink-0">
+            {activeItem.category || (isZh ? "重点考点" : "Core")}
           </span>
         </div>
 
-        <div className="space-y-1.5">
-          <h4 className="text-base font-bold text-[#111111]">{activeItem.title}</h4>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[#666666]">
-            <span className="font-bold text-[#111111]">
-              {language === "zh" ? "权重占比" : "Weight"}: {activeItem.weightPercentage}%
-            </span>
-            <span>•</span>
-            <span>
-              {language === "zh" ? "难度等级" : "Difficulty"}: <strong className="text-[#111111] uppercase">[{activeItem.difficulty}]</strong>
-            </span>
-            <span>•</span>
-            <span>
-              {language === "zh" ? "预估学时" : "Est"}: {activeItem.estimatedHours || 6}h
-            </span>
-          </div>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 ui-row-meta">
+          <span>
+            {isZh ? "权重" : "Weight"} <b className="ui-row-value">{activeItem.weightPercentage}%</b>
+          </span>
+          <span>·</span>
+          <span>
+            {isZh ? "难度" : "Difficulty"} <b className="ui-row-value">{difficultyLabel(activeItem.difficulty)}</b>
+          </span>
+          <span>·</span>
+          <span>
+            {isZh ? "预估" : "Est"} <b className="ui-row-value">{activeItem.estimatedHours || 6}h</b>
+          </span>
         </div>
 
         <div className="space-y-1.5 pt-1">
-          <div className="flex items-center justify-between text-xs font-bold">
-            <span className="text-[#666666]">{language === "zh" ? "复习完成进度" : "Completion Progress"}</span>
-            <span className="text-[#111111]">
-              {activeItem.progressPercent}% ({activeItem.completedTasks}/{activeItem.totalTasks} {language === "zh" ? "单元" : "tasks"})
+          <div className="flex items-center justify-between text-[12px]">
+            <span className="ui-row-meta">{isZh ? "复习完成进度" : "Completion"}</span>
+            <span className="ui-row-value">
+              {activeItem.progressPercent}% ({activeItem.completedTasks}/{activeItem.totalTasks})
             </span>
           </div>
-          <div className="w-full bg-white border border-[#111111] h-3 overflow-hidden">
+          <div className="w-full bg-[#f1efe9] h-2 rounded-full overflow-hidden">
             <div
-              className="h-full transition-all duration-300 border-r border-[#111111]"
+              className="h-full rounded-full transition-all duration-300"
               style={{
                 width: `${activeItem.progressPercent}%`,
                 backgroundColor: getPaletteByIndex(selectedIdx).accentColor,
@@ -462,30 +373,28 @@ export function DomainMasteryWheelChart({
         </div>
 
         {activeItem.subtopics && activeItem.subtopics.length > 0 && (
-          <div className="space-y-2 pt-2 border-t border-[#e8e6df]">
-            <span className="text-[11px] font-bold text-[#666666] uppercase block">
-              {language === "zh" ? "核心子考点 / 概念清单" : "SUBTOPICS & CONCEPTS"}:
+          <div className="space-y-2 pt-2 border-t border-[#f0ede8]">
+            <span className="ui-row-meta block">
+              {isZh ? "核心子考点" : "Subtopics & concepts"}
             </span>
             <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
               {activeItem.subtopics.map((sub, sIdx) => (
                 <div
                   key={sIdx}
-                  className="flex items-center space-x-2 text-xs text-[#333333] bg-white p-2 border border-[#e5e5e5]"
+                  className="flex items-center gap-2 ui-row-title bg-[#faf9f6] rounded-lg p-2 border border-[#f0ede8]"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#111111] shrink-0" />
-                  <span className="font-sans text-[11px]">{sub}</span>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#3F6B4F] shrink-0" />
+                  <span>{sub}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <div className="flex items-center justify-between p-2.5 bg-white border border-[#111111] text-xs">
-          <span className="text-[#666666] font-bold">
-            {language === "zh" ? "AI 掌握度自适应评分" : "Mastery Confidence"}:
-          </span>
-          <span className="font-bold text-[#111111]">
-            {activeItem.avgRating ? `${activeItem.avgRating.toFixed(1)} / 5.0 ★` : (language === "zh" ? "待首次自测" : "Pending Quiz")}
+        <div className="flex items-center justify-between rounded-lg bg-[#faf9f6] border border-[#f0ede8] p-2.5 text-[12px]">
+          <span className="ui-row-meta">{isZh ? "掌握度自评" : "Confidence"}</span>
+          <span className="ui-row-value">
+            {activeItem.avgRating ? `${activeItem.avgRating.toFixed(1)} / 5.0` : isZh ? "待首次评分" : "Not rated yet"}
           </span>
         </div>
       </div>

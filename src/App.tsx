@@ -1,182 +1,234 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { NotionSidebar } from "./components/NotionSidebar";
-import { NotionPageHeader } from "./components/NotionPageHeader";
 import { MasterDashboard } from "./components/MasterDashboard";
-import { CourseKnowledgeHub } from "./components/CourseKnowledgeHub";
-import { PlanPreferencesForm } from "./components/PlanPreferencesForm";
-import { DailyTodoList } from "./components/DailyTodoList";
-import { RealTimeManager } from "./components/RealTimeManager";
+import { CourseDetailPage } from "./components/CourseDetailPage";
 import { AddExamSubjectWizard } from "./components/AddExamSubjectWizard";
 import { MasterCalendarView } from "./components/MasterCalendarView";
-import { CourseDetailPage } from "./components/CourseDetailPage";
-import { SettingsModal } from "./components/SettingsModal";
+import { TodayFocusView } from "./components/TodayFocusView";
+import { SettingsPage } from "./components/SettingsPage";
 import { DeleteConfirmModal } from "./components/DeleteConfirmModal";
-import { ChevronLeft, LayoutDashboard, Calendar, Plus } from "lucide-react";
-import { ExamStudyPlan, StudyMaterial, SyllabusTopic, AppSettings, UserProfile } from "./types";
+import {
+  AlertTriangle,
+  Calendar,
+  CheckCircle2,
+  Info,
+  LayoutDashboard,
+  Plus,
+  Settings,
+  Sun,
+} from "lucide-react";
+import { AppSettings, AppTab, ExamStudyPlan, PracticeEvent } from "./types";
 import {
   loadSavedPlans,
   savePlans,
   getActivePlanId,
   setActivePlanId,
-  DEFAULT_WEEK_SCHEDULE,
   loadAppSettings,
   saveAppSettings,
-  loadUserProfile,
-  saveUserProfile,
-  clearUserSessionData,
-  DEFAULT_USER_PROFILE
+  clearPlannerData,
+  loadPracticeEvents,
+  updatePracticeEvent,
 } from "./lib/storage";
-import {
-  auth,
-  savePlanToCloud,
-  deletePlanFromCloud,
-  saveUserProfileToCloud,
-  subscribeToUserPlans,
-  subscribeToUserProfile,
-  uploadLocalPlansToCloud
-} from "./lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { processInboundReturn, resolveEventFocus } from "./lib/inbound";
+import type { FocusTarget, InboundNotice } from "./lib/inbound";
+import { toLocalDateString } from "./lib/date";
+import { useI18n } from "./lib/i18n";
 
 export default function App() {
-  const [plans, setPlans] = useState<ExamStudyPlan[]>(() => loadSavedPlans());
+  const { language, t } = useI18n();
+  const [plans, setPlans] = useState<ExamStudyPlan[]>([]);
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [appNotice, setAppNotice] = useState<string | null>(null);
   const [activePlanId, setActivePlanIdState] = useState<string>(() => getActivePlanId());
-  const [currentTab, setCurrentTab] = useState<"dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject">("dashboard");
+  const [currentTab, setCurrentTab] = useState<AppTab>("today");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [isNewSubjectOpen, setIsNewSubjectOpen] = useState(false);
+
+  // 回程联动（M2）：定位目标、回执列表与一次性入站护栏
+  const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null);
+  const [focusNonce, setFocusNonce] = useState(0);
+  const [practiceEvents, setPracticeEvents] = useState<PracticeEvent[]>([]);
+  const [inboundNotice, setInboundNotice] = useState<{ title: string; message: string; tone: InboundNotice["tone"] } | null>(null);
+  const inboundHandledRef = useRef(false);
+  const planLoadFailedRef = useRef(false);
 
   const [appSettings, setAppSettings] = useState<AppSettings>(() => loadAppSettings());
-  const [userProfile, setUserProfile] = useState<UserProfile>(() => loadUserProfile());
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<"account" | "language" | "version">("account");
 
   useEffect(() => {
-    let unsubscribePlans: (() => void) | null = null;
-    let unsubscribeProfile: (() => void) | null = null;
-
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const updatedProfile: UserProfile = {
-          ...DEFAULT_USER_PROFILE,
-          id: user.uid,
-          name: user.displayName || user.email?.split("@")[0] || "Scholar",
-          email: user.email || "",
-          avatar: user.photoURL || "🎓",
-          isLoggedIn: true,
-          membershipTier: "Pro Student",
-        };
-        setUserProfile(updatedProfile);
-        saveUserProfile(updatedProfile);
-
-        unsubscribeProfile = subscribeToUserProfile(user.uid, (cloudProfile) => {
-          if (cloudProfile) {
-            setUserProfile((prev) => ({
-              ...prev,
-              ...cloudProfile,
-              isLoggedIn: true,
-            }));
-          }
+    let cancelled = false;
+    loadSavedPlans()
+      .then((loadedPlans) => {
+        if (cancelled) return;
+        setPlans(loadedPlans);
+        setActivePlanIdState((prev) => {
+          if (prev && loadedPlans.some((p) => p.id === prev)) return prev;
+          const nextId = loadedPlans[0]?.id || "";
+          setActivePlanId(nextId);
+          return nextId;
         });
-
-        unsubscribePlans = subscribeToUserPlans(user.uid, (cloudPlans) => {
-          if (cloudPlans) {
-            setPlans(cloudPlans);
-            savePlans(cloudPlans);
-            if (cloudPlans.length > 0) {
-              setActivePlanIdState((prev) => {
-                if (!prev || !cloudPlans.some((p) => p.id === prev)) {
-                  setActivePlanId(cloudPlans[0].id);
-                  return cloudPlans[0].id;
-                }
-                return prev;
-              });
-            } else {
-              setActivePlanIdState("");
-              setActivePlanId("");
-            }
-          }
-        });
-      } else {
-        if (unsubscribePlans) unsubscribePlans();
-        if (unsubscribeProfile) unsubscribeProfile();
-
-        setUserProfile((prev) => {
-          if (prev.isLoggedIn) {
-            clearUserSessionData();
-            setPlans([]);
-            savePlans([]);
-            setActivePlanIdState("");
-            setActivePlanId("");
-            return DEFAULT_USER_PROFILE;
-          }
-          return prev;
-        });
-      }
-    });
-
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error("Failed to load local plans", err);
+          // 读失败时绝不允许自动保存把空数组写回本地库（升库期间可能被旧标签页占住）
+          planLoadFailedRef.current = true;
+          setSaveError(
+            language === "zh"
+              ? "读取本地备考数据失败，请检查浏览器存储权限。"
+              : "Failed to read local planner data. Check your browser storage permissions."
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsHydrated(true);
+      });
     return () => {
-      unsubscribeAuth();
-      if (unsubscribePlans) unsubscribePlans();
-      if (unsubscribeProfile) unsubscribeProfile();
+      cancelled = true;
     };
   }, []);
 
-  const [courseStep, setCourseStep] = useState<"syllabus" | "config">("syllabus");
+  useEffect(() => {
+    if (!isHydrated || planLoadFailedRef.current) return;
+    const timer = window.setTimeout(() => {
+      savePlans(plans)
+        .then(() => setSaveError(null))
+        .catch((err: Error) => setSaveError(err.message));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [plans, isHydrated]);
 
-  const [syllabusContent, setSyllabusContent] = useState<string>("");
-  const [syllabusDocName, setSyllabusDocName] = useState<string>("");
-  const [currentTopics, setCurrentTopics] = useState<SyllabusTopic[]>([]);
-  const [materialsSummary, setMaterialsSummary] = useState<string>("");
-  const [examName, setExamName] = useState<string>("");
-  const [subject, setSubject] = useState<string>("");
+  // 本机练习回执：与计划数据分开存，读取失败不影响主流程
+  useEffect(() => {
+    if (!isHydrated) return;
+    let cancelled = false;
+    loadPracticeEvents()
+      .then((rows) => {
+        if (!cancelled) setPracticeEvents(rows);
+      })
+      .catch((err) => console.warn("Failed to load practice receipts", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [isHydrated]);
 
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    return new Date().toISOString().split("T")[0];
-  });
+  // 回程入站必须在数据水合之后跑：定位考点要用已加载的计划
+  useEffect(() => {
+    if (!isHydrated || inboundHandledRef.current) return;
+    const search = window.location.search;
+    if (!search) return;
+    // 同步置护栏：StrictMode 双跑、依赖变化重跑都只处理一次
+    inboundHandledRef.current = true;
 
-  const [isRebalanceModalOpen, setIsRebalanceModalOpen] = useState(false);
+    processInboundReturn(search, plans)
+      .then((outcome) => {
+        if (!outcome.handled) return;
+        // 先落盘、后清地址栏：中途刷新不会既丢掉参数又没记下记录
+        window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+        if (outcome.notice) {
+          setInboundNotice({
+            title: t(outcome.notice.titleKey),
+            message: t(outcome.notice.messageKey, outcome.notice.params),
+            tone: outcome.notice.tone,
+          });
+        }
+        if (outcome.focus) {
+          setActivePlanIdState(outcome.focus.planId);
+          setActivePlanId(outcome.focus.planId);
+          setCurrentTab("course");
+          setFocusTarget(outcome.focus);
+          setFocusNonce((prev) => prev + 1);
+        }
+        if (outcome.kind === "recorded" || outcome.kind === "unmatched" || outcome.kind === "duplicate") {
+          return loadPracticeEvents().then(setPracticeEvents).catch(() => undefined);
+        }
+        return undefined;
+      })
+      .catch((err) => console.error("Inbound return failed", err));
+  }, [isHydrated, plans]);
+
+  // 回程提示是瞬时的：回执本身已经落盘，几秒后自动收起
+  useEffect(() => {
+    if (!inboundNotice) return;
+    const timer = window.setTimeout(() => setInboundNotice(null), 9000);
+    return () => window.clearTimeout(timer);
+  }, [inboundNotice]);
+
+  const [selectedDate, setSelectedDate] = useState<string>(() => toLocalDateString());
 
   const [planToDelete, setPlanToDelete] = useState<ExamStudyPlan | null>(null);
-
-  useEffect(() => {
-    savePlans(plans);
-  }, [plans]);
 
   const handleUpdateSettings = (newSettings: AppSettings) => {
     setAppSettings(newSettings);
     saveAppSettings(newSettings);
   };
 
-  const handleUpdateUserProfile = (newProfile: UserProfile) => {
-    setUserProfile(newProfile);
-    saveUserProfile(newProfile);
-    if (auth.currentUser) {
-      saveUserProfileToCloud(auth.currentUser.uid, newProfile).catch((e) =>
-        console.error("Failed to save profile to cloud:", e)
+  const handleClearAllData = async () => {
+    await clearPlannerData();
+    setPlans([]);
+    setPracticeEvents([]);
+    setFocusTarget(null);
+    setActivePlanIdState("");
+    setActivePlanId("");
+    setCurrentTab("today");
+  };
+
+  /** 回执上的「定位到考点」：按事件里的钥匙重新定位，定位不到就如实说找不到 */
+  const handleLocateReceipt = async (event: PracticeEvent) => {
+    const target = await resolveEventFocus(plans, event);
+    if (!target) {
+      setInboundNotice({
+        title: t("inboundUnmatchedTitle"),
+        message: t("inboundLocateUnmatchedBody"),
+        tone: "warning",
+      });
+      return;
+    }
+    setActivePlanIdState(target.planId);
+    setActivePlanId(target.planId);
+    setCurrentTab("course");
+    setFocusTarget(target);
+    setFocusNonce((prev) => prev + 1);
+  };
+
+  /** 忽略只改事件状态，不动计划数据，也不删 StarQuiz 那边的练习历史 */
+  const handleDismissReceipt = async (attemptId: string) => {
+    try {
+      const rows = await updatePracticeEvent(attemptId, { status: "dismissed" });
+      setPracticeEvents(rows);
+    } catch (err) {
+      console.error("Failed to dismiss practice receipt", err);
+      setAppNotice(
+        language === "zh"
+          ? "忽略练习回执失败，请检查浏览器存储后重试。"
+          : "Could not dismiss the receipt. Check your browser storage and try again."
       );
     }
   };
 
-  const handleOpenSettings = (tab: "account" | "language" | "version" = "account") => {
-    setSettingsInitialTab(tab);
-    setIsSettingsOpen(true);
-  };
-
-  const handleResetPlans = () => {
-    setPlans([]);
-    setActivePlanIdState("");
-    setActivePlanId("");
-    savePlans([]);
-  };
-
-  const handleLogout = () => {
-    setUserProfile(DEFAULT_USER_PROFILE);
-    saveUserProfile(DEFAULT_USER_PROFILE);
-    setPlans([]);
-    savePlans([]);
-    setActivePlanIdState("");
-    setActivePlanId("");
-    clearUserSessionData();
-    setCurrentTab("dashboard");
+  const handleImportPlans = (importedPlans: ExamStudyPlan[], importedSettings?: AppSettings) => {
+    if (!Array.isArray(importedPlans)) return;
+    const validPlans = importedPlans.filter(
+      (p): p is ExamStudyPlan =>
+        !!p && typeof p.id === "string" && typeof p.examName === "string" && Array.isArray(p.tasks)
+    );
+    if (validPlans.length === 0) return;
+    setPlans((prev) => {
+      const merged = [...prev];
+      validPlans.forEach((imported) => {
+        const index = merged.findIndex((p) => p.id === imported.id);
+        if (index >= 0) merged[index] = imported;
+        else merged.unshift(imported);
+      });
+      return merged;
+    });
+    if (!activePlanId) {
+      setActivePlanIdState(validPlans[0].id);
+      setActivePlanId(validPlans[0].id);
+    }
+    if (importedSettings) {
+      handleUpdateSettings({ ...appSettings, ...importedSettings });
+    }
   };
 
   const activePlan = React.useMemo(() => {
@@ -186,28 +238,16 @@ export default function App() {
   const handleSelectPlan = (planId: string) => {
     setActivePlanIdState(planId);
     setActivePlanId(planId);
-    const target = plans.find((p) => p.id === planId);
-    if (target) {
-      setExamName(target.examName);
-      setSubject(target.subject);
-      setCurrentTopics(target.topics || []);
-      setMaterialsSummary(target.materialsSummary || "");
-    }
+    // 手动切计划就结束这次回程定位，之后重新展开知识区不该再抢滚动位置
+    setFocusTarget((prev) => (prev && prev.planId !== planId ? null : prev));
   };
 
   const handleNewPlan = () => {
-    setCurrentTab("add_subject");
+    setIsNewSubjectOpen(true);
   };
 
   const handleUpdatePlan = (updatedPlan: ExamStudyPlan) => {
-    setPlans((prev) =>
-      prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p))
-    );
-    if (auth.currentUser) {
-      savePlanToCloud(auth.currentUser.uid, updatedPlan).catch((e) =>
-        console.error("Failed to sync plan to cloud:", e)
-      );
-    }
+    setPlans((prev) => prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p)));
   };
 
   const handleDeletePlan = (planId: string) => {
@@ -217,71 +257,71 @@ export default function App() {
         if (next.length > 0) {
           setActivePlanIdState(next[0].id);
           setActivePlanId(next[0].id);
-          setExamName(next[0].examName);
-          setSubject(next[0].subject);
-          setCurrentTopics(next[0].topics || []);
-          setMaterialsSummary(next[0].materialsSummary || "");
         } else {
           setActivePlanIdState("");
           setActivePlanId("");
-          setCurrentTab("dashboard");
+          setCurrentTab("today");
         }
       }
       return next;
     });
-    if (auth.currentUser) {
-      deletePlanFromCloud(auth.currentUser.uid, planId).catch((e) =>
-        console.error("Failed to delete plan from cloud:", e)
-      );
-    }
   };
 
-  const handlePlanGenerated = (newPlan: ExamStudyPlan) => {
-    const nextPlans = [newPlan, ...plans.filter((p) => p.id !== newPlan.id)];
-    setPlans(nextPlans);
+  const handlePlanGenerated = (newPlan: ExamStudyPlan, notice?: string | null) => {
+    setPlans((prev) => [newPlan, ...prev.filter((p) => p.id !== newPlan.id)]);
     setActivePlanIdState(newPlan.id);
     setActivePlanId(newPlan.id);
-    setCurrentTab("dashboard");
-    setSelectedDate(newPlan.startDate || new Date().toISOString().split("T")[0]);
-
-    if (auth.currentUser) {
-      savePlanToCloud(auth.currentUser.uid, newPlan).catch((e) =>
-        console.error("Failed to save new plan to cloud:", e)
-      );
-    }
+    setAppNotice(notice || null);
+    setIsNewSubjectOpen(false);
+    setCurrentTab("today");
+    setSelectedDate(newPlan.startDate || toLocalDateString());
   };
 
-  const handleNavigateToTab = (tab: "dashboard" | "master_calendar" | "todo" | "realtime" | "course" | "materials" | "add_subject", planId?: string) => {
+  const handleNavigateToTab = (tab: AppTab, planId?: string) => {
     if (planId) {
       handleSelectPlan(planId);
     }
-    setCurrentTab(tab);
-    if (tab === "course") {
-      const target = planId ? plans.find((p) => p.id === planId) : activePlan;
-      if (target) {
-        setCurrentTopics(target.topics || []);
-        setExamName(target.examName);
-        setSubject(target.subject);
-        setMaterialsSummary(target.materialsSummary || "");
-        setCourseStep("syllabus");
-      }
+    if (tab === "today") {
+      setSelectedDate(toLocalDateString());
     }
+    // 任何手动导航都视为「这次回程已经看完」，避免稍后回来又自动滚一次
+    setFocusTarget(null);
+    setCurrentTab(tab);
   };
+
+  const mobileNavItems = [
+    { id: "today" as AppTab, label: language === "zh" ? "今日" : "Today", icon: Sun },
+    { id: "dashboard" as AppTab, label: language === "zh" ? "科目" : "Subjects", icon: LayoutDashboard },
+    { id: "master_calendar" as AppTab, label: language === "zh" ? "日历" : "Calendar", icon: Calendar },
+    { id: "settings" as AppTab, label: language === "zh" ? "设置" : "Settings", icon: Settings },
+  ];
+
+  const isMobileNavActive = (tab: AppTab) => {
+    if (tab === "dashboard") {
+      return ["dashboard", "course"].includes(currentTab);
+    }
+    return currentTab === tab;
+  };
+
+  if (!isHydrated) {
+    return (
+      <div className="min-h-screen bg-[#f8f7f4] text-[#8a8580] flex items-center justify-center text-[13px]">
+        <div className="flex items-center gap-2.5">
+          <span className="w-4 h-4 rounded-full border-2 border-[#ddd9d2] border-t-[#1c1b1a] animate-spin" />
+          <span>{language === "zh" ? "正在读取本地备考数据…" : "Loading local planner data…"}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f8f7f4] text-[#111111] flex antialiased selection:bg-[#111111] selection:text-white font-sans">
-
       <NotionSidebar
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         plans={plans}
         activePlan={activePlan}
-        onSelectPlan={(id) => {
-          handleSelectPlan(id);
-          if (currentTab === "dashboard") {
-
-          }
-        }}
+        onSelectPlan={handleSelectPlan}
         onNewPlan={handleNewPlan}
         onDeletePlan={handleDeletePlan}
         onRequestDeletePlan={(p) => setPlanToDelete(p)}
@@ -289,11 +329,6 @@ export default function App() {
         onTabChange={(tab, planId) => {
           handleNavigateToTab(tab, planId);
         }}
-        onOpenRebalanceModal={() => {
-          setCurrentTab("realtime");
-        }}
-        userProfile={userProfile}
-        onOpenSettings={handleOpenSettings}
       />
 
       <div
@@ -301,17 +336,121 @@ export default function App() {
           isSidebarOpen ? "md:ml-64" : "ml-0"
         }`}
       >
-        <main className="flex-1 pb-16">
+        <div className="md:hidden sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-[#e7e4de] bg-[#f8f7f4]/90 backdrop-blur px-4 py-2.5">
+          <button
+            onClick={() => handleNavigateToTab("today")}
+            className="flex items-center gap-2 cursor-pointer"
+            aria-label={language === "zh" ? "回到今日" : "Back to today"}
+          >
+            <span className="w-6 h-6 rounded-md bg-[#1c1b1a] text-white flex items-center justify-center text-[10px] font-semibold tracking-tight">
+              EP
+            </span>
+            <span className="text-[13px] font-semibold tracking-tight text-[#1c1b1a]">EXAM PLAN AI</span>
+          </button>
+          <button
+            onClick={handleNewPlan}
+            className="p-2 min-w-9 min-h-9 rounded-lg border border-[#e5e2dc] bg-white text-[#1c1b1a] hover:bg-[#faf9f6] transition-colors cursor-pointer"
+            aria-label={language === "zh" ? "新建备考科目" : "Create subject"}
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+
+        {saveError && (
+          <div className="sticky top-0 z-30 flex items-start justify-between gap-3 border-b border-[#f0e2c0] bg-[#FFF6DD] px-4 py-2.5 text-[13px] text-[#8A5A00]">
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{saveError}</span>
+            </span>
+            <button
+              onClick={() => handleNavigateToTab("settings")}
+              className="shrink-0 font-medium underline underline-offset-2 cursor-pointer"
+            >
+              {language === "zh" ? "前往设置导出备份" : "Export a backup"}
+            </button>
+          </div>
+        )}
+        {appNotice && (
+          <div className="sticky top-0 z-30 flex items-start justify-between gap-3 border-b border-[#e7e4de] bg-[#f1efe9] px-4 py-2.5 text-[13px] text-[#6b6660]">
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{appNotice}</span>
+            </span>
+            <button
+              onClick={() => setAppNotice(null)}
+              className="shrink-0 font-medium underline underline-offset-2 cursor-pointer"
+            >
+              {language === "zh" ? "知道了" : "Dismiss"}
+            </button>
+          </div>
+        )}
+        {inboundNotice && (
+          <div
+            role="status"
+            className={`sticky top-0 z-30 flex items-start justify-between gap-3 border-b px-4 py-2.5 text-[13px] animate-fadeIn ${
+              inboundNotice.tone === "success"
+                ? "border-[#d8e4dc] bg-[#EEF4EF] text-[#3F6B4F]"
+                : inboundNotice.tone === "warning"
+                  ? "border-[#f0e2c0] bg-[#FFF6DD] text-[#8A5A00]"
+                  : "border-[#e7e4de] bg-[#f1efe9] text-[#6b6660]"
+            }`}
+          >
+            <span className="flex items-start gap-2 min-w-0">
+              {inboundNotice.tone === "success" ? (
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+              ) : inboundNotice.tone === "warning" ? (
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+              ) : (
+                <Info className="w-4 h-4 shrink-0 mt-0.5" />
+              )}
+              <span className="min-w-0">
+                <span className="font-semibold">{inboundNotice.title}</span>
+                <span className="mx-1.5 opacity-40">·</span>
+                <span className="leading-relaxed">{inboundNotice.message}</span>
+              </span>
+            </span>
+            <button
+              onClick={() => setInboundNotice(null)}
+              className="shrink-0 font-medium underline underline-offset-2 cursor-pointer"
+            >
+              {language === "zh" ? "知道了" : "Dismiss"}
+            </button>
+          </div>
+        )}
+        <main className="flex-1 pb-24 md:pb-16">
+          {currentTab === "today" && (
+            <TodayFocusView
+              plans={plans}
+              onNavigateToTab={handleNavigateToTab}
+              onUpdatePlan={handleUpdatePlan}
+              onAddNewSubject={handleNewPlan}
+              onNotice={setAppNotice}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+              soundAlertsEnabled={appSettings.enableSoundAlerts}
+              defaultFocusDuration={appSettings.defaultFocusDuration}
+            />
+          )}
+
           {currentTab === "dashboard" && (
             <MasterDashboard
               plans={plans}
               activePlan={activePlan}
               onSelectPlan={handleSelectPlan}
               onNavigateToTab={handleNavigateToTab}
-              onUpdatePlan={handleUpdatePlan}
               onDeletePlan={handleDeletePlan}
               onRequestDeletePlan={(p) => setPlanToDelete(p)}
               onAddNewSubject={handleNewPlan}
+            />
+          )}
+
+          {currentTab === "settings" && (
+            <SettingsPage
+              settings={appSettings}
+              onUpdateSettings={handleUpdateSettings}
+              plans={plans}
+              onImportPlans={handleImportPlans}
+              onClearAllData={handleClearAllData}
             />
           )}
 
@@ -320,32 +459,28 @@ export default function App() {
               <MasterCalendarView
                 plans={plans}
                 onToggleTaskStatus={(planId, taskId) => {
-                  const targetPlan = plans.find((p) => p.id === planId);
-                  if (!targetPlan) return;
-                  const updatedTasks = targetPlan.tasks.map((t) =>
-                    t.id === taskId
-                      ? {
-                          ...t,
-                          status: (t.status === "completed" ? "pending" : "completed") as any,
-                          completedAt: t.status === "completed" ? undefined : new Date().toISOString(),
-                        }
-                      : t
+                  setPlans((prev) =>
+                    prev.map((plan) => {
+                      if (plan.id !== planId) return plan;
+                      return {
+                        ...plan,
+                        tasks: plan.tasks.map((t) =>
+                          t.id === taskId
+                            ? {
+                                ...t,
+                                status: t.status === "completed" ? "pending" : "completed",
+                                completedAt: t.status === "completed" ? undefined : new Date().toISOString(),
+                              }
+                            : t
+                        ),
+                      };
+                    })
                   );
-                  handleUpdatePlan({ ...targetPlan, tasks: updatedTasks });
                 }}
                 onStartFocusTimer={(task, planId) => {
-                  const targetPlan = plans.find((p) => p.id === planId);
-                  if (targetPlan) {
-                    handleSelectPlan(planId);
-                    setCurrentTab("course");
-                  }
-                }}
-                onStartQuiz={(task, planId) => {
-                  const targetPlan = plans.find((p) => p.id === planId);
-                  if (targetPlan) {
-                    handleSelectPlan(planId);
-                    setCurrentTab("course");
-                  }
+                  handleSelectPlan(planId);
+                  setSelectedDate(task.date);
+                  setCurrentTab("today");
                 }}
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
@@ -353,52 +488,68 @@ export default function App() {
             </div>
           )}
 
-          {currentTab === "add_subject" && (
-            <AddExamSubjectWizard
-              existingPlans={plans}
-              onPlanCreated={handlePlanGenerated}
-              onCancel={() => setCurrentTab("dashboard")}
-            />
-          )}
-
-          {(currentTab === "course" || currentTab === "todo" || currentTab === "realtime" || currentTab === "materials") && (
-            activePlan ? (
+          {currentTab === "course" &&
+            (activePlan ? (
               <CourseDetailPage
                 plan={activePlan}
-                plans={plans}
                 onUpdatePlan={handleUpdatePlan}
-                onDeletePlan={handleDeletePlan}
                 onRequestDeletePlan={(p) => setPlanToDelete(p)}
                 onNavigateToTab={handleNavigateToTab}
-                initialDrawer={currentTab === "realtime" ? "progress" : currentTab === "materials" ? "syllabus" : null}
+                focusTarget={focusTarget}
+                focusNonce={focusNonce}
+                practiceEvents={practiceEvents.filter((event) => event.planId === activePlan.id)}
+                onLocateReceipt={handleLocateReceipt}
+                onDismissReceipt={handleDismissReceipt}
               />
             ) : (
-              <div className="max-w-xl mx-auto mt-16 p-8 bg-white border border-[#111111] shadow-xs text-center font-mono space-y-4 animate-fadeIn">
-                <div className="w-12 h-12 bg-[#FCD33B] border border-[#111111] flex items-center justify-center mx-auto shadow-xs">
-                  <LayoutDashboard className="w-6 h-6 text-[#111111]" />
+              <div className="max-w-md mx-auto mt-16 ui-card p-8 text-center space-y-4 animate-fadeIn">
+                <div className="w-12 h-12 rounded-xl bg-[#f1efe9] flex items-center justify-center mx-auto">
+                  <LayoutDashboard className="w-6 h-6 text-[#8a8580]" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-[#111111]">
-                    暂无可查看的备考科目 // NO ACTIVE SUBJECT
+                  <h3 className="text-[15px] font-semibold text-[#1c1b1a]">
+                    {language === "zh" ? "暂无备考科目" : "No subjects yet"}
                   </h3>
-                  <p className="text-xs text-[#666666] mt-1.5 leading-relaxed max-w-md mx-auto">
-                    您还没有添加任何备考科目。请先点击下方按钮新建您的首门备考计划，生成每日科学复习任务与考纲知识库。
+                  <p className="text-[13px] text-[#8a8580] mt-1.5 leading-relaxed max-w-sm mx-auto">
+                    {language === "zh"
+                      ? "新建你的首门备考计划，AI 会整理考点并生成每日复习任务。"
+                      : "Create your first study plan to generate daily tasks and a syllabus knowledge base."}
                   </p>
                 </div>
                 <div className="pt-2">
-                  <button
-                    onClick={handleNewPlan}
-                    className="inline-flex items-center space-x-2 px-5 py-2.5 bg-[#111111] text-white text-xs font-bold rounded-lg hover:bg-[#333333] transition-colors cursor-pointer shadow-xs active:scale-95"
-                  >
+                  <button onClick={handleNewPlan} className="ui-btn ui-btn-primary">
                     <Plus className="w-4 h-4" />
-                    <span>新建备考科目 (Create Subject)</span>
+                    <span>{language === "zh" ? "新建备考科目" : "Create subject"}</span>
                   </button>
                 </div>
               </div>
-            )
-          )}
+            ))}
         </main>
       </div>
+
+      <nav
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-[#f8f7f4]/95 backdrop-blur border-t border-[#e7e4de] grid grid-cols-4"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        aria-label={language === "zh" ? "移动端主导航" : "Mobile navigation"}
+      >
+        {mobileNavItems.map((item) => {
+          const Icon = item.icon;
+          const active = isMobileNavActive(item.id);
+          return (
+            <button
+              key={item.id}
+              onClick={() => handleNavigateToTab(item.id)}
+              aria-current={active ? "page" : undefined}
+              className={`flex flex-col items-center justify-center gap-1 min-h-[56px] text-[11px] transition-colors cursor-pointer ${
+                active ? "text-[#1c1b1a] font-semibold" : "text-[#a39e97] font-medium"
+              }`}
+            >
+              <Icon className="w-[18px] h-[18px]" />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
 
       <DeleteConfirmModal
         isOpen={!!planToDelete}
@@ -407,19 +558,15 @@ export default function App() {
         onConfirm={(planId) => handleDeletePlan(planId)}
       />
 
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        initialTab={settingsInitialTab}
-        settings={appSettings}
-        onUpdateSettings={handleUpdateSettings}
-        userProfile={userProfile}
-        onUpdateUserProfile={handleUpdateUserProfile}
-        plans={plans}
-        onImportPlans={(importedPlans) => setPlans(importedPlans)}
-        onResetPlans={handleResetPlans}
-        onLogout={handleLogout}
-      />
+      {isNewSubjectOpen && (
+        <AddExamSubjectWizard
+          variant="modal"
+          existingPlans={plans}
+          onPlanCreated={handlePlanGenerated}
+          onCancel={() => setIsNewSubjectOpen(false)}
+          defaultStudyPace={appSettings.defaultStudyPace}
+        />
+      )}
     </div>
   );
 }

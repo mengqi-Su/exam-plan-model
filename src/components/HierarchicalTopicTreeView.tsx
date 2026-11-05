@@ -1,24 +1,21 @@
-import React, { useState, useMemo } from "react";
-import { SyllabusTopic, SyllabusSubtopicNode } from "../types";
+import React, { useState, useEffect, useMemo } from "react";
+import { SyllabusTopic, SyllabusSubtopicNode, StudyMaterial } from "../types";
 import {
   ChevronDown,
   ChevronRight,
   Plus,
   Trash2,
   Edit2,
-  Sparkles,
   Search,
   Check,
   X,
-  AlertTriangle,
   BookOpen,
   Clock,
-  Layers,
-  FolderTree,
-  FileCode,
-  Tag,
   Zap,
+  ArrowUpRight,
 } from "lucide-react";
+import { starquizPracticeUrl } from "../lib/links";
+import { primeHandoffForPractice } from "../lib/handoff";
 
 interface HierarchicalTopicTreeViewProps {
   topics: SyllabusTopic[];
@@ -26,9 +23,22 @@ interface HierarchicalTopicTreeViewProps {
   editable?: boolean;
   onUpdateTopic?: (index: number, updatedTopic: Partial<SyllabusTopic>) => void;
   onDeleteTopic?: (topicId: string) => void;
-  onAddTopic?: (newTopic: SyllabusTopic) => void;
-  onReExtract?: () => void;
-  isExtracting?: boolean;
+  /** 科目名称，用于「练这个考点」深链到 StarQuiz 对应学科 */
+  subject?: string;
+  /** 考试名称，作为 StarQuiz 备考上下文 */
+  examName?: string;
+  /** 计划 ID：与层级、完整路径一起构成联动上下文，缺失时退化为普通跳转 */
+  planId?: string;
+  /** 这场考试上传的资料与真题：点「练这个考点」时随同一次跳转本地交给 StarQuiz */
+  materials?: StudyMaterial[];
+  /**
+   * 回程定位目标（联动 M2）：由入站流程给出的显式 id/标题，
+   * 组件按 data 属性展开并滚动，绝不拿标题文本去猜 DOM 结构。
+   */
+  focusUnitId?: string | null;
+  focusSubtopicTitle?: string;
+  /** 同一目标重复定位时用它重新触发动作 */
+  focusNonce?: number;
 }
 
 export function HierarchicalTopicTreeView({
@@ -37,10 +47,27 @@ export function HierarchicalTopicTreeView({
   editable = true,
   onUpdateTopic,
   onDeleteTopic,
-  onAddTopic,
-  onReExtract,
-  isExtracting = false,
+  subject,
+  examName,
+  planId,
+  materials,
+  focusUnitId = null,
+  focusSubtopicTitle = "",
+  focusNonce = 0,
 }: HierarchicalTopicTreeViewProps) {
+  const isZh = language === "zh";
+  const practiceSubject = (subject || examName || "").trim();
+  const canPractice = practiceSubject.length > 0;
+  const linkBase = { subject: practiceSubject, examName, planId: (planId || "").trim() };
+  // 跳转前同步写一次标签页快照：StarQuiz 读到即清空，所以「点了哪场考试」只可能是这一场。
+  // 资料缺失或超预算时 primeHandoffForPractice 会写成空，链接自然退化成今天的普通跳转。
+  const handoffPlan = useMemo(
+    () => ({ id: (planId || "").trim(), examName, subject: (subject || "").trim(), materials }),
+    [planId, examName, subject, materials]
+  );
+  const primeHandoff = (level: string, unit: string, topic: string) => () =>
+    primeHandoffForPractice(handoffPlan, { level, unit, topic });
+
   // State for expanded unit cards
   const [expandedUnits, setExpandedUnits] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -61,6 +88,61 @@ export function HierarchicalTopicTreeView({
   const [editTopicTitle, setEditTopicTitle] = useState("");
   const [editTopicWeight, setEditTopicWeight] = useState(20);
   const [editTopicHours, setEditTopicHours] = useState(4);
+
+  /** 回程定位后短暂高亮的那一行，靠 data 属性定位而不是标题文本搜索 */
+  const [highlightKey, setHighlightKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!focusUnitId) return;
+    const timers: number[] = [];
+    // 目标可能正被搜索框过滤掉：先清空搜索再展开，保证一定能滚到
+    setSearchQuery("");
+    setExpandedUnits((prev) => ({ ...prev, [focusUnitId]: true }));
+    const sub = focusSubtopicTitle || "";
+    const key = `${focusUnitId}:${sub}`;
+    const block: ScrollLogicalPosition = sub ? "center" : "start";
+    // 展开面板 + 列表渲染是异步的：轮询几次，直到目标行真的在 DOM 里
+    const locate = () => {
+      const escape = (value: string) => (typeof CSS !== "undefined" && CSS.escape ? CSS.escape(value) : value.replace(/["\\]/g, "\\$&"));
+      const selector = sub
+        ? `[data-topic-unit="${escape(focusUnitId)}"] [data-subtopic="${escape(sub)}"]`
+        : `[data-topic-unit="${escape(focusUnitId)}"]`;
+      return document.querySelector(selector);
+    };
+    const attempt = (delay: number, remaining: number) => {
+      const timer = window.setTimeout(() => {
+        const node = locate();
+        if (!node) {
+          if (remaining > 0) attempt(160, remaining - 1);
+          return;
+        }
+        // 高亮先落地：滚动只是辅助，不该决定用户能不能认出目标
+        setHighlightKey(key);
+        const reduceMotion = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        node.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block });
+        // 后台标签页里 smooth 动画可能整段不执行（合成器不跑）：
+        // 校验一次实际位置，仍在视口外就直接对齐，保证「回来能认出原考点」。
+        const check = window.setTimeout(() => {
+          const rect = node.getBoundingClientRect();
+          const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+          const center = rect.top + rect.height / 2;
+          if (center < 0 || center > viewportHeight) node.scrollIntoView({ behavior: "auto", block });
+        }, 600);
+        timers.push(check);
+      }, delay);
+      timers.push(timer);
+    };
+    attempt(80, 4);
+    return () => {
+      timers.splice(0, timers.length).forEach((id) => window.clearTimeout(id));
+    };
+  }, [focusUnitId, focusSubtopicTitle, focusNonce]);
+
+  useEffect(() => {
+    if (!highlightKey) return;
+    const timer = window.setTimeout(() => setHighlightKey(null), 2600);
+    return () => window.clearTimeout(timer);
+  }, [highlightKey]);
 
   // Total stats
   const totalSubtopicsCount = useMemo(() => {
@@ -181,71 +263,54 @@ export function HierarchicalTopicTreeView({
     });
   }, [topics, searchQuery]);
 
+  const inputCls =
+    "rounded-lg bg-white border border-[#e5e2dc] text-[#1c1b1a] placeholder-[#a39e97] outline-none focus:border-[#cfc9c0]";
+
   return (
-    <div className="space-y-4 font-mono text-xs text-[#111111]">
-      {/* Top Header Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-white border border-[#111111]">
-        <div className="flex items-center space-x-1.5 font-bold uppercase">
-          <FolderTree className="w-4 h-4 text-[#111111]" />
-          <span>[{language === "zh" ? "考点知识树架构" : "KNOWLEDGE TREE HIERARCHY"}]</span>
+    <div className="space-y-4 text-[#1c1b1a]">
+      {/* Top Header Controls
+          工具条只负责「怎么看这棵树」：搜索 + 展开/折叠。
+          标题由外层段落给出、重新提炼由段落头部负责，这里不再重复一套同名控件。 */}
+      <div className="ui-card flex items-center gap-2 p-2.5">
+        <div className="relative flex-1 min-w-0">
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#a39e97]" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={isZh ? "搜索考点 / 公式 / 概念…" : "Search topics & points..."}
+            className={`w-full pl-8 pr-2.5 py-1.5 text-[13px] ${inputCls}`}
+          />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Quick Search */}
-          <div className="relative flex-1 sm:w-48">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#888888]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={language === "zh" ? "搜索考点 / 公式 / 概念..." : "Search topics & points..."}
-              className="w-full pl-8 pr-2.5 py-1 bg-white border border-[#111111] text-xs outline-none font-mono"
-            />
-          </div>
-
-          {/* Expand / Collapse All */}
-          <div className="flex items-center space-x-1">
-            <button
-              onClick={() => toggleAll(true)}
-              className="px-2 py-1 bg-white border border-[#111111] hover:bg-[#ededed] text-[11px] font-bold cursor-pointer"
-              title={language === "zh" ? "展开全部大单元" : "Expand All"}
-            >
-              [{language === "zh" ? "全部展开" : "EXPAND"}]
-            </button>
-            <button
-              onClick={() => toggleAll(false)}
-              className="px-2 py-1 bg-white border border-[#111111] hover:bg-[#ededed] text-[11px] font-bold cursor-pointer"
-              title={language === "zh" ? "折叠全部大单元" : "Collapse All"}
-            >
-              [{language === "zh" ? "全部折叠" : "COLLAPSE"}]
-            </button>
-          </div>
-
-          {onReExtract && (
-            <button
-              onClick={onReExtract}
-              disabled={isExtracting}
-              className="flex items-center space-x-1 px-3 py-1 bg-[#111111] hover:bg-[#333333] disabled:opacity-50 text-white font-bold cursor-pointer border border-[#111111]"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>
-                [{isExtracting ? (language === "zh" ? "AI 提炼中..." : "PARSING...") : (language === "zh" ? "重新提炼考点树" : "RE-EXTRACT TREE")}]
-              </span>
-            </button>
-          )}
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => toggleAll(true)}
+            className="ui-btn ui-btn-ghost px-2.5 py-1.5 text-[12px]"
+            title={isZh ? "展开全部大单元" : "Expand all"}
+          >
+            {isZh ? "全部展开" : "Expand"}
+          </button>
+          <button
+            onClick={() => toggleAll(false)}
+            className="ui-btn ui-btn-ghost px-2.5 py-1.5 text-[12px]"
+            title={isZh ? "折叠全部大单元" : "Collapse all"}
+          >
+            {isZh ? "全部折叠" : "Collapse"}
+          </button>
         </div>
       </div>
 
       {/* Tree Content */}
       {filteredTopics.length === 0 ? (
-        <div className="p-8 text-center bg-white border border-dashed border-[#111111] space-y-2">
-          <BookOpen className="w-6 h-6 mx-auto text-[#888888]" />
-          <p className="font-bold uppercase text-xs text-[#111111]">
-            [{language === "zh" ? "暂未匹配到考点或知识树为空" : "NO MATCHING TOPICS IN TREE"}]
+        <div className="rounded-xl border border-dashed border-[#ddd8d0] bg-[#faf9f6] p-8 text-center space-y-2">
+          <BookOpen className="w-6 h-6 mx-auto text-[#a39e97]" />
+          <p className="ui-row-title">
+            {isZh ? "暂未匹配到考点或知识树为空" : "No matching topics"}
           </p>
-          <p className="text-[#666666] text-[11px]">
-            {language === "zh"
-              ? "上传课程资料后，点击「AI 联合提炼考点」即可自动提取多层级知识树。"
+          <p className="ui-note max-w-md mx-auto">
+            {isZh
+              ? "上传课程资料后，点击「重新提炼考点树」即可自动提取多层级知识树。"
               : "Upload syllabus materials to auto-extract the full hierarchical topic tree."}
           </p>
         </div>
@@ -255,7 +320,6 @@ export function HierarchicalTopicTreeView({
             const isExpanded = expandedUnits[topic.id] ?? true;
             const isEditing = editingTopicId === topic.id;
 
-            // Generate subnodes if not explicitly present
             const subNodes: SyllabusSubtopicNode[] =
               topic.subtopicTree && topic.subtopicTree.length > 0
                 ? topic.subtopicTree
@@ -269,34 +333,37 @@ export function HierarchicalTopicTreeView({
 
             const diffBadge =
               topic.difficulty === "hard"
-                ? language === "zh" ? "攻坚难点" : "HARD"
+                ? isZh ? "攻坚难点" : "Hard"
                 : topic.difficulty === "easy"
-                ? language === "zh" ? "基础概念" : "EASY"
-                : language === "zh" ? "核心中等" : "MEDIUM";
+                ? isZh ? "基础概念" : "Easy"
+                : isZh ? "核心中等" : "Medium";
+
+            const unitHighlighted = highlightKey === `${topic.id}:`;
 
             return (
               <div
                 key={topic.id || `topic-unit-${tIdx}`}
-                className="bg-white border border-[#111111] shadow-xs transition-all"
+                data-topic-unit={topic.id}
+                className={`ui-card overflow-hidden transition-shadow duration-300 ${
+                  unitHighlighted ? "ring-2 ring-[#1c1b1a]/15 border-[#cfc9c0]" : ""
+                }`}
               >
-                {/* 1. Root Node: Major Unit Header */}
+                {/* Root Node: Major Unit Header */}
                 <div
                   className={`p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b ${
-                    isExpanded ? "border-[#111111] bg-[#fafafa]" : "border-transparent bg-white hover:bg-[#fcfcfc]"
+                    isExpanded ? "border-[#f0ede8] bg-[#faf9f6]" : "border-transparent bg-white hover:bg-[#faf9f6]"
                   }`}
                 >
-                  <div className="flex items-start sm:items-center space-x-2.5 flex-1 min-w-0">
+                  <div className="flex items-start sm:items-center gap-2.5 flex-1 min-w-0">
                     <button
                       onClick={() => toggleUnit(topic.id)}
-                      className="p-1 hover:bg-[#ededed] border border-[#111111] bg-white cursor-pointer mt-0.5 sm:mt-0"
-                      title={isExpanded ? (language === "zh" ? "折叠大单元" : "Collapse") : (language === "zh" ? "展开大单元" : "Expand")}
+                      className="p-1 rounded-md text-[#6b6660] hover:bg-black/[0.05] hover:text-[#1c1b1a] transition-colors cursor-pointer mt-0.5 sm:mt-0 shrink-0"
+                      title={isExpanded ? (isZh ? "折叠大单元" : "Collapse") : isZh ? "展开大单元" : "Expand"}
                     >
-                      {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                      {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     </button>
 
-                    <span className="px-2 py-0.5 bg-[#111111] text-white text-[10px] font-bold uppercase shrink-0">
-                      UNIT 0{tIdx + 1}
-                    </span>
+                    <span className="ui-chip tabular-nums shrink-0">{String(tIdx + 1).padStart(2, "0")}</span>
 
                     {isEditing ? (
                       <div className="flex flex-wrap items-center gap-2 flex-1">
@@ -304,36 +371,38 @@ export function HierarchicalTopicTreeView({
                           type="text"
                           value={editTopicTitle}
                           onChange={(e) => setEditTopicTitle(e.target.value)}
-                          className="flex-1 px-2 py-0.5 bg-white border border-[#111111] font-bold text-xs outline-none"
+                          className={`flex-1 min-w-32 px-2.5 py-1 text-[13px] font-medium ${inputCls}`}
                         />
-                        <div className="flex items-center space-x-1">
-                          <span className="text-[11px] text-[#666666]">{language === "zh" ? "占比" : "Weight"}:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="ui-row-meta">{isZh ? "占比" : "Weight"}</span>
                           <input
                             type="number"
                             value={editTopicWeight}
                             onChange={(e) => setEditTopicWeight(Number(e.target.value))}
-                            className="w-12 px-1 py-0.5 bg-white border border-[#111111] text-center font-bold text-xs"
+                            className={`w-14 px-1.5 py-1 text-center text-[13px] tabular-nums ${inputCls}`}
                           />
-                          <span>%</span>
+                          <span className="ui-row-meta">%</span>
                         </div>
-                        <div className="flex items-center space-x-1">
-                          <span className="text-[11px] text-[#666666]">{language === "zh" ? "学时" : "Hrs"}:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="ui-row-meta">{isZh ? "学时" : "Hrs"}</span>
                           <input
                             type="number"
                             value={editTopicHours}
                             onChange={(e) => setEditTopicHours(Number(e.target.value))}
-                            className="w-12 px-1 py-0.5 bg-white border border-[#111111] text-center font-bold text-xs"
+                            className={`w-14 px-1.5 py-1 text-center text-[13px] tabular-nums ${inputCls}`}
                           />
                         </div>
                         <button
                           onClick={() => handleSaveEditTopic(tIdx)}
-                          className="p-1 bg-[#111111] text-white border border-[#111111] cursor-pointer"
+                          className="p-1.5 rounded-md bg-[#1c1b1a] text-white hover:bg-[#333333] transition-colors cursor-pointer"
+                          title={isZh ? "保存" : "Save"}
                         >
                           <Check className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => setEditingTopicId(null)}
-                          className="p-1 bg-white border border-[#111111] hover:bg-[#ededed] cursor-pointer"
+                          className="p-1.5 rounded-md border border-[#e5e2dc] bg-white text-[#6b6660] hover:bg-[#faf9f6] transition-colors cursor-pointer"
+                          title={isZh ? "取消" : "Cancel"}
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -342,83 +411,86 @@ export function HierarchicalTopicTreeView({
                       <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
                         <span
                           onClick={() => toggleUnit(topic.id)}
-                          className="font-bold text-xs text-[#111111] cursor-pointer hover:underline truncate"
+                          className="ui-group-title cursor-pointer hover:underline truncate"
                         >
                           {topic.title}
                         </span>
-
-                        <span className="px-1.5 py-0.2 bg-white border border-[#111111] text-[10px] uppercase font-bold text-[#111111]">
-                          [{diffBadge}]
+                        <span className="ui-chip shrink-0">{diffBadge}</span>
+                        <span className="ui-chip tabular-nums shrink-0">
+                          {isZh ? "占比" : "Weight"} {topic.weightPercentage || 20}%
                         </span>
-
-                        <span className="px-1.5 py-0.2 bg-[#111111] text-white text-[10px] font-bold">
-                          {language === "zh" ? "占比" : "WEIGHT"}: {topic.weightPercentage || 20}%
-                        </span>
-
-                        <span className="text-[11px] text-[#666666] flex items-center space-x-1 font-bold">
-                          <Clock className="w-3 h-3" />
-                          <span>{topic.estimatedHours || 4} {language === "zh" ? "学时" : "HRS"}</span>
+                        <span className="ui-row-meta flex items-center gap-1 tabular-nums shrink-0">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{topic.estimatedHours || 4} {isZh ? "学时" : "hrs"}</span>
                         </span>
                       </div>
                     )}
                   </div>
 
-                  {/* Right Action buttons */}
+                  {!isEditing && canPractice && (
+                    <a
+                      href={starquizPracticeUrl({ ...linkBase, level: "unit", unit: topic.title, topic: topic.title })}
+                      onClick={primeHandoff("unit", topic.title, topic.title)}
+                      className="ui-btn ui-btn-ghost px-2.5 py-1.5 text-[12px] shrink-0 self-end sm:self-center"
+                      title={isZh ? `去 StarQuiz 练「${topic.title}」` : `Practice "${topic.title}" in StarQuiz`}
+                    >
+                      <span>{isZh ? "练这个考点" : "Practice"}</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+
                   {!isEditing && editable && (
-                    <div className="flex items-center space-x-1.5 shrink-0 self-end sm:self-center">
+                    <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
                       <button
                         onClick={() => {
                           setAddingSubtopicUnitId(addingSubtopicUnitId === topic.id ? null : topic.id);
                           setNewSubtopicTitle("");
                           setNewSubtopicPoints("");
                         }}
-                        className="flex items-center space-x-1 px-2 py-1 bg-white border border-[#111111] hover:bg-[#111111] hover:text-white text-[11px] font-bold transition-colors cursor-pointer"
-                        title={language === "zh" ? "向该大单元添加细分考点" : "Add fine-grained subtopic"}
+                        className="ui-btn ui-btn-ghost px-2.5 py-1.5 text-[12px]"
+                        title={isZh ? "向该大单元添加细分考点" : "Add subtopic"}
                       >
-                        <Plus className="w-3 h-3" />
-                        <span>[{language === "zh" ? "+ 细分考点" : "+ SUBTOPIC"}]</span>
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>{isZh ? "细分考点" : "Subtopic"}</span>
                       </button>
-
                       <button
                         onClick={() => handleStartEditTopic(topic)}
-                        className="p-1 border border-[#111111] bg-white hover:bg-[#ededed] cursor-pointer"
-                        title={language === "zh" ? "编辑大单元" : "Edit unit"}
+                        className="p-1.5 rounded-md border border-[#e5e2dc] bg-white text-[#6b6660] hover:bg-[#faf9f6] hover:text-[#1c1b1a] transition-colors cursor-pointer"
+                        title={isZh ? "编辑大单元" : "Edit unit"}
                       >
-                        <Edit2 className="w-3 h-3" />
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
-
                       {onDeleteTopic && (
                         <button
                           onClick={() => onDeleteTopic(topic.id)}
-                          className="p-1 border border-[#111111] bg-white hover:bg-[#111111] hover:text-white cursor-pointer transition-colors"
-                          title={language === "zh" ? "删除整个大单元" : "Delete unit"}
+                          className="p-1.5 rounded-md border border-[#e5e2dc] bg-white text-[#6b6660] hover:bg-[#FDF0EE] hover:text-[#B42318] hover:border-[#f0d0cc] transition-colors cursor-pointer"
+                          title={isZh ? "删除整个大单元" : "Delete unit"}
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
                   )}
                 </div>
 
-                {/* 2. Subtopic Tree Branches (Collapsible) */}
+                {/* Subtopic Tree Branches */}
                 {isExpanded && (
-                  <div className="p-4 space-y-3 bg-[#fdfdfd]">
+                  <div className="p-4 space-y-3 bg-white">
                     {topic.description && (
-                      <p className="text-[11px] text-[#666666] leading-relaxed italic border-l-2 border-[#111111] pl-2.5 my-1">
+                      <p className="ui-row-meta leading-relaxed border-l-2 border-[#eae7e1] pl-2.5 my-1">
                         {topic.description}
                       </p>
                     )}
 
-                    {/* Inline Add Subtopic Panel */}
                     {addingSubtopicUnitId === topic.id && (
-                      <div className="p-3 bg-white border border-[#111111] space-y-2.5 animate-fadeIn">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-[11px] uppercase">
-                            [{language === "zh" ? `为「${topic.title}」添加细分考点` : `ADD SUBTOPIC TO UNIT 0${tIdx + 1}`}]
+                      <div className="rounded-lg border border-[#eae7e1] bg-[#faf9f6] p-3 space-y-2.5 animate-fadeIn">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="ui-subgroup-title">
+                            {isZh ? `为「${topic.title}」添加细分考点` : "Add subtopic to this unit"}
                           </span>
                           <button
                             onClick={() => setAddingSubtopicUnitId(null)}
-                            className="text-[#666666] hover:text-[#111111] cursor-pointer"
+                            className="p-1 rounded-md text-[#a39e97] hover:text-[#1c1b1a] hover:bg-black/[0.04] transition-colors cursor-pointer"
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -429,27 +501,27 @@ export function HierarchicalTopicTreeView({
                             type="text"
                             value={newSubtopicTitle}
                             onChange={(e) => setNewSubtopicTitle(e.target.value)}
-                            placeholder={language === "zh" ? "细分考点名称（如：动态规划状态转移方程推导）" : "Subtopic title..."}
-                            className="sm:col-span-2 px-2.5 py-1 bg-white border border-[#111111] text-xs outline-none"
+                            placeholder={isZh ? "细分考点名称（如：动态规划状态转移方程推导）" : "Subtopic title..."}
+                            className={`sm:col-span-2 px-2.5 py-1.5 text-[13px] ${inputCls}`}
                           />
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center gap-2">
                             <select
                               value={newSubtopicFreq}
                               onChange={(e) => setNewSubtopicFreq(e.target.value as any)}
-                              className="px-2 py-1 bg-white border border-[#111111] text-[11px] font-bold outline-none cursor-pointer flex-1"
+                              className={`px-2 py-1.5 text-[12px] cursor-pointer flex-1 ${inputCls}`}
                             >
-                              <option value="high">{language === "zh" ? "[高频考点]" : "[High Freq]"}</option>
-                              <option value="medium">{language === "zh" ? "[常考重点]" : "[Medium]"}</option>
-                              <option value="low">{language === "zh" ? "[基础概念]" : "[Low Freq]"}</option>
+                              <option value="high">{isZh ? "高频考点" : "High freq"}</option>
+                              <option value="medium">{isZh ? "常考重点" : "Medium"}</option>
+                              <option value="low">{isZh ? "基础概念" : "Low freq"}</option>
                             </select>
                             <select
                               value={newSubtopicDiff}
                               onChange={(e) => setNewSubtopicDiff(e.target.value as any)}
-                              className="px-2 py-1 bg-white border border-[#111111] text-[11px] font-bold outline-none cursor-pointer flex-1"
+                              className={`px-2 py-1.5 text-[12px] cursor-pointer flex-1 ${inputCls}`}
                             >
-                              <option value="easy">{language === "zh" ? "[基础]" : "[Easy]"}</option>
-                              <option value="medium">{language === "zh" ? "[中等]" : "[Med]"}</option>
-                              <option value="hard">{language === "zh" ? "[难点]" : "[Hard]"}</option>
+                              <option value="easy">{isZh ? "基础" : "Easy"}</option>
+                              <option value="medium">{isZh ? "中等" : "Med"}</option>
+                              <option value="hard">{isZh ? "难点" : "Hard"}</option>
                             </select>
                           </div>
                         </div>
@@ -459,104 +531,112 @@ export function HierarchicalTopicTreeView({
                           value={newSubtopicPoints}
                           onChange={(e) => setNewSubtopicPoints(e.target.value)}
                           placeholder={
-                            language === "zh"
-                              ? "细分考查要点/关键公式，用逗号分隔（如：无后效性检验、边界初始化、空间压缩）"
+                            isZh
+                              ? "细分考查要点 / 关键公式，用逗号分隔（如：无后效性检验、边界初始化、空间压缩）"
                               : "Key points / formulas, comma separated..."
                           }
-                          className="w-full px-2.5 py-1 bg-white border border-[#111111] text-xs outline-none"
+                          className={`w-full px-2.5 py-1.5 text-[13px] ${inputCls}`}
                         />
 
-                        <div className="flex justify-end space-x-2 pt-1">
+                        <div className="flex justify-end gap-2 pt-1">
                           <button
                             onClick={() => setAddingSubtopicUnitId(null)}
-                            className="px-3 py-1 bg-white border border-[#111111] hover:bg-[#ededed] text-xs font-bold cursor-pointer"
+                            className="ui-btn ui-btn-ghost px-3 py-1.5 text-[12px]"
                           >
-                            [{language === "zh" ? "取消" : "CANCEL"}]
+                            {isZh ? "取消" : "Cancel"}
                           </button>
                           <button
                             onClick={() => handleAddSubtopicToUnit(tIdx, topic)}
                             disabled={!newSubtopicTitle.trim()}
-                            className="px-4 py-1 bg-[#111111] hover:bg-[#333333] disabled:opacity-50 text-white text-xs font-bold border border-[#111111] cursor-pointer"
+                            className="ui-btn ui-btn-primary px-4 py-1.5 text-[12px]"
                           >
-                            [{language === "zh" ? "保存细分考点" : "SAVE SUBTOPIC"}]
+                            {isZh ? "保存细分考点" : "Save subtopic"}
                           </button>
                         </div>
                       </div>
                     )}
 
-                    {/* Subtopics List as Visual Tree */}
                     {subNodes.length === 0 ? (
-                      <div className="p-3 text-center border border-dashed border-[#111111]/30 bg-white text-[#666666] text-[11px]">
-                        [{language === "zh" ? "该单元暂无细分考点，点击上方「+ 细分考点」添加" : "No subtopics in this unit yet"}]
+                      <div className="rounded-lg border border-dashed border-[#ddd8d0] bg-[#faf9f6] p-3 text-center ui-muted text-[12px]">
+                        {isZh ? "该单元暂无细分考点，点击上方「细分考点」添加" : "No subtopics in this unit yet"}
                       </div>
                     ) : (
-                      <div className="relative pl-3 sm:pl-5 space-y-2.5 border-l-2 border-[#111111]/40 ml-2">
+                      <div className="relative pl-4 sm:pl-5 space-y-2.5 border-l border-[#eae7e1] ml-2">
                         {subNodes.map((sub, sIdx) => {
-                          const isLast = sIdx === subNodes.length - 1;
                           const freqText =
                             sub.examFrequency === "high"
-                              ? (language === "zh" ? "★ 高频考点" : "HIGH")
+                              ? isZh ? "高频" : "High"
                               : sub.examFrequency === "low"
-                              ? (language === "zh" ? "基础要点" : "BASIC")
-                              : (language === "zh" ? "核心考查" : "CORE");
+                              ? isZh ? "基础" : "Basic"
+                              : isZh ? "核心" : "Core";
 
                           return (
                             <div
                               key={sub.id || `subnode-${sIdx}`}
-                              className="relative flex flex-col p-3 bg-white border border-[#111111] space-y-2 hover:bg-[#fafafa] transition-colors"
+                              data-subtopic={sub.title}
+                              className={`relative flex flex-col p-3 rounded-lg border bg-white space-y-2 transition-colors ${
+                                highlightKey === `${topic.id}:${sub.title}`
+                                  ? "border-[#1c1b1a]/25 bg-[#faf9f6] shadow-[0_0_0_2px_rgba(28,27,26,0.06)]"
+                                  : "border-[#eae7e1] hover:bg-[#faf9f6]"
+                              }`}
                             >
-                              {/* Visual Tree Branch Line */}
-                              <div className="absolute -left-3 sm:-left-5 top-4 w-3 sm:w-5 h-0.5 bg-[#111111]/40" />
+                              <div className="absolute -left-4 sm:-left-5 top-4 w-4 sm:w-5 h-px bg-[#eae7e1]" />
 
-                              {/* Subtopic Header */}
                               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                <div className="flex items-center space-x-2 flex-1 min-w-0">
-                                  <span className="px-1.5 py-0.5 bg-[#111111] text-white text-[10px] font-bold font-mono shrink-0">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <span className="ui-chip tabular-nums shrink-0">
                                     {tIdx + 1}.{sIdx + 1}
                                   </span>
-                                  <span className="font-bold text-xs text-[#111111] truncate">
+                                  <span className="ui-row-title truncate">
                                     {sub.title}
                                   </span>
-                                  <span className="px-1.5 py-0.2 bg-white border border-[#111111] text-[9px] font-bold text-[#111111] uppercase shrink-0">
-                                    [{freqText}]
-                                  </span>
+                                  <span className="ui-chip shrink-0">{freqText}</span>
                                 </div>
 
-                                {editable && (
-                                  <div className="flex items-center space-x-1 shrink-0 self-end sm:self-center">
-                                    <button
-                                      onClick={() => handleDeleteSubtopic(tIdx, topic, sIdx)}
-                                      className="p-1 text-[#111111] hover:bg-[#111111] hover:text-white transition-colors cursor-pointer border border-[#111111] bg-white"
-                                      title={language === "zh" ? "删除此细分考点" : "Delete subtopic"}
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </button>
+                                {(editable || canPractice) && (
+                                  <div className="flex items-center gap-1 shrink-0 self-end sm:self-center">
+                                    {canPractice && (
+                                      <a
+                                        href={starquizPracticeUrl({ ...linkBase, level: "subtopic", unit: topic.title, topic: sub.title })}
+                                        onClick={primeHandoff("subtopic", topic.title, sub.title)}
+                                        className="p-1.5 rounded-md text-[#a39e97] hover:bg-[#f1efe9] hover:text-[#1c1b1a] transition-colors cursor-pointer"
+                                        title={isZh ? `去 StarQuiz 练「${sub.title}」` : `Practice "${sub.title}" in StarQuiz`}
+                                      >
+                                        <ArrowUpRight className="w-3.5 h-3.5" />
+                                      </a>
+                                    )}
+                                    {editable && (
+                                      <button
+                                        onClick={() => handleDeleteSubtopic(tIdx, topic, sIdx)}
+                                        className="p-1.5 rounded-md text-[#a39e97] hover:bg-[#FDF0EE] hover:text-[#B42318] transition-colors cursor-pointer"
+                                        title={isZh ? "删除此细分考点" : "Delete subtopic"}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                               </div>
 
-                              {/* Formula or Trap Note */}
                               {sub.formulaOrTrap && (
-                                <div className="flex items-start space-x-1.5 text-[10px] text-[#333333] bg-[#f5f5f5] p-1.5 border border-[#111111]">
-                                  <Zap className="w-3 h-3 text-[#111111] shrink-0 mt-0.5" />
-                                  <span className="font-bold">
-                                    {language === "zh" ? "考点避坑 / 核心公式：" : "Key Formula / Trap: "}
+                                <div className="flex items-start gap-1.5 text-[12px] leading-relaxed text-[#8A5A00] bg-[#FFF6DD] rounded-lg p-2 border border-[#f0e2c0]">
+                                  <Zap className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                  <span className="font-medium">
+                                    {isZh ? "避坑 / 核心公式：" : "Formula / trap: "}
                                   </span>
                                   <span className="flex-1">{sub.formulaOrTrap}</span>
                                 </div>
                               )}
 
-                              {/* Granular Leaf Points */}
                               {sub.keyPoints && sub.keyPoints.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 pt-1">
+                                <div className="flex flex-wrap gap-1.5 pt-0.5">
                                   {sub.keyPoints.map((point, pIdx) => (
-                                    <div
+                                    <span
                                       key={pIdx}
-                                      className="flex items-center space-x-1 px-2 py-0.5 bg-[#ffffff] border border-[#111111] text-[10px] text-[#111111] font-bold shadow-2xs"
+                                      className="ui-chip"
                                     >
-                                      <span className="opacity-60">↳</span>
-                                      <span>{point}</span>
-                                    </div>
+                                      {point}
+                                    </span>
                                   ))}
                                 </div>
                               )}

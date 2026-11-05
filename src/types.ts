@@ -1,5 +1,12 @@
 export type MaterialCategory = 'course_syllabus' | 'exam_question' | 'study_material';
 
+export type AppTab =
+  | 'today'
+  | 'dashboard'
+  | 'master_calendar'
+  | 'course'
+  | 'settings';
+
 export interface DaySchedulePreference {
   dayOfWeek: number;
   dayName: string;
@@ -54,7 +61,6 @@ export interface StudyMaterial {
   topicTag?: string;
   difficulty?: 'easy' | 'medium' | 'hard';
   yearOrTerm?: string;
-  questionCount?: number;
   summaryNotes?: string;
   keyTraps?: string[];
   chunksCount?: number;
@@ -133,6 +139,16 @@ export interface ExamStudyPlan {
   updatedAt: string;
   examName: string;
   subject: string;
+  /**
+   * Notion 式页面图标（一个 emoji）。留空则按学科关键词自动配，见 lib/pageIcon。
+   * 它是「这份科目文档」的身份标记：侧栏、总览卡、页头都取同一个值。
+   */
+  icon?: string;
+  /**
+   * Notion 式页面封面：内置纹理存 "preset:<id>"，上传的图存压缩后的 data URL。
+   * 只当页头那条背景带用，不承载信息；见 lib/pageCover。
+   */
+  cover?: string;
   examDate: string;
   examTime?: string;
   startDate: string;
@@ -143,15 +159,6 @@ export interface ExamStudyPlan {
   preferences: UserStudyPreferences;
   materialsSummary?: string;
   materials?: StudyMaterial[];
-}
-
-export interface ActiveRecallQuizQuestion {
-  id: string;
-  question: string;
-  options?: string[];
-  correctAnswer: string;
-  explanation: string;
-  topicTitle: string;
 }
 
 export interface PlanAnalytics {
@@ -166,22 +173,6 @@ export interface PlanAnalytics {
   averageMasteryScore: number;
 }
 
-export interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  avatar: string;
-  institution?: string;
-  major?: string;
-  targetDegreeOrGoal?: string;
-  isLoggedIn: boolean;
-  memberSince: string;
-  membershipTier: 'Free' | 'Pro Student' | 'Master Scholar';
-  totalStudyMinutes: number;
-  studyStreakDays: number;
-  completedExamsCount: number;
-}
-
 export interface AppSettings {
   defaultFocusDuration: number;
   enableSoundAlerts: boolean;
@@ -190,7 +181,6 @@ export interface AppSettings {
   dateFormat: 'YYYY-MM-DD' | 'MM/DD/YYYY' | 'DD/MM/YYYY';
   rebalanceSensitivity: 'high' | 'balanced' | 'conservative';
   defaultStudyPace: 'balanced' | 'intensive_crash' | 'deep_mastery' | 'spaced_repetition';
-  autoSaveCloud: boolean;
   themeMode: 'light' | 'dark' | 'system';
 }
 
@@ -222,5 +212,72 @@ export interface DailyMemoNote {
   mood?: DailyMoodType;
   tags?: string[];
   updatedAt: string;
+}
+
+/**
+ * 联动协议 v1 · 练习结果回流入站后落盘的一条事件。
+ *
+ * 事件只描述「StarQuiz 里发生的一次练习」，不直接改动计划数据：
+ * 是否采纳为复习任务由用户决定（M3），所以这里绝不写 StudyTask。
+ */
+
+/** 内容路径：与出站链接参数一一对应，入站时用于重算 topicKey 并定位考点。 */
+export interface PracticeEventPath {
+  level: 'unit' | 'subtopic';
+  /** 来源考试名，仅用于展示与定位，不参与钥匙 */
+  exam: string;
+  subject: string;
+  unit: string;
+  topic: string;
+}
+
+/** 出站的来源上下文（哪一天、哪条任务），只用于定位，不作为考点身份。 */
+export interface PracticeEventSourceContext {
+  date?: string;
+  task?: string;
+}
+
+/** 入站定位到的计划内目标。 */
+export interface PracticeEventResolution {
+  planId: string;
+  /** 父单元（SyllabusTopic.id） */
+  topicId: string;
+  /** 子考点标题；单元级目标时为空 */
+  subtopicTitle?: string;
+  /** M3 采纳后生成的复习任务 id */
+  taskId?: string;
+}
+
+export type PracticeEventStatus =
+  /** 已定位到目标考点，等待用户处理 */
+  | 'pending'
+  /** M3：已被采纳为复习任务 */
+  | 'applied'
+  /** 用户关掉了回执 */
+  | 'dismissed'
+  /** 参数合法但本地找不到对应计划/考点，绝不挂靠同名考点 */
+  | 'unmatched';
+
+export interface PracticeEvent {
+  schemaVersion: 1;
+  /** StarQuiz 历史里的 attempt.id，同时是去重与幂等键 */
+  attemptId: string;
+  linkId: string;
+  planId: string;
+  topicKey: string;
+  path: PracticeEventPath;
+  sourceContext: PracticeEventSourceContext;
+  /** StarQuiz 题库 id，仅用于展示「练的是哪套题」 */
+  setId: string;
+  /** 归因到目标考点的计分题数 */
+  graded: number;
+  correct: number;
+  /** 练习完成时间（ISO 字符串） */
+  completedAt: string;
+  /** 本机接收时间（ISO 字符串） */
+  receivedAt: string;
+  status: PracticeEventStatus;
+  appliedAt?: string;
+  resolution?: PracticeEventResolution;
 }
 
