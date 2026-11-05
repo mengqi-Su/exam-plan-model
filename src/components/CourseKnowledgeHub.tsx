@@ -166,16 +166,16 @@ export function CourseKnowledgeHub({
   return (
     <div className="space-y-8 animate-fadeIn text-[#1c1b1a]">
       {extractionSuccess && (
-        <div className="flex items-center gap-2 rounded-xl border border-[#d8e4dc] bg-[#EEF4EF] px-3.5 py-3 text-[12.5px] font-medium text-[#3F6B4F] animate-fadeIn">
+        <div className="flex items-center gap-2 rounded-xl border border-[#d8e4dc] bg-[#EEF4EF] px-3.5 py-3 text-[12px] font-medium text-[#3F6B4F] animate-fadeIn">
           <Sparkles className="w-4 h-4 shrink-0" />
           <span>{isZh ? "AI 考点架构已根据知识库资料更新完毕。" : "Topic blueprint extracted successfully."}</span>
         </div>
       )}
 
       {extractError && (
-        <div className="flex items-start gap-2 rounded-xl border border-[#f0d0cc] bg-[#FDF0EE] px-3.5 py-3 text-[12.5px] text-[#B42318]">
+        <div className="flex items-start gap-2 rounded-xl border border-[#f0d0cc] bg-[#FDF0EE] px-3.5 py-3 text-[12px] leading-relaxed text-[#B42318]">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-          <span className="leading-relaxed">{extractError}</span>
+          <span>{extractError}</span>
         </div>
       )}
 
@@ -246,7 +246,7 @@ export function CourseKnowledgeHub({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#f0ede8]">
           <div className="flex items-center gap-2">
             <BrainCircuit className="w-4 h-4 ui-subtle" />
-            <h3 className="text-[14px] font-semibold text-[#1c1b1a]">
+            <h3 className="ui-group-title">
               {isZh ? "AI 提炼的考点树状体系" : "Topic tree hierarchy"}
             </h3>
           </div>
@@ -281,7 +281,7 @@ export function CourseKnowledgeHub({
         {isAddingTopic && (
           <div className="ui-card p-4 space-y-3 animate-fadeIn">
             <div className="flex items-center justify-between">
-              <h4 className="text-[13px] font-semibold text-[#1c1b1a]">
+              <h4 className="ui-subgroup-title">
                 {isZh ? "添加自定义大单元与考点树" : "Add custom unit & topics"}
               </h4>
               <button
@@ -301,7 +301,7 @@ export function CourseKnowledgeHub({
                 className="sm:col-span-2 rounded-lg px-3 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] placeholder-[#a39e97] outline-none focus:border-[#cfc9c0]"
               />
               <div className="flex items-center gap-1.5">
-                <span className="text-[12px] ui-muted">{isZh ? "权重" : "Weight"}</span>
+                <span className="ui-row-meta">{isZh ? "权重" : "Weight"}</span>
                 <input
                   type="number"
                   min={1}
@@ -310,10 +310,10 @@ export function CourseKnowledgeHub({
                   onChange={(e) => setNewTopicWeight(Number(e.target.value))}
                   className="w-16 rounded-lg px-2 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] tabular-nums outline-none focus:border-[#cfc9c0]"
                 />
-                <span className="text-[12px] ui-muted">%</span>
+                <span className="ui-row-meta">%</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-[12px] ui-muted">{isZh ? "学时" : "Hours"}</span>
+                <span className="ui-row-meta">{isZh ? "学时" : "Hours"}</span>
                 <input
                   type="number"
                   min={1}
@@ -322,7 +322,7 @@ export function CourseKnowledgeHub({
                   onChange={(e) => setNewTopicHours(Number(e.target.value))}
                   className="w-16 rounded-lg px-2 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] tabular-nums outline-none focus:border-[#cfc9c0]"
                 />
-                <span className="text-[12px] ui-muted">{isZh ? "小时" : "hrs"}</span>
+                <span className="ui-row-meta">{isZh ? "小时" : "hrs"}</span>
               </div>
             </div>
             <input
@@ -353,7 +353,7 @@ export function CourseKnowledgeHub({
         {topics.length === 0 ? (
           <div className="rounded-xl border border-dashed border-[#ddd8d0] bg-[#faf9f6] px-5 py-8 text-center space-y-2">
             <CheckCircle2 className="w-6 h-6 mx-auto text-[#a39e97]" />
-            <p className="text-[12.5px] ui-muted leading-relaxed max-w-md mx-auto">
+            <p className="ui-note max-w-md mx-auto">
               {isZh
                 ? "还没有考点。上传资料后点击「重新提炼考点」，或手动添加一个大单元。"
                 : "No topics yet. Upload materials and click Re-extract, or add a unit manually."}
@@ -377,8 +377,6 @@ export function CourseKnowledgeHub({
               onUpdatePlan({ ...plan, topics: updatedTopics, updatedAt: new Date().toISOString() });
             }}
             onDeleteTopic={(topicId) => handleDeleteTopic(topicId)}
-            onReExtract={handleExtractTopics}
-            isExtracting={isExtracting}
           />
         )}
       </section>

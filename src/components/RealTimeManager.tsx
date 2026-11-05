@@ -168,7 +168,7 @@ export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
   return (
     <div className="space-y-8">
       {aiNotice && (
-        <div className="flex items-start justify-between gap-3 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-3.5 py-3 text-[12.5px] text-[#8A5A00] animate-fadeIn">
+        <div className="flex items-start justify-between gap-3 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-3.5 py-3 text-[12px] text-[#8A5A00] animate-fadeIn">
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
             <span className="leading-relaxed">{aiNotice}</span>
@@ -187,7 +187,7 @@ export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 ui-subtle" />
-              <h3 className="text-[14px] font-semibold text-[#1c1b1a]">
+              <h3 className="ui-group-title">
                 {isZh ? "备考阶段推进路线" : "Phase review roadmap"}
               </h3>
             </div>
@@ -202,19 +202,16 @@ export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
 
           {showRoadmap && (
             <div className="ui-card p-5 sm:p-7 select-none animate-fadeIn">
-              <div className="flex items-center gap-3.5 mb-6">
-                <div className="w-11 h-11 rounded-full bg-[#f1efe9] flex items-center justify-center shrink-0">
+              {/* 「备考阶段推进路线」已经是这张卡的标题，不再补一个同义小标题 */}
+              <div className="flex items-center gap-3 mb-5 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-[#f1efe9] flex items-center justify-center shrink-0">
                   <span className="text-[12px] font-semibold tabular-nums text-[#1c1b1a]">{daysUntilExam}D</span>
                 </div>
-                <div className="text-[13px] min-w-0">
-                  <span className="font-semibold text-[#1c1b1a]">
-                    {isZh ? "备考推进全流程" : "Phase timeline"}
-                  </span>
-                  <span className="ui-muted">
-                    {" · "}
-                    {isZh ? `距离考试还有 ${daysUntilExam} 天` : `${daysUntilExam} days remaining`}
-                  </span>
-                </div>
+                <p className="ui-row-meta min-w-0">
+                  {isZh
+                    ? `${plan.phases.length} 个阶段 · 距考试 ${daysUntilExam} 天`
+                    : `${plan.phases.length} phases · ${daysUntilExam} days to exam`}
+                </p>
               </div>
 
               <ol className="relative space-y-6">
@@ -234,9 +231,7 @@ export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
                           <span className="text-[11px] font-medium tabular-nums ui-subtle">
                             {String(pIdx + 1).padStart(2, "0")}
                           </span>
-                          <span className="text-[14px] font-medium text-[#1c1b1a] tracking-tight">
-                            {phase.name}
-                          </span>
+                          <span className="ui-row-title">{phase.name}</span>
                           <span className="ui-chip tabular-nums">
                             {phase.startDate?.slice(5)} ~ {phase.endDate?.slice(5)}
                           </span>
@@ -247,7 +242,7 @@ export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
                           )}
                         </div>
                         {phase.description && (
-                          <p className="mt-1 text-[12.5px] ui-muted leading-relaxed max-w-xl">
+                          <p className="mt-1 ui-row-meta leading-relaxed max-w-xl">
                             {phase.description || phase.focus}
                           </p>
                         )}
@@ -262,7 +257,7 @@ export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
                     <span className="text-[11px] font-medium tabular-nums ui-subtle">
                       {String(plan.phases.length + 1).padStart(2, "0")}
                     </span>
-                    <span className="text-[14px] font-semibold text-[#1c1b1a]">
+                    <span className="ui-subgroup-title">
                       {isZh ? "终点 · 目标考试日" : "Final · Exam day"}
                     </span>
                     <span className="ui-chip tabular-nums">
@@ -279,13 +274,13 @@ export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <RefreshCw className="w-4 h-4 ui-subtle" />
-          <h3 className="text-[14px] font-semibold text-[#1c1b1a]">
+          <h3 className="ui-group-title">
             {isZh ? "计划动态重排" : "Adaptive rebalance"}
           </h3>
         </div>
 
         <div className="ui-card p-4 space-y-3">
-          <p className="text-[12.5px] ui-muted leading-relaxed">
+          <p className="ui-note">
             {isZh
               ? "当作息变动或出现积压任务时，可将未完成任务平摊到剩余备考时间。AI 不可用时会自动改用本地排程规则。"
               : "Redistribute overdue tasks across the remaining study days. If AI is unavailable, local scheduling rules are used automatically."}
@@ -340,7 +335,7 @@ export function RealTimeManager({ plan, onUpdatePlan }: RealTimeManagerProps) {
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <PieChart className="w-4 h-4 ui-subtle" />
-          <h3 className="text-[14px] font-semibold text-[#1c1b1a]">
+          <h3 className="ui-group-title">
             {isZh ? "考点知识掌握度追踪" : "Topic mastery tracker"}
           </h3>
         </div>

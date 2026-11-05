@@ -104,7 +104,7 @@ export const FlipGroup: React.FC<{ value: number; label: string }> = ({
           <FlipDigitCard key={index} digit={digit} />
         ))}
       </div>
-      <span className="text-[9px] font-bold uppercase tracking-widest text-[#888888] font-sans">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-[#888888] font-sans">
         {label}
       </span>
     </div>

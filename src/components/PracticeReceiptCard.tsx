@@ -38,7 +38,7 @@ export function PracticeReceiptCard({ events, onLocate, onDismiss, maxVisible = 
       <div className="flex items-center justify-between gap-3 border-b border-[#f0ede8] bg-[#faf9f6] px-4 sm:px-5 py-3">
         <span className="flex items-center gap-2 min-w-0">
           <CheckCircle2 className="w-4 h-4 shrink-0 text-[#6b6660]" />
-          <span className="text-[13px] font-semibold text-[#1c1b1a] truncate">{t("receiptEyebrow")}</span>
+          <span className="ui-section-title truncate">{t("receiptEyebrow")}</span>
         </span>
         <span className="ui-chip tabular-nums shrink-0">{t("receiptCountTag", { count: rows.length })}</span>
       </div>
@@ -60,7 +60,7 @@ export function PracticeReceiptCard({ events, onLocate, onDismiss, maxVisible = 
                     ? t("receiptUnmatchedBody", { graded: event.graded, correct: event.correct })
                     : t("receiptBody", { topic: event.path.topic, graded: event.graded, correct: event.correct, pct })}
                 </p>
-                <p className="text-[11.5px] ui-muted tabular-nums flex items-center gap-2 flex-wrap">
+                <p className="ui-row-meta tabular-nums flex items-center gap-2 flex-wrap">
                   <span>
                     {unmatched
                       ? `${event.path.subject} · ${event.path.unit} · ${event.path.topic} · ${localTimeLabel(event.completedAt)}`

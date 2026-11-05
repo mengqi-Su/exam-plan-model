@@ -2,11 +2,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import {
   ArrowLeft,
   ArrowRight,
-  BookOpen,
   Calendar,
   ChevronDown,
   Clock,
-  FileText,
   Sun,
   Target,
 } from "lucide-react";
@@ -115,15 +113,6 @@ export function CourseDetailPage({
     };
   }, [plan.tasks, plan.materials, plan.topics]);
 
-  const daysLeft = useMemo(() => {
-    if (!plan.examDate) return 0;
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const [y, m, d] = plan.examDate.split("-").map(Number);
-    const diff = Math.ceil((new Date(y, m - 1, d).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    return diff > 0 ? diff : 0;
-  }, [plan.examDate]);
-
   return (
     <div className="relative min-h-screen bg-[#f8f7f4] text-[#1c1b1a] pb-20 animate-fadeIn">
       <div className="max-w-6xl mx-auto px-4 sm:px-8 pt-6 sm:pt-8">
@@ -146,15 +135,13 @@ export function CourseDetailPage({
               <span className="ui-chip">{plan.subject || (isZh ? "学科考试" : "Subject")}</span>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[#1c1b1a] leading-tight">
-              {plan.examName}
-            </h1>
+            <h1 className="ui-page-title leading-tight">{plan.examName}</h1>
 
             {plan.examDate && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px] ui-muted pt-0.5">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 ui-row-meta pt-0.5">
                 <span className="inline-flex items-center gap-1.5">
                   <Calendar className="w-4 h-4" />
-                  <span className="text-[#1c1b1a] font-medium tabular-nums">
+                  <span className="ui-row-title tabular-nums">
                     {plan.examDate} {plan.examTime || "09:00"}
                   </span>
                 </span>
@@ -163,7 +150,7 @@ export function CourseDetailPage({
                     <Target className="w-4 h-4" />
                     <span>
                       {isZh ? "目标" : "Target"}{" "}
-                      <b className="text-[#1c1b1a] font-medium">{plan.preferences.targetScoreOrGrade}</b>
+                      <b className="ui-row-value">{plan.preferences.targetScoreOrGrade}</b>
                     </span>
                   </span>
                 )}
@@ -173,7 +160,7 @@ export function CourseDetailPage({
 
           {plan.examDate && (
             <div className="shrink-0 flex flex-col items-start lg:items-end gap-1.5">
-              <span className="text-[12px] ui-muted inline-flex items-center gap-1.5">
+              <span className="ui-row-meta inline-flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" />
                 {isZh ? "考试倒计时" : "Countdown"}
               </span>
@@ -190,12 +177,14 @@ export function CourseDetailPage({
       </div>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-8">
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="ui-card p-4">
-            <span className="text-[12px] ui-muted">{isZh ? "任务进度" : "Task progress"}</span>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-semibold tabular-nums tracking-tight">{stats.progressPercent}%</span>
-              <span className="text-[12px] ui-subtle tabular-nums">
+        {/* 数字只用标尺上的 stat 层：进度与投入并成一张条卡。
+            剩余天数由页头倒计时负责、资料/考点数由知识区胶囊负责，各自只出现一次。 */}
+        <section className="ui-card px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:gap-0 gap-4">
+          <div className="sm:flex-1 sm:pr-6 sm:border-r sm:border-[#f0ede8] min-w-0">
+            <span className="ui-row-meta">{isZh ? "任务进度" : "Task progress"}</span>
+            <div className="mt-1.5 flex items-baseline gap-2">
+              <span className="ui-stat-value">{stats.progressPercent}%</span>
+              <span className="ui-row-meta tabular-nums">
                 {stats.completedCount}/{stats.totalCount}
               </span>
             </div>
@@ -207,45 +196,33 @@ export function CourseDetailPage({
             </div>
           </div>
 
-          <div className="ui-card p-4">
-            <span className="text-[12px] ui-muted">{isZh ? "学习投入" : "Time invested"}</span>
-            <div className="mt-2 flex items-baseline gap-1.5">
-              <span className="text-2xl font-semibold tabular-nums tracking-tight">{stats.investedHours}</span>
-              <span className="text-[12px] ui-subtle tabular-nums">
+          <div className="sm:flex-1 sm:pl-6 min-w-0">
+            <span className="ui-row-meta">{isZh ? "学习投入" : "Time invested"}</span>
+            <div className="mt-1.5 flex items-baseline gap-1.5">
+              <span className="ui-stat-value">{stats.investedHours}</span>
+              <span className="ui-row-meta tabular-nums">
                 / {stats.plannedHours} {isZh ? "小时" : "hrs"}
               </span>
             </div>
-          </div>
-
-          <div className="ui-card p-4">
-            <span className="text-[12px] ui-muted">{isZh ? "资料与考点" : "Materials & topics"}</span>
-            <div className="mt-2 flex items-center gap-4">
-              <span className="inline-flex items-center gap-1.5">
-                <FileText className="w-4 h-4 ui-subtle" />
-                <b className="text-lg font-semibold tabular-nums">{stats.materialsCount}</b>
-                <span className="text-[12px] ui-subtle">{isZh ? "份" : "files"}</span>
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <BookOpen className="w-4 h-4 ui-subtle" />
-                <b className="text-lg font-semibold tabular-nums">{stats.topicsCount}</b>
-                <span className="text-[12px] ui-subtle">{isZh ? "考点" : "topics"}</span>
-              </span>
-            </div>
-          </div>
-
-          <div className="ui-card p-4">
-            <span className="text-[12px] ui-muted">{isZh ? "距离考试" : "Days left"}</span>
-            <div className="mt-2 flex items-baseline gap-1.5">
-              <span className="text-2xl font-semibold tabular-nums tracking-tight">{daysLeft}</span>
-              <span className="text-[12px] ui-subtle">{isZh ? "天" : "days"}</span>
+            <div className="mt-2.5 h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[#cfc9c0] transition-all duration-300"
+                style={{
+                  width: `${
+                    stats.plannedHours > 0
+                      ? Math.min(100, Math.round((stats.investedHours / stats.plannedHours) * 100))
+                      : 0
+                  }%`,
+                }}
+              />
             </div>
           </div>
         </section>
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-[#eae7e1] bg-white px-4 py-3">
-          <div className="flex items-start gap-2.5 text-[13px] ui-muted">
+          <div className="flex items-start gap-2.5 ui-note">
             <Sun className="w-4 h-4 shrink-0 text-[#8a8580] mt-0.5" />
-            <span className="leading-relaxed">
+            <span>
               {isZh
                 ? "每日任务只在「今日」执行与勾选，本页专注于进度、阶段与课程资料。"
                 : "Daily tasks are executed in Today. This page focuses on progress, phases and course materials."}
@@ -279,7 +256,7 @@ export function CourseDetailPage({
             aria-expanded={showKnowledge}
             className="flex w-full items-center justify-between gap-3 px-4 sm:px-5 py-4 text-left hover:bg-[#faf9f6] transition-colors cursor-pointer"
           >
-            <span className="text-[14px] font-semibold text-[#1c1b1a] truncate min-w-0">
+            <span className="ui-section-title truncate min-w-0">
               {isZh ? "课程资料与考点体系" : "Materials & topic tree"}
             </span>
             <span className="flex items-center gap-2.5 shrink-0">

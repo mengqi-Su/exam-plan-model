@@ -6,13 +6,11 @@ import {
   Plus,
   Trash2,
   Edit2,
-  Sparkles,
   Search,
   Check,
   X,
   BookOpen,
   Clock,
-  FolderTree,
   Zap,
   ArrowUpRight,
 } from "lucide-react";
@@ -25,9 +23,6 @@ interface HierarchicalTopicTreeViewProps {
   editable?: boolean;
   onUpdateTopic?: (index: number, updatedTopic: Partial<SyllabusTopic>) => void;
   onDeleteTopic?: (topicId: string) => void;
-  onAddTopic?: (newTopic: SyllabusTopic) => void;
-  onReExtract?: () => void;
-  isExtracting?: boolean;
   /** 科目名称，用于「练这个考点」深链到 StarQuiz 对应学科 */
   subject?: string;
   /** 考试名称，作为 StarQuiz 备考上下文 */
@@ -52,9 +47,6 @@ export function HierarchicalTopicTreeView({
   editable = true,
   onUpdateTopic,
   onDeleteTopic,
-  onAddTopic,
-  onReExtract,
-  isExtracting = false,
   subject,
   examName,
   planId,
@@ -276,62 +268,36 @@ export function HierarchicalTopicTreeView({
 
   return (
     <div className="space-y-4 text-[#1c1b1a]">
-      {/* Top Header Controls */}
-      <div className="ui-card flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3">
-        <div className="flex items-center gap-2">
-          <FolderTree className="w-4 h-4 ui-subtle" />
-          <span className="text-[13px] font-semibold text-[#1c1b1a]">
-            {isZh ? "考点知识树架构" : "Knowledge tree"}
-          </span>
+      {/* Top Header Controls
+          工具条只负责「怎么看这棵树」：搜索 + 展开/折叠。
+          标题由外层段落给出、重新提炼由段落头部负责，这里不再重复一套同名控件。 */}
+      <div className="ui-card flex items-center gap-2 p-2.5">
+        <div className="relative flex-1 min-w-0">
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#a39e97]" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={isZh ? "搜索考点 / 公式 / 概念…" : "Search topics & points..."}
+            className={`w-full pl-8 pr-2.5 py-1.5 text-[13px] ${inputCls}`}
+          />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 sm:w-48">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#a39e97]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={isZh ? "搜索考点 / 公式 /概念…" : "Search topics & points..."}
-              className={`w-full pl-8 pr-2.5 py-1.5 text-[12.5px] ${inputCls}`}
-            />
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => toggleAll(true)}
-              className="ui-btn ui-btn-ghost px-2.5 py-1.5 text-[12px]"
-              title={isZh ? "展开全部大单元" : "Expand all"}
-            >
-              {isZh ? "全部展开" : "Expand"}
-            </button>
-            <button
-              onClick={() => toggleAll(false)}
-              className="ui-btn ui-btn-ghost px-2.5 py-1.5 text-[12px]"
-              title={isZh ? "折叠全部大单元" : "Collapse all"}
-            >
-              {isZh ? "全部折叠" : "Collapse"}
-            </button>
-          </div>
-
-          {onReExtract && (
-            <button
-              onClick={onReExtract}
-              disabled={isExtracting}
-              className="ui-btn ui-btn-primary px-3 py-1.5 text-[12px]"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>
-                {isExtracting
-                  ? isZh
-                    ? "AI 提炼中…"
-                    : "Parsing…"
-                  : isZh
-                    ? "重新提炼考点树"
-                    : "Re-extract tree"}
-              </span>
-            </button>
-          )}
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => toggleAll(true)}
+            className="ui-btn ui-btn-ghost px-2.5 py-1.5 text-[12px]"
+            title={isZh ? "展开全部大单元" : "Expand all"}
+          >
+            {isZh ? "全部展开" : "Expand"}
+          </button>
+          <button
+            onClick={() => toggleAll(false)}
+            className="ui-btn ui-btn-ghost px-2.5 py-1.5 text-[12px]"
+            title={isZh ? "折叠全部大单元" : "Collapse all"}
+          >
+            {isZh ? "全部折叠" : "Collapse"}
+          </button>
         </div>
       </div>
 
@@ -339,10 +305,10 @@ export function HierarchicalTopicTreeView({
       {filteredTopics.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[#ddd8d0] bg-[#faf9f6] p-8 text-center space-y-2">
           <BookOpen className="w-6 h-6 mx-auto text-[#a39e97]" />
-          <p className="text-[13px] font-medium text-[#1c1b1a]">
+          <p className="ui-row-title">
             {isZh ? "暂未匹配到考点或知识树为空" : "No matching topics"}
           </p>
-          <p className="ui-muted text-[12.5px] leading-relaxed max-w-md mx-auto">
+          <p className="ui-note max-w-md mx-auto">
             {isZh
               ? "上传课程资料后，点击「重新提炼考点树」即可自动提取多层级知识树。"
               : "Upload syllabus materials to auto-extract the full hierarchical topic tree."}
@@ -408,17 +374,17 @@ export function HierarchicalTopicTreeView({
                           className={`flex-1 min-w-32 px-2.5 py-1 text-[13px] font-medium ${inputCls}`}
                         />
                         <div className="flex items-center gap-1">
-                          <span className="text-[12px] ui-muted">{isZh ? "占比" : "Weight"}</span>
+                          <span className="ui-row-meta">{isZh ? "占比" : "Weight"}</span>
                           <input
                             type="number"
                             value={editTopicWeight}
                             onChange={(e) => setEditTopicWeight(Number(e.target.value))}
                             className={`w-14 px-1.5 py-1 text-center text-[13px] tabular-nums ${inputCls}`}
                           />
-                          <span className="text-[12px] ui-muted">%</span>
+                          <span className="ui-row-meta">%</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span className="text-[12px] ui-muted">{isZh ? "学时" : "Hrs"}</span>
+                          <span className="ui-row-meta">{isZh ? "学时" : "Hrs"}</span>
                           <input
                             type="number"
                             value={editTopicHours}
@@ -445,7 +411,7 @@ export function HierarchicalTopicTreeView({
                       <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
                         <span
                           onClick={() => toggleUnit(topic.id)}
-                          className="font-semibold text-[13.5px] text-[#1c1b1a] cursor-pointer hover:underline truncate"
+                          className="ui-group-title cursor-pointer hover:underline truncate"
                         >
                           {topic.title}
                         </span>
@@ -453,7 +419,7 @@ export function HierarchicalTopicTreeView({
                         <span className="ui-chip tabular-nums shrink-0">
                           {isZh ? "占比" : "Weight"} {topic.weightPercentage || 20}%
                         </span>
-                        <span className="text-[12px] ui-muted flex items-center gap-1 tabular-nums shrink-0">
+                        <span className="ui-row-meta flex items-center gap-1 tabular-nums shrink-0">
                           <Clock className="w-3.5 h-3.5" />
                           <span>{topic.estimatedHours || 4} {isZh ? "学时" : "hrs"}</span>
                         </span>
@@ -511,7 +477,7 @@ export function HierarchicalTopicTreeView({
                 {isExpanded && (
                   <div className="p-4 space-y-3 bg-white">
                     {topic.description && (
-                      <p className="text-[12.5px] ui-muted leading-relaxed border-l-2 border-[#eae7e1] pl-2.5 my-1">
+                      <p className="ui-row-meta leading-relaxed border-l-2 border-[#eae7e1] pl-2.5 my-1">
                         {topic.description}
                       </p>
                     )}
@@ -519,7 +485,7 @@ export function HierarchicalTopicTreeView({
                     {addingSubtopicUnitId === topic.id && (
                       <div className="rounded-lg border border-[#eae7e1] bg-[#faf9f6] p-3 space-y-2.5 animate-fadeIn">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-[12.5px] font-medium text-[#1c1b1a]">
+                          <span className="ui-subgroup-title">
                             {isZh ? `为「${topic.title}」添加细分考点` : "Add subtopic to this unit"}
                           </span>
                           <button
@@ -536,7 +502,7 @@ export function HierarchicalTopicTreeView({
                             value={newSubtopicTitle}
                             onChange={(e) => setNewSubtopicTitle(e.target.value)}
                             placeholder={isZh ? "细分考点名称（如：动态规划状态转移方程推导）" : "Subtopic title..."}
-                            className={`sm:col-span-2 px-2.5 py-1.5 text-[12.5px] ${inputCls}`}
+                            className={`sm:col-span-2 px-2.5 py-1.5 text-[13px] ${inputCls}`}
                           />
                           <div className="flex items-center gap-2">
                             <select
@@ -569,7 +535,7 @@ export function HierarchicalTopicTreeView({
                               ? "细分考查要点 / 关键公式，用逗号分隔（如：无后效性检验、边界初始化、空间压缩）"
                               : "Key points / formulas, comma separated..."
                           }
-                          className={`w-full px-2.5 py-1.5 text-[12.5px] ${inputCls}`}
+                          className={`w-full px-2.5 py-1.5 text-[13px] ${inputCls}`}
                         />
 
                         <div className="flex justify-end gap-2 pt-1">
@@ -621,7 +587,7 @@ export function HierarchicalTopicTreeView({
                                   <span className="ui-chip tabular-nums shrink-0">
                                     {tIdx + 1}.{sIdx + 1}
                                   </span>
-                                  <span className="font-medium text-[13px] text-[#1c1b1a] truncate">
+                                  <span className="ui-row-title truncate">
                                     {sub.title}
                                   </span>
                                   <span className="ui-chip shrink-0">{freqText}</span>
@@ -653,7 +619,7 @@ export function HierarchicalTopicTreeView({
                               </div>
 
                               {sub.formulaOrTrap && (
-                                <div className="flex items-start gap-1.5 text-[11.5px] text-[#8A5A00] bg-[#FFF6DD] rounded-lg p-2 border border-[#f0e2c0]">
+                                <div className="flex items-start gap-1.5 text-[12px] leading-relaxed text-[#8A5A00] bg-[#FFF6DD] rounded-lg p-2 border border-[#f0e2c0]">
                                   <Zap className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                                   <span className="font-medium">
                                     {isZh ? "避坑 / 核心公式：" : "Formula / trap: "}
@@ -667,7 +633,7 @@ export function HierarchicalTopicTreeView({
                                   {sub.keyPoints.map((point, pIdx) => (
                                     <span
                                       key={pIdx}
-                                      className="inline-flex items-center rounded-full bg-[#f1efe9] px-2.5 py-0.5 text-[11px] text-[#6b6660]"
+                                      className="ui-chip"
                                     >
                                       {point}
                                     </span>

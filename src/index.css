@@ -114,6 +114,30 @@
   .ui-section-title {
     @apply text-[15px] font-semibold tracking-tight text-[#1c1b1a];
   }
+  /* 一把标尺，和 StarQuiz 同一规格：页面/数字 24 › 段 15 › 组 13.5 › 子组·行·说明 13 › 元信息 12 › 胶囊 11 › 徽标 10。
+     嵌套深度由缩进、字重、颜色和分组底色表达；不再用 0.5px 的字号差冒充层级。
+     12 层成对出现：ui-row-meta 是标签，ui-row-value 是紧跟其后的取值。 */
+  .ui-group-title {
+    @apply text-[13.5px] font-semibold tracking-tight text-[#1c1b1a];
+  }
+  .ui-subgroup-title {
+    @apply text-[13px] font-semibold tracking-tight text-[#1c1b1a];
+  }
+  .ui-row-title {
+    @apply text-[13px] font-medium tracking-tight text-[#1c1b1a];
+  }
+  .ui-row-meta {
+    @apply text-[12px] font-normal text-[#8a8580];
+  }
+  .ui-row-value {
+    @apply text-[12px] font-medium tabular-nums text-[#1c1b1a];
+  }
+  .ui-note {
+    @apply text-[13px] font-normal leading-relaxed text-[#6b6660];
+  }
+  .ui-stat-value {
+    @apply text-2xl font-semibold tracking-tight tabular-nums text-[#1c1b1a];
+  }
   .ui-muted {
     @apply text-[#8a8580];
   }

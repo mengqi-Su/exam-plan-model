@@ -238,6 +238,13 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
     setSearchQuery("");
   };
 
+  // 语言切换后文件夹名要跟着换，中英文不再同时摆两份。
+  const activeFolderLabel = activeFolderConfig
+    ? isZh
+      ? activeFolderConfig.nameZh
+      : activeFolderConfig.nameEn
+    : "";
+
   const renderFolder = (folder: FolderCategoryConfig, row2: boolean) => {
     const docsInFolder = categorizedMaterials[folder.key] || [];
     const a = FOLDER_ACCENTS[folder.key];
@@ -264,7 +271,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
 
         {/* Folder body */}
         <div
-          className="w-full rounded-b-xl rounded-tr-xl border border-[#eae7e1] bg-white p-5 sm:p-6 min-h-[170px] sm:min-h-[190px] flex flex-col justify-between transition-shadow duration-300 group-hover:shadow-[0_14px_30px_rgba(28,27,26,0.13)]"
+          className="w-full rounded-b-xl rounded-tr-xl border border-[#eae7e1] bg-white p-4 sm:p-5 min-h-[148px] sm:min-h-[160px] flex flex-col justify-between transition-shadow duration-300 group-hover:shadow-[0_14px_30px_rgba(28,27,26,0.13)]"
           style={{
             boxShadow: row2
               ? "0 -2px 16px rgba(28,27,26,0.06), 0 6px 18px rgba(28,27,26,0.06)"
@@ -280,10 +287,10 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                 <Icon className="w-5 h-5" />
               </span>
               <div className="min-w-0">
-                <h3 className="text-xl font-semibold text-[#1c1b1a] tracking-tight leading-tight truncate">
-                  {folder.nameZh}
+                {/* 文件夹名属于「组」这一层：可点开的容器，和树里的大单元同级 */}
+                <h3 className="ui-group-title leading-tight truncate">
+                  {isZh ? folder.nameZh : folder.nameEn}
                 </h3>
-                <span className="block text-[11.5px] ui-muted mt-0.5">{folder.nameEn}</span>
               </div>
             </div>
             <span className="ui-chip tabular-nums shrink-0">
@@ -320,10 +327,10 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
         <div className="space-y-6 animate-fadeIn">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold tracking-tight text-[#1c1b1a]">
+              <h2 className="ui-group-title">
                 {isZh ? "知识库" : "Knowledge base"}
               </h2>
-              <p className="text-[12.5px] ui-muted mt-1">
+              <p className="ui-row-meta mt-1">
                 {isZh
                   ? "考纲、讲义、真题与笔记分类归档，点击文件夹进入。"
                   : "Syllabus, lectures, past exams and notes — open a folder to explore."}
@@ -388,7 +395,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                     }`}
                   >
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: a.accent }} />
-                    <span>{f.nameZh}</span>
+                    <span>{isZh ? f.nameZh : f.nameEn}</span>
                     <span className="text-[11px] ui-subtle tabular-nums">{count}</span>
                   </button>
                 );
@@ -400,7 +407,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                 <button
                   onClick={() => onOpenPaste(activeFolderConfig.defaultDocType)}
                   className="ui-btn ui-btn-ghost px-2.5 py-1.5 text-[12px]"
-                  title={isZh ? `录入笔记到【${activeFolderConfig.nameZh}】` : "Add note"}
+                  title={isZh ? `录入笔记到【${activeFolderLabel}】` : `Add note to ${activeFolderLabel}`}
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{isZh ? "录入笔记" : "Note"}</span>
@@ -410,7 +417,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                 <button
                   onClick={() => onOpenUpload(activeFolderConfig.defaultDocType)}
                   className="ui-btn ui-btn-primary px-2.5 py-1.5 text-[12px]"
-                  title={isZh ? `上传文件到【${activeFolderConfig.nameZh}】` : "Upload file"}
+                  title={isZh ? `上传文件到【${activeFolderLabel}】` : `Upload to ${activeFolderLabel}`}
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{isZh ? "上传文件" : "Upload"}</span>
@@ -426,8 +433,8 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                   className="w-2.5 h-2.5 rounded-full shrink-0"
                   style={{ backgroundColor: FOLDER_ACCENTS[activeFolderConfig.key].accent }}
                 />
-                <h3 className="text-[15px] font-semibold text-[#1c1b1a]">{activeFolderConfig.nameZh}</h3>
-                <span className="text-[12px] ui-subtle tabular-nums">
+                <h3 className="ui-group-title">{activeFolderLabel}</h3>
+                <span className="ui-row-meta tabular-nums">
                   {activeFolderDocs.length} {isZh ? "个文件" : "files"}
                 </span>
               </div>
@@ -440,7 +447,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={isZh ? "搜索文件…" : "Search..."}
-                    className="w-full pl-8 pr-2.5 py-1.5 rounded-lg bg-white text-[12.5px] text-[#1c1b1a] placeholder-[#a39e97] outline-none border border-[#e5e2dc] focus:border-[#cfc9c0]"
+                    className="w-full pl-8 pr-2.5 py-1.5 rounded-lg bg-white text-[13px] text-[#1c1b1a] placeholder-[#a39e97] outline-none border border-[#e5e2dc] focus:border-[#cfc9c0]"
                   />
                 </div>
               )}
@@ -449,10 +456,10 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
             {activeFolderDocs.length === 0 && (
               <div className="py-16 text-center space-y-2">
                 <FolderOpen className="w-12 h-12 mx-auto text-[#cfc9c0]" />
-                <p className="text-[13px] font-medium text-[#1c1b1a]">
+                <p className="ui-row-title">
                   {isZh ? "此文件夹为空" : "This folder is empty"}
                 </p>
-                <p className="text-[12.5px] ui-muted">
+                <p className="ui-row-meta">
                   {isZh ? "点击右上角「上传文件」添加资料" : "Use the buttons above to add documents"}
                 </p>
               </div>
@@ -488,7 +495,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                         />
                         <File className="w-7 h-7 text-[#a39e97] group-hover:text-[#6b6660]" />
                         <span
-                          className={`absolute -bottom-1.5 -right-1.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-md border border-white shadow-[0_1px_2px_rgba(28,27,26,0.1)] ${badge.colorBg} ${badge.colorText}`}
+                          className={`absolute -bottom-1.5 -right-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md border border-white shadow-[0_1px_2px_rgba(28,27,26,0.1)] ${badge.colorBg} ${badge.colorText}`}
                         >
                           {badge.ext}
                         </span>

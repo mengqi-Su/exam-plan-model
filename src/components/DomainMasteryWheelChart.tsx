@@ -310,13 +310,13 @@ export function DomainMasteryWheelChart({
             <circle cx={center} cy={center} r={innerRadius - 2} fill="#ffffff" stroke="#ddd8d0" strokeWidth="1.5" />
             <circle cx={center} cy={center} r={innerRadius - 6} fill="#faf9f6" stroke="#f0ede8" strokeWidth="1" />
 
-            <text x={center} y={center - 11} textAnchor="middle" dominantBaseline="middle" className="text-[8px] font-medium fill-[#a39e97]">
+            <text x={center} y={center - 13} textAnchor="middle" dominantBaseline="middle" className="text-[10px] font-medium fill-[#a39e97]">
               {isZh ? "平均掌握度" : "Avg mastery"}
             </text>
             <text x={center} y={center + 3} textAnchor="middle" dominantBaseline="middle" className="text-[16px] font-semibold fill-[#1c1b1a] tracking-tight">
               {overallAvgProgress}%
             </text>
-            <text x={center} y={center + 17} textAnchor="middle" dominantBaseline="middle" className="text-[8px] font-medium fill-[#8a8580]">
+            <text x={center} y={center + 18} textAnchor="middle" dominantBaseline="middle" className="text-[10px] font-medium fill-[#8a8580]">
               {totalSectors} {isZh ? "个考点" : "topics"}
             </text>
           </svg>
@@ -325,43 +325,39 @@ export function DomainMasteryWheelChart({
 
       {/* Right: Topic detail card */}
       <div className="flex-1 w-full max-w-md ui-card p-5 space-y-4">
-        <div className="flex items-center justify-between border-b border-[#f0ede8] pb-3">
-          <div className="flex items-center gap-2 min-w-0">
+        {/* 卡片标题就是考点名本身：不再先摆一个「考点深度解构」的样板标题，再重复一次名字 */}
+        <div className="flex items-start justify-between gap-2 border-b border-[#f0ede8] pb-3 min-w-0">
+          <div className="flex items-start gap-2 min-w-0">
             <span
-              className="w-3 h-3 rounded-full shrink-0"
+              className="w-3 h-3 rounded-full shrink-0 mt-1"
               style={{ backgroundColor: getPaletteByIndex(selectedIdx).accentColor }}
               aria-hidden="true"
             />
-            <span className="text-[14px] font-semibold text-[#1c1b1a] truncate">
-              {isZh ? "考点深度解构" : "Topic details"}
-            </span>
+            <h4 className="ui-group-title min-w-0 break-words">{activeItem.title}</h4>
           </div>
           <span className="ui-chip shrink-0">
             {activeItem.category || (isZh ? "重点考点" : "Core")}
           </span>
         </div>
 
-        <div className="space-y-1.5">
-          <h4 className="text-base font-semibold text-[#1c1b1a] tracking-tight">{activeItem.title}</h4>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] ui-muted">
-            <span>
-              {isZh ? "权重" : "Weight"} <b className="text-[#1c1b1a] font-medium tabular-nums">{activeItem.weightPercentage}%</b>
-            </span>
-            <span className="ui-subtle">·</span>
-            <span>
-              {isZh ? "难度" : "Difficulty"} <b className="text-[#1c1b1a] font-medium">{difficultyLabel(activeItem.difficulty)}</b>
-            </span>
-            <span className="ui-subtle">·</span>
-            <span>
-              {isZh ? "预估" : "Est"} <b className="text-[#1c1b1a] font-medium tabular-nums">{activeItem.estimatedHours || 6}h</b>
-            </span>
-          </div>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 ui-row-meta">
+          <span>
+            {isZh ? "权重" : "Weight"} <b className="ui-row-value">{activeItem.weightPercentage}%</b>
+          </span>
+          <span>·</span>
+          <span>
+            {isZh ? "难度" : "Difficulty"} <b className="ui-row-value">{difficultyLabel(activeItem.difficulty)}</b>
+          </span>
+          <span>·</span>
+          <span>
+            {isZh ? "预估" : "Est"} <b className="ui-row-value">{activeItem.estimatedHours || 6}h</b>
+          </span>
         </div>
 
         <div className="space-y-1.5 pt-1">
-          <div className="flex items-center justify-between text-[12.5px]">
-            <span className="ui-muted">{isZh ? "复习完成进度" : "Completion"}</span>
-            <span className="text-[#1c1b1a] font-medium tabular-nums">
+          <div className="flex items-center justify-between text-[12px]">
+            <span className="ui-row-meta">{isZh ? "复习完成进度" : "Completion"}</span>
+            <span className="ui-row-value">
               {activeItem.progressPercent}% ({activeItem.completedTasks}/{activeItem.totalTasks})
             </span>
           </div>
@@ -378,14 +374,14 @@ export function DomainMasteryWheelChart({
 
         {activeItem.subtopics && activeItem.subtopics.length > 0 && (
           <div className="space-y-2 pt-2 border-t border-[#f0ede8]">
-            <span className="text-[12px] font-medium ui-muted block">
+            <span className="ui-row-meta block">
               {isZh ? "核心子考点" : "Subtopics & concepts"}
             </span>
             <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
               {activeItem.subtopics.map((sub, sIdx) => (
                 <div
                   key={sIdx}
-                  className="flex items-center gap-2 text-[12.5px] text-[#3f3b36] bg-[#faf9f6] rounded-lg p-2 border border-[#f0ede8]"
+                  className="flex items-center gap-2 ui-row-title bg-[#faf9f6] rounded-lg p-2 border border-[#f0ede8]"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5 text-[#3F6B4F] shrink-0" />
                   <span>{sub}</span>
@@ -395,9 +391,9 @@ export function DomainMasteryWheelChart({
           </div>
         )}
 
-        <div className="flex items-center justify-between rounded-lg bg-[#faf9f6] border border-[#f0ede8] p-2.5 text-[12.5px]">
-          <span className="ui-muted">{isZh ? "掌握度自评" : "Confidence"}</span>
-          <span className="font-semibold text-[#1c1b1a] tabular-nums">
+        <div className="flex items-center justify-between rounded-lg bg-[#faf9f6] border border-[#f0ede8] p-2.5 text-[12px]">
+          <span className="ui-row-meta">{isZh ? "掌握度自评" : "Confidence"}</span>
+          <span className="ui-row-value">
             {activeItem.avgRating ? `${activeItem.avgRating.toFixed(1)} / 5.0` : isZh ? "待首次评分" : "Not rated yet"}
           </span>
         </div>
