@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Upload, RefreshCw, AlertCircle, X } from "lucide-react";
+import { Upload, RefreshCw, AlertCircle } from "lucide-react";
 import { StudyMaterial } from "../types";
 import { parseDocumentFile } from "../lib/documentParser";
 import { useI18n } from "../lib/i18n";
+import { ModalShell } from "./ModalShell";
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -84,32 +85,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   };
 
   return (
-    <div
-      onClick={onClose}
-      className="fixed inset-0 z-50 bg-[#1c1b1a]/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn"
+    <ModalShell
+      open={isOpen}
+      onClose={onClose}
+      title={isZh ? "上传文件" : "Upload files"}
+      closeLabel={isZh ? "关闭" : "Close"}
+      icon={<Upload className="h-4 w-4" />}
+      size="sm"
     >
-      <div
-        className="w-full max-w-md rounded-2xl border border-[#eae7e1] bg-white p-5 space-y-4 shadow-[0_12px_40px_rgba(28,27,26,0.18)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-lg bg-[#f1efe9] flex items-center justify-center">
-              <Upload className="w-4 h-4 text-[#6b6660]" />
-            </span>
-            <span className="text-base font-semibold text-[#1c1b1a]">
-              {isZh ? "上传文件" : "Upload files"}
-            </span>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-md text-[#a39e97] hover:bg-[#f1efe9] hover:text-[#1c1b1a] transition-colors cursor-pointer"
-            aria-label={isZh ? "关闭" : "Close"}
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
 
         {/* Dropzone */}
         <div
@@ -167,7 +150,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             <span>{errorMessage}</span>
           </div>
         )}
-      </div>
-    </div>
+    </ModalShell>
   );
 };

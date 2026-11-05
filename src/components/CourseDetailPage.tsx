@@ -1,19 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
-  Calendar,
   CheckCircle2,
   ChevronDown,
-  Clock,
   Pencil,
-  Target,
 } from "lucide-react";
 import { ExamStudyPlan, PracticeEvent } from "../types";
 import type { FocusTarget } from "../lib/inbound";
 import { useI18n } from "../lib/i18n";
 import { toLocalDateString } from "../lib/date";
-import { FlipCountdown } from "./FlipCountdown";
 import { SectionBlock } from "./SectionBlock";
+import { EditSubjectModal, type ExamDraft } from "./EditSubjectModal";
 import { PhaseRoadmapSection } from "./PhaseRoadmapSection";
 import { TopicMasterySection } from "./TopicMasterySection";
 import { RebalanceSection } from "./RebalanceSection";
@@ -36,17 +33,6 @@ interface CourseDetailPageProps {
   onDismissReceipt?: (attemptId: string) => void;
 }
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME_RE = /^\d{2}:\d{2}$/;
-
-interface ExamForm {
-  examName: string;
-  subject: string;
-  examDate: string;
-  examTime: string;
-  target: string;
-}
-
 export function CourseDetailPage({
   plan,
   onUpdatePlan,
@@ -64,9 +50,8 @@ export function CourseDetailPage({
   // Secondary reference detail is disclosed on demand; progress stays primary.
   const [showKnowledge, setShowKnowledge] = useState(false);
 
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<ExamForm>(() => toForm(plan));
-  const [formError, setFormError] = useState<string | null>(null);
+  // 考试信息是低频动作，收进悬浮窗，页头只留身份与事实。
+  const [editOpen, setEditOpen] = useState(false);
   const [scheduleNotice, setScheduleNotice] = useState<string | null>(null);
 
   const activeFocus = focusTarget && focusTarget.planId === plan.id ? focusTarget : null;
@@ -76,12 +61,10 @@ export function CourseDetailPage({
     if (activeFocus) setShowKnowledge(true);
   }, [activeFocus?.planId, activeFocus?.topicId, activeFocus?.subtopicTitle, focusNonce]);
 
-  // 切换科目时丢掉上一份草稿，编辑表单始终跟着当前计划
+  // 切换科目时收起上一份草稿与提示，页头事实跟着当前计划
   useEffect(() => {
-    setEditing(false);
-    setFormError(null);
+    setEditOpen(false);
     setScheduleNotice(null);
-    setForm(toForm(plan));
   }, [plan.id]);
 
   const [countdown, setCountdown] = useState({
@@ -117,6 +100,16 @@ export function CourseDetailPage({
   }, [plan?.examDate, plan?.examTime]);
 
   const palette = useMemo(() => getPaletteByString(plan.id || plan.examName), [plan.id, plan.examName]);
+
+  // 倒计时收进页头事实条：一行文字，不再挂一块黑色翻页钟。
+  const countdownText = useMemo(() => {
+    if (!plan.examDate) return isZh ? "未设定" : "Not set";
+    const pad = (value: number) => String(value).padStart(2, "0");
+    const total = countdown.days * 86400 + countdown.hours * 3600 + countdown.minutes * 60 + countdown.seconds;
+    if (total <= 0) return isZh ? "已到期" : "Passed";
+    const clock = `${pad(countdown.hours)}:${pad(countdown.minutes)}:${pad(countdown.seconds)}`;
+    return isZh ? `${countdown.days} 天 ${clock}` : `${countdown.days}d ${clock}`;
+  }, [countdown, plan.examDate, isZh]);
 
   const stats = useMemo(() => {
     const completedCount = plan.tasks.filter((task) => task.status === "completed").length;
@@ -168,59 +161,39 @@ export function CourseDetailPage({
     return isZh ? "今天没有安排任务，后面也没有排任务。" : "Nothing scheduled today or later.";
   })();
 
-  const handleSaveExam = () => {
-    const examDate = form.examDate.trim();
-    const examTime = form.examTime.trim() || "09:00";
-    if (!form.examName.trim()) {
-      setFormError(isZh ? "请填写科目名称。" : "Exam title is required.");
-      return;
-    }
-    if (!DATE_RE.test(examDate)) {
-      setFormError(isZh ? "考试日期格式应为 2026-12-20。" : "Exam date must look like 2026-12-20.");
-      return;
-    }
-    if (!TIME_RE.test(examTime)) {
-      setFormError(isZh ? "考试时间格式应为 09:00。" : "Exam time must look like 09:00.");
-      return;
-    }
-    if (plan.startDate && examDate < plan.startDate) {
-      setFormError(
-        isZh
-          ? `考试日期不能早于计划开始日期（${plan.startDate}）。`
-          : `Exam date cannot be earlier than the plan start date (${plan.startDate}).`
-      );
-      return;
-    }
-
-    const examName = form.examName.trim();
-    const subject = form.subject.trim() || plan.subject;
-    const target = form.target.trim();
-    const dateChanged = examDate !== plan.examDate;
+  const handleSaveExam = (draft: ExamDraft) => {
+    const dateChanged = draft.examDate !== plan.examDate;
 
     onUpdatePlan({
       ...plan,
-      examName,
-      subject,
-      examDate,
-      examTime,
-      preferences: { ...plan.preferences, examName, subject, examDate, examTime, targetScoreOrGrade: target },
+      examName: draft.examName,
+      subject: draft.subject || plan.subject,
+      examDate: draft.examDate,
+      examTime: draft.examTime,
+      preferences: {
+        ...plan.preferences,
+        examName: draft.examName,
+        subject: draft.subject || plan.subject,
+        examDate: draft.examDate,
+        examTime: draft.examTime,
+        targetScoreOrGrade: draft.target,
+      },
       updatedAt: new Date().toISOString(),
     });
 
-    setEditing(false);
-    setFormError(null);
+    setEditOpen(false);
     if (dateChanged) {
       const stranded = plan.tasks.filter(
-        (task) => task.date > examDate && task.status !== "completed" && task.status !== "skipped"
+        (task) => task.date > draft.examDate && task.status !== "completed" && task.status !== "skipped"
       ).length;
       setScheduleNotice(
         stranded > 0
           ? isZh
-            ? `考试日期已改到 ${examDate}，仍有 ${stranded} 项任务排在它之后，可在下方「计划动态重排」重新平摊。`
-            : `Exam moved to ${examDate}, but ${stranded} tasks fall after it. Use Adaptive rebalance below.`
+            ? `考试日期已改到 ${draft.examDate}，仍有 ${stranded} 项任务排在它之后，可在下方「计划动态重排」重新平摊。`
+            : `Exam moved to ${draft.examDate}, but ${stranded} tasks fall after it. Use Adaptive rebalance below.`
           : isZh
-            ? `考试日期已更新为 ${examDate} ${examTime}。`
-            : `Exam date updated to ${examDate} ${examTime}.`
+            ? `考试日期已更新为 ${draft.examDate} ${draft.examTime}。`
+            : `Exam date updated to ${draft.examDate} ${draft.examTime}.`
       );
     }
   };
@@ -236,149 +209,67 @@ export function CourseDetailPage({
           {isZh ? "科目" : "Subjects"}
         </button>
 
-        <header className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
-          <div className="space-y-3 min-w-0 flex-1">
-            <div className="flex items-center gap-2.5">
-              <span
-                className="w-2.5 h-2.5 rounded-full shrink-0"
-                style={{ backgroundColor: palette.accentColor }}
-                aria-hidden="true"
-              />
-              <span className="ui-chip">{plan.subject || (isZh ? "学科考试" : "Subject")}</span>
+        <header className="space-y-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: palette.accentColor }}
+                  aria-hidden="true"
+                />
+                <span className="ui-chip">{plan.subject || (isZh ? "学科考试" : "Subject")}</span>
+              </div>
+              <h1 className="ui-page-title mt-2.5 leading-tight break-words">{plan.examName}</h1>
             </div>
 
-            <h1 className="ui-page-title leading-tight">{plan.examName}</h1>
-
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 ui-row-meta pt-0.5">
-              <span className="inline-flex items-center gap-1.5">
-                <Calendar className="w-4 h-4" />
-                <span className="ui-row-title tabular-nums">
-                  {plan.examDate} {plan.examTime || "09:00"}
-                </span>
-              </span>
-              {plan.preferences?.targetScoreOrGrade && (
-                <span className="inline-flex items-center gap-1.5">
-                  <Target className="w-4 h-4" />
-                  <span>
-                    {isZh ? "目标" : "Target"}{" "}
-                    <b className="ui-row-value">{plan.preferences.targetScoreOrGrade}</b>
-                  </span>
-                </span>
-              )}
-              <button
-                onClick={() => {
-                  setForm(toForm(plan));
-                  setFormError(null);
-                  setEditing((prev) => !prev);
-                }}
-                aria-expanded={editing}
-                className="inline-flex items-center gap-1 ui-row-meta hover:text-[#1c1b1a] transition-colors cursor-pointer"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-                <span className="font-medium">{editing ? (isZh ? "收起" : "Close") : t("edit")}</span>
-              </button>
-            </div>
-
-            {scheduleNotice && (
-              <div className="flex items-start justify-between gap-3 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-3.5 py-2.5 text-[12px] text-[#8A5A00] animate-fadeIn">
-                <span className="leading-relaxed">{scheduleNotice}</span>
-                <button
-                  onClick={() => setScheduleNotice(null)}
-                  className="shrink-0 font-medium underline underline-offset-2 cursor-pointer"
-                >
-                  {isZh ? "知道了" : "Dismiss"}
-                </button>
-              </div>
-            )}
-
-            {editing && (
-              <div className="ui-card p-4 sm:p-5 space-y-4 animate-fadeIn">
-                <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
-                  <label className="block min-w-0">
-                    <span className="ui-row-meta">{isZh ? "科目名称" : "Exam title"}</span>
-                    <input
-                      value={form.examName}
-                      onChange={(e) => setForm({ ...form, examName: e.target.value })}
-                      className="ui-field mt-1.5"
-                    />
-                  </label>
-                  <label className="block min-w-0">
-                    <span className="ui-row-meta">{isZh ? "学科" : "Subject"}</span>
-                    <input
-                      value={form.subject}
-                      onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                      className="ui-field mt-1.5"
-                    />
-                  </label>
-                  <label className="block min-w-0">
-                    <span className="ui-row-meta">{isZh ? "考试日期" : "Exam date"}</span>
-                    <input
-                      type="date"
-                      value={form.examDate}
-                      onChange={(e) => setForm({ ...form, examDate: e.target.value })}
-                      className="ui-field mt-1.5 tabular-nums"
-                    />
-                  </label>
-                  <label className="block min-w-0">
-                    <span className="ui-row-meta">{isZh ? "考试时间" : "Exam time"}</span>
-                    <input
-                      type="time"
-                      value={form.examTime}
-                      onChange={(e) => setForm({ ...form, examTime: e.target.value })}
-                      className="ui-field mt-1.5 tabular-nums"
-                    />
-                  </label>
-                  <label className="block min-w-0 sm:col-span-2">
-                    <span className="ui-row-meta">{isZh ? "目标分数或等级（可选）" : "Target score or grade (optional)"}</span>
-                    <input
-                      value={form.target}
-                      onChange={(e) => setForm({ ...form, target: e.target.value })}
-                      placeholder={isZh ? "例如：90 分 / 优秀" : "e.g. 90 / A"}
-                      className="ui-field mt-1.5"
-                    />
-                  </label>
-                </div>
-
-                {formError && <p className="text-[12px] text-[#B42318]">{formError}</p>}
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button onClick={handleSaveExam} className="ui-btn ui-btn-primary px-3.5 py-1.5 text-[12px]">
-                    {isZh ? "保存" : "Save"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditing(false);
-                      setFormError(null);
-                      setForm(toForm(plan));
-                    }}
-                    className="ui-btn ui-btn-ghost px-3 py-1.5 text-[12px]"
-                  >
-                    {t("cancel")}
-                  </button>
-                  <span className="ui-row-meta">
-                    {isZh ? "只改考试信息，已生成的任务不会被重写。" : "Only exam info changes; tasks stay as scheduled."}
-                  </span>
-                </div>
-              </div>
-            )}
+            <button
+              onClick={() => setEditOpen(true)}
+              className="ui-btn ui-btn-ghost shrink-0 px-3 py-1.5 text-[12px]"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              {t("edit")}
+            </button>
           </div>
 
-          {plan.examDate && (
-            <div className="shrink-0 flex flex-col items-start lg:items-end gap-1.5">
-              <span className="ui-row-meta inline-flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" />
-                {isZh ? "考试倒计时" : "Countdown"}
-              </span>
-              <FlipCountdown
-                days={countdown.days}
-                hours={countdown.hours}
-                minutes={countdown.minutes}
-                seconds={countdown.seconds}
-                language={language}
-              />
+          {/* 考试事实压成一条规格带：12 的标签配 13 的取值，靠发丝线和下方板块接上同一节奏。 */}
+          <div className="grid grid-cols-2 gap-x-8 gap-y-4 border-t border-[#eeece6] pt-4 sm:grid-cols-4">
+            <SpecCell
+              label={isZh ? "考试日期" : "Exam date"}
+              value={plan.examDate || (isZh ? "未设定" : "Not set")}
+            />
+            <SpecCell
+              label={isZh ? "考试时间" : "Exam time"}
+              value={plan.examDate ? plan.examTime || "09:00" : "—"}
+            />
+            <SpecCell
+              label={isZh ? "目标分数或等级" : "Target"}
+              value={plan.preferences?.targetScoreOrGrade || (isZh ? "未设定" : "Not set")}
+              muted={!plan.preferences?.targetScoreOrGrade}
+            />
+            <SpecCell label={isZh ? "距考试" : "Time to exam"} value={countdownText} />
+          </div>
+
+          {scheduleNotice && (
+            <div className="flex items-start justify-between gap-3 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-3.5 py-2.5 text-[12px] text-[#8A5A00] animate-fadeIn">
+              <span className="leading-relaxed">{scheduleNotice}</span>
+              <button
+                onClick={() => setScheduleNotice(null)}
+                className="shrink-0 font-medium underline underline-offset-2 cursor-pointer"
+              >
+                {isZh ? "知道了" : "Dismiss"}
+              </button>
             </div>
           )}
+
         </header>
+
+        <EditSubjectModal
+          open={editOpen}
+          plan={plan}
+          onClose={() => setEditOpen(false)}
+          onSave={handleSaveExam}
+        />
       </div>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-8">
@@ -526,12 +417,13 @@ export function CourseDetailPage({
   );
 }
 
-function toForm(plan: ExamStudyPlan): ExamForm {
-  return {
-    examName: plan.examName || "",
-    subject: plan.subject || "",
-    examDate: plan.examDate || "",
-    examTime: plan.examTime || "09:00",
-    target: plan.preferences?.targetScoreOrGrade || "",
-  };
+/** 页头事实条的一格：12 的标签在上，13 的取值在下。 */
+function SpecCell({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+  return (
+    <div className="min-w-0">
+      <span className="ui-row-meta block">{label}</span>
+      <span className={`ui-row-title mt-1 block tabular-nums ${muted ? "text-[#a39e97]" : ""}`}>{value}</span>
+    </div>
+  );
 }
+

@@ -156,6 +156,10 @@
   .ui-btn-ghost {
     @apply border border-[#e5e2dc] bg-white text-[#1c1b1a] hover:bg-[#faf9f6];
   }
+  /* 不可恢复操作的按钮只多这一档颜色，其他规格沿用 ui-btn。 */
+  .ui-btn-danger {
+    @apply bg-[#B42318] text-white hover:bg-[#9a1d14];
+  }
   .ui-nav-item {
     @apply w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors cursor-pointer;
   }
@@ -301,23 +305,5 @@
 .notion-callout {
   background-color: #fafafa;
   border: 1px solid #111111;
-}
-
-@keyframes flipUpperLeaf {
-  0% {
-    transform: rotateX(0deg);
-  }
-  100% {
-    transform: rotateX(-90deg);
-  }
-}
-
-@keyframes flipLowerLeaf {
-  0% {
-    transform: rotateX(90deg);
-  }
-  100% {
-    transform: rotateX(0deg);
-  }
 }
 
