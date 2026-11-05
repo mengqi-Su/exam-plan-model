@@ -220,9 +220,9 @@ export function CourseDetailPage({
         </button>
 
         <header>
-          {/* Notion 三段：页面图标 → 文档标题 → 属性行。动作是图标上方那行小字并常驻——
-              这一页只有这一个编辑入口，藏进 hover 等于没有。属性照 Notion 做成
-              「前导图标 + 浅标签 + 取值」一个单元，但我们横着排，放不下才换行；
+          {/* Notion 三段：页面图标 → 文档标题 → 属性。动作是图标上方那行小字并常驻——
+              这一页只有这一个编辑入口，藏进 hover 等于没有。一条属性是「图标+标签+取值」，
+              桌面两行两列、窄屏退成一行一条，标签定宽所以取值对齐成列；
               日期和时间合成一条，因为它们是同一个事实而不是两个字段。 */}
           <div className="mb-1 flex h-6 items-center">
             <button onClick={() => setEditOpen(true)} className="ui-btn-text -ml-2">
@@ -235,7 +235,7 @@ export function CourseDetailPage({
 
           <h1 className="ui-doc-title mt-2 break-words">{plan.examName}</h1>
 
-          <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+          <div className="mt-4 grid gap-x-8 gap-y-2.5 sm:grid-cols-2">
             <PropItem
               icon={Layers}
               label={isZh ? "学科" : "Subject"}
@@ -254,7 +254,7 @@ export function CourseDetailPage({
               value={plan.preferences?.targetScoreOrGrade || notSet(isZh)}
               muted={!plan.preferences?.targetScoreOrGrade}
             />
-            <PropItem icon={Hourglass} label={isZh ? "距考试" : "Time to exam"} value={countdownText} />
+            <PropItem icon={Hourglass} label={isZh ? "距考试" : "Days left"} value={countdownText} />
           </div>
 
           {scheduleNotice && (
@@ -425,8 +425,8 @@ export function CourseDetailPage({
 }
 
 /**
- * 文档页头的属性单元，照 Notion 的三段结构：前导图标（ui-prop-icon，纯标记不可点）
- * + 13 档浅标签 + 同一档取值。横排时它是一个整体，换行也是整体换行。
+ * 文档页头的一条属性：前导图标（ui-prop-icon，纯标记不可点）+ 定宽浅标签 + 同一档取值。
+ * 三者的字号、标签列宽、取值字重都在 ui-prop-* token 里，组件只管内容不管排版。
  */
 function PropItem({
   icon: Icon,
@@ -440,12 +440,10 @@ function PropItem({
   muted?: boolean;
 }) {
   return (
-    <span className="flex min-w-0 items-center gap-1.5">
+    <span className="flex min-w-0 items-center gap-2">
       <Icon className="ui-prop-icon" aria-hidden="true" />
-      <span className="flex min-w-0 items-baseline gap-2">
-        <span className="ui-prop-label shrink-0">{label}</span>
-        <span className={muted ? "ui-prop-empty truncate" : "ui-prop-value truncate"}>{value}</span>
-      </span>
+      <span className="ui-prop-label">{label}</span>
+      <span className={muted ? "ui-prop-empty" : "ui-prop-value"}>{value}</span>
     </span>
   );
 }

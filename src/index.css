@@ -112,32 +112,34 @@
     @apply text-2xl font-semibold tracking-tight text-[#1c1b1a];
   }
   /* 文档页头（Notion 三段：页面图标 → 文档标题 → 属性行）。
+     体量按 Notion 的比例来：页面图标 ≈ 标题字高的 1.8 倍，图标压得住标题；
      文档标题只用于「打开一份科目文档」的那一页，其余页面仍是 ui-page-title 24；
      图标是科目身份标记，侧栏 / 总览卡 / 页头共用 planIcon。 */
   .ui-doc-title {
-    @apply text-[26px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1c1b1a] sm:text-[32px];
+    @apply text-[28px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1c1b1a] sm:text-[36px];
   }
   .ui-page-icon {
-    @apply select-none text-[38px] leading-none sm:text-[46px];
+    @apply select-none text-[48px] leading-none sm:text-[64px];
   }
-  /* 属性行按 Notion 的「图标 + 标签 + 取值」三元组排，横着排不下就换行，走 13 档：
-     前导图标只是标记不是按钮，标签浅、取值实，未填的取值比标签更浅。 */
+  /* 属性一条 = 「图标 + 标签 + 取值」三元组，走 15 档，和段标题同档：
+     Notion 的标签和取值同字号同字重，只靠颜色分深浅，所以取值不加粗；
+     标签定宽一列，取值才会在两行两列里对齐成表。前导图标只是标记，不是按钮。 */
   .ui-prop-icon {
-    @apply h-[13px] w-[13px] shrink-0 text-[#a39e97];
+    @apply h-[15px] w-[15px] shrink-0 text-[#a39e97];
   }
   .ui-prop-label {
-    @apply text-[13px] font-normal text-[#8a8580];
+    @apply w-[4.2em] shrink-0 text-[15px] font-normal text-[#8a8580];
   }
   .ui-prop-value {
-    @apply text-[13px] font-medium tabular-nums text-[#1c1b1a];
+    @apply min-w-0 truncate text-[15px] font-normal tabular-nums text-[#1c1b1a];
   }
   .ui-prop-empty {
-    @apply text-[13px] font-normal text-[#a39e97];
+    @apply min-w-0 truncate text-[15px] font-normal text-[#a39e97];
   }
   .ui-section-title {
     @apply text-[15px] font-semibold tracking-tight text-[#1c1b1a];
   }
-  /* 一把标尺，和 StarQuiz 同一规格：文档 32 › 页面/数字 24 › 段 15 › 组 13.5 › 子组·行·属性 13 › 元信息 12 › 胶囊 11 › 徽标 10。
+  /* 一把标尺，和 StarQuiz 同一规格：文档 36（只有科目页头用）› 页面/数字 24 › 段·属性 15 › 组 13.5 › 子组·行 13 › 元信息 12 › 胶囊 11 › 徽标 10。
      嵌套深度由缩进、字重、颜色和分组底色表达；不再用 0.5px 的字号差冒充层级。
      12 层成对出现：ui-row-meta 是标签，ui-row-value 是紧跟其后的取值。 */
   .ui-group-title {
