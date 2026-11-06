@@ -47,6 +47,7 @@ import {
 import { mergeTopics, nonTextbookTitles, replaceTextbookTopics } from "../lib/topics";
 import { RulerTimePicker } from "./RulerTimePicker";
 import { TextbookOutlineDialog } from "./TextbookOutlineDialog";
+import { ModalShell } from "./ModalShell";
 
 interface AddExamSubjectWizardProps {
   onPlanCreated: (newPlan: ExamStudyPlan, notice?: string | null) => void;
@@ -149,30 +150,26 @@ export function AddExamSubjectWizard({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workingRef = useRef(false);
-  const cardRef = useRef<HTMLDivElement>(null);
+  // ModalShell 里那段唯一会滚的内容区：换步骤回顶部、打开后聚焦第一个字段都靠它。
+  const bodyRef = useRef<HTMLDivElement>(null);
 
-  // 悬浮卡片：Esc 关闭、锁定背景滚动、打开后聚焦第一栏
+  // Esc、锁背景滚动、点遮罩关闭都归 ModalShell（全站只做一次），这里只补「打开就落在第一个字段」。
   useEffect(() => {
     if (!isModal) return;
-    const busy = () => workingRef.current || isParsingFiles;
-    const onKeyDown = (e: KeyboardEvent) => {
-      // 教材目录弹窗浮在向导上面时，Esc 只该退掉最上面那一层，不能连向导一起关掉。
-      if (e.key === "Escape" && !busy() && !textbookDialogOpen) onCancel();
-    };
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", onKeyDown);
     const focusTimer = window.setTimeout(() => {
-      if (textbookDialogOpen) return;
-      const field = cardRef.current?.querySelector<HTMLInputElement>("input:not([type=hidden]), textarea");
+      if (textbookDialogOpen || previewDoc) return;
+      const field = bodyRef.current?.querySelector<HTMLInputElement>("input:not([type=hidden]), textarea");
       field?.focus();
     }, 60);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-      window.clearTimeout(focusTimer);
-    };
-  }, [isModal, onCancel, isParsingFiles, textbookDialogOpen]);
+    return () => window.clearTimeout(focusTimer);
+  }, [isModal, textbookDialogOpen, previewDoc]);
+
+  // 换步骤、或冒出一条新报错时，把内容区拨回顶部。
+  // 停在上一屏的滚动位置会让人既看不见提示，也够不着刚变的按钮。
+  useEffect(() => {
+    if (!isModal) return;
+    bodyRef.current?.scrollTo({ top: 0 });
+  }, [isModal, step, error]);
 
   /**
    * 从科目页带着一门已建好的科目回来：第一步的事实和已经传上来的资料先填上，
@@ -276,7 +273,8 @@ export function AddExamSubjectWizard({
   };
 
   const requestClose = () => {
-    if (isWorking || isParsingFiles) return;
+    // 生成中不许退；上面还浮着资料预览或教材目录时，Esc / 点遮罩只该退掉最上面那一层。
+    if (isWorking || isParsingFiles || previewDoc || textbookDialogOpen) return;
     onCancel();
   };
 
@@ -688,74 +686,61 @@ export function AddExamSubjectWizard({
   const iconBtnCls =
     "rounded-lg border border-[#e5e2dc] bg-white p-1.5 text-[#6b6660] transition-colors hover:border-[#cfc9c0] hover:text-[#1c1b1a] cursor-pointer";
 
-  const wizardBody = (
+  // 悬浮版只出文字，页头骨架由 ModalShell 统一画；页面版自己带页头。
+  const modalTitle = isRefill
+    ? tt(`${initialPlan?.examName || ""} · 生成学习计划`, `Plan ${initialPlan?.examName || "this subject"}`)
+    : tt("从资料生成学习计划", "Build a plan from your materials");
+
+  const modalEyebrow = (
     <>
-      {isModal ? (
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-[#a39e97]">
-              <span>{isRefill ? tt("继续这门科目", "Finish this subject") : tt("新建备考科目", "New subject")}</span>
-              {!isRefill && (
-                <span className="ui-chip tabular-nums">
-                  {tt(`已存 ${existingPlans.length} 门`, `${existingPlans.length} saved`)}
-                </span>
-              )}
-            </div>
-            <h1 className="mt-1.5 text-[17px] font-semibold leading-tight tracking-tight text-[#1c1b1a]">
-              {isRefill
-                ? tt(`${initialPlan?.examName || ""} · 生成学习计划`, `Plan ${initialPlan?.examName || "this subject"}`)
-                : tt("从资料生成学习计划", "Build a plan from your materials")}
-            </h1>
-            <p className="mt-1 text-[12.5px] leading-relaxed text-[#8a8580]">
-              {isRefill
-                ? tt(
-                    "考试信息已经存好了。放资料进来（或整理教材目录），AI 照你填的时间表排每日任务。",
-                    "The exam details are already saved. Add materials (or outline a textbook) and AI schedules each day around the hours you set."
-                  )
-                : tt(
-                    "上传考纲、讲义或笔记，AI 自动识别考点并编排每日复习。",
-                    "Upload a syllabus, slides, or notes — AI extracts topics and schedules your daily review."
-                  )}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={requestClose}
-            disabled={isWorking || isParsingFiles}
-            className={iconBtnCls + " shrink-0"}
-            aria-label={tt("关闭", "Close")}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ) : (
-        <>
-          <div className="flex items-center justify-between">
-            <button
-              onClick={onCancel}
-              disabled={isWorking}
-              className="ui-btn ui-btn-ghost flex items-center gap-1.5 text-[12px] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>{tt("返回现有计划", "Back to plans")}</span>
-            </button>
-            <span className="text-[12px] text-[#a39e97] tabular-nums">
-              {tt(`本地已有 ${existingPlans.length} 门科目`, `${existingPlans.length} subjects saved`)}
-            </span>
-          </div>
-
-          <header className="space-y-1">
-            <h1 className="ui-page-title">
-              {tt("从资料生成学习计划", "Build a plan from your materials")}
-            </h1>
-            <p className="text-[13px] text-[#8a8580]">
-              {tt("上传考纲、讲义或笔记，AI 自动识别考点并编排每日复习。", "Upload a syllabus, slides, or notes — AI extracts topics and schedules your daily review.")}
-            </p>
-          </header>
-        </>
+      <span>{isRefill ? tt("继续这门科目", "Finish this subject") : tt("新建备考科目", "New subject")}</span>
+      {!isRefill && (
+        <span className="ui-chip tabular-nums">
+          {tt(`已存 ${existingPlans.length} 门`, `${existingPlans.length} saved`)}
+        </span>
       )}
+    </>
+  );
 
-      <ol className="flex items-center gap-2">
+  const modalDescription = isRefill
+    ? tt(
+        "考试信息已经存好了。放资料进来（或整理教材目录），AI 照你填的时间表排每日任务。",
+        "The exam details are already saved. Add materials (or outline a textbook) and AI schedules each day around the hours you set."
+      )
+    : tt(
+        "上传考纲、讲义或笔记，AI 自动识别考点并编排每日复习。",
+        "Upload a syllabus, slides, or notes — AI extracts topics and schedules your daily review."
+      );
+
+  const pageHeader = (
+    <>
+      <div className="flex items-center justify-between">
+        <button
+          onClick={onCancel}
+          disabled={isWorking}
+          className="ui-btn ui-btn-ghost flex items-center gap-1.5 text-[12px] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>{tt("返回现有计划", "Back to plans")}</span>
+        </button>
+        <span className="text-[12px] text-[#a39e97] tabular-nums">
+          {tt(`本地已有 ${existingPlans.length} 门科目`, `${existingPlans.length} subjects saved`)}
+        </span>
+      </div>
+
+      <header className="space-y-1">
+        <h1 className="ui-page-title">
+          {tt("从资料生成学习计划", "Build a plan from your materials")}
+        </h1>
+        <p className="text-[13px] text-[#8a8580]">
+          {tt("上传考纲、讲义或笔记，AI 自动识别考点并编排每日复习。", "Upload a syllabus, slides, or notes — AI extracts topics and schedules your daily review.")}
+        </p>
+      </header>
+    </>
+  );
+
+  const wizardStepRail = (
+    <ol className="flex items-center gap-2">
         {steps.map((s, index) => {
           const isCurrent = s.n === step;
           const isDone = s.n < step;
@@ -768,7 +753,7 @@ export function AddExamSubjectWizard({
                   onClick={() => goToStep(s.n)}
                   disabled={isWorking || s.n > step}
                   aria-current={isCurrent ? "step" : undefined}
-                  className={`flex w-full items-center justify-center gap-2 rounded-lg border px-2 py-2.5 text-[12px] transition-colors ${
+                  className={`flex w-full items-center justify-center gap-2 rounded-lg border px-2 py-2 text-[12px] transition-colors sm:py-2.5 ${
                     isCurrent
                       ? "border-[#1c1b1a] bg-[#1c1b1a] text-white font-medium"
                       : isDone
@@ -794,8 +779,11 @@ export function AddExamSubjectWizard({
             </React.Fragment>
           );
         })}
-      </ol>
+    </ol>
+  );
 
+  const wizardContent = (
+    <>
       {aiReady === false && (
         <div className="flex items-start gap-2.5 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-4 py-3 text-[#8A5A00]">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -1315,12 +1303,35 @@ export function AddExamSubjectWizard({
           </div>
         </section>
       )}
+    </>
+  );
 
-      <div className="flex flex-col gap-3 border-t border-[#f0ede8] pt-4 sm:flex-row sm:items-center sm:justify-between">
+  const wizardFooter = (
+    <>
+      {/* 手机上是两行：「先建科目」占满一行当文字入口，后退和主按钮并排一行、主按钮吃掉剩下的宽度。
+          三个按钮竖着摞起来能把 442px 的屏幕吃掉三分之一，内容区就没得滚了——
+          所以换行交给 flex-wrap，桌面（sm）再收回一行。 */}
+      <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap sm:justify-end sm:gap-3">
+        {/* 资料不是建科目的门槛：这一步可以先跳过，科目照建，之后在科目页接着传、接着生成。
+            带已有科目回来时不出现——那门科目已经建好了，这里只做最后一步。 */}
+        {step === 2 && !isRefill && (
+          <button
+            onClick={handleCreateWithoutMaterials}
+            disabled={isParsingFiles}
+            className="ui-btn ui-btn-ghost order-1 w-full justify-center gap-1.5 px-3 py-1.5 text-[12px] text-[#6b6660] disabled:opacity-40 sm:order-2 sm:w-auto sm:py-2"
+          >
+            <Check className="h-3.5 w-3.5" />
+            <span>{tt("先建科目，资料稍后再传", "Create it now, add materials later")}</span>
+          </button>
+        )}
+
         <button
           onClick={() => (step === 1 ? requestClose() : goToStep((step - 1) as 1 | 2 | 3))}
           disabled={isWorking}
-          className="ui-btn ui-btn-ghost flex items-center justify-center gap-1.5 px-4 py-2.5 text-[13px] disabled:opacity-40 sm:w-auto"
+          className={`ui-btn ui-btn-ghost order-2 shrink-0 items-center justify-center gap-1.5 px-4 py-2.5 text-[13px] disabled:opacity-40 sm:order-1 sm:mr-auto ${
+            // 悬浮版第一步：右上角已经有 ✕，手机上不再为「取消」多占一行高度。
+            step === 1 && isModal ? "hidden sm:flex" : "flex"
+          }`}
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           <span>
@@ -1332,25 +1343,11 @@ export function AddExamSubjectWizard({
           </span>
         </button>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          {/* 资料不是建科目的门槛：这一步可以先跳过，科目照建，之后在科目页接着传、接着生成。
-              带已有科目回来时不出现——那门科目已经建好了，这里只做最后一步。 */}
-          {step === 2 && !isRefill && (
-            <button
-              onClick={handleCreateWithoutMaterials}
-              disabled={isParsingFiles}
-              className="ui-btn ui-btn-ghost items-center justify-center gap-1.5 px-3 py-2 text-[12px] text-[#6b6660] disabled:opacity-40"
-            >
-              <Check className="h-3.5 w-3.5" />
-              <span>{tt("先建科目，资料稍后再传", "Create it now, add materials later")}</span>
-            </button>
-          )}
-
           {step < 3 ? (
           <button
             onClick={handleNext}
             disabled={step === 1 ? !detailsReady : !materialsReady}
-            className="ui-btn ui-btn-primary flex w-full items-center justify-center gap-2 px-6 py-3 text-[13px] font-medium disabled:opacity-40 sm:w-auto"
+            className="ui-btn ui-btn-primary order-3 min-w-0 flex-1 items-center justify-center gap-2 px-5 py-3 text-[13px] font-medium disabled:opacity-40 sm:flex-none sm:px-6"
           >
             <span>
               {step === 1 ? tt("下一步：上传资料", "Next: Materials") : tt("下一步：生成计划", "Next: Generate")}
@@ -1361,7 +1358,7 @@ export function AddExamSubjectWizard({
           <button
             onClick={handleGenerate}
             disabled={isWorking || isParsingFiles}
-            className="ui-btn ui-btn-primary flex w-full items-center justify-center gap-2 px-6 py-3 text-[13px] font-medium disabled:opacity-40 sm:w-auto"
+            className="ui-btn ui-btn-primary order-3 min-w-0 flex-1 items-center justify-center gap-2 px-5 py-3 text-[13px] font-medium disabled:opacity-40 sm:flex-none sm:px-6"
           >
             {isWorking ? (
               <>
@@ -1382,49 +1379,38 @@ export function AddExamSubjectWizard({
             )}
           </button>
         )}
-        </div>
       </div>
+    </>
+  );
 
-      {previewDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1c1b1a]/40 backdrop-blur-sm p-4">
-          <div className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[#eae7e1] bg-white shadow-[0_12px_40px_rgba(28,27,26,0.18)]">
-            <div className="flex items-center justify-between gap-3 border-b border-[#f0ede8] bg-[#faf9f6] p-4">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f1efe9] text-[#6b6660]">
-                  <FileText className="h-4 w-4" />
-                </span>
-                <span className="truncate text-[13px] font-medium text-[#1c1b1a]">{previewDoc.name}</span>
-                <span className="ui-chip shrink-0">
-                  {typeLabels[previewDoc.type]}
-                </span>
-              </div>
-              <button
-                onClick={() => setPreviewDoc(null)}
-                className="shrink-0 rounded-lg p-1.5 text-[#6b6660] transition-colors hover:bg-[#f1efe9] hover:text-[#1c1b1a] cursor-pointer"
-                aria-label={tt("关闭预览", "Close preview")}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto whitespace-pre-wrap bg-white p-4 text-[13px] leading-relaxed text-[#1c1b1a]">
-              {previewDoc.content || tt("文档内容为空", "Empty document content")}
-            </div>
-
-            <div className="flex items-center justify-between border-t border-[#f0ede8] bg-[#faf9f6] p-3 text-[12px] text-[#8a8580]">
-              <span className="tabular-nums">
-                {previewDoc.content.length.toLocaleString()} {tt("字符", "chars")}
-              </span>
-              <button
-                onClick={() => setPreviewDoc(null)}
-                className="ui-btn ui-btn-primary px-4 py-1.5 text-[12px]"
-              >
-                {tt("关闭", "Close")}
-              </button>
-            </div>
-          </div>
+  // 资料预览和教材目录是浮在向导之上的两层，必须待在滚动区外面，
+  // 否则会被内容区一起裁掉、跟着一起滚。
+  const wizardOverlays = (
+    <>
+      <ModalShell
+        open={!!previewDoc}
+        onClose={() => setPreviewDoc(null)}
+        title={previewDoc?.name || tt("资料预览", "Material preview")}
+        closeLabel={tt("关闭预览", "Close preview")}
+        icon={<FileText className="h-4 w-4" />}
+        size="lg"
+        note={
+          previewDoc &&
+          `${previewDoc.content.length.toLocaleString()} ${tt("字符", "chars")} · ${typeLabels[previewDoc.type]}`
+        }
+        footer={
+          <button
+            onClick={() => setPreviewDoc(null)}
+            className="ui-btn ui-btn-primary px-4 py-1.5 text-[12px]"
+          >
+            {tt("关闭", "Close")}
+          </button>
+        }
+      >
+        <div className="whitespace-pre-wrap font-mono text-[12.5px] leading-relaxed text-[#1c1b1a]">
+          {previewDoc?.content || tt("文档内容为空", "Empty document content")}
         </div>
-      )}
+      </ModalShell>
 
       <TextbookOutlineDialog
         open={textbookDialogOpen}
@@ -1440,26 +1426,36 @@ export function AddExamSubjectWizard({
   if (!isModal) {
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-8 py-6 font-sans text-[#1c1b1a] space-y-5">
-        {wizardBody}
+        {pageHeader}
+        {wizardStepRail}
+        {wizardContent}
+        <div className="border-t border-[#f0ede8] pt-4">{wizardFooter}</div>
+        {wizardOverlays}
       </div>
     );
   }
 
+  // 骨架整个交给 ModalShell：全站唯一的悬浮窗就是它，滚动口径也只在它那里定义一次——
+  // 页头和按钮条钉住，只有中间的内容滚，表单再长也不会把「下一步」顶出屏幕。
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#1c1b1a]/40 p-4 backdrop-blur-sm animate-fadeIn sm:items-center sm:p-6"
-      onClick={requestClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={isRefill ? tt("生成学习计划", "Generate study plan") : tt("新建备考科目", "New exam subject")}
-    >
-      <div
-        ref={cardRef}
-        onClick={(e) => e.stopPropagation()}
-        className="my-auto w-full max-w-2xl space-y-4 rounded-2xl border border-[#eae7e1] bg-[#fbfaf8] px-4 py-4 font-sans text-[13px] text-[#1c1b1a] shadow-[0_18px_50px_rgba(28,27,26,0.22)] sm:px-6 sm:py-5"
+    <>
+      <ModalShell
+        open
+        onClose={requestClose}
+        bodyRef={bodyRef}
+        size="lg"
+        title={modalTitle}
+        closeLabel={tt("关闭", "Close")}
+        closeDisabled={isWorking || isParsingFiles}
+        eyebrow={modalEyebrow}
+        description={modalDescription}
+        subheader={wizardStepRail}
+        footer={wizardFooter}
+        footerMode="block"
       >
-        {wizardBody}
-      </div>
-    </div>
+        {wizardContent}
+      </ModalShell>
+      {wizardOverlays}
+    </>
   );
 }

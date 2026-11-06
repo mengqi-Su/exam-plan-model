@@ -18,6 +18,11 @@ const TOTAL_STEPS = Math.round((MAX_HOURS - MIN_HOURS) / STEP_HOURS);
 
 const ORDERED_DAYS = [1, 2, 3, 4, 5, 6, 0];
 
+// 判成横向手势的门槛（px）：竖向的份量一律交还给外层对话框，转盘和标尺都不再抢滚动。
+const SWIPE_TRIGGER = 24;
+
+const clampHours = (hours: number) => Math.max(MIN_HOURS, Math.min(MAX_HOURS, hours));
+
 export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
   language,
   dailySchedules,
@@ -31,7 +36,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
   const dayLabel = useCallback((dayOfWeek: number) => dayName(dayOfWeek, isZh), [isZh]);
 
   const arcContainerRef = useRef<HTMLDivElement>(null);
-  const arcTouchStartYRef = useRef<number | null>(null);
 
   const rulerContainerRef = useRef<HTMLDivElement>(null);
   const isRulerDraggingRef = useRef(false);
@@ -91,15 +95,26 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
     [selectedDay, syncToAll, onUpdateDayHours]
   );
 
-  const handleRulerScroll = () => {
-    if (!rulerContainerRef.current || isRulerDraggingRef.current) return;
-    const scrollLeft = rulerContainerRef.current.scrollLeft;
-    const step = Math.round(scrollLeft / STEP_PIXELS);
-    const hours = Math.max(MIN_HOURS, Math.min(MAX_HOURS, step * STEP_HOURS));
+  const commitRulerScroll = useCallback(() => {
+    const el = rulerContainerRef.current;
+    if (!el) return;
+    const step = Math.round(el.scrollLeft / STEP_PIXELS);
+    const hours = clampHours(step * STEP_HOURS);
     if (hours !== activeHours) {
       handleHoursChange(hours);
     }
-  };
+  }, [activeHours, handleHoursChange]);
+
+  const endRulerDrag = useCallback(() => {
+    if (!isRulerDraggingRef.current) return;
+    isRulerDraggingRef.current = false;
+    commitRulerScroll();
+    const el = rulerContainerRef.current;
+    if (el) {
+      const targetScroll = Math.round(el.scrollLeft / STEP_PIXELS) * STEP_PIXELS;
+      el.scrollTo({ left: targetScroll, behavior: "smooth" });
+    }
+  }, [commitRulerScroll]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!rulerContainerRef.current) return;
@@ -114,151 +129,121 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
     const x = e.pageX - rulerContainerRef.current.offsetLeft;
     const walk = (x - startXRef.current) * 1.2;
     rulerContainerRef.current.scrollLeft = startScrollLeftRef.current - walk;
-
-    const step = Math.round(rulerContainerRef.current.scrollLeft / STEP_PIXELS);
-    const hours = Math.max(MIN_HOURS, Math.min(MAX_HOURS, step * STEP_HOURS));
-    if (hours !== activeHours) {
-      handleHoursChange(hours);
-    }
+    commitRulerScroll();
   };
 
-  const handleMouseUpOrLeave = () => {
-    if (!isRulerDraggingRef.current) return;
-    isRulerDraggingRef.current = false;
-    if (rulerContainerRef.current) {
-      const step = Math.round(rulerContainerRef.current.scrollLeft / STEP_PIXELS);
-      const targetScroll = step * STEP_PIXELS;
-      rulerContainerRef.current.scrollTo({ left: targetScroll, behavior: "smooth" });
-    }
+  const handleMouseUpOrLeave = endRulerDrag;
+
+  // 拖动 / 手指滑标尺的过程中不提交，免得每个 scroll 事件都反向改写 scrollLeft，
+  // 把用户的手势顶回去；松手那一下统一结算。
+  const handleRulerScroll = () => {
+    if (isRulerDraggingRef.current) return;
+    commitRulerScroll();
   };
+
+  const shiftDay = useCallback((direction: 1 | -1) => {
+    setSelectedDay((prev) => {
+      const idx = ORDERED_DAYS.indexOf(prev);
+      return ORDERED_DAYS[Math.min(ORDERED_DAYS.length - 1, Math.max(0, idx + direction))];
+    });
+  }, []);
 
   useEffect(() => {
     const el = arcContainerRef.current;
     if (!el) return;
 
+    // 转盘只认横向手势。竖向滚轮/手指一律交还给外层对话框——
+    // 之前这里无条件 preventDefault，鼠标停在转盘上就滚不动弹窗，看起来像「页面卡住了」。
     const onArcWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       e.preventDefault();
-      e.stopPropagation();
-      if (e.deltaY > 15) {
-        setSelectedDay((prev) => {
-          const idx = ORDERED_DAYS.indexOf(prev);
-          const nextIdx = Math.min(ORDERED_DAYS.length - 1, idx + 1);
-          return ORDERED_DAYS[nextIdx];
-        });
-      } else if (e.deltaY < -15) {
-        setSelectedDay((prev) => {
-          const idx = ORDERED_DAYS.indexOf(prev);
-          const prevIdx = Math.max(0, idx - 1);
-          return ORDERED_DAYS[prevIdx];
-        });
-      }
+      if (Math.abs(e.deltaX) >= SWIPE_TRIGGER) shiftDay(e.deltaX > 0 ? 1 : -1);
     };
 
+    let startX = 0;
+    let startY = 0;
+    let axis: "x" | "y" | null = null;
+
     const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length > 0) {
-        arcTouchStartYRef.current = e.touches[0].clientY;
-      }
+      const touch = e.touches[0];
+      if (!touch) return;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      axis = null;
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (arcTouchStartYRef.current === null || e.touches.length === 0) return;
-      const currentY = e.touches[0].clientY;
-      const diffY = arcTouchStartYRef.current - currentY;
-      if (Math.abs(diffY) > 20) {
-        e.preventDefault();
-        if (diffY > 20) {
-          setSelectedDay((prev) => {
-            const idx = ORDERED_DAYS.indexOf(prev);
-            const nextIdx = Math.min(ORDERED_DAYS.length - 1, idx + 1);
-            return ORDERED_DAYS[nextIdx];
-          });
-          arcTouchStartYRef.current = currentY;
-        } else if (diffY < -20) {
-          setSelectedDay((prev) => {
-            const idx = ORDERED_DAYS.indexOf(prev);
-            const prevIdx = Math.max(0, idx - 1);
-            return ORDERED_DAYS[prevIdx];
-          });
-          arcTouchStartYRef.current = currentY;
-        }
+      const touch = e.touches[0];
+      if (!touch) return;
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (!axis) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      }
+      if (axis !== "x") return;
+      e.preventDefault();
+      if (Math.abs(dx) >= SWIPE_TRIGGER) {
+        shiftDay(dx < 0 ? 1 : -1);
+        startX = touch.clientX;
       }
     };
 
     const onTouchEnd = () => {
-      arcTouchStartYRef.current = null;
+      axis = null;
     };
 
     el.addEventListener("wheel", onArcWheel, { passive: false });
     el.addEventListener("touchstart", onTouchStart, { passive: true });
     el.addEventListener("touchmove", onTouchMove, { passive: false });
     el.addEventListener("touchend", onTouchEnd, { passive: true });
+    el.addEventListener("touchcancel", onTouchEnd, { passive: true });
 
     return () => {
       el.removeEventListener("wheel", onArcWheel);
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
     };
-  }, []);
+  }, [shiftDay]);
 
   useEffect(() => {
     const rulerEl = rulerContainerRef.current;
     if (!rulerEl) return;
 
     const onRulerWheel = (e: WheelEvent) => {
+      // 同上：竖向滚轮属于对话框，横向滑动才用来挪标尺（一格 = 0.5 小时）。
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
       e.preventDefault();
-      e.stopPropagation();
-      const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-      rulerEl.scrollLeft += delta * 0.8;
-      const step = Math.round(rulerEl.scrollLeft / STEP_PIXELS);
-      const hours = Math.max(MIN_HOURS, Math.min(MAX_HOURS, step * STEP_HOURS));
-      handleHoursChange(hours);
+      const step = Math.round(rulerEl.scrollLeft / STEP_PIXELS) + (e.deltaX > 0 ? 1 : -1);
+      const clampedStep = Math.max(0, Math.min(TOTAL_STEPS, step));
+      rulerEl.scrollLeft = clampedStep * STEP_PIXELS;
+      commitRulerScroll();
     };
 
-    const onRulerTouchStart = (e: TouchEvent) => {
-      if (e.touches.length > 0) {
-        isRulerDraggingRef.current = true;
-        startXRef.current = e.touches[0].pageX - rulerEl.offsetLeft;
-        startScrollLeftRef.current = rulerEl.scrollLeft;
-      }
-    };
-
-    const onRulerTouchMove = (e: TouchEvent) => {
-      if (!isRulerDraggingRef.current || e.touches.length === 0) return;
-      e.preventDefault();
-      const x = e.touches[0].pageX - rulerEl.offsetLeft;
-      const walk = (x - startXRef.current) * 1.2;
-      rulerEl.scrollLeft = startScrollLeftRef.current - walk;
-
-      const step = Math.round(rulerEl.scrollLeft / STEP_PIXELS);
-      const hours = Math.max(MIN_HOURS, Math.min(MAX_HOURS, step * STEP_HOURS));
-      if (hours !== activeHours) {
-        handleHoursChange(hours);
-      }
+    // 手指横向拖标尺交给浏览器原生 scroll（touch-action: pan-x），这里只负责开始/结算，
+    // 不再 preventDefault，竖向滑动才能正常滚弹窗。
+    const onRulerTouchStart = () => {
+      isRulerDraggingRef.current = true;
     };
 
     const onRulerTouchEnd = () => {
-      if (!isRulerDraggingRef.current) return;
-      isRulerDraggingRef.current = false;
-      const step = Math.round(rulerEl.scrollLeft / STEP_PIXELS);
-      const targetScroll = step * STEP_PIXELS;
-      rulerEl.scrollTo({ left: targetScroll, behavior: "smooth" });
+      endRulerDrag();
     };
 
     rulerEl.addEventListener("wheel", onRulerWheel, { passive: false });
-    rulerEl.addEventListener("touchstart", onRulerTouchStart, { passive: false });
-    rulerEl.addEventListener("touchmove", onRulerTouchMove, { passive: false });
-    rulerEl.addEventListener("touchend", onRulerTouchEnd, { passive: false });
-    rulerEl.addEventListener("touchcancel", onRulerTouchEnd, { passive: false });
+    rulerEl.addEventListener("touchstart", onRulerTouchStart, { passive: true });
+    rulerEl.addEventListener("touchend", onRulerTouchEnd, { passive: true });
+    rulerEl.addEventListener("touchcancel", onRulerTouchEnd, { passive: true });
 
     return () => {
       rulerEl.removeEventListener("wheel", onRulerWheel);
       rulerEl.removeEventListener("touchstart", onRulerTouchStart);
-      rulerEl.removeEventListener("touchmove", onRulerTouchMove);
       rulerEl.removeEventListener("touchend", onRulerTouchEnd);
       rulerEl.removeEventListener("touchcancel", onRulerTouchEnd);
     };
-  }, [handleHoursChange, activeHours]);
+  }, [commitRulerScroll, endRulerDrag]);
 
   const activeIndex = ORDERED_DAYS.indexOf(selectedDay);
 
@@ -273,7 +258,7 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
           {isZh ? "周一至周日学习时间规划" : "Weekly Study Cadence & Duration"}
         </span>
         <span className="text-[10px] font-mono text-[#a39e97]">
-          {isZh ? "拖动标尺或滚动调当天" : "Drag the ruler to set the day"}
+          {isZh ? "左右滑标尺 · 点序号换天" : "Swipe ruler · tap a number"}
         </span>
       </div>
 
@@ -323,7 +308,7 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
           <div className="md:col-span-6 flex flex-col md:border-r border-[#eeebe3] md:pr-4">
             <div
               ref={arcContainerRef}
-              style={{ touchAction: "none", overscrollBehavior: "contain" }}
+              style={{ touchAction: "pan-y" }}
               className="relative h-56 sm:h-64 overflow-hidden flex items-center select-none cursor-grab active:cursor-grabbing"
             >
 
@@ -438,7 +423,7 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUpOrLeave}
                 onMouseLeave={handleMouseUpOrLeave}
-                style={{ scrollbarWidth: "none", msOverflowStyle: "none", touchAction: "none", overscrollBehavior: "contain" }}
+                style={{ scrollbarWidth: "none", msOverflowStyle: "none", touchAction: "pan-x", overscrollBehaviorX: "contain" }}
                 className="w-full h-full overflow-x-scroll no-scrollbar cursor-grab active:cursor-grabbing flex items-center select-none"
               >
                 {/* 留白要让「第 i 格」的中心正好落在中间指针上：格子宽 STEP_PIXELS，所以留 50% - 半格 */}
