@@ -31,7 +31,19 @@ import { useI18n } from "../lib/i18n";
 import { parseDocumentFile, UPLOAD_ACCEPT, uploadHint } from "../lib/documentParser";
 import { GenerationError, MAX_AI_MATERIALS, prepareMaterialsForAI, runGeneration } from "../lib/aiClient";
 import { daysBetween, toLocalDateString } from "../lib/date";
-import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
+import {
+  DEFAULT_DAILY_HOURS,
+  MAX_DAILY_HOURS,
+  MIN_DAILY_HOURS,
+  PLANNING_WINDOW_DAYS,
+  applyUniformDailyHours,
+  clampDailyHours,
+  estimateStudyWindow,
+  hasStudyDays,
+  uniformHoursOf,
+  uniformWeekSchedules,
+  weeklyTotalHours,
+} from "../lib/dailyHours";
 import { mergeTopics, nonTextbookTitles, replaceTextbookTopics } from "../lib/topics";
 import { RulerTimePicker } from "./RulerTimePicker";
 import { TextbookOutlineDialog } from "./TextbookOutlineDialog";
@@ -44,9 +56,6 @@ interface AddExamSubjectWizardProps {
   /** "page" keeps the full-page tab layout; "modal" renders the floating one-layer-at-a-time card. */
   variant?: "page" | "modal";
 }
-
-const DAY_NAMES_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-const DAY_NAMES_EN = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 function inferDocumentType(fileName: string): {
   type: StudyMaterial["type"];
@@ -99,9 +108,15 @@ export function AddExamSubjectWizard({
   const [examDate, setExamDate] = useState("");
   const [examTime, setExamTime] = useState("");
   const [targetScore, setTargetScore] = useState("");
-  const [dailyHoursInput, setDailyHoursInput] = useState("2");
-  const [dailySchedules, setDailySchedules] = useState<DaySchedulePreference[]>(DEFAULT_WEEK_SCHEDULE);
-  const [advancedTouched, setAdvancedTouched] = useState(false);
+  // 每日时间只有一份真相：dailySchedules。
+  // 「每天可学习时长」那个框是它的投影——七天一致才显示数字，被高级设置改成混合就空着显示「按天设置」。
+  // 以前这里还有个 advancedTouched 开关，在「填的数字」和「一份看不见的默认周模板」之间来回切，
+  // 用户一动高级设置，自己填的小时数就被模板顶掉了，于是出现「时间能改但计划不认」。
+  const [dailySchedules, setDailySchedules] = useState<DaySchedulePreference[]>(() =>
+    uniformWeekSchedules(DEFAULT_DAILY_HOURS, language !== "en")
+  );
+  // 只在敲字的那几秒存在；一失焦就交还给 dailySchedules 的投影，界面上永远不留一个和真实排程无关的数字。
+  const [dailyHoursDraft, setDailyHoursDraft] = useState<string | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [requirements, setRequirements] = useState("");
 
@@ -168,22 +183,22 @@ export function AddExamSubjectWizard({
     };
   }, []);
 
-  const parsedDailyHours = Number(dailyHoursInput);
-  const dailyHoursValid =
-    Number.isFinite(parsedDailyHours) && parsedDailyHours >= 0.5 && parsedDailyHours <= 12;
-  const hoursReady = advancedTouched
-    ? dailySchedules.some((d) => d.enabled && d.availableHours > 0)
-    : dailyHoursValid;
+  // 能不能往下走只看一件事：周计划里还有没有肯学的那天。数字本身在失焦时会回写成真实值。
+  const hoursReady = hasStudyDays(dailySchedules);
+  // 七天不再同一个数（多半是高级设置里休息了某天或单独调过某天）时，简单框不假装自己还代表全局。
+  const uniformDailyHours = useMemo(() => uniformHoursOf(dailySchedules), [dailySchedules]);
+  const dailyHoursDisplay = dailyHoursDraft ?? (uniformDailyHours === null ? "" : String(uniformDailyHours));
 
   const daysDiff = useMemo(() => {
     if (!examDate) return null;
     return daysBetween(startDate, examDate);
   }, [startDate, examDate]);
 
-  const totalPlannedHours = useMemo(() => {
-    if (daysDiff === null || daysDiff < 0 || !dailyHoursValid) return null;
-    return Math.round(Math.max(1, daysDiff) * parsedDailyHours * 10) / 10;
-  }, [daysDiff, parsedDailyHours, dailyHoursValid]);
+  // 全程预计按后端同一口径算：跳过休息日、不含考试当天、窗口最多 PLANNING_WINDOW_DAYS 天。
+  const windowEstimate = useMemo(
+    () => estimateStudyWindow(dailySchedules, startDate, examDate),
+    [dailySchedules, startDate, examDate]
+  );
 
   const topicsHours = useMemo(
     () => Math.round(topics.reduce((sum, topic) => sum + (topic.estimatedHours || 0), 0)),
@@ -244,62 +259,36 @@ export function AddExamSubjectWizard({
     custom: tt("资料", "Material"),
   };
 
-  const buildDailySchedules = (hours: number): DaySchedulePreference[] =>
-    [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
-      dayOfWeek,
-      dayName: language === "zh" ? DAY_NAMES_ZH[dayOfWeek] : DAY_NAMES_EN[dayOfWeek],
-      availableHours: hours,
-      preferredTimeSlot: "flexible" as const,
-      enabled: true,
-    }));
-
-  const effectiveSchedules = advancedTouched ? dailySchedules : buildDailySchedules(parsedDailyHours);
-
-  const weeklyTotalHours = useMemo(
-    () => dailySchedules.reduce((acc, d) => (d.enabled ? acc + d.availableHours : acc), 0),
-    [dailySchedules]
-  );
-
-  const advancedTotalHours = useMemo(() => {
-    if (daysDiff === null || daysDiff < 0) return 0;
-    const start = new Date(startDate);
-    let total = 0;
-    for (let i = 0; i < daysDiff; i++) {
-      const dow = new Date(start.getTime() + i * 86400000).getDay();
-      const sched = dailySchedules.find((s) => s.dayOfWeek === dow);
-      if (sched && sched.enabled) total += sched.availableHours;
-    }
-    return Math.round(total * 10) / 10;
-  }, [startDate, daysDiff, dailySchedules]);
+  // 「每天可学习时长」写的就是 dailySchedules 本身：七天一起改，不再有第二份数字。
+  const handleDailyHoursChange = (raw: string) => {
+    setDailyHoursDraft(raw);
+    clearTransientError();
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < MIN_DAILY_HOURS || value > MAX_DAILY_HOURS) return;
+    setDailySchedules((prev) => applyUniformDailyHours(prev, value, language !== "en"));
+  };
 
   const handleUpdateDayHours = (dayOfWeek: number, hours: number) => {
-    const clamped = Math.max(0, Math.min(12, Math.round(hours * 2) / 2));
-    setAdvancedTouched(true);
+    const clamped = clampDailyHours(hours);
+    // 高级设置一动手，简单框里正在敲的那半截数字就该作废，重新显示真实值
+    setDailyHoursDraft(null);
     setDailySchedules((prev) =>
       prev.map((d) => (d.dayOfWeek === dayOfWeek ? { ...d, availableHours: clamped, enabled: clamped > 0 } : d))
     );
   };
 
   const handleToggleDayEnabled = (dayOfWeek: number) => {
-    setAdvancedTouched(true);
+    setDailyHoursDraft(null);
     setDailySchedules((prev) =>
       prev.map((d) => {
         if (d.dayOfWeek !== dayOfWeek) return d;
         const nextEnabled = !d.enabled;
-        return { ...d, enabled: nextEnabled, availableHours: nextEnabled && d.availableHours === 0 ? 2.5 : d.availableHours };
-      })
-    );
-  };
-
-  const handleApplyWeeklyPreset = (type: "weekday_weekend" | "balanced_3h" | "intensive_5h" | "light_1_5h") => {
-    setAdvancedTouched(true);
-    setDailySchedules((prev) =>
-      prev.map((d) => {
-        const isWeekend = d.dayOfWeek === 0 || d.dayOfWeek === 6;
-        if (type === "weekday_weekend") return { ...d, availableHours: isWeekend ? 5 : 2.5, enabled: true };
-        if (type === "balanced_3h") return { ...d, availableHours: 3, enabled: true };
-        if (type === "intensive_5h") return { ...d, availableHours: 5, enabled: true };
-        return { ...d, availableHours: isWeekend ? 2.5 : 1.5, enabled: true };
+        return {
+          ...d,
+          enabled: nextEnabled,
+          // 重新启用一个休息日时给个能学的默认值，否则开关一关一开等于没恢复
+          availableHours: nextEnabled && d.availableHours <= 0 ? DEFAULT_DAILY_HOURS : d.availableHours,
+        };
       })
     );
   };
@@ -486,7 +475,7 @@ export function AddExamSubjectWizard({
       examTime: examTime || "09:00",
       startDate,
       targetScoreOrGrade: targetScore.trim(),
-      dailySchedules: effectiveSchedules,
+      dailySchedules,
       studyPace: defaultStudyPace,
       sessionLengthMinutes: 45,
       includePracticeExams: false,
@@ -809,19 +798,25 @@ export function AddExamSubjectWizard({
             </label>
 
             <label>
-              <span className={labelClass}>{tt("每天可学习时长", "Study time per day")}</span>
+              <span className={labelClass}>
+                {tt("每天可学习时长", "Study time per day")}
+                {uniformDailyHours === null && (
+                  <span className="ml-1.5 font-normal text-[#a39e97]">
+                    {tt("（按天安排，见高级设置）", "(per day — see advanced)")}
+                  </span>
+                )}
+              </span>
               <div className="flex overflow-hidden rounded-lg border border-[#e5e2dc] bg-white focus-within:border-[#cfc9c0]">
                 <input
                   type="number"
-                  min={0.5}
-                  max={12}
+                  min={MIN_DAILY_HOURS}
+                  max={MAX_DAILY_HOURS}
                   step={0.5}
-                  value={dailyHoursInput}
-                  onChange={(event) => {
-                    setDailyHoursInput(event.target.value);
-                    clearTransientError();
-                  }}
-                  className="w-full min-w-0 bg-transparent px-3 py-2.5 text-[13px] text-[#1c1b1a] tabular-nums outline-none"
+                  value={dailyHoursDisplay}
+                  onChange={(event) => handleDailyHoursChange(event.target.value)}
+                  onBlur={() => setDailyHoursDraft(null)}
+                  placeholder={tt("按天设置", "Per day")}
+                  className="w-full min-w-0 bg-transparent px-3 py-2.5 text-[13px] text-[#1c1b1a] tabular-nums outline-none placeholder:font-normal placeholder:text-[#a39e97]"
                 />
                 <span className="flex items-center border-l border-[#f0ede8] bg-[#f1efe9] px-3 text-[11px] font-medium text-[#6b6660]">
                   {tt("小时 / 天", "h / day")}
@@ -849,8 +844,6 @@ export function AddExamSubjectWizard({
                     dailySchedules={dailySchedules}
                     onUpdateDayHours={handleUpdateDayHours}
                     onToggleDayEnabled={handleToggleDayEnabled}
-                    onApplyPreset={handleApplyWeeklyPreset}
-                    daysDiff={daysDiff ?? 0}
                   />
                 </div>
               )}
@@ -894,32 +887,33 @@ export function AddExamSubjectWizard({
             </label>
           </fieldset>
 
-          {daysDiff !== null && daysDiff >= 0 && hoursReady && (
+          {daysDiff !== null && daysDiff >= 0 && hoursReady && windowEstimate && (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[#f0ede8] bg-[#faf9f6] px-4 py-2.5 text-[12px] text-[#6b6660] sm:px-5">
               <span className="tabular-nums">
                 {tt("备考周期", "Span")} <strong className="font-semibold text-[#1c1b1a]">{daysDiff}</strong> {tt("天", "days")}
               </span>
               <span className="text-[#d6d2cb]">·</span>
-              {advancedTouched ? (
-                <>
-                  <span className="tabular-nums">
-                    {tt("周总学时", "Weekly")} <strong className="font-semibold text-[#1c1b1a]">{weeklyTotalHours}</strong>h
-                  </span>
-                  <span className="text-[#d6d2cb]">·</span>
-                  <span className="tabular-nums">
-                    {tt("全程预计", "Total")} <strong className="font-semibold text-[#1c1b1a]">{advancedTotalHours}</strong>h
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="tabular-nums">
-                    {tt("每天", "Per day")} <strong className="font-semibold text-[#1c1b1a]">{parsedDailyHours}</strong>h
-                  </span>
-                  <span className="text-[#d6d2cb]">·</span>
-                  <span className="tabular-nums">
-                    {tt("预计总复习量", "Total")} <strong className="font-semibold text-[#1c1b1a]">{totalPlannedHours}</strong>h
-                  </span>
-                </>
+              <span className="tabular-nums">
+                {tt("学习日", "Study days")}{" "}
+                <strong className="font-semibold text-[#1c1b1a]">{windowEstimate.studyDays}</strong> {tt("天", "days")}
+              </span>
+              <span className="text-[#d6d2cb]">·</span>
+              <span className="tabular-nums">
+                {tt("周总学时", "Weekly")}{" "}
+                <strong className="font-semibold text-[#1c1b1a]">{weeklyTotalHours(dailySchedules)}</strong>h
+              </span>
+              <span className="text-[#d6d2cb]">·</span>
+              <span className="tabular-nums">
+                {tt("全程预计", "Total")}{" "}
+                <strong className="font-semibold text-[#1c1b1a]">{windowEstimate.totalHours}</strong>h
+              </span>
+              {windowEstimate.truncatedDays > 0 && (
+                <span className="text-[#a39e97]">
+                  {tt(
+                    `一次最多排 ${PLANNING_WINDOW_DAYS} 天，后面 ${windowEstimate.truncatedDays} 天临近时继续生成`,
+                    `${PLANNING_WINDOW_DAYS}-day planning window; the last ${windowEstimate.truncatedDays} days are generated later`
+                  )}
+                </span>
               )}
             </div>
           )}
@@ -1115,7 +1109,9 @@ export function AddExamSubjectWizard({
               <div className="min-w-0">
                 <div className="text-[11px] text-[#8a8580]">{tt("周期", "Span")}</div>
                 <div className="mt-0.5 font-medium text-[#1c1b1a] tabular-nums">
-                  {daysDiff !== null && daysDiff >= 0 ? `${daysDiff} ${tt("天", "days")} · ${parsedDailyHours}h/${tt("天", "day")}` : "—"}
+                  {daysDiff !== null && daysDiff >= 0 && windowEstimate
+                    ? `${daysDiff} ${tt("天", "days")} · ${windowEstimate.studyDays} ${tt("学习日", "study days")} · ${windowEstimate.totalHours}h`
+                    : "—"}
                 </div>
               </div>
               <div className="min-w-0">

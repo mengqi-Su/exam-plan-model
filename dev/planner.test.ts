@@ -13,13 +13,18 @@ import {
   buildUnitsPrompt,
   chunkAllMaterials,
   chunkStudyDays,
+  dailyBudgetMinutes,
+  dayStartClock,
   daysBetweenDateStrings,
+  enforceDailyHourBudget,
   extractJson,
   fallbackRebalancePlan,
   mergeRebalanceTasks,
+  normalizeDailySchedules,
   normalizePlanTasks,
   normalizeUnitTopic,
   parseLocalDate,
+  PLANNING_WINDOW_DAYS,
   PlannerError,
   retrieveTopChunksForQuery,
   sanitizeMaterials,
@@ -331,7 +336,7 @@ check('buildPlanChunkPrompt 只排本段日期并控制阶段输出', () => {
   assert.ok(later.includes('Do NOT output phases'));
 });
 
-check('sanitizePlanChunkResult 丢弃越界日期并清洗阶段', () => {
+check('sanitizePlanChunkResult 丢弃越界日期、清洗阶段并给空白天保底', () => {
   const studyDates = studyDatesFromCalendar(buildStudyCalendar(preferences));
   const allowed = studyDates.slice(0, 2);
   const result = sanitizePlanChunkResult(
@@ -349,10 +354,128 @@ check('sanitizePlanChunkResult 丢弃越界日期并清洗阶段', () => {
     preferences,
     allowed
   );
-  assert.equal(result.tasks.length, 1, JSON.stringify(result.tasks.map((t: any) => t.date)));
-  assert.equal(result.tasks[0].date, allowed[0]);
+  const modelTasks = result.tasks.filter((t: any) => !t.localScheduled);
+  assert.equal(modelTasks.length, 1, JSON.stringify(modelTasks.map((t: any) => t.date)));
+  assert.equal(modelTasks[0].date, allowed[0]);
+  // 模型没排到的 allowed[1] 也是用户勾了 2 小时的学习日，不能空着
+  const padded = result.tasks.filter((t: any) => t.localScheduled);
+  assert.deepEqual(padded.map((t: any) => t.date), [allowed[1]], '空白学习日必须补一条本地任务');
+  assert.equal(padded[0].durationMinutes, 45, '保底任务按单次时长给');
+  assert.ok(padded[0].title.includes('薄弱点'), '中文环境下保底任务要说人话');
   assert.equal(result.phases.length, 1);
   assert.equal(result.phases[0].name, '基础阶段');
+});
+
+check('用户填的每日小时与休息日先归一化，预算和开钟都按它走', () => {
+  const out = sanitizePreferences({
+    ...rawPrefs,
+    dailySchedules: [
+      // 界面上是 number input，但历史数据/导入备份里什么都可能出现
+      { dayOfWeek: 3, dayName: '周三', availableHours: '1', preferredTimeSlot: 'evening', enabled: true },
+      { dayOfWeek: 0, dayName: '周日', availableHours: 0, preferredTimeSlot: 'morning', enabled: false },
+      { dayOfWeek: 6, availableHours: 99 },
+      { dayOfWeek: 9, availableHours: 3 },
+    ],
+  });
+  const wednesday = out.dailySchedules.find((d: any) => d.dayOfWeek === 3);
+  assert.equal(wednesday.availableHours, 1, '字符串小时也要认，否则整天预算作废');
+  assert.equal(wednesday.preferredTimeSlot, 'evening');
+  assert.equal(out.dailySchedules.find((d: any) => d.dayOfWeek === 0).enabled, false);
+  const saturday = out.dailySchedules.find((d: any) => d.dayOfWeek === 6);
+  assert.equal(saturday.availableHours, 12, '超界的小时截到 12');
+  assert.equal(saturday.enabled, true, '缺 enabled 字段的老数据算学习日，不能凭空变休息');
+  assert.equal(saturday.preferredTimeSlot, 'flexible', '没有时段就给兜底，不猜');
+  assert.ok(!out.dailySchedules.some((d: any) => d.dayOfWeek === 9), '非法的星期序号丢掉');
+  assert.equal(dailyBudgetMinutes(out, '2026-11-04'), 60, '周三 1 小时 = 60 分钟预算');
+  assert.equal(dailyBudgetMinutes(out, '2026-11-08'), 0, '周日休息 = 没有预算');
+  assert.equal(dayStartClock(out, '2026-11-04'), '19:00', '晚间时段该晚上开学');
+  assert.equal(dayStartClock(out, '2026-11-07'), '09:00', '没设时段用兜底钟点');
+  assert.deepEqual(normalizeDailySchedules(undefined), []);
+});
+
+check('每日时间预算：超了截短，休息日不排', () => {
+  const tight = sanitizePreferences({
+    ...rawPrefs,
+    dailySchedules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+      dayOfWeek,
+      // 周三只留 1 小时，周日整天下线
+      availableHours: dayOfWeek === 3 ? 1 : dayOfWeek === 0 ? 0 : 2,
+      enabled: dayOfWeek !== 0,
+    })),
+  });
+  const days = buildStudyCalendar(tight);
+  assert.ok(!days.some((day) => parseLocalDate(day.date).getDay() === 0), '周日是休息日，不该进日历');
+  assert.ok(!studyDatesFromCalendar(days).includes('2026-11-08'));
+
+  const wednesday = days.find((day) => parseLocalDate(day.date).getDay() === 3)!.date;
+  const saturday = days.find((day) => parseLocalDate(day.date).getDay() === 6)!.date;
+  const out = enforceDailyHourBudget(
+    [
+      { id: 'a', title: '高', date: wednesday, durationMinutes: 45, priority: 'high', status: 'pending' },
+      { id: 'b', title: '中', date: wednesday, durationMinutes: 45, priority: 'medium', status: 'pending' },
+      { id: 'c', title: '低', date: wednesday, durationMinutes: 45, priority: 'low', status: 'pending' },
+      { id: 'd', title: '休息日任务', date: '2026-11-08', durationMinutes: 45, priority: 'high', status: 'pending' },
+      { id: 'e', title: '周六', date: saturday, durationMinutes: 120, priority: 'high', status: 'pending' },
+    ],
+    tight,
+    [wednesday, saturday, '2026-11-08']
+  );
+  const wedTasks = out.tasks.filter((t: any) => t.date === wednesday);
+  assert.equal(wedTasks.reduce((sum: number, t: any) => sum + t.durationMinutes, 0), 60, '周三只能占用填的 1 小时');
+  assert.ok(wedTasks.some((t: any) => t.dayBudgetTrimmed), '尾部任务应被截短而不是整天欠着');
+  assert.ok(!out.tasks.some((t: any) => t.id === 'd'), '休息日的任务要取消');
+  assert.ok(!out.tasks.some((t: any) => t.id === 'c'), '低优先级的整条该撤掉');
+  assert.equal(out.tasks.find((t: any) => t.id === 'e').durationMinutes, 120, '预算内不动原时长');
+  assert.ok(out.droppedCount >= 2);
+
+  // 重排路径不补保底任务，也不能吃掉已完成的历史
+  const rebalanced = enforceDailyHourBudget(
+    [
+      { id: 'done', title: '已完成', date: wednesday, durationMinutes: 90, priority: 'high', status: 'completed' },
+      { id: 'move', title: '搬过来', date: wednesday, durationMinutes: 90, priority: 'high', status: 'pending' },
+    ],
+    tight,
+    [wednesday],
+    { padEmptyDays: false, keepCompleted: true }
+  );
+  assert.ok(rebalanced.tasks.some((t: any) => t.id === 'done'), '已完成任务不受预算影响');
+  assert.equal(rebalanced.tasks.find((t: any) => t.id === 'move').durationMinutes, 60);
+});
+
+check('学习日任务数按小时给，日历窗口放宽到 180 天', () => {
+  const longRange = sanitizePreferences({
+    ...rawPrefs,
+    startDate: '2026-11-02',
+    examDate: '2027-11-02',
+    dailySchedules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+      dayOfWeek,
+      availableHours: dayOfWeek === 6 ? 10 : 1,
+      enabled: true,
+    })),
+  });
+  const days = buildStudyCalendar(longRange);
+  assert.equal(days.length, PLANNING_WINDOW_DAYS, `窗口应封顶 ${PLANNING_WINDOW_DAYS} 天，实际 ${days.length}`);
+  const saturday = days.find((day) => parseLocalDate(day.date).getDay() === 6)!;
+  const monday = days.find((day) => parseLocalDate(day.date).getDay() === 1)!;
+  const chunks = chunkStudyDays(days, { maxTasksPerChunk: 7, maxDaysPerChunk: 4, sessionLengthMinutes: 45 });
+  const saturdayChunk = chunks.find((chunk) => chunk.dates.includes(saturday.date))!;
+  const mondayChunk = chunks.find((chunk) => chunk.dates.includes(monday.date))!;
+  assert.ok(saturdayChunk.expectedTasks > mondayChunk.expectedTasks, '10 小时的周六要比 1 小时的周一排得更满');
+  assert.deepEqual(chunks.flatMap((chunk) => chunk.dates).length, days.length, '分段不能漏掉窗口里的任何一天');
+
+  const prompt = buildPlanChunkPrompt(longRange, topics, [], [saturday, monday], { includePhases: false, isZh: true });
+  assert.ok(prompt.includes('budget 600 min'), '提示词要把分钟预算写死');
+  assert.ok(prompt.includes('budget 60 min'));
+  assert.ok(prompt.includes('in up to 5 task'), '单日任务数封顶 5 条，10 小时也只给 5 段');
+  assert.ok(prompt.includes('in up to 1 task'), '只有一小时的日子不该被拆成好几段');
+  assert.ok(prompt.includes('A 5h Saturday and a 1h Wednesday must not get the same load'));
+  assert.ok(!prompt.includes('Output 1-3 tasks'), '旧的固定 1-3 条说法要删干净');
+
+  const padded = enforceDailyHourBudget([], longRange, [monday.date], { isZh: false });
+  assert.ok(padded.tasks[0].title.includes('plan the day'), '英文环境别塞中文保底任务');
+  assert.equal(padded.paddedDates.length, 1);
+  const zhPadded = enforceDailyHourBudget([], longRange, [monday.date], { isZh: true });
+  assert.ok(zhPadded.tasks[0].title.includes('梳理当天待办'), '中文环境保底任务要顺着界面语言走');
 });
 
 check('无资料的段不保留模型编造的出处', () => {
@@ -370,11 +493,12 @@ check('无资料的段不保留模型编造的出处', () => {
     }],
   };
   const withoutMaterials = sanitizePlanChunkResult(raw, preferences, allowed, { hasMaterials: false });
-  assert.equal(withoutMaterials.tasks.length, 1);
-  assert.equal(withoutMaterials.tasks[0].ragSource, null, '没有资料时必须丢弃模型自报的出处');
-  assert.deepEqual(withoutMaterials.tasks[0].formulaOrRules, []);
+  const modelTask = withoutMaterials.tasks.find((t: any) => !t.localScheduled)!;
+  assert.equal(withoutMaterials.tasks.filter((t: any) => !t.localScheduled).length, 1);
+  assert.equal(modelTask.ragSource, null, '没有资料时必须丢弃模型自报的出处');
+  assert.deepEqual(modelTask.formulaOrRules, []);
   const withMaterials = sanitizePlanChunkResult(raw, preferences, allowed, { hasMaterials: true });
-  assert.equal(withMaterials.tasks[0].ragSource.documentName, '并不存在的教材', '有资料时保留原样交给 UI');
+  assert.equal(withMaterials.tasks.find((t: any) => !t.localScheduled)!.ragSource.documentName, '并不存在的教材', '有资料时保留原样交给 UI');
 
   const days = buildStudyCalendar(preferences);
   const phasePrompt = buildPlanChunkPrompt(preferences, topics, [], days.slice(0, 2), { includePhases: true, isZh: true });

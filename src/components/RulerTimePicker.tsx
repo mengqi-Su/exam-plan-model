@@ -1,14 +1,13 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { Link2 } from "lucide-react";
 import { DaySchedulePreference } from "../types";
+import { DEFAULT_DAILY_HOURS, dayName } from "../lib/dailyHours";
 
 interface RulerTimePickerProps {
   language: "zh" | "en";
   dailySchedules: DaySchedulePreference[];
   onUpdateDayHours: (dayOfWeek: number, hours: number) => void;
   onToggleDayEnabled: (dayOfWeek: number) => void;
-  onApplyPreset?: (type: "weekday_weekend" | "balanced_3h" | "intensive_5h" | "light_1_5h") => void;
-  daysDiff: number;
 }
 
 const STEP_PIXELS = 26;
@@ -24,10 +23,12 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
   dailySchedules,
   onUpdateDayHours,
   onToggleDayEnabled,
-  daysDiff,
 }) => {
   const [selectedDay, setSelectedDay] = useState<number>(1);
   const [syncToAll, setSyncToAll] = useState<boolean>(false);
+
+  const isZh = language !== "en";
+  const dayLabel = useCallback((dayOfWeek: number) => dayName(dayOfWeek, isZh), [isZh]);
 
   const arcContainerRef = useRef<HTMLDivElement>(null);
   const arcTouchStartYRef = useRef<number | null>(null);
@@ -37,14 +38,15 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
   const startXRef = useRef(0);
   const startScrollLeftRef = useRef(0);
 
-  const dayMeta: Record<number, { indexStr: string; zh: string; en: string; isWeekend: boolean }> = {
-    1: { indexStr: "01", zh: "周一", en: "Monday", isWeekend: false },
-    2: { indexStr: "02", zh: "周二", en: "Tuesday", isWeekend: false },
-    3: { indexStr: "03", zh: "周三", en: "Wednesday", isWeekend: false },
-    4: { indexStr: "04", zh: "周四", en: "Thursday", isWeekend: false },
-    5: { indexStr: "05", zh: "周五", en: "Friday", isWeekend: false },
-    6: { indexStr: "06", zh: "周六", en: "Saturday", isWeekend: true },
-    0: { indexStr: "07", zh: "周日", en: "Sunday", isWeekend: true },
+  // 星期的中英文名统一来自 lib/dailyHours，这里只留界面需要的序号和周末标记。
+  const dayMeta: Record<number, { indexStr: string; isWeekend: boolean }> = {
+    1: { indexStr: "01", isWeekend: false },
+    2: { indexStr: "02", isWeekend: false },
+    3: { indexStr: "03", isWeekend: false },
+    4: { indexStr: "04", isWeekend: false },
+    5: { indexStr: "05", isWeekend: false },
+    6: { indexStr: "06", isWeekend: true },
+    0: { indexStr: "07", isWeekend: true },
   };
 
   const currentSchedule = useMemo(() => {
@@ -52,33 +54,15 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
     return (
       sched || {
         dayOfWeek: selectedDay,
-        dayName: dayMeta[selectedDay]?.zh || "周一",
-        availableHours: 2.5,
-        preferredTimeSlot: "evening",
+        dayName: dayLabel(selectedDay),
+        availableHours: DEFAULT_DAILY_HOURS,
+        preferredTimeSlot: "flexible" as const,
         enabled: true,
       }
     );
-  }, [dailySchedules, selectedDay]);
+  }, [dailySchedules, selectedDay, dayLabel]);
 
   const activeHours = currentSchedule.enabled ? currentSchedule.availableHours : 0;
-
-  const weeklyTotalHours = useMemo(() => {
-    return dailySchedules.reduce((acc, curr) => (curr.enabled ? acc + curr.availableHours : acc), 0);
-  }, [dailySchedules]);
-
-  const totalPlannedStudyHours = useMemo(() => {
-    const start = new Date();
-    let total = 0;
-    for (let i = 0; i < daysDiff; i++) {
-      const cur = new Date(start.getTime() + i * 86400000);
-      const dayOfWeek = cur.getDay();
-      const sched = dailySchedules.find((s) => s.dayOfWeek === dayOfWeek);
-      if (sched && sched.enabled) {
-        total += sched.availableHours;
-      }
-    }
-    return Math.round(total * 10) / 10;
-  }, [daysDiff, dailySchedules]);
 
   const formattedTime = useMemo(() => {
     const totalMinutes = Math.round(activeHours * 60);
@@ -284,20 +268,13 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
   return (
     <div className="space-y-3">
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#eeebe4] pb-2.5">
+      <div className="flex items-center justify-between gap-2 border-b border-[#eeebe4] pb-2.5">
         <span className="text-xs font-bold text-[#111111] uppercase tracking-wide">
-          {language === "zh" ? "周一至周日学习时间规划" : "Weekly Study Cadence & Duration"}
+          {isZh ? "周一至周日学习时间规划" : "Weekly Study Cadence & Duration"}
         </span>
-        <div className="flex items-center space-x-3 text-xs text-[#777777] font-mono">
-          <span>
-            {language === "zh" ? "周总学时" : "Weekly"}: <strong className="text-[#111111]">{weeklyTotalHours}h</strong>
-          </span>
-          <span className="text-[#dcd8cf]">/</span>
-          <span>
-            {language === "zh" ? "全程预计" : "Total"}: <strong className="text-[#111111]">{totalPlannedStudyHours}h</strong>
-            <span className="text-[#999999] text-[10px] ml-1">({daysDiff}{language === "zh" ? "天" : "d"})</span>
-          </span>
-        </div>
+        <span className="text-[10px] font-mono text-[#a39e97]">
+          {isZh ? "拖动标尺或滚动调当天" : "Drag the ruler to set the day"}
+        </span>
       </div>
 
       <div className="relative rounded-2xl bg-[#faf9f6] border border-[#e8e6df] p-5 sm:p-7 overflow-hidden select-none">
@@ -305,7 +282,7 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
         <div className="flex items-center justify-between pb-3.5 border-b border-[#eeebe3]">
           <div className="flex items-center space-x-2 font-mono text-xs text-[#888888]">
             <span className="font-bold text-[#111111] uppercase tracking-wider">
-              {dayMeta[selectedDay].zh} · {dayMeta[selectedDay].en.toUpperCase()}
+              {dayLabel(selectedDay)} · {dayName(selectedDay, false).toUpperCase()}
             </span>
             <span>·</span>
             <span>{activeHours > 0 ? `${activeHours}h / 天` : (language === "zh" ? "休整" : "Rest")}</span>
@@ -419,7 +396,7 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                       <div className="flex flex-col justify-center pl-1 select-none animate-fadeIn">
                         <div className="flex items-center space-x-1.5">
                           <span className="text-sm font-bold text-[#111111]">
-                            {language === "zh" ? meta.zh : meta.en}
+                            {dayLabel(dayNum)}
                           </span>
                           {meta.isWeekend && (
                             <span className="text-[9px] px-1 py-0.2 bg-[#111111] text-white font-mono rounded">
@@ -467,7 +444,8 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                 style={{ scrollbarWidth: "none", msOverflowStyle: "none", touchAction: "none", overscrollBehavior: "contain" }}
                 className="w-full h-full overflow-x-scroll no-scrollbar cursor-grab active:cursor-grabbing flex items-center select-none"
               >
-                <div className="flex-shrink-0" style={{ width: "calc(50% - 6px)" }} />
+                {/* 留白要让「第 i 格」的中心正好落在中间指针上：格子宽 STEP_PIXELS，所以留 50% - 半格 */}
+                <div className="flex-shrink-0" style={{ width: `calc(50% - ${STEP_PIXELS / 2}px)` }} />
 
                 <div className="flex items-center h-full">
                   {Array.from({ length: TOTAL_STEPS + 1 }).map((_, index) => {
@@ -532,7 +510,8 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                   })}
                 </div>
 
-                <div className="flex-shrink-0" style={{ width: "calc(50% - 6px)" }} />
+                {/* 留白要让「第 i 格」的中心正好落在中间指针上：格子宽 STEP_PIXELS，所以留 50% - 半格 */}
+                <div className="flex-shrink-0" style={{ width: `calc(50% - ${STEP_PIXELS / 2}px)` }} />
               </div>
             </div>
 
@@ -580,7 +559,7 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                     : "text-[#666666] bg-white border border-[#dedad1] hover:border-[#111111]"
                 }`}
               >
-                {dayMeta[d].zh}
+                {dayLabel(d)}
               </button>
             ))}
           </div>

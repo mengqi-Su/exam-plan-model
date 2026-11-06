@@ -118,6 +118,37 @@ export function sanitizeTopics(raw: unknown): any[] {
   }));
 }
 
+/**
+ * 用户说「这天学几小时」是排程的硬输入，先归一化再往下走。
+ * 不做这一步的话，一个 availableHours 传成字符串或超界数字，整天的预算就废了——
+ * 表现就是「时间能改但计划不认」。范围与前端 src/lib/dailyHours.ts 保持一致。
+ */
+const MAX_DAILY_HOURS = 12;
+
+export function normalizeDailySchedules(raw: any): any[] {
+  if (!Array.isArray(raw)) return [];
+  const byDay = new Map<number, any>();
+  for (const entry of raw.slice(0, 7)) {
+    const dayOfWeek = Number(entry?.dayOfWeek);
+    if (!Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) continue;
+    const hours = Number(entry?.availableHours);
+    const availableHours = Number.isFinite(hours) && hours > 0
+      ? Math.min(MAX_DAILY_HOURS, Math.round(hours * 2) / 2)
+      : 0;
+    const slot = String(entry?.preferredTimeSlot || '');
+    byDay.set(dayOfWeek, {
+      dayOfWeek,
+      dayName: clampText(entry?.dayName, 20),
+      availableHours,
+      // 时段种类和 dayStartClock 用同一份表，别在这儿再列一遍
+      preferredTimeSlot: TIME_SLOT_CLOCKS[slot] ? slot : 'flexible',
+      // 老数据里没有 enabled 字段的按「照常学」处理，别把用户的学习日凭空变成休息
+      enabled: entry?.enabled !== false,
+    });
+  }
+  return [...byDay.values()];
+}
+
 export function sanitizePreferences(raw: any): any {
   const startDate = clampText(raw?.startDate, 20);
   const examDate = clampText(raw?.examDate, 20);
@@ -143,7 +174,7 @@ export function sanitizePreferences(raw: any): any {
     weakTopicsFocus: Array.isArray(raw?.weakTopicsFocus)
       ? raw.weakTopicsFocus.slice(0, 30).map((item: unknown) => clampText(item, 300)).filter(Boolean)
       : [],
-    dailySchedules: Array.isArray(raw?.dailySchedules) ? raw.dailySchedules.slice(0, 7) : [],
+    dailySchedules: normalizeDailySchedules(raw?.dailySchedules),
     studyPace: clampText(raw?.studyPace, 40) || 'balanced',
     sessionLengthMinutes: Math.min(240, Math.max(10, Number(raw?.sessionLengthMinutes) || 45)),
     includePracticeExams: Boolean(raw?.includePracticeExams),
@@ -168,6 +199,10 @@ export function sanitizePlanForRebalance(currentPlan: any): any {
     examName: clampText(currentPlan.examName, 200),
     subject: clampText(currentPlan.subject, 200),
     examDate: clampText(currentPlan.examDate, 20),
+    // 重排读的是存下来的偏好；每日小时同样过一遍归一化，新建和重排才是同一套时间口径
+    preferences: currentPlan.preferences && typeof currentPlan.preferences === 'object'
+      ? { ...currentPlan.preferences, dailySchedules: normalizeDailySchedules(currentPlan.preferences.dailySchedules) }
+      : currentPlan.preferences,
     tasks: currentPlan.tasks.map((task: any) => ({
       ...task,
       id: clampText(task?.id, 120),
@@ -667,10 +702,18 @@ export interface StudyDay {
   availableHours: number;
 }
 
+/**
+ * 一次规划最多往前排多少天。以前写死 60：考期在三个月后的用户会看到「预计 480 小时」
+ * 却只拿到前 60 天的任务，等于计划不认自己填的时间。180 天（一学期）在客户端 15 分钟
+ * 总预算里跑得完（每段 ≤4 天、并发 4），所以按日历本身的能力放开。
+ * 前端同一份数字在 src/lib/dailyHours.ts，向导的「全程预计」要用它，别两边各写一个。
+ */
+export const PLANNING_WINDOW_DAYS = 180;
+
 export function buildStudyCalendar(preferences: any): StudyDay[] {
   const planningStart = preferences.startDate || toLocalDateString();
   const planningExam = preferences.examDate || addDaysToDateString(planningStart, 21);
-  const planningDays = Math.min(Math.max(1, daysBetweenDateStrings(planningStart, planningExam)), 60);
+  const planningDays = Math.min(Math.max(1, daysBetweenDateStrings(planningStart, planningExam)), PLANNING_WINDOW_DAYS);
   const days: StudyDay[] = [];
   for (let offset = 0; offset < planningDays; offset += 1) {
     const dateStr = addDaysToDateString(planningStart, offset);
@@ -693,9 +736,161 @@ export function studyDatesFromCalendar(days: StudyDay[]): string[] {
   return days.map((day) => day.date);
 }
 
+/**
+ * 一天该排几条任务。
+ * 原来一律封顶 3 条，于是填了 10 小时的周六和 1 小时的周三拿到同样密度的计划，
+ * 用户改时间「没反应」就是从这来的。现在按当天可用小时数给，仍留个上限，
+ * 免得模型为了凑数把一天拆成十几个碎片。
+ */
 function expectedTasksForDay(day: StudyDay, sessionMinutes: number): number {
   const perSession = Math.floor((day.availableHours * 60) / Math.max(10, sessionMinutes));
-  return Math.min(3, Math.max(1, perSession || 1));
+  return Math.min(5, Math.max(1, perSession || 1));
+}
+
+/** 一天里可用的分钟数（用户填的 availableHours，休息日为 0）。 */
+export function dailyBudgetMinutes(preferences: any, date: string): number {
+  const schedule = preferences?.dailySchedules?.find(
+    (entry: any) => Number(entry?.dayOfWeek) === parseLocalDate(date).getDay()
+  );
+  if (schedule && !schedule.enabled) return 0;
+  const hours = Number(schedule?.availableHours) > 0 ? Number(schedule.availableHours) : 2;
+  return Math.round(hours * 60);
+}
+
+function addMinutesToClock(clock: string, minutes: number): string {
+  const [h, m] = clock.split(':').map(Number);
+  const total = Math.min(23 * 60 + 59, (h || 0) * 60 + (m || 0) + minutes);
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
+const TIME_SLOT_CLOCKS: Record<string, string> = {
+  morning: '08:00',
+  afternoon: '14:00',
+  evening: '19:00',
+  flexible: '09:00',
+};
+
+/**
+ * 这天从几点开学。高级设置里每天带着一个时段（早/午/晚），本地兜底排程必须按它开钟，
+ * 否则工作日 19:00 的晚间计划会被排成早上 9 点——用户照样说「计划不认我填的时间」。
+ */
+export function dayStartClock(preferences: any, date: string): string {
+  const schedule = preferences?.dailySchedules?.find(
+    (entry: any) => Number(entry?.dayOfWeek) === parseLocalDate(date).getDay()
+  );
+  return TIME_SLOT_CLOCKS[String(schedule?.preferredTimeSlot || 'flexible')] || '09:00';
+}
+
+/**
+ * 硬约束：同一天的任务总时长不得超过该天可用小时数。
+ * 提示词只能「劝」模型守预算，用户既然说周六有 5 小时、周三只有 1 小时，计划就不能装看不见。
+ * 所以这里做三件事：
+ *   1) 超预算的日子按优先级（高→低，同优先级按开始时间）保留，尾部整条撤掉或截短到剩余分钟；
+ *   2) 落在休息日（availableHours=0 / enabled=false）的任务一律取消——这是用户自己勾掉的；
+ *   3) 生成路径下（padEmptyDays）被清空的日子里补一条开场任务，日历上不会出现无人认领的学习日。
+ * 截短过的任务带上 dayBudgetTrimmed，补出来的任务带上 localScheduled，上层能看出哪些是规则收的口。
+ * keepCompleted 给重排路径用：已完成的任务是历史，不参与也不受今天的预算约束。
+ */
+export function enforceDailyHourBudget(
+  tasks: any[],
+  preferences: any,
+  allowedDates: string[],
+  options: { isZh?: boolean; padEmptyDays?: boolean; keepCompleted?: boolean } = {}
+): { tasks: any[]; droppedCount: number; paddedDates: string[] } {
+  const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  const padEmptyDays = options.padEmptyDays !== false;
+  const sessionMinutes = Math.max(10, Number(preferences?.sessionLengthMinutes) || 45);
+  const frozen: any[] = options.keepCompleted
+    ? (tasks || []).filter((task) => task?.status === 'completed')
+    : [];
+  const byDate = new Map<string, any[]>();
+  allowedDates.forEach((date) => byDate.set(date, []));
+  (tasks || []).forEach((task) => {
+    if (frozen.includes(task)) return;
+    if (!byDate.has(task.date)) return;
+    byDate.get(task.date)!.push(task);
+  });
+
+  const kept: any[] = [...frozen];
+  const paddedDates: string[] = [];
+  let droppedCount = 0;
+
+  allowedDates.forEach((date) => {
+    const budget = dailyBudgetMinutes(preferences, date);
+    if (budget <= 0) {
+      droppedCount += byDate.get(date)!.length;
+      return;
+    }
+    const ordered = byDate.get(date)!.slice().sort((a, b) => {
+      const pa = PRIORITY_ORDER[a.priority] ?? 1;
+      const pb = PRIORITY_ORDER[b.priority] ?? 1;
+      if (pa !== pb) return pa - pb;
+      return String(a.startTime || '99:99').localeCompare(String(b.startTime || '99:99'));
+    });
+
+    let used = 0;
+    let taken = 0;
+    let index = 0;
+    for (; index < ordered.length; index += 1) {
+      const task = ordered[index];
+      const remaining = budget - used;
+      if (remaining < 10) break;
+      const wanted = Number(task.durationMinutes) || sessionMinutes;
+      if (wanted > remaining) {
+        // 剩余不足一条完整任务：最后这一条截短收尾，别把这天欠着
+        const fitted = Math.max(10, Math.min(remaining, 240));
+        const trimmed = { ...task, durationMinutes: fitted, dayBudgetTrimmed: true };
+        if (/^\d{2}:\d{2}$/.test(String(task.startTime || ''))) {
+          trimmed.endTime = addMinutesToClock(task.startTime, fitted);
+        }
+        kept.push(trimmed);
+        used += fitted;
+        taken += 1;
+        index += 1;
+        break;
+      }
+      kept.push(task);
+      used += wanted;
+      taken += 1;
+    }
+    // 预算用完之后没轮到排的任务：如实记账，别假装都塞下了
+    droppedCount += ordered.length - index;
+
+    if (taken === 0 && padEmptyDays) {
+      // 模型漏排或整段被资料过滤掉：保底一条开场任务，宁可短也不能空
+      const isZh = options.isZh !== false;
+      const examName = clampText(preferences?.examName, 200);
+      const durationMinutes = Math.min(Math.max(10, budget), sessionMinutes, 240);
+      const startTime = dayStartClock(preferences, date);
+      kept.push({
+        id: `task-${date}-local-budget`,
+        date,
+        title: isZh
+          ? (examName ? `${examName}：梳理当天待办与薄弱点` : '梳理当天待办与薄弱点')
+          : (examName ? `${examName}: plan the day and hit the weakest topics` : 'Plan the day and hit the weakest topics'),
+        description: isZh
+          ? '按当天可用时间，先列出要推进的考点，再从最薄弱的地方开始。'
+          : 'Use the hours you marked available today: list the topics to advance, then start with the weakest one.',
+        category: 'review_weak_spots',
+        topicTitle: '',
+        startTime,
+        endTime: addMinutesToClock(startTime, durationMinutes),
+        durationMinutes,
+        priority: 'medium',
+        status: 'pending',
+        keyObjectives: [],
+        localScheduled: true,
+      });
+      paddedDates.push(date);
+    }
+  });
+
+  kept.sort((a, b) => {
+    const dateDiff = String(a.date).localeCompare(String(b.date));
+    if (dateDiff !== 0) return dateDiff;
+    return String(a.startTime || '99:99').localeCompare(String(b.startTime || '99:99'));
+  });
+  return { tasks: kept, droppedCount, paddedDates };
 }
 
 /**
@@ -737,7 +932,11 @@ export function buildPlanChunkPrompt(
   const isZh = options.isZh;
   const sessionMinutes = Math.max(10, Number(preferences.sessionLengthMinutes) || 45);
   const calendarText = chunkDays
-    .map((day) => `${day.date} (${day.weekday}) — ${day.availableHours}h available (~${expectedTasksForDay(day, sessionMinutes)} tasks)`)
+    .map((day) => {
+      const budget = Math.round(day.availableHours * 60);
+      const cap = expectedTasksForDay(day, sessionMinutes);
+      return `${day.date} (${day.weekday}) — budget ${budget} min (${day.availableHours}h); fill ${Math.max(0, budget - 30)}..${budget} min in up to ${cap} task${cap === 1 ? '' : 's'}`;
+    })
     .join('\n');
   const planningStart = preferences.startDate || chunkDays[0]?.date || toLocalDateString();
   const planningExam = preferences.examDate || chunkDays[chunkDays.length - 1]?.date || planningStart;
@@ -802,7 +1001,7 @@ SYLLABUS TOPICS:
 ${compactTopics}
 ${ragText}${coveredText}
 RULES:
-1. Output 1-3 tasks per listed day and never exceed that day's available hours; do not invent dates outside the calendar.
+1. Every day in PLANNING CALENDAR carries a minute budget that comes straight from what the student says they have available that weekday. Respect it as a hard limit: never exceed a day's budget, and do not leave more than 30 minutes of it unused — split the day into as many ~${sessionMinutes} minute tasks as the budget allows (2-5). A 5h Saturday and a 1h Wednesday must not get the same load. Never schedule a date outside the calendar.
 2. ${phasesBlock}3. For every study task ground the content in the material excerpts:
    - title: concise and actionable, tied to a real chapter/section or problem type
    - description: what to read, solve or produce
@@ -829,17 +1028,19 @@ export function sanitizePlanChunkResult(
   parsed: any,
   preferences: any,
   allowedDates: string[],
-  options: { hasMaterials?: boolean } = {}
+  options: { hasMaterials?: boolean; isZh?: boolean } = {}
 ): { phases: any[]; tasks: any[] } {
   const allowed = new Set(allowedDates);
-  const tasks = normalizePlanTasks(parsed?.tasks || [], preferences).filter((task: any) => allowed.has(task.date));
+  const rawTasks = normalizePlanTasks(parsed?.tasks || [], preferences).filter((task: any) => allowed.has(task.date));
   if (options.hasMaterials === false) {
     // 本次没有资料片段可引：模型自己编出来的出处不能展示给学生，宁缺毋滥
-    tasks.forEach((task: any) => {
+    rawTasks.forEach((task: any) => {
       task.ragSource = null;
       task.formulaOrRules = [];
     });
   }
+  // 用户填的每日时间是硬约束，不是建议：超了要收口，空了要保底
+  const { tasks } = enforceDailyHourBudget(rawTasks, preferences, allowedDates, { isZh: options.isZh });
   const phases = Array.isArray(parsed?.phases)
     ? parsed.phases.slice(0, 6).map((phase: any, index: number) => ({
         id: clampText(phase?.id, 120) || `phase-${index + 1}`,
@@ -1034,8 +1235,16 @@ export function normalizePlanTasks(existingTasks: any[], preferences: any): any[
   });
 }
 
-export function sanitizePlanResult(parsed: any, preferences: any, studyDates: string[]): any {
-  const enrichedTasks = normalizePlanTasks(parsed?.tasks || [], preferences);
+export function sanitizePlanResult(
+  parsed: any,
+  preferences: any,
+  studyDates: string[],
+  options: { isZh?: boolean } = {}
+): any {
+  const allowed = new Set(studyDates);
+  const rawTasks = normalizePlanTasks(parsed?.tasks || [], preferences).filter((task: any) => allowed.has(task.date));
+  // 和分段生成同一条规矩：每天不超过用户填的时长，空白的学习日保底一条
+  const { tasks: enrichedTasks } = enforceDailyHourBudget(rawTasks, preferences, studyDates, options);
   const coveredDates = new Set(enrichedTasks.map((task) => task.date));
   const totalCalculatedHours = Math.round(
     enrichedTasks.reduce((sum: number, task: any) => sum + (task.durationMinutes || 0), 0) / 60
@@ -1048,6 +1257,13 @@ export function sanitizePlanResult(parsed: any, preferences: any, studyDates: st
   };
 }
 
+/**
+ * 本地重排：未完成任务只往「真正能学习的日子」上放。
+ * 老写法是 idx % remainingDays 从今天起一天不落地摊，休息日和用户填的每日时长都不算，
+ * 于是重排完用户照样觉得「我改的时间计划不认」——问题从来不在控件上，在这段逻辑里。
+ * 现在走 buildStudyCalendar 同一套日历：先每天一条铺满整个窗口，再回头按剩余预算补第二条，
+ * 塞不下的显式标 skipped 并在摘要里讲清楚，宁可少排也不把休息日填满。
+ */
 export function fallbackRebalancePlan(currentPlan: any, currentDate: string, reason: string) {
   const isZh = resolveIsChinese(currentPlan?.language, currentPlan?.examName, currentPlan?.subject);
   const today = currentDate || toLocalDateString();
@@ -1058,25 +1274,96 @@ export function fallbackRebalancePlan(currentPlan: any, currentDate: string, rea
 
   const completedTasks = currentPlan.tasks.filter((t: any) => t.status === 'completed');
   const pendingTasks = currentPlan.tasks.filter((t: any) => t.status !== 'completed');
-  const remainingDays = Math.max(1, daysBetweenDateStrings(today, examDate));
+  const sessionMinutes = Math.max(10, Number(currentPlan?.preferences?.sessionLengthMinutes) || 45);
+  const preferences = { ...(currentPlan?.preferences || {}), startDate: today, examDate };
+  const slots = buildStudyCalendar(preferences).map((day) => ({
+    date: day.date,
+    remaining: Math.round(day.availableHours * 60),
+    clock: dayStartClock(preferences, day.date),
+    usedMinutes: 0,
+    assigned: [] as any[],
+  }));
 
-  const updatedPending = pendingTasks.map((task: any, idx: number) => {
-    const dayOffset = idx % remainingDays;
-    const targetDate = addDaysToDateString(today, dayOffset);
+  const PRIORITY_ORDER: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  const queue = pendingTasks.slice().sort((a: any, b: any) => {
+    const pa = PRIORITY_ORDER[a?.priority] ?? 1;
+    const pb = PRIORITY_ORDER[b?.priority] ?? 1;
+    if (pa !== pb) return pa - pb;
+    return String(a?.date || '').localeCompare(String(b?.date || ''));
+  });
+
+  let cursor = 0;
+  while (cursor < queue.length) {
+    let placedThisRound = false;
+    for (const slot of slots) {
+      if (cursor >= queue.length) break;
+      const need = Number(queue[cursor]?.durationMinutes) || sessionMinutes;
+      if (slot.remaining >= need) {
+        slot.assigned.push(queue[cursor]);
+        slot.remaining -= need;
+        cursor += 1;
+        placedThisRound = true;
+      }
+    }
+    if (!placedThisRound) break; // 剩下的任务在任何一天都放不下，别再硬塞
+  }
+  const unschedulable = queue.slice(cursor);
+
+  const rescheduled = slots.flatMap((slot) => slot.assigned.map((task: any) => {
+    const duration = Number(task.durationMinutes) || sessionMinutes;
+    const startTime = addMinutesToClock(slot.clock, slot.usedMinutes);
+    slot.usedMinutes += duration;
     return {
       ...task,
-      date: targetDate,
+      date: slot.date,
+      startTime,
+      endTime: addMinutesToClock(startTime, duration),
       status: 'pending',
       priority: task.priority === 'low' ? 'medium' : task.priority,
     };
-  });
+  }));
+  const skippedTasks = unschedulable.map((task: any) => ({ ...task, status: 'skipped' }));
+
+  const scheduledDays = slots.filter((slot) => slot.assigned.length).length;
+  const overflowNote = unschedulable.length
+    ? (isZh
+      ? `剩余可用时间不足，${unschedulable.length} 个任务已标记为跳过。`
+      : `${unschedulable.length} task(s) were marked skipped — the available hours you set do not fit them.`)
+    : '';
 
   return {
     rebalanceSummary: isZh
-      ? `已成功自适应重排！将剩余 ${pendingTasks.length} 个学习任务科学均衡分配至距离 ${examDate} 考试前的 ${remainingDays} 天内。已保留 ${completedTasks.length} 个已完成的学习里程碑。`
-      : `Successfully rebalanced ${pendingTasks.length} remaining tasks across ${remainingDays} days leading up to ${examDate}. Preserved ${completedTasks.length} completed study milestones.`,
-    tasks: [...completedTasks, ...updatedPending],
+      ? `已完成自适应重排：剩余 ${rescheduled.length} 个任务按你设置的每日可用时间铺到 ${examDate} 前的 ${scheduledDays} 个学习日，休息日不排任务。${overflowNote}保留 ${completedTasks.length} 个已完成里程碑。`
+      : `Adaptive rebalance done: ${rescheduled.length} remaining task(s) spread across ${scheduledDays} study day(s) before ${examDate}, honouring your per-day hours and rest days. ${overflowNote} Preserved ${completedTasks.length} completed milestone(s).`,
+    tasks: [...completedTasks, ...rescheduled, ...skippedTasks],
   };
+}
+
+/**
+ * 重排结果落地前的最后一道闸：休息日不排任务、每个学习日不超预算，已完成的里程碑原样保留。
+ * 落在窗口外（比如昨天没做完的待办）的任务不硬删——它们该不该消失由上层决定，这里只管时间。
+ */
+export function enforceRebalanceBudget(
+  mergedTasks: any[],
+  currentPlan: any,
+  fromDay: string,
+  options: { isZh?: boolean } = {}
+): any[] {
+  const preferences = { ...(currentPlan?.preferences || {}), startDate: fromDay, examDate: currentPlan?.examDate };
+  const dates = buildStudyCalendar(preferences).map((day) => day.date);
+  const allowed = new Set(dates);
+  const inside = (mergedTasks || []).filter((task) => allowed.has(task?.date));
+  const outside = (mergedTasks || []).filter((task) => !allowed.has(task?.date));
+  const { tasks } = enforceDailyHourBudget(inside, preferences, dates, {
+    ...options,
+    padEmptyDays: false,
+    keepCompleted: true,
+  });
+  return [...outside, ...tasks].sort((a, b) => {
+    const dateDiff = String(a?.date).localeCompare(String(b?.date));
+    if (dateDiff !== 0) return dateDiff;
+    return String(a?.startTime || '99:99').localeCompare(String(b?.startTime || '99:99'));
+  });
 }
 
 export function sanitizeRebalanceResult(parsed: any): { rebalanceSummary: string; tasks: any[] } {

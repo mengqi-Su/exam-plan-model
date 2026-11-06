@@ -27,6 +27,7 @@ import {
   chunkAllMaterials,
   chunkStudyDays,
   clampText,
+  enforceRebalanceBudget,
   extractJson,
   fallbackRebalancePlan,
   mergeRebalanceTasks,
@@ -319,6 +320,7 @@ async function handlePlanChunk(req: Request): Promise<Response> {
     });
     const result = sanitizePlanChunkResult(parseOutput(output, isZh), preferences, chunkDays.map((d) => d.date), {
       hasMaterials: materials.length > 0,
+      isZh,
     });
     if (!result.tasks.length) {
       return fail('PLAN_CHUNK_EMPTY', isZh ? 'AI 未返回这几天的任务，请重试。' : 'AI returned no tasks for these days. Please try again.', 502);
@@ -388,7 +390,11 @@ async function handleRebalance(req: Request): Promise<Response> {
       }
       return json({
         ok: true,
-        result: { rebalanceSummary: aiResult.rebalanceSummary, tasks: mergeRebalanceTasks(currentPlan.tasks, aiResult.tasks) },
+        result: {
+          rebalanceSummary: aiResult.rebalanceSummary,
+          // 模型只管「往哪搬」，搬运结果仍要过一遍用户填的时间表：休息日清空、每天不超时
+          tasks: enforceRebalanceBudget(mergeRebalanceTasks(currentPlan.tasks, aiResult.tasks), currentPlan, todayStr, { isZh: zh }),
+        },
         meta: { source: 'ai' },
       });
     } catch (error) {

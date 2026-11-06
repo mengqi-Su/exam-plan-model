@@ -12,16 +12,6 @@ const DB_VERSION = 2;
 const PLAN_STORE = "plans";
 const PRACTICE_STORE = "practice_events";
 
-export const DEFAULT_WEEK_SCHEDULE = [
-  { dayOfWeek: 0, dayName: "周日", availableHours: 4, preferredTimeSlot: "afternoon" as const, enabled: true },
-  { dayOfWeek: 1, dayName: "周一", availableHours: 2.5, preferredTimeSlot: "evening" as const, enabled: true },
-  { dayOfWeek: 2, dayName: "周二", availableHours: 2.5, preferredTimeSlot: "evening" as const, enabled: true },
-  { dayOfWeek: 3, dayName: "周三", availableHours: 2.5, preferredTimeSlot: "evening" as const, enabled: true },
-  { dayOfWeek: 4, dayName: "周四", availableHours: 2.5, preferredTimeSlot: "evening" as const, enabled: true },
-  { dayOfWeek: 5, dayName: "周五", availableHours: 2, preferredTimeSlot: "afternoon" as const, enabled: true },
-  { dayOfWeek: 6, dayName: "周六", availableHours: 5, preferredTimeSlot: "morning" as const, enabled: true },
-];
-
 function openPlanDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (!("indexedDB" in window)) {
