@@ -22,20 +22,27 @@ export interface CoverPreset {
   background: string;
 }
 
-/** 细斜纹 + 交叉纹叠出来的纸感，透明度压到 0.02 上下，远看是质感近看是干净。 */
+/** 细斜纹 + 交叉纹叠出来的纸感，透明度压到 0.02 上下，远看是质感近看是干净。墨色用 Qoder 的 #0F0D0C。 */
 const grain = (angle: number, alpha: number) =>
-  `repeating-linear-gradient(${angle}deg, rgba(28,27,26,${alpha}) 0 1px, rgba(255,255,255,0) 1px 7px)`;
+  `repeating-linear-gradient(${angle}deg, rgba(15,13,12,${alpha}) 0 1px, rgba(255,255,255,0) 1px 7px)`;
 
 const sheen = (from: string, to: string) =>
   `radial-gradient(120% 95% at 12% 0%, rgba(255,255,255,0.85) 0%, rgba(255,255,255,0) 58%), linear-gradient(180deg, ${from} 0%, ${to} 100%)`;
 
+/**
+ * 色卡取自 Qoder 官网实测值，不是随手挑的十六进制：
+ * 纸面 #F2F4F2 / #F7F8F7 / #F9F9F9 / #FFFFFF，墨色 #0F0D0C，灰阶 #E3E3E3 / #DDDDDD / #636261，
+ * 品牌绿 #73B78E、#80C776（主按钮是深绿 #255A41），强调色 #FF5F57、#FEBD2E、#28C840。
+ * 每格都是「对应强调色压到 8% 左右 + 纸面底色」，所以六格互相能认出是同一家人，
+ * 又都不会把页头压成深色 hero。
+ */
 export const COVER_PRESETS: CoverPreset[] = [
-  { id: "paper", zh: "纸纹", en: "Paper", background: `${grain(135, 0.022)}, ${grain(45, 0.014)}, ${sheen("#f1eee6", "#e5e1d6")}` },
-  { id: "mist", zh: "雾蓝", en: "Mist", background: `${grain(135, 0.018)}, ${sheen("#e9f0f8", "#dbe6f1")}` },
-  { id: "moss", zh: "苔绿", en: "Moss", background: `${grain(135, 0.018)}, ${sheen("#e9f0e7", "#dae4d8")}` },
-  { id: "wheat", zh: "麦黄", en: "Wheat", background: `${grain(135, 0.02)}, ${sheen("#faf0cf", "#f2e2b0")}` },
-  { id: "clay", zh: "陶土", en: "Clay", background: `${grain(135, 0.018)}, ${sheen("#f6e8e0", "#eed9cf")}` },
-  { id: "slate", zh: "石墨", en: "Slate", background: `${grain(135, 0.02)}, ${grain(45, 0.012)}, ${sheen("#ececeb", "#dcdcd9")}` },
+  { id: "paper", zh: "纸纹", en: "Paper", background: `${grain(135, 0.022)}, ${grain(45, 0.014)}, ${sheen("#f9f9f9", "#f2f4f2")}` },
+  { id: "mist", zh: "雾青", en: "Haze", background: `${grain(135, 0.018)}, ${sheen("#f1f6f2", "#e2ede5")}` },
+  { id: "moss", zh: "苔绿", en: "Moss", background: `${grain(135, 0.018)}, ${sheen("#eef6ea", "#dcebd8")}` },
+  { id: "wheat", zh: "麦黄", en: "Wheat", background: `${grain(135, 0.02)}, ${sheen("#fbf4e1", "#f4e5bf")}` },
+  { id: "clay", zh: "陶土", en: "Clay", background: `${grain(135, 0.018)}, ${sheen("#fbefee", "#f3dbd8")}` },
+  { id: "slate", zh: "石墨", en: "Slate", background: `${grain(135, 0.02)}, ${grain(45, 0.012)}, ${sheen("#f3f3f3", "#dcdcdc")}` },
 ];
 
 const PRESET_PREFIX = "preset:";
@@ -102,7 +109,7 @@ export async function readCoverImage(file: File): Promise<string> {
   canvas.height = Math.max(1, Math.round(height * scale));
   const ctx = canvas.getContext("2d");
   if (!ctx) throw coverError("canvas");
-  ctx.fillStyle = "#f8f7f4";
+  ctx.fillStyle = "#f7f8f7";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
