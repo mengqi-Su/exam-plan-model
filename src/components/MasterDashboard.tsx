@@ -75,6 +75,9 @@ export function MasterDashboard({
       totalTasks,
       completedTasks,
       globalProgress,
+      // 一门课没排出任务时，「0%」说的是「还没开始」，不是「一点都没推进」。
+      // 口径与 lib/planReadiness 一致：待生成的科目不参与百分数。
+      awaitingSchedule: plans.length > 0 && totalTasks === 0,
       nearestPlan,
       nearestDays,
       todayTotal,
@@ -149,14 +152,21 @@ export function MasterDashboard({
             <TrendingUp className="w-4 h-4 ui-subtle" />
           </div>
           <div className="mt-2.5 text-3xl font-semibold tabular-nums tracking-tight">
-            {workspaceMetrics.globalProgress}%
+            {workspaceMetrics.awaitingSchedule ? "—" : `${workspaceMetrics.globalProgress}%`}
           </div>
-          <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-[#f1efe9]">
-            <div
-              className="h-full rounded-full bg-[#1c1b1a] transition-all duration-500"
-              style={{ width: `${workspaceMetrics.globalProgress}%` }}
-            />
-          </div>
+          {workspaceMetrics.awaitingSchedule ? (
+            /* 全是「先建好、还没生成」的科目：0% 会被读成落后，这里只说它还没排任务。 */
+            <div className="mt-1.5 text-[12px] ui-muted">
+              {isZh ? "还没有排出的任务" : "Nothing scheduled yet"}
+            </div>
+          ) : (
+            <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-[#f1efe9]">
+              <div
+                className="h-full rounded-full bg-[#1c1b1a] transition-all duration-500"
+                style={{ width: `${workspaceMetrics.globalProgress}%` }}
+              />
+            </div>
+          )}
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
@@ -7,13 +7,16 @@ import {
   Hourglass,
   Layers,
   Pencil,
+  Sparkles,
   Target,
+  Upload,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { ExamStudyPlan, PracticeEvent } from "../types";
 import type { FocusTarget } from "../lib/inbound";
 import { useI18n } from "../lib/i18n";
 import { toLocalDateString } from "../lib/date";
+import { planReadiness, readinessCopy } from "../lib/planReadiness";
 import { SectionBlock } from "./SectionBlock";
 import { PageIconGlyph } from "./PageIconGlyph";
 import { PageCover } from "./PageCover";
@@ -30,6 +33,11 @@ interface CourseDetailPageProps {
   onUpdatePlan: (updatedPlan: ExamStudyPlan) => void;
   onRequestDeletePlan?: (plan: ExamStudyPlan) => void;
   onNavigateToTab: (tab: "today" | "dashboard" | "master_calendar" | "course" | "settings") => void;
+  /**
+   * 「先建科目、资料回头再传」的后半程：这门科目已经存好了，还差一次生成。
+   * 生成动作只归新建向导那一处，这里只负责把它带着这门科目叫回来。
+   */
+  onRequestPlanGeneration?: (plan: ExamStudyPlan) => void;
   /** 回程联动定位到的考点；只有属于当前计划时才展开知识区并滚动 */
   focusTarget?: FocusTarget | null;
   /** 同一考点重复点「定位」时用它重新触发滚动 */
@@ -45,6 +53,7 @@ export function CourseDetailPage({
   onUpdatePlan,
   onRequestDeletePlan,
   onNavigateToTab,
+  onRequestPlanGeneration,
   focusTarget = null,
   focusNonce = 0,
   practiceEvents = [],
@@ -174,6 +183,28 @@ export function CourseDetailPage({
     }
     return isZh ? "今天没有安排任务，后面也没有排任务。" : "Nothing scheduled today or later.";
   })();
+
+  /**
+   * 「科目已经建好、计划还没生成」时，这一页唯一该回答的问题是「现在差什么」：
+   * 差资料就把人领到知识库的上传口，差计划就把新建向导叫回来补最后一步。
+   * 判断口径和文案都在 lib/planReadiness 一处，这页只负责摆出来。
+   */
+  const readiness = planReadiness(plan);
+  const pendingCopy = readinessCopy(readiness, isZh);
+  const knowledgeRef = useRef<HTMLDivElement>(null);
+  // 展开知识库之后要滚到它，但那一刻 DOM 还没提交；用 nonce 交给 effect，
+  // 比 rAF 稳：后台标签页里 rAF 会被暂停，滚动就永远等不到。
+  const [knowledgeReveal, setKnowledgeReveal] = useState(0);
+
+  useEffect(() => {
+    if (!knowledgeReveal || !showKnowledge) return;
+    knowledgeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [knowledgeReveal, showKnowledge]);
+
+  const revealKnowledge = () => {
+    setShowKnowledge(true);
+    setKnowledgeReveal((n) => n + 1);
+  };
 
   const handleSaveExam = (draft: ExamDraft) => {
     const dateChanged = draft.examDate !== plan.examDate;
@@ -323,12 +354,38 @@ export function CourseDetailPage({
             title={isZh ? "今日任务" : "Today"}
             hint={todayStr}
             aside={
-              <span className="ui-chip tabular-nums">
-                {todayTasks.filter((task) => task.status === "completed").length}/{todayTasks.length}
-              </span>
+              pendingCopy ? null : (
+                <span className="ui-chip tabular-nums">
+                  {todayTasks.filter((task) => task.status === "completed").length}/{todayTasks.length}
+                </span>
+              )
             }
           >
-            {todayTasks.length > 0 ? (
+            {pendingCopy ? (
+              <div className="ui-card px-4 sm:px-5 py-4">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#EEF4EF] text-[#3F6B4F]">
+                    {readiness === "awaiting-materials" ? (
+                      <Upload className="h-4 w-4" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="ui-row-title">{pendingCopy.title}</p>
+                    <p className="mt-1 ui-row-meta leading-relaxed">{pendingCopy.hint}</p>
+                    <button
+                      onClick={() =>
+                        readiness === "awaiting-materials" ? revealKnowledge() : onRequestPlanGeneration?.(plan)
+                      }
+                      className="ui-btn ui-btn-primary mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium"
+                    >
+                      {pendingCopy.action}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : todayTasks.length > 0 ? (
               <ul className="ui-card divide-y divide-[#f0ede8] overflow-hidden">
                 {todayTasks.map((task) => {
                   const done = task.status === "completed";
@@ -352,8 +409,10 @@ export function CourseDetailPage({
               <p className="ui-note">{emptyTodayLine}</p>
             )}
 
-            {/* 两个计量挂在今天下面：进度是这套计划的进度，不再单独占一张大卡。 */}
-            <div className="mt-4 ui-card px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:gap-0 gap-4">
+            {/* 两个计量挂在今天下面：进度是这套计划的进度，不再单独占一张大卡。
+                还没生成计划的科目没有进度可言，摆一个 0% 只会让人以为哪里坏了。 */}
+            {!pendingCopy && (
+              <div className="mt-4 ui-card px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:gap-0 gap-4">
               <div className="sm:flex-1 sm:pr-6 sm:border-r sm:border-[#f0ede8] min-w-0">
                 <span className="ui-row-meta">{isZh ? "任务进度" : "Task progress"}</span>
                 <div className="mt-1.5 flex items-baseline gap-2">
@@ -392,6 +451,7 @@ export function CourseDetailPage({
                 </div>
               </div>
             </div>
+            )}
 
             <PracticeReceiptCard
               events={practiceEvents}
@@ -428,7 +488,7 @@ export function CourseDetailPage({
             }
           >
             {showKnowledge ? (
-              <div className="ui-card p-4 sm:p-5 animate-fadeIn">
+              <div ref={knowledgeRef} className="ui-card p-4 sm:p-5 animate-fadeIn">
                 <CourseKnowledgeHub
                   plan={plan}
                   onUpdatePlan={onUpdatePlan}
@@ -454,7 +514,8 @@ export function CourseDetailPage({
             )}
           </SectionBlock>
 
-          <RebalanceSection plan={plan} onUpdatePlan={onUpdatePlan} />
+          {/* 还没排出任务就没有「积压」可平摊，重排这一栏对空科目只是噪音。 */}
+          {!pendingCopy && <RebalanceSection plan={plan} onUpdatePlan={onUpdatePlan} />}
         </div>
       </main>
     </div>

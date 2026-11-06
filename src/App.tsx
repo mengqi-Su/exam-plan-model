@@ -44,6 +44,9 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<AppTab>("today");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isNewSubjectOpen, setIsNewSubjectOpen] = useState(false);
+  // 向导有两种活：新建一门科目（null），或带着科目页已有的那门补上最后一步生成计划。
+  // 只有一台生成器，靠这个值决定是「新建」还是「更新同一门科目」。
+  const [wizardPlan, setWizardPlan] = useState<ExamStudyPlan | null>(null);
 
   // 回程联动（M2）：定位目标、回执列表与一次性入站护栏
   const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null);
@@ -243,6 +246,13 @@ export default function App() {
   };
 
   const handleNewPlan = () => {
+    setWizardPlan(null);
+    setIsNewSubjectOpen(true);
+  };
+
+  /** 科目页的「生成学习计划」：同一台向导，换成给这门已有科目补最后一步。 */
+  const handlePlanGenerationRequest = (plan: ExamStudyPlan) => {
+    setWizardPlan(plan);
     setIsNewSubjectOpen(true);
   };
 
@@ -268,13 +278,20 @@ export default function App() {
   };
 
   const handlePlanGenerated = (newPlan: ExamStudyPlan, notice?: string | null) => {
+    // 同一个 id 覆盖原科目（补生成计划），新 id 才是多出来的一门科目。
     setPlans((prev) => [newPlan, ...prev.filter((p) => p.id !== newPlan.id)]);
     setActivePlanIdState(newPlan.id);
     setActivePlanId(newPlan.id);
     setAppNotice(notice || null);
     setIsNewSubjectOpen(false);
-    setCurrentTab("today");
-    setSelectedDate(newPlan.startDate || toLocalDateString());
+    setWizardPlan(null);
+    // 只有真排出任务了才值得去「今日」；刚建好的空科目该停在科目页，那里写着下一步。
+    if (newPlan.tasks.length > 0) {
+      setCurrentTab("today");
+      setSelectedDate(newPlan.startDate || toLocalDateString());
+    } else {
+      setCurrentTab("course");
+    }
   };
 
   const handleNavigateToTab = (tab: AppTab, planId?: string) => {
@@ -495,6 +512,7 @@ export default function App() {
                 onUpdatePlan={handleUpdatePlan}
                 onRequestDeletePlan={(p) => setPlanToDelete(p)}
                 onNavigateToTab={handleNavigateToTab}
+                onRequestPlanGeneration={handlePlanGenerationRequest}
                 focusTarget={focusTarget}
                 focusNonce={focusNonce}
                 practiceEvents={practiceEvents.filter((event) => event.planId === activePlan.id)}
@@ -562,8 +580,12 @@ export default function App() {
         <AddExamSubjectWizard
           variant="modal"
           existingPlans={plans}
+          initialPlan={wizardPlan}
           onPlanCreated={handlePlanGenerated}
-          onCancel={() => setIsNewSubjectOpen(false)}
+          onCancel={() => {
+            setIsNewSubjectOpen(false);
+            setWizardPlan(null);
+          }}
           defaultStudyPace={appSettings.defaultStudyPace}
         />
       )}

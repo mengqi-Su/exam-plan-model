@@ -55,6 +55,11 @@ interface AddExamSubjectWizardProps {
   defaultStudyPace: UserStudyPreferences["studyPace"];
   /** "page" keeps the full-page tab layout; "modal" renders the floating one-layer-at-a-time card. */
   variant?: "page" | "modal";
+  /**
+   * 「先建科目，资料回头再传」的另一半：科目页带着这份已有计划回来补最后一步。
+   * 给了它，这台向导就是这门科目的生成器——沿用同一个 id 更新，不会多出一门科目。
+   */
+  initialPlan?: ExamStudyPlan | null;
 }
 
 function inferDocumentType(fileName: string): {
@@ -95,10 +100,13 @@ export function AddExamSubjectWizard({
   existingPlans,
   defaultStudyPace,
   variant = "page",
+  initialPlan = null,
 }: AddExamSubjectWizardProps) {
   const { language } = useI18n();
   const tt = (zh: string, en: string) => (language === "zh" ? zh : en);
   const isModal = variant === "modal";
+  // 带着已有科目进来补最后一步：标题、按钮都说「这门科目」，不说「新建」。
+  const isRefill = !!initialPlan;
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
@@ -165,6 +173,34 @@ export function AddExamSubjectWizard({
       window.clearTimeout(focusTimer);
     };
   }, [isModal, onCancel, isParsingFiles, textbookDialogOpen]);
+
+  /**
+   * 从科目页带着一门已建好的科目回来：第一步的事实和已经传上来的资料先填上，
+   * 用户不用重答一遍考试信息；直接从「考点来源」接着走。
+   * 只在换科目时执行一次，之后这些字段就是这台向导自己的草稿。
+   */
+  useEffect(() => {
+    if (!initialPlan) return;
+    const prefs = initialPlan.preferences;
+    setExamName(initialPlan.examName || "");
+    setSubject(initialPlan.subject || "");
+    setStartDate(initialPlan.startDate || toLocalDateString());
+    setExamDate(initialPlan.examDate || "");
+    setExamTime(initialPlan.examTime || "");
+    setTargetScore(prefs?.targetScoreOrGrade || "");
+    setRequirements(prefs?.customPromptRequirement || "");
+    const storedSchedules = Array.isArray(prefs?.dailySchedules) ? prefs.dailySchedules : [];
+    if (storedSchedules.length === 7 && storedSchedules.every((day) => typeof day?.availableHours === "number")) {
+      setDailySchedules(storedSchedules);
+    }
+    setCourseDocuments(Array.isArray(initialPlan.materials) ? initialPlan.materials : []);
+    setTopics(Array.isArray(initialPlan.topics) ? initialPlan.topics : []);
+    // 教材名只存在于那句资料摘要里，回忆出来是为了摘要文案不变成「《教材》目录」。
+    const summary = initialPlan.materialsSummary || "";
+    setTextbookLabel(summary.startsWith("《") && summary.includes("》") ? summary.slice(1, summary.indexOf("》")) : "");
+    setStep(2);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPlan?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -467,25 +503,40 @@ export function AddExamSubjectWizard({
     return extracted;
   };
 
+  /**
+   * 一门科目的偏好只在这里拼一次。「先建科目」存下来的壳和「生成计划」发给 AI 的偏好
+   * 必须是同一份，否则用户填的考试日期与时间表会在两条路上长成两个样子。
+   */
+  const buildPreferences = (activeTopics: SyllabusTopic[]): UserStudyPreferences => ({
+    examName: examName.trim(),
+    subject: subject.trim() || tt("综合学科", "General"),
+    examDate,
+    examTime: examTime || "09:00",
+    startDate,
+    targetScoreOrGrade: targetScore.trim(),
+    dailySchedules,
+    studyPace: defaultStudyPace,
+    sessionLengthMinutes: 45,
+    includePracticeExams: false,
+    includeBufferDays: false,
+    bufferDaysCount: 0,
+    weakTopicsFocus: activeTopics.filter((topic) => topic.difficulty === "hard").map((topic) => topic.title),
+    userNeedFocusArea: "comprehensive",
+    customPromptRequirement: requirements.trim(),
+    additionalNotes: "",
+  });
+
+  /**
+   * 科目身份：从科目页带回来的那门科目沿用原 id 更新，只有新建才发新 id。
+   * createdAt 是总览排序的依据，补生成计划不该把它改成「刚刚新建」。
+   */
+  const planIdentity = () => ({
+    id: initialPlan?.id ?? `plan-${Date.now()}`,
+    createdAt: initialPlan?.createdAt || new Date().toISOString(),
+  });
+
   const requestPlan = async (activeTopics: SyllabusTopic[]): Promise<ExamStudyPlan> => {
-    const preferences: UserStudyPreferences = {
-      examName: examName.trim(),
-      subject: subject.trim() || tt("综合学科", "General"),
-      examDate,
-      examTime: examTime || "09:00",
-      startDate,
-      targetScoreOrGrade: targetScore.trim(),
-      dailySchedules,
-      studyPace: defaultStudyPace,
-      sessionLengthMinutes: 45,
-      includePracticeExams: false,
-      includeBufferDays: false,
-      bufferDaysCount: 0,
-      weakTopicsFocus: activeTopics.filter((topic) => topic.difficulty === "hard").map((topic) => topic.title),
-      userNeedFocusArea: "comprehensive",
-      customPromptRequirement: requirements.trim(),
-      additionalNotes: "",
-    };
+    const preferences = buildPreferences(activeTopics);
 
     const { result } = await runGeneration<{ phases?: any[]; tasks?: any[]; totalPlannedHours?: number }>(
       "plan",
@@ -509,8 +560,9 @@ export function AddExamSubjectWizard({
     }
 
     const now = new Date().toISOString();
+    const identity = planIdentity();
     return {
-      id: `plan-${Date.now()}`,
+      id: identity.id,
       examName: examName.trim(),
       subject: preferences.subject,
       examDate,
@@ -519,7 +571,7 @@ export function AddExamSubjectWizard({
       totalPlannedHours:
         Number(result?.totalPlannedHours) ||
         Math.round(tasks.reduce((sum: number, task: any) => sum + (task.durationMinutes || 0), 0) / 60),
-      createdAt: now,
+      createdAt: identity.createdAt,
       updatedAt: now,
       preferences,
       topics: activeTopics,
@@ -593,6 +645,40 @@ export function AddExamSubjectWizard({
     }
   };
 
+  /**
+   * 「先把科目/考试建下来」：资料一条路都还没走，也允许交出一门科目。
+   * 交出来的是同一张 ExamStudyPlan，只是 topics/tasks/phases 空着——
+   * 它不是另一种数据，科目页照着 planReadiness 就知道它还差哪一步，接着往下走。
+   */
+  const handleCreateWithoutMaterials = () => {
+    if (workingRef.current || isParsingFiles || !detailsReady) return;
+    const now = new Date().toISOString();
+    const identity = planIdentity();
+    const preferences = buildPreferences([]);
+    onPlanCreated(
+      {
+        id: identity.id,
+        examName: examName.trim(),
+        subject: preferences.subject,
+        examDate,
+        examTime: examTime || undefined,
+        startDate,
+        totalPlannedHours: 0,
+        createdAt: identity.createdAt,
+        updatedAt: now,
+        preferences,
+        topics: [],
+        tasks: [],
+        phases: [],
+        materials: [],
+      },
+      tt(
+        `「${examName.trim()}」已经建好。资料随时在科目页上传，传完在那里点「生成学习计划」。`,
+        `"${examName.trim()}" is saved. Upload materials on its page whenever you're ready, then generate the plan there.`
+      )
+    );
+  };
+
   const materialLimitReached = courseDocuments.length >= MAX_AI_MATERIALS;
 
   const inputClass = "ui-field";
@@ -608,19 +694,28 @@ export function AddExamSubjectWizard({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-[#a39e97]">
-              <span>{tt("新建备考科目", "New subject")}</span>
-              <span className="ui-chip tabular-nums">
-                {tt(`已存 ${existingPlans.length} 门`, `${existingPlans.length} saved`)}
-              </span>
+              <span>{isRefill ? tt("继续这门科目", "Finish this subject") : tt("新建备考科目", "New subject")}</span>
+              {!isRefill && (
+                <span className="ui-chip tabular-nums">
+                  {tt(`已存 ${existingPlans.length} 门`, `${existingPlans.length} saved`)}
+                </span>
+              )}
             </div>
             <h1 className="mt-1.5 text-[17px] font-semibold leading-tight tracking-tight text-[#1c1b1a]">
-              {tt("从资料生成学习计划", "Build a plan from your materials")}
+              {isRefill
+                ? tt(`${initialPlan?.examName || ""} · 生成学习计划`, `Plan ${initialPlan?.examName || "this subject"}`)
+                : tt("从资料生成学习计划", "Build a plan from your materials")}
             </h1>
             <p className="mt-1 text-[12.5px] leading-relaxed text-[#8a8580]">
-              {tt(
-                "上传考纲、讲义或笔记，AI 自动识别考点并编排每日复习。",
-                "Upload a syllabus, slides, or notes — AI extracts topics and schedules your daily review."
-              )}
+              {isRefill
+                ? tt(
+                    "考试信息已经存好了。放资料进来（或整理教材目录），AI 照你填的时间表排每日任务。",
+                    "The exam details are already saved. Add materials (or outline a textbook) and AI schedules each day around the hours you set."
+                  )
+                : tt(
+                    "上传考纲、讲义或笔记，AI 自动识别考点并编排每日复习。",
+                    "Upload a syllabus, slides, or notes — AI extracts topics and schedules your daily review."
+                  )}
             </p>
           </div>
           <button
@@ -1086,6 +1181,22 @@ export function AddExamSubjectWizard({
                 <span>{textbookTopicCount > 0 ? tt("重新整理目录", "Re-outline") : tt("整理教材目录", "Outline a textbook")}</span>
               </button>
             </div>
+
+            {/* 灰掉的「下一步」自己不会解释原因，所以把原因写在明面上：
+                要么现在给一份输入，要么承认资料可以回头再传。 */}
+            {!materialsReady && !isParsingFiles && (
+              <p className="ui-row-meta leading-relaxed">
+                {isRefill
+                  ? tt(
+                      "这门科目还没有资料，也还没有教材目录考点。先放一份考纲或讲义进来再生成，或者关掉回科目页，资料随时回来接着传。",
+                      "This subject has no materials and no textbook outline yet. Add a syllabus or slides before generating, or close this and upload whenever you're ready."
+                    )
+                  : tt(
+                      "不想现在传也行——点右下「先建科目，资料稍后再传」：考试信息先存下来，之后在科目页传完资料再生成计划。",
+                      "No files on hand? Use \"Create it now, add materials later\" at the bottom right — the exam details get saved, and you upload and generate from the subject page."
+                    )}
+              </p>
+            )}
           </fieldset>
         </section>
       )}
@@ -1221,7 +1332,21 @@ export function AddExamSubjectWizard({
           </span>
         </button>
 
-        {step < 3 ? (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {/* 资料不是建科目的门槛：这一步可以先跳过，科目照建，之后在科目页接着传、接着生成。
+              带已有科目回来时不出现——那门科目已经建好了，这里只做最后一步。 */}
+          {step === 2 && !isRefill && (
+            <button
+              onClick={handleCreateWithoutMaterials}
+              disabled={isParsingFiles}
+              className="ui-btn ui-btn-ghost items-center justify-center gap-1.5 px-3 py-2 text-[12px] text-[#6b6660] disabled:opacity-40"
+            >
+              <Check className="h-3.5 w-3.5" />
+              <span>{tt("先建科目，资料稍后再传", "Create it now, add materials later")}</span>
+            </button>
+          )}
+
+          {step < 3 ? (
           <button
             onClick={handleNext}
             disabled={step === 1 ? !detailsReady : !materialsReady}
@@ -1257,6 +1382,7 @@ export function AddExamSubjectWizard({
             )}
           </button>
         )}
+        </div>
       </div>
 
       {previewDoc && (
@@ -1325,7 +1451,7 @@ export function AddExamSubjectWizard({
       onClick={requestClose}
       role="dialog"
       aria-modal="true"
-      aria-label={tt("新建备考科目", "New exam subject")}
+      aria-label={isRefill ? tt("生成学习计划", "Generate study plan") : tt("新建备考科目", "New exam subject")}
     >
       <div
         ref={cardRef}

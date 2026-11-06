@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { AppTab, ExamStudyPlan } from "../types";
 import { PageIconGlyph } from "./PageIconGlyph";
+import { planReadiness, readinessCopy } from "../lib/planReadiness";
 
 interface CourseAccordionGalleryProps {
   plans: ExamStudyPlan[];
@@ -54,6 +55,21 @@ export function CourseAccordionGallery({
     else if (onDeletePlan) onDeletePlan(plan.id);
   };
 
+  /**
+   * 卡组每门科目对外说的那几个数：只有真的排出过任务，进度才是一个百分数。
+   * 「先建科目、资料回头再传」的门不报 0%——它不是落后，是还没开始，
+   * 口径由 lib/planReadiness 一处决定，卡片只负责把它摆出来。
+   */
+  const cardFacts = (plan: ExamStudyPlan) => {
+    const completedCount = plan.tasks.filter((t) => t.status === "completed").length;
+    const totalCount = plan.tasks.length;
+    return {
+      pending: readinessCopy(planReadiness(plan), isZh),
+      progress: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0,
+      daysLeft: getDaysRemaining(plan.examDate),
+    };
+  };
+
   const enterCourse = (planId: string) => {
     onSelectPlan(planId);
     onNavigateToTab("course", planId);
@@ -94,10 +110,7 @@ export function CourseAccordionGallery({
       >
         {plans.map((plan) => {
           const isExpanded = effectiveExpandedId === plan.id;
-          const completedCount = plan.tasks.filter((t) => t.status === "completed").length;
-          const totalCount = plan.tasks.length;
-          const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-          const daysLeft = getDaysRemaining(plan.examDate);
+          const { pending, progress, daysLeft } = cardFacts(plan);
 
           return (
             <div
@@ -165,18 +178,24 @@ export function CourseAccordionGallery({
                       </span>
                     </div>
 
-                    <div className="space-y-1.5 pt-1">
-                      <div className="flex items-center justify-between text-[12px]">
-                        <span className="ui-muted">{isZh ? "备考进度" : "Progress"}</span>
-                        <span className="font-medium tabular-nums text-[#1c1b1a]">{progress}%</span>
+                    {pending ? (
+                      <div className="pt-1">
+                        <span className="ui-chip">{pending.title}</span>
                       </div>
-                      <div className="w-full h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-[#1c1b1a] transition-all duration-500"
-                          style={{ width: `${progress}%` }}
-                        />
+                    ) : (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between text-[12px]">
+                          <span className="ui-muted">{isZh ? "备考进度" : "Progress"}</span>
+                          <span className="font-medium tabular-nums text-[#1c1b1a]">{progress}%</span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-[#1c1b1a] transition-all duration-500"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   <div className="pt-3 border-t border-[#f0ede8] flex items-center justify-between gap-2">
@@ -220,10 +239,15 @@ export function CourseAccordionGallery({
                     {daysLeft !== null && (
                       <span className="text-[10px] font-medium tabular-nums text-[#8a8580]">D-{daysLeft}</span>
                     )}
-                    <span className="text-[11px] font-semibold tabular-nums text-[#1c1b1a]">{progress}%</span>
-                    <div className="w-full h-1 rounded-full bg-[#f1efe9] overflow-hidden">
-                      <div className="h-full rounded-full bg-[#1c1b1a]" style={{ width: `${progress}%` }} />
-                    </div>
+                    {/* 没排任务的科目在窄条上不给百分数：一格 0% 只会读成「落后了」。 */}
+                    {!pending && (
+                      <>
+                        <span className="text-[11px] font-semibold tabular-nums text-[#1c1b1a]">{progress}%</span>
+                        <div className="w-full h-1 rounded-full bg-[#f1efe9] overflow-hidden">
+                          <div className="h-full rounded-full bg-[#1c1b1a]" style={{ width: `${progress}%` }} />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -334,10 +358,7 @@ export function CourseAccordionGallery({
 
         {plans.map((plan) => {
           const isExpanded = effectiveExpandedId === plan.id;
-          const completedCount = plan.tasks.filter((t) => t.status === "completed").length;
-          const totalCount = plan.tasks.length;
-          const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-          const daysLeft = getDaysRemaining(plan.examDate);
+          const { pending, progress, daysLeft } = cardFacts(plan);
 
           return (
             <div key={plan.id} className="ui-card overflow-hidden">
@@ -363,7 +384,8 @@ export function CourseAccordionGallery({
                   <div className="min-w-0">
                     <h4 className="text-[14px] font-semibold text-[#1c1b1a] truncate">{plan.examName}</h4>
                     <span className="text-[12px] ui-muted block mt-0.5 truncate">
-                      {plan.subject} · {progress}% {isZh ? "完成" : "done"}
+                      {plan.subject} ·{" "}
+                      {pending ? pending.title : `${progress}% ${isZh ? "完成" : "done"}`}
                     </span>
                   </div>
                 </div>
@@ -378,13 +400,22 @@ export function CourseAccordionGallery({
 
               {isExpanded && (
                 <div className="px-4 pb-4 pt-3 space-y-3 border-t border-[#f0ede8]">
-                  <div className="flex items-center justify-between text-[12px]">
-                    <span className="ui-muted">{isZh ? "进度" : "Progress"}</span>
-                    <span className="font-medium tabular-nums text-[#1c1b1a]">{progress}%</span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
-                    <div className="h-full rounded-full bg-[#1c1b1a]" style={{ width: `${progress}%` }} />
-                  </div>
+                  {pending ? (
+                    <div className="space-y-1.5">
+                      <span className="ui-chip">{pending.title}</span>
+                      <p className="text-[12px] ui-muted leading-relaxed">{pending.hint}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="ui-muted">{isZh ? "进度" : "Progress"}</span>
+                        <span className="font-medium tabular-nums text-[#1c1b1a]">{progress}%</span>
+                      </div>
+                      <div className="w-full h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
+                        <div className="h-full rounded-full bg-[#1c1b1a]" style={{ width: `${progress}%` }} />
+                      </div>
+                    </>
+                  )}
 
                   <div className="flex items-center justify-between pt-1">
                     {(onRequestDeletePlan || onDeletePlan) && (
