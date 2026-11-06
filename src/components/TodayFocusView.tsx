@@ -249,16 +249,9 @@ export function TodayFocusView({
           <div className="w-12 h-12 rounded-xl bg-[#f1efe9] text-[#8a8580] flex items-center justify-center mx-auto">
             <Sun className="w-6 h-6" />
           </div>
-          <div className="space-y-1.5">
-            <h2 className="text-[15px] font-semibold tracking-tight">
-              {isZh ? "还没有备考科目" : "No exam subjects yet"}
-            </h2>
-            <p className="ui-muted text-[13px] leading-relaxed max-w-md mx-auto">
-              {isZh
-                ? "上传课程资料和考试日期，AI 会自动整理考点并排好每天的复习任务。"
-                : "Upload your course materials and exam date. AI will organize the syllabus and schedule daily study tasks."}
-            </p>
-          </div>
+          <h2 className="text-[15px] font-semibold tracking-tight">
+            {isZh ? "还没有备考科目" : "No exam subjects yet"}
+          </h2>
           <button onClick={onAddNewSubject} className="ui-btn ui-btn-primary">
             <Plus className="w-4 h-4" />
             {isZh ? "新建备考科目" : "Create subject"}
@@ -267,11 +260,6 @@ export function TodayFocusView({
       ) : dayItems.length === 0 ? (
         <div className="ui-card py-14 px-6 text-center space-y-3 border-dashed">
           <CheckCircle2 className="w-8 h-8 text-[#a39e97] mx-auto" />
-          <p className="text-[13px] text-[#8a8580]">
-            {isZh
-              ? `${selectedDate} 这一天没有排程的学习任务。`
-              : `No study tasks scheduled for ${selectedDate}.`}
-          </p>
           <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
             <button
               onClick={() => onNavigateToTab("master_calendar")}

@@ -23,30 +23,23 @@ export function isPlanPending(plan?: ExamStudyPlan | null): boolean {
 
 export interface ReadinessCopy {
   title: string;
-  hint: string;
   action: string;
 }
 
 /**
  * 待生成状态下页头/卡片要说的那句话。生成动作本身只归向导一处，
- * 这里只负责说清楚「现在差什么、按下之后会发生什么」。
+ * 这里只负责把「差什么」说成一个词，不再补一段解释。
  */
 export function readinessCopy(readiness: PlanReadiness, isZh: boolean): ReadinessCopy | null {
   if (readiness === "ready") return null;
   if (readiness === "awaiting-materials") {
     return {
       title: isZh ? "还没上传资料" : "No materials yet",
-      hint: isZh
-        ? "科目已经建好了。考纲、讲义、真题或笔记随时传进来，下面的知识库就是它的位置。"
-        : "This subject is saved. Drop a syllabus, slides, past paper, or notes into the library below whenever you're ready.",
       action: isZh ? "去上传资料" : "Upload materials",
     };
   }
   return {
-    title: isZh ? "资料已就位，还没生成计划" : "Materials are in — no plan yet",
-    hint: isZh
-      ? "现在可以生成学习计划：AI 按这些资料提炼考点，再照你填的时间表排每日任务。"
-      : "Ready to plan: AI extracts topics from these materials, then schedules daily tasks around the hours you set.",
+    title: isZh ? "还没生成计划" : "No plan yet",
     action: isZh ? "生成学习计划" : "Generate plan",
   };
 }

@@ -22,10 +22,6 @@ interface FolderCategoryConfig {
   code: string;
   nameZh: string;
   nameEn: string;
-  subtitleZh: string;
-  subtitleEn: string;
-  descZh: string;
-  descEn: string;
   icon: React.ElementType;
   tabBg: string;
   tabHoverBg: string;
@@ -43,10 +39,6 @@ export const FOLDER_CONFIGS: FolderCategoryConfig[] = [
     code: "01",
     nameZh: "考纲",
     nameEn: "Syllabus",
-    subtitleZh: "考试大纲与章节分值权重要求",
-    subtitleEn: "Official blueprint & weightings",
-    descZh: "官方考试大纲、模块分值权重、核心考查范围与题型规范。",
-    descEn: "Official course syllabus, topic weightings, and exam blueprint.",
     icon: BookOpen,
     tabBg: "bg-[#FCD33B]",
     tabHoverBg: "hover:bg-[#f5cc2f]",
@@ -62,10 +54,6 @@ export const FOLDER_CONFIGS: FolderCategoryConfig[] = [
     code: "02",
     nameZh: "讲义",
     nameEn: "Lectures",
-    subtitleZh: "教授授课课件与教材重点提纲",
-    subtitleEn: "Course slides & textbook outlines",
-    descZh: "课件 PPT、章节导读梳理、知识点脉络与教材精讲要点。",
-    descEn: "Lecture slides, concept summaries, and textbook outlines.",
     icon: GraduationCap,
     tabBg: "bg-[#D8D8D8]",
     tabHoverBg: "hover:bg-[#CECECE]",
@@ -81,10 +69,6 @@ export const FOLDER_CONFIGS: FolderCategoryConfig[] = [
     code: "03",
     nameZh: "真题",
     nameEn: "Past exams",
-    subtitleZh: "历年期末试卷与全真题库",
-    subtitleEn: "Past papers & real exam mocks",
-    descZh: "历年统考真题、期中期末试卷、标准题解与高频大题分析。",
-    descEn: "Past examination papers, midterm/final exams, and worked solutions.",
     icon: FileQuestion,
     tabBg: "bg-[#8E8E8E]",
     tabHoverBg: "hover:bg-[#7F7F7F]",
@@ -100,10 +84,6 @@ export const FOLDER_CONFIGS: FolderCategoryConfig[] = [
     code: "04",
     nameZh: "笔记",
     nameEn: "Notes",
-    subtitleZh: "核心公式速查与复习笔记",
-    subtitleEn: "Cheatsheets & active recall notes",
-    descZh: "公式速查手记、易错陷阱归纳、主动回忆卡片与个人背诵笔记。",
-    descEn: "Formula cheatsheets, trap notes, and key memory cards.",
     icon: FileText,
     tabBg: "bg-[#E6E0D6]",
     tabHoverBg: "hover:bg-[#DCD5C9]",
@@ -300,17 +280,15 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
           </div>
 
           <div className="pt-3 mt-3 border-t border-[#f0ede8] flex items-center justify-between gap-2 text-[12px]">
-            <div className="truncate ui-muted flex items-center gap-1.5 min-w-0">
-              {docsInFolder.length > 0 ? (
-                <>
-                  <File className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">{docsInFolder[0].name}</span>
-                </>
-              ) : (
-                <span>{isZh ? "点击进入查看" : "Click to explore"}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-1 font-medium text-[#1c1b1a] shrink-0 group-hover:translate-x-0.5 transition-transform">
+            {/* 空文件夹这里就留白：右边的「进入 →」已经是明确的动作，
+                不需要再用一句灰字教用户怎么点这张卡。 */}
+            {docsInFolder.length > 0 && (
+              <div className="truncate ui-muted flex items-center gap-1.5 min-w-0">
+                <File className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{docsInFolder[0].name}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-1 font-medium text-[#1c1b1a] shrink-0 ml-auto group-hover:translate-x-0.5 transition-transform">
               <span>{isZh ? "进入" : "Open"}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
@@ -331,11 +309,6 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
               <h3 className="ui-group-title">
                 {isZh ? "知识库" : "Knowledge base"}
               </h3>
-              <p className="ui-row-meta mt-1">
-                {isZh
-                  ? "考纲、讲义、真题与笔记分类归档，点击文件夹进入。"
-                  : "Syllabus, lectures, past exams and notes — open a folder to explore."}
-              </p>
             </div>
 
             <div className="flex items-center gap-2">
@@ -459,9 +432,6 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                 <FolderOpen className="w-12 h-12 mx-auto text-[#cfc9c0]" />
                 <p className="ui-row-title">
                   {isZh ? "此文件夹为空" : "This folder is empty"}
-                </p>
-                <p className="ui-row-meta">
-                  {isZh ? "点击右上角「上传文件」添加资料" : "Use the buttons above to add documents"}
                 </p>
               </div>
             )}

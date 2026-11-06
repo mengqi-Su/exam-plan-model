@@ -97,14 +97,7 @@ export function MasterDashboard({
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10 space-y-8 animate-fadeIn text-[#1c1b1a]">
       <header className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="ui-page-title">{isZh ? "科目" : "Subjects"}</h1>
-          <p className="mt-1.5 text-[13px] ui-muted leading-relaxed max-w-xl">
-            {isZh
-              ? "查看各科考试倒计时与整体进度，每日执行在「今日」完成。"
-              : "Track exam countdowns and progress. Daily execution lives in Today."}
-          </p>
-        </div>
+        <h1 className="ui-page-title min-w-0">{isZh ? "科目" : "Subjects"}</h1>
         <button onClick={onAddNewSubject} className="ui-btn ui-btn-primary shrink-0">
           <Plus className="w-4 h-4" />
           {isZh ? "新建科目" : "New subject"}

@@ -28,14 +28,13 @@ import {
   UserStudyPreferences,
 } from "../types";
 import { useI18n } from "../lib/i18n";
-import { parseDocumentFile, UPLOAD_ACCEPT, uploadHint } from "../lib/documentParser";
+import { parseDocumentFile, UPLOAD_ACCEPT } from "../lib/documentParser";
 import { GenerationError, MAX_AI_MATERIALS, prepareMaterialsForAI, runGeneration } from "../lib/aiClient";
 import { daysBetween, toLocalDateString } from "../lib/date";
 import {
   DEFAULT_DAILY_HOURS,
   MAX_DAILY_HOURS,
   MIN_DAILY_HOURS,
-  PLANNING_WINDOW_DAYS,
   applyUniformDailyHours,
   clampDailyHours,
   estimateStudyWindow,
@@ -671,8 +670,8 @@ export function AddExamSubjectWizard({
         materials: [],
       },
       tt(
-        `「${examName.trim()}」已经建好。资料随时在科目页上传，传完在那里点「生成学习计划」。`,
-        `"${examName.trim()}" is saved. Upload materials on its page whenever you're ready, then generate the plan there.`
+        `「${examName.trim()}」已经建好`,
+        `"${examName.trim()}" is saved`
       )
     );
   };
@@ -702,16 +701,6 @@ export function AddExamSubjectWizard({
     </>
   );
 
-  const modalDescription = isRefill
-    ? tt(
-        "考试信息已经存好了。放资料进来（或整理教材目录），AI 照你填的时间表排每日任务。",
-        "The exam details are already saved. Add materials (or outline a textbook) and AI schedules each day around the hours you set."
-      )
-    : tt(
-        "上传考纲、讲义或笔记，AI 自动识别考点并编排每日复习。",
-        "Upload a syllabus, slides, or notes — AI extracts topics and schedules your daily review."
-      );
-
   const pageHeader = (
     <>
       <div className="flex items-center justify-between">
@@ -732,9 +721,6 @@ export function AddExamSubjectWizard({
         <h1 className="ui-page-title">
           {tt("从资料生成学习计划", "Build a plan from your materials")}
         </h1>
-        <p className="text-[13px] text-[#8a8580]">
-          {tt("上传考纲、讲义或笔记，AI 自动识别考点并编排每日复习。", "Upload a syllabus, slides, or notes — AI extracts topics and schedules your daily review.")}
-        </p>
       </header>
     </>
   );
@@ -830,7 +816,6 @@ export function AddExamSubjectWizard({
               <CalendarDays className="h-4 w-4 text-[#8a8580]" />
               <span>{tt("考试信息", "Exam details")}</span>
             </h2>
-            <span className="text-[11px] font-medium text-[#a39e97]">* {tt("必填", "Required")}</span>
           </div>
 
           <fieldset disabled={isWorking} className="grid min-w-0 grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-5">
@@ -881,14 +866,7 @@ export function AddExamSubjectWizard({
             </label>
 
             <label>
-              <span className={labelClass}>
-                {tt("每天可学习时长", "Study time per day")}
-                {uniformDailyHours === null && (
-                  <span className="ml-1.5 font-normal text-[#a39e97]">
-                    {tt("（按天安排，见高级设置）", "(per day — see advanced)")}
-                  </span>
-                )}
-              </span>
+              <span className={labelClass}>{tt("每天可学习时长", "Study time per day")}</span>
               <div className="flex overflow-hidden rounded-lg border border-[#e5e2dc] bg-white focus-within:border-[#cfc9c0]">
                 <input
                   type="number"
@@ -990,14 +968,6 @@ export function AddExamSubjectWizard({
                 {tt("全程预计", "Total")}{" "}
                 <strong className="font-semibold text-[#1c1b1a]">{windowEstimate.totalHours}</strong>h
               </span>
-              {windowEstimate.truncatedDays > 0 && (
-                <span className="text-[#a39e97]">
-                  {tt(
-                    `一次最多排 ${PLANNING_WINDOW_DAYS} 天，后面 ${windowEstimate.truncatedDays} 天临近时继续生成`,
-                    `${PLANNING_WINDOW_DAYS}-day planning window; the last ${windowEstimate.truncatedDays} days are generated later`
-                  )}
-                </span>
-              )}
             </div>
           )}
         </section>
@@ -1048,7 +1018,6 @@ export function AddExamSubjectWizard({
                   ? parsingStatus || tt("正在读取资料...", "Reading materials...")
                   : tt("拖拽资料到这里，或点击选择文件", "Drop materials here, or click to browse")}
               </p>
-              <p className="mt-1 text-[12px] leading-relaxed text-[#8a8580]">{uploadHint(language !== "en")}</p>
             </label>
 
             {courseDocuments.length > 0 && (
@@ -1139,26 +1108,19 @@ export function AddExamSubjectWizard({
 
             {/* 第二条来路：一份资料都没有时，只填教材名也能拿到考点。放在资料之后，
                 因为它不产生资料文件，只产生考点，所以不复用上面的上传口径。 */}
-            <div className="flex items-center gap-3 pt-1">
-              <span className="h-px flex-1 bg-[#f0ede8]" />
-              <span className="ui-row-meta shrink-0">{tt("或者", "or")}</span>
-              <span className="h-px flex-1 bg-[#f0ede8]" />
-            </div>
+            <div className="h-px bg-[#f0ede8]" aria-hidden="true" />
 
             <div className="flex flex-col items-start justify-between gap-2 rounded-xl border border-[#eae7e1] bg-[#faf9f6] px-4 py-3 sm:flex-row sm:items-center">
               <div className="min-w-0">
                 <h3 className="ui-subgroup-title">{tt("只填教材名，按目录整理考点", "No files? Name the textbook instead")}</h3>
-                <p className="ui-row-meta mt-1 leading-relaxed">
-                  {textbookTopicCount > 0
-                    ? tt(
+                {textbookTopicCount > 0 && (
+                  <p className="ui-row-meta mt-1 leading-relaxed tabular-nums">
+                    {tt(
                       `已按《${textbookLabel || tt("教材", "textbook")}》目录整理 ${textbookTopicCount} 个考点`,
                       `${textbookTopicCount} topics from "${textbookLabel || "the textbook"}"`
-                    )
-                    : tt(
-                      "AI 先回忆这本教材的章节给你勾选，确认后才展开成考点。",
-                      "AI recalls the chapter list for you to tick, then expands it into topics."
                     )}
-                </p>
+                  </p>
+                )}
               </div>
               <button
                 onClick={() => setTextbookDialogOpen(true)}
@@ -1169,22 +1131,6 @@ export function AddExamSubjectWizard({
                 <span>{textbookTopicCount > 0 ? tt("重新整理目录", "Re-outline") : tt("整理教材目录", "Outline a textbook")}</span>
               </button>
             </div>
-
-            {/* 灰掉的「下一步」自己不会解释原因，所以把原因写在明面上：
-                要么现在给一份输入，要么承认资料可以回头再传。 */}
-            {!materialsReady && !isParsingFiles && (
-              <p className="ui-row-meta leading-relaxed">
-                {isRefill
-                  ? tt(
-                      "这门科目还没有资料，也还没有教材目录考点。先放一份考纲或讲义进来再生成，或者关掉回科目页，资料随时回来接着传。",
-                      "This subject has no materials and no textbook outline yet. Add a syllabus or slides before generating, or close this and upload whenever you're ready."
-                    )
-                  : tt(
-                      "不想现在传也行——点右下「先建科目，资料稍后再传」：考试信息先存下来，之后在科目页传完资料再生成计划。",
-                      "No files on hand? Use \"Create it now, add materials later\" at the bottom right — the exam details get saved, and you upload and generate from the subject page."
-                    )}
-              </p>
-            )}
           </fieldset>
         </section>
       )}
@@ -1448,7 +1394,6 @@ export function AddExamSubjectWizard({
         closeLabel={tt("关闭", "Close")}
         closeDisabled={isWorking || isParsingFiles}
         eyebrow={modalEyebrow}
-        description={modalDescription}
         subheader={wizardStepRail}
         footer={wizardFooter}
         footerMode="block"

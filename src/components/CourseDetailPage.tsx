@@ -174,15 +174,13 @@ export function CourseDetailPage({
     return { date: upcoming[0].date, count: upcoming.filter((task) => task.date === upcoming[0].date).length };
   }, [plan.tasks, todayStr]);
 
-  const emptyTodayLine = (() => {
-    if (stats.totalCount === 0) return isZh ? "这份计划还没有排任务。" : "This plan has no tasks scheduled yet.";
-    if (nextBatch) {
-      return isZh
-        ? `今天没有安排任务，下一批在 ${nextBatch.date}（${nextBatch.count} 项）。`
-        : `Nothing today. Next batch is ${nextBatch.date} (${nextBatch.count} tasks).`;
-    }
-    return isZh ? "今天没有安排任务，后面也没有排任务。" : "Nothing scheduled today or later.";
-  })();
+  // 今天没有任务时只留一条数据读数：下一批排在哪天、几项。
+  // 排不出下一批就整行不渲染，避免一个空的 <p> 占位。
+  const emptyTodayLine = nextBatch
+    ? isZh
+      ? `今天没有安排任务，下一批在 ${nextBatch.date}（${nextBatch.count} 项）。`
+      : `Nothing today. Next batch is ${nextBatch.date} (${nextBatch.count} tasks).`
+    : null;
 
   /**
    * 「科目已经建好、计划还没生成」时，这一页唯一该回答的问题是「现在差什么」：
@@ -373,7 +371,6 @@ export function CourseDetailPage({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="ui-row-title">{pendingCopy.title}</p>
-                    <p className="mt-1 ui-row-meta leading-relaxed">{pendingCopy.hint}</p>
                     <button
                       onClick={() =>
                         readiness === "awaiting-materials" ? revealKnowledge() : onRequestPlanGeneration?.(plan)
@@ -405,9 +402,9 @@ export function CourseDetailPage({
                   );
                 })}
               </ul>
-            ) : (
+            ) : emptyTodayLine ? (
               <p className="ui-note">{emptyTodayLine}</p>
-            )}
+            ) : null}
 
             {/* 两个计量挂在今天下面：进度是这套计划的进度，不再单独占一张大卡。
                 还没生成计划的科目没有进度可言，摆一个 0% 只会让人以为哪里坏了。 */}

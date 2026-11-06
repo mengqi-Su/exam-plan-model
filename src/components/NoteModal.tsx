@@ -66,7 +66,6 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       closeLabel={isZh ? "关闭" : "Close"}
       icon={<FileText className="h-4 w-4" />}
       tone="warn"
-      note={isZh ? "笔记将保存至当前科目，供后续规划与复习参考" : "Saved to this subject for planning reference"}
       footer={
         <>
           <button onClick={onClose} className="ui-btn ui-btn-ghost px-3 py-1.5 text-xs">

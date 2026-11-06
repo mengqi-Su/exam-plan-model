@@ -524,16 +524,9 @@ export default function App() {
                 <div className="w-12 h-12 rounded-xl bg-[#f1efe9] flex items-center justify-center mx-auto">
                   <LayoutDashboard className="w-6 h-6 text-[#8a8580]" />
                 </div>
-                <div>
-                  <h3 className="text-[15px] font-semibold text-[#1c1b1a]">
-                    {language === "zh" ? "暂无备考科目" : "No subjects yet"}
-                  </h3>
-                  <p className="text-[13px] text-[#8a8580] mt-1.5 leading-relaxed max-w-sm mx-auto">
-                    {language === "zh"
-                      ? "新建你的首门备考计划，AI 会整理考点并生成每日复习任务。"
-                      : "Create your first study plan to generate daily tasks and a syllabus knowledge base."}
-                  </p>
-                </div>
+                <h3 className="text-[15px] font-semibold text-[#1c1b1a]">
+                  {language === "zh" ? "暂无备考科目" : "No subjects yet"}
+                </h3>
                 <div className="pt-2">
                   <button onClick={handleNewPlan} className="ui-btn ui-btn-primary">
                     <Plus className="w-4 h-4" />

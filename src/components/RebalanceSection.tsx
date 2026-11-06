@@ -120,7 +120,6 @@ export function RebalanceSection({ plan, onUpdatePlan }: RebalanceSectionProps) 
   return (
     <SectionBlock
       title={isZh ? "计划动态重排" : "Adaptive rebalance"}
-      hint={isZh ? "把未完成的积压任务平摊到剩余备考时间。" : "Spread overdue tasks across the remaining days."}
       aside={
         <span className="inline-flex items-center gap-1.5 ui-row-meta tabular-nums">
           <span
@@ -143,13 +142,8 @@ export function RebalanceSection({ plan, onUpdatePlan }: RebalanceSectionProps) 
         )
       }
     >
-      {armed ? (
+      {armed && (
         <div className="ui-card p-4 sm:p-5 space-y-3 animate-fadeIn">
-          <p className="ui-note">
-            {isZh
-              ? "说明这次为什么调整（可选）。AI 不可用时会自动改用本地排程规则。"
-              : "Tell us why (optional). If AI is unavailable, local scheduling rules are used."}
-          </p>
           <textarea
             value={rebalanceReason}
             onChange={(e) => setRebalanceReason(e.target.value)}
@@ -175,12 +169,6 @@ export function RebalanceSection({ plan, onUpdatePlan }: RebalanceSectionProps) 
             </button>
           </div>
         </div>
-      ) : (
-        <p className="ui-note">
-          {isZh
-            ? "重排只会移动未完成任务的日期，已完成与已跳过记录保持不变。"
-            : "Only pending tasks move; completed and skipped records stay as they are."}
-        </p>
       )}
 
       {aiNotice && (

@@ -397,9 +397,7 @@ export function CourseKnowledgeHub({
           <div className="rounded-xl border border-dashed border-[#ddd8d0] bg-[#faf9f6] px-5 py-8 text-center space-y-2">
             <CheckCircle2 className="w-6 h-6 mx-auto text-[#a39e97]" />
             <p className="ui-note max-w-md mx-auto">
-              {isZh
-                ? "还没有考点。上传资料后点「重新提炼考点」，用「按教材目录整理」只填教材名，或手动添加一个大单元。"
-                : "No topics yet. Upload materials and click Re-extract, outline a textbook by name, or add a unit manually."}
+              {isZh ? "还没有考点" : "No topics yet"}
             </p>
           </div>
         ) : (

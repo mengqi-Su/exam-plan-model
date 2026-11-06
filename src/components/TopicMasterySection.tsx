@@ -33,7 +33,6 @@ export function TopicMasterySection({ plan }: TopicMasterySectionProps) {
   return (
     <SectionBlock
       title={isZh ? "考点掌握度" : "Topic mastery"}
-      hint={isZh ? "按考点看完成度与自评，点轮盘上的扇区看明细。" : "Per-topic completion and self-rating."}
     >
       <DomainMasteryWheelChart topics={topicMastery} language={language} />
     </SectionBlock>

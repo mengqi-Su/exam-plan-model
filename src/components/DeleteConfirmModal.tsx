@@ -26,7 +26,6 @@ export function DeleteConfirmModal({ isOpen, plan, onClose, onConfirm }: DeleteC
       icon={<Trash2 className="h-4 w-4" />}
       tone="warn"
       size="sm"
-      note={isZh ? "删除后无法恢复，请先导出备份" : "Deletion is permanent; export a backup first"}
       footer={
         <>
           <button type="button" onClick={onClose} className="ui-btn ui-btn-ghost px-3 py-1.5 text-[12px]">
@@ -41,7 +40,8 @@ export function DeleteConfirmModal({ isOpen, plan, onClose, onConfirm }: DeleteC
             className="ui-btn ui-btn-danger px-4 py-1.5 text-[12px]"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>{isZh ? "确认删除" : "Delete permanently"}</span>
+            {/* 解释「删了就找不回来」的那行灰字已经去掉了，不可逆这件事就压在按钮自己身上。 */}
+            <span>{isZh ? "永久删除" : "Delete permanently"}</span>
           </button>
         </>
       }
@@ -54,12 +54,6 @@ export function DeleteConfirmModal({ isOpen, plan, onClose, onConfirm }: DeleteC
           {plan.materials?.length || 0} {isZh ? "份资料" : "files"}
         </p>
       </div>
-
-      <p className="ui-note leading-relaxed">
-        {isZh
-          ? "删除后，该科目的考纲笔记、复习任务排程与上传资料会一起从本机移除，进度无法找回。"
-          : "Removing this subject also removes its scheduled tasks, uploaded materials and progress from this device."}
-      </p>
     </ModalShell>
   );
 }

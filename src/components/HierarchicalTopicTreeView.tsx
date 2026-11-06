@@ -308,11 +308,6 @@ export function HierarchicalTopicTreeView({
           <p className="ui-row-title">
             {isZh ? "暂未匹配到考点或知识树为空" : "No matching topics"}
           </p>
-          <p className="ui-note max-w-md mx-auto">
-            {isZh
-              ? "上传课程资料后，点击「重新提炼考点树」即可自动提取多层级知识树。"
-              : "Upload syllabus materials to auto-extract the full hierarchical topic tree."}
-          </p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -569,7 +564,7 @@ export function HierarchicalTopicTreeView({
 
                     {subNodes.length === 0 ? (
                       <div className="rounded-lg border border-dashed border-[#ddd8d0] bg-[#faf9f6] p-3 text-center ui-muted text-[12px]">
-                        {isZh ? "该单元暂无细分考点，点击上方「细分考点」添加" : "No subtopics in this unit yet"}
+                        {isZh ? "该单元暂无细分考点" : "No subtopics in this unit yet"}
                       </div>
                     ) : (
                       <div className="relative pl-4 sm:pl-5 space-y-2.5 border-l border-[#eae7e1] ml-2">

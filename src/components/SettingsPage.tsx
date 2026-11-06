@@ -107,25 +107,22 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
   );
 }
 
-function SectionHeader({ id, title, description }: { id: string; title: string; description?: string }) {
+function SectionHeader({ id, title }: { id: string; title: string }) {
   return (
     <div className="mb-3">
       <h2 id={id} className="text-[15px] font-semibold tracking-tight text-[#1c1b1a]">
         {title}
       </h2>
-      {description && <p className="mt-1 text-[13px] leading-relaxed text-[#8a8580]">{description}</p>}
     </div>
   );
 }
 
 function Row({
   title,
-  description,
   children,
   stack,
 }: {
   title: React.ReactNode;
-  description?: string;
   children: React.ReactNode;
   stack?: boolean;
 }) {
@@ -137,7 +134,6 @@ function Row({
     >
       <div className="min-w-0">
         <div className="text-[14px] font-medium text-[#1c1b1a]">{title}</div>
-        {description && <p className="mt-0.5 text-[13px] leading-snug text-[#8a8580]">{description}</p>}
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -318,11 +314,6 @@ export function SettingsPage({
     <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 animate-fadeIn pb-12 text-[#1c1b1a]">
       <header className="sticky top-[56px] z-20 -mx-4 mb-8 border-b border-[#e7e4de] bg-[#f8f7f4]/85 px-4 py-3.5 backdrop-blur sm:-mx-6 sm:px-6 md:top-0 lg:-mx-8 lg:px-8">
         <h1 className="text-[15px] font-semibold tracking-tight text-[#1c1b1a]">{isZh ? "设置" : "Settings"}</h1>
-        <p className="mt-0.5 truncate text-[12px] text-[#8a8580]">
-          {isZh
-            ? "本地优先，无需账号。更改会即时保存在此浏览器。"
-            : "Local-first, no account. Changes save instantly in this browser."}
-        </p>
       </header>
 
       <div className="lg:grid lg:grid-cols-[150px_minmax(0,1fr)] lg:gap-10">
@@ -343,22 +334,10 @@ export function SettingsPage({
         <div className="min-w-0 space-y-10">
           {/* Preferences */}
           <section id="pref" className="scroll-mt-[136px] md:scroll-mt-24" aria-labelledby="settings-preferences-heading">
-            <SectionHeader
-              id="settings-preferences-heading"
-              title={isZh ? "学习偏好" : "Study preferences"}
-              description={
-                isZh
-                  ? "专注计时、提示音，以及新建科目时使用的复习节奏。"
-                  : "Focus timer, sound alerts, and the pace used for new subjects."
-              }
-            />
+            <SectionHeader id="settings-preferences-heading" title={isZh ? "学习偏好" : "Study preferences"} />
             <Card>
               <div className="divide-y divide-[#f0ede8]">
-                <Row
-                  stack
-                  title={isZh ? "专注计时初始时长" : "Focus timer duration"}
-                  description={isZh ? "打开任务计时器时从该时长开始。" : "The timer starts at this duration."}
-                >
+                <Row stack title={isZh ? "专注计时初始时长" : "Focus timer duration"}>
                   <Segmented
                     ariaLabel={isZh ? "专注计时初始时长" : "Focus timer duration"}
                     value={String(settings.defaultFocusDuration)}
@@ -366,23 +345,14 @@ export function SettingsPage({
                     options={[25, 45, 60, 90].map((m) => ({ value: String(m), label: `${m} min` }))}
                   />
                 </Row>
-                <Row
-                  title={isZh ? "提示音" : "Sound alerts"}
-                  description={
-                    isZh ? "任务完成与计时结束时播放提示音。" : "Play a chime when tasks complete or the timer ends."
-                  }
-                >
+                <Row title={isZh ? "提示音" : "Sound alerts"}>
                   <Switch
                     checked={settings.enableSoundAlerts}
                     onChange={(next) => updateSetting("enableSoundAlerts", next)}
                     ariaLabel={isZh ? "提示音" : "Sound alerts"}
                   />
                 </Row>
-                <Row
-                  stack
-                  title={isZh ? "默认复习节奏" : "Default study pace"}
-                  description={isZh ? "新建科目时按该节奏生成复习计划。" : "New subjects generate their plan with this pace."}
-                >
+                <Row stack title={isZh ? "默认复习节奏" : "Default study pace"}>
                   <div className="relative">
                     <select
                       value={settings.defaultStudyPace}
@@ -406,11 +376,7 @@ export function SettingsPage({
 
           {/* Language */}
           <section id="lang" className="scroll-mt-[136px] md:scroll-mt-24" aria-labelledby="settings-language-heading">
-            <SectionHeader
-              id="settings-language-heading"
-              title={isZh ? "界面语言" : "Language"}
-              description={isZh ? "仅影响本机界面显示。" : "Affects this browser only."}
-            />
+            <SectionHeader id="settings-language-heading" title={isZh ? "界面语言" : "Language"} />
             <Card>
               <Row stack title={isZh ? "显示语言" : "Display language"}>
                 <Segmented
@@ -428,15 +394,7 @@ export function SettingsPage({
 
           {/* Data */}
           <section id="data" className="scroll-mt-[136px] md:scroll-mt-24" aria-labelledby="settings-data-heading">
-            <SectionHeader
-              id="settings-data-heading"
-              title={isZh ? "数据管理" : "Data"}
-              description={
-                isZh
-                  ? "计划与资料保存在当前浏览器。只有在你主动使用 AI 时，所选内容才会发送给已配置的 AI 服务。"
-                  : "Plans live in this browser. Selected content is sent to the configured AI service only when you explicitly use AI."
-              }
-            />
+            <SectionHeader id="settings-data-heading" title={isZh ? "数据管理" : "Data"} />
             <div className="space-y-4">
               <Card className="overflow-hidden">
                 <div className="grid grid-cols-2 gap-px bg-[#f0ede8] sm:grid-cols-4">
@@ -471,15 +429,7 @@ export function SettingsPage({
 
               <Card>
                 <div className="divide-y divide-[#f0ede8]">
-                  <Row
-                    stack
-                    title={isZh ? "备份与恢复" : "Backup & restore"}
-                    description={
-                      isZh
-                        ? "导出包含全部计划、资料、设置与每日随记；导入按计划 ID 合并，不会覆盖其他课程。"
-                        : "Export plans, materials, settings and memos. Import merges by plan ID without duplicating courses."
-                    }
-                  >
+                  <Row stack title={isZh ? "备份与恢复" : "Backup & restore"}>
                     <div className="flex flex-wrap gap-2">
                       <button onClick={handleExport} className={ghostButton}>
                         <Download className="h-4 w-4" />
@@ -509,11 +459,7 @@ export function SettingsPage({
                   )}
 
                   {!isPersisted && (
-                    <Row
-                      stack
-                      title={isZh ? "持久化存储" : "Persistent storage"}
-                      description={isZh ? "授权后浏览器不会自动清理本地数据。" : "Prevent the browser from auto-clearing local data."}
-                    >
+                    <Row stack title={isZh ? "持久化存储" : "Persistent storage"}>
                       <button onClick={handleRequestPersistence} className={ghostButton}>
                         <ShieldCheck className="h-4 w-4" />
                         {isZh ? "申请权限" : "Request"}
@@ -523,24 +469,10 @@ export function SettingsPage({
                 </div>
               </Card>
 
-              <p className="flex items-start gap-2 px-1 text-[12px] leading-relaxed text-[#a39e97]">
-                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>
-                  {isZh
-                    ? "清除浏览器站点数据或使用无痕模式会丢失计划，建议定期导出 JSON 备份。"
-                    : "Clearing site data or using private browsing erases plans — export a JSON backup regularly."}
-                </span>
-              </p>
-
               <Card className="border-[#f0d8d4]">
                 <Row
                   stack
                   title={<span className="text-[#B42318]">{isZh ? "清除全部本地数据" : "Clear all local data"}</span>}
-                  description={
-                    isZh
-                      ? "删除所有科目、任务、资料与每日随记，无法撤销。建议先导出备份。"
-                      : "Permanently deletes all subjects, tasks, materials and memos. Export a backup first."
-                  }
                 >
                   <button
                     onClick={handleConfirmClear}
@@ -571,37 +503,15 @@ export function SettingsPage({
 
           {/* Release info — deliberately quiet footer area */}
           <footer className="border-t border-[#f0ede8] pt-5">
-            <p className="text-[12px] leading-relaxed text-[#a39e97]">
-              {isZh ? (
-                <>
-                  规划与执行安排在这里；题库练习、模拟考试请前往{" "}
-                  <a
-                    href={STARQUIZ_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-0.5 font-medium text-[#8a8580] underline underline-offset-2 transition-colors hover:text-[#1c1b1a]"
-                  >
-                    StarQuiz
-                    <ArrowUpRight className="h-3 w-3" />
-                  </a>
-                  。
-                </>
-              ) : (
-                <>
-                  Planning and execution live here; practice and mock exams are in{" "}
-                  <a
-                    href={STARQUIZ_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-0.5 font-medium text-[#8a8580] underline underline-offset-2 transition-colors hover:text-[#1c1b1a]"
-                  >
-                    StarQuiz
-                    <ArrowUpRight className="h-3 w-3" />
-                  </a>
-                  .
-                </>
-              )}
-            </p>
+            <a
+              href={STARQUIZ_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[12px] font-medium text-[#8a8580] underline underline-offset-2 transition-colors hover:text-[#1c1b1a]"
+            >
+              {isZh ? "前往 StarQuiz 练习" : "Go to StarQuiz for practice"}
+              <ArrowUpRight className="h-3 w-3" />
+            </a>
 
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
               <button

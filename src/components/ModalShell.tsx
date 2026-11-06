@@ -46,8 +46,6 @@ export interface ModalShellProps {
   closeDisabled?: boolean;
   /** 标题上方那行小字（页面归属、已存数量这类） */
   eyebrow?: React.ReactNode;
-  /** 标题下面的一句说明 */
-  description?: React.ReactNode;
   icon?: React.ReactNode;
   /** warn 给资料/删除确认这类需要一点底色的图标块 */
   tone?: "neutral" | "warn";
@@ -72,7 +70,6 @@ export function ModalShell({
   closeLabel,
   closeDisabled = false,
   eyebrow,
-  description,
   icon,
   tone = "neutral",
   size = "md",
@@ -103,7 +100,7 @@ export function ModalShell({
 
   if (!open) return null;
 
-  const hasHeaderExtras = Boolean(eyebrow || description || subheader);
+  const hasHeaderExtras = Boolean(eyebrow || subheader);
 
   return (
     <div
@@ -144,11 +141,6 @@ export function ModalShell({
                 )}
                 <span className="ui-section-title truncate">{title}</span>
               </div>
-              {/* 一句话说明只在 sm 以上出现：小屏上标题加分步条已经说清了来意，
-                  这几行字在手机上占的就是内容区该有的那几十像素滚动高度。 */}
-              {description && (
-                <p className="hidden text-[12.5px] leading-relaxed text-[#8a8580] sm:block">{description}</p>
-              )}
             </div>
             <button
               onClick={onClose}

@@ -136,7 +136,6 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
       closeLabel={isZh ? "关闭编辑窗口" : "Close edit dialog"}
       icon={<Pencil className="h-4 w-4" />}
       size="lg"
-      note={isZh ? "只改考试信息，已生成的任务不会被重写。" : "Only exam info changes; scheduled tasks stay as they are."}
       footer={
         <>
           <button onClick={onClose} className="ui-btn ui-btn-ghost px-3 py-1.5 text-[12px]">
@@ -176,11 +175,11 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
           <span className="mt-1.5 block ui-row-meta">
             {draft.icon
               ? isZh
-                ? `已选 ${draft.icon}，再点一次交回自动配。`
-                : `${draft.icon} selected. Click it again to go back to auto.`
+                ? `已选 ${draft.icon}`
+                : `${draft.icon} selected`
               : isZh
-                ? `不选就按学科自动配，当前是 ${autoIcon}。`
-                : `Leave unset and it follows the subject — currently ${autoIcon}.`}
+                ? `当前是 ${autoIcon}`
+                : `Currently ${autoIcon}`}
           </span>
         </div>
 
@@ -254,13 +253,11 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
               />
             </label>
           </div>
-          <span className="mt-1.5 block ui-row-meta">
-            {coverError
-              ? <span className="text-[#B42318]">{coverError}</span>
-              : isZh
-                ? "封面只是页头那条背景带，不改任务也不影响计划。"
-                : "A cover is only the band behind the header; tasks and schedule stay untouched."}
-          </span>
+          {coverError && (
+            <span className="mt-1.5 block ui-row-meta">
+              <span className="text-[#B42318]">{coverError}</span>
+            </span>
+          )}
         </div>
 
         <label className="block min-w-0 sm:col-span-2">

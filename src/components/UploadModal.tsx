@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Upload, RefreshCw, AlertCircle } from "lucide-react";
 import { StudyMaterial } from "../types";
-import { parseDocumentFile, UPLOAD_ACCEPT, uploadHint } from "../lib/documentParser";
+import { parseDocumentFile, UPLOAD_ACCEPT } from "../lib/documentParser";
 import { useI18n } from "../lib/i18n";
 import { ModalShell } from "./ModalShell";
 
@@ -137,7 +137,6 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           <p className="ui-row-title">
             {isParsing ? parsingStatus : isZh ? "点击选择 或 拖入文件" : "Click or drop files"}
           </p>
-          <p className="ui-row-meta">{uploadHint(isZh)}</p>
         </div>
       </div>
 

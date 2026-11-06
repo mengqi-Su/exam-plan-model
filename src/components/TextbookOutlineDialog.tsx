@@ -177,11 +177,6 @@ export function TextbookOutlineDialog({
         closeLabel={tt("关闭教材目录弹窗", "Close textbook outline dialog")}
         icon={<BookOpen className="h-4 w-4" />}
         size="md"
-        note={
-          <span className="ui-row-meta">
-            {tt("目录只是回忆出来的草稿，勾完才会变成考点。", "The outline is a recalled draft; nothing becomes a topic until you tick it.")}
-          </span>
-        }
         footer={
           <>
             <button onClick={close} className="ui-btn ui-btn-ghost px-3 py-1.5 text-[12px]">
@@ -215,19 +210,12 @@ export function TextbookOutlineDialog({
             className="ui-field"
             disabled={isWorking}
           />
-          <p className="ui-note mt-2">
-            {tt(
-              "写准书名和版次，目录会更贴近你手上那一本；不写版次也能出目录，只是章节名可能和你那本不完全一致。拿到目录后先对着勾选，不确定的章不勾就行。",
-              "The exact title and edition give a closer match to your copy; the edition is optional, chapter names may then differ slightly. Tick only the chapters you recognise."
-            )}
-          </p>
         </div>
 
         {(examName || subject) && (
           <div className="flex flex-wrap items-center gap-1.5">
             {examName && <span className="ui-chip">{examName}</span>}
             {subject && <span className="ui-chip">{subject}</span>}
-            <span className="ui-row-meta">{tt("权重会按这场考试的侧重来分。", "Weights follow this exam.")}</span>
           </div>
         )}
 
@@ -389,13 +377,6 @@ export function TextbookOutlineDialog({
           </li>
         ))}
       </ul>
-
-      <p className="ui-row-meta">
-        {tt(
-          "回忆的目录不会替换你从资料里提炼的考点；确认后会并进来，标着「教材目录」，随时可以删。",
-          "Recalled topics never overwrite ones extracted from your materials; they merge in marked “Textbook” and can be deleted any time."
-        )}
-      </p>
 
       {error && !isWorking && (
         <div className="flex items-start gap-2 rounded-lg bg-[#FBEAE8] px-3 py-2 text-[12px] leading-relaxed text-[#B42318]">

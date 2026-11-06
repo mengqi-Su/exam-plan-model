@@ -28,11 +28,6 @@ export const UPLOAD_ACCEPT = Array.from(SUPPORTED_EXTENSIONS)
   .map((e) => `.${e}`)
   .join(",");
 
-export function uploadHint(isZh: boolean): string {
-  return isZh
-    ? "PDF / Word（.doc·.docx）/ PPTX / TXT / MD · 单文件 ≤ 10 MB"
-    : "PDF / Word (.doc · .docx) / PPTX / TXT / MD · max 10 MB each";
-}
 // 旧版 PowerPoint 走的是另一套 OLE 流（PowerPoint Document，记录式结构），
 // 与 Word 的 piece table 完全不同，不值得在这里重写一遍。但它和 .doc 共用同一个文件头，
 // 所以要单独说清楚「另存为 pptx」，不能只甩一句「格式不支持」。

@@ -257,9 +257,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
         <span className="text-xs font-bold text-[#111111] uppercase tracking-wide">
           {isZh ? "周一至周日学习时间规划" : "Weekly Study Cadence & Duration"}
         </span>
-        <span className="text-[10px] font-mono text-[#a39e97]">
-          {isZh ? "左右滑标尺 · 点序号换天" : "Swipe ruler · tap a number"}
-        </span>
       </div>
 
       <div className="relative rounded-2xl bg-[#faf9f6] border border-[#e8e6df] p-5 sm:p-7 overflow-hidden select-none">

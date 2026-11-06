@@ -85,11 +85,6 @@ export function CourseAccordionGallery({
           <h3 className="text-lg font-semibold tracking-tight text-[#1c1b1a]">
             {isZh ? "还没有备考科目" : "No subjects yet"}
           </h3>
-          <p className="text-[13px] ui-muted leading-relaxed">
-            {isZh
-              ? "新建你的第一门备考科目，上传考试大纲或讲义笔记，自动生成每日学习计划与阶段复习节奏。"
-              : "Create your first subject. Upload a syllabus or notes to generate an adaptive daily study plan and milestone roadmap."}
-          </p>
         </div>
         <button onClick={onAddNewSubject} className="ui-btn ui-btn-primary">
           <Plus className="w-4 h-4" />
@@ -403,7 +398,6 @@ export function CourseAccordionGallery({
                   {pending ? (
                     <div className="space-y-1.5">
                       <span className="ui-chip">{pending.title}</span>
-                      <p className="text-[12px] ui-muted leading-relaxed">{pending.hint}</p>
                     </div>
                   ) : (
                     <>

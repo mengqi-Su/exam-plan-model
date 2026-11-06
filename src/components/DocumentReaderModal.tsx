@@ -602,11 +602,6 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
                   {doc.content || (isZh ? "*（本文档暂无文本内容）*" : "*(No content available)*")}
                 </Markdown>
               </div>
-
-              {/* End of Document */}
-              <div className={`pt-12 pb-6 text-center text-xs select-none ${themeStyles.secondaryText} opacity-70`}>
-                {isZh ? "本文档已阅读完毕" : "End of document"}
-              </div>
             </div>
           </main>
         </div>
