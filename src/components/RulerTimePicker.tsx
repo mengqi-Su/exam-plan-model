@@ -282,10 +282,9 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
         <div className="flex items-center justify-between pb-3.5 border-b border-[#eeebe3]">
           <div className="flex items-center space-x-2 font-mono text-xs text-[#888888]">
             <span className="font-bold text-[#111111] uppercase tracking-wider">
-              {dayLabel(selectedDay)} · {dayName(selectedDay, false).toUpperCase()}
+              {/* 中文时补一个大写英文名当装饰；英文界面下再拼一次就成了 "Monday · MONDAY"。 */}
+              {isZh ? `${dayLabel(selectedDay)} · ${dayName(selectedDay, false).toUpperCase()}` : dayLabel(selectedDay)}
             </span>
-            <span>·</span>
-            <span>{activeHours > 0 ? `${activeHours}h / 天` : (language === "zh" ? "休整" : "Rest")}</span>
           </div>
 
           <div className="flex items-center space-x-2">
@@ -318,11 +317,15 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-5 lg:gap-6 items-center pt-5">
 
-          <div
-            ref={arcContainerRef}
-            style={{ touchAction: "none", overscrollBehavior: "contain" }}
-            className="md:col-span-5 relative h-56 sm:h-64 overflow-hidden flex items-center md:border-r border-[#eeebe3] md:pr-4 select-none cursor-grab active:cursor-grabbing"
-          >
+          {/* 转盘这一列只放序号。以前把「周几 + 几小时」写在序号右边，桌面下这一列只有 ~210px，
+              列上的 overflow-hidden 正好把后半截裁掉，看上去就像被什么东西挡住了。
+              现在详情挪到转盘下方单独一行，宽度不够自己换行，不会再被裁。 */}
+          <div className="md:col-span-6 flex flex-col md:border-r border-[#eeebe3] md:pr-4">
+            <div
+              ref={arcContainerRef}
+              style={{ touchAction: "none", overscrollBehavior: "contain" }}
+              className="relative h-56 sm:h-64 overflow-hidden flex items-center select-none cursor-grab active:cursor-grabbing"
+            >
 
             <svg
               className="absolute left-0 top-0 w-full h-full pointer-events-none"
@@ -343,9 +346,6 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                 const diff = idx - activeIndex;
                 const isSelected = diff === 0;
                 const meta = dayMeta[dayNum];
-                const sched = dailySchedules.find((s) => s.dayOfWeek === dayNum);
-                const hours = sched && sched.enabled ? sched.availableHours : 0;
-                const isRest = hours === 0;
 
                 const angleDeg = diff * ANGLE_STEP_DEG;
                 const angleRad = (angleDeg * Math.PI) / 180;
@@ -391,33 +391,30 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                     >
                       {meta.indexStr}
                     </span>
-
-                    {isSelected && (
-                      <div className="flex flex-col justify-center pl-1 select-none animate-fadeIn">
-                        <div className="flex items-center space-x-1.5">
-                          <span className="text-sm font-bold text-[#111111]">
-                            {dayLabel(dayNum)}
-                          </span>
-                          {meta.isWeekend && (
-                            <span className="text-[9px] px-1 py-0.2 bg-[#111111] text-white font-mono rounded">
-                              {language === "zh" ? "周末" : "WE"}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs text-[#777777] font-mono mt-0.5 whitespace-nowrap">
-                          {isRest
-                            ? language === "zh" ? "休息蓄力 · 0h" : "Rest Day · 0h"
-                            : `${hours} ${language === "zh" ? "小时学习时间" : "hrs target"}`}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 );
               })}
             </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 pb-1 text-center">
+              <span className="text-sm font-bold text-[#111111]">{dayLabel(selectedDay)}</span>
+              {dayMeta[selectedDay].isWeekend && (
+                <span className="text-[9px] px-1 py-0.5 bg-[#111111] text-white font-mono rounded">
+                  {language === "zh" ? "周末" : "WE"}
+                </span>
+              )}
+              <span className="text-xs text-[#777777] font-mono">
+                {activeHours === 0
+                  ? language === "zh"
+                    ? "休息蓄力 · 0h"
+                    : "Rest Day · 0h"
+                  : `${activeHours} ${language === "zh" ? "小时学习时间" : "hrs target"}`}
+              </span>
+            </div>
           </div>
 
-          <div className="md:col-span-7 flex flex-col items-center justify-center space-y-3.5 py-1">
+          <div className="md:col-span-6 flex flex-col items-center justify-center space-y-3.5 py-1">
 
             <div className="relative w-full max-w-md h-20 flex items-center justify-center">
 
