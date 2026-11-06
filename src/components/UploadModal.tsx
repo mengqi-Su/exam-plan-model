@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Upload, RefreshCw, AlertCircle } from "lucide-react";
 import { StudyMaterial } from "../types";
-import { parseDocumentFile } from "../lib/documentParser";
+import { parseDocumentFile, UPLOAD_ACCEPT, uploadHint } from "../lib/documentParser";
 import { useI18n } from "../lib/i18n";
 import { ModalShell } from "./ModalShell";
 
@@ -120,7 +120,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           id="modal-file-upload-input"
           type="file"
           multiple
-          accept=".pdf,.docx,.pptx,.txt,.md,.markdown,.csv,.json,.rtf"
+          accept={UPLOAD_ACCEPT}
           onChange={(e) => handleFiles(e.target.files)}
           className="hidden"
         />
@@ -137,9 +137,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           <p className="ui-row-title">
             {isParsing ? parsingStatus : isZh ? "点击选择 或 拖入文件" : "Click or drop files"}
           </p>
-          <p className="ui-row-meta">
-            {isZh ? "PDF / DOCX / PPTX / TXT / MD · 单文件 ≤ 10 MB" : "PDF / DOCX / PPTX / TXT / MD · max 10 MB each"}
-          </p>
+          <p className="ui-row-meta">{uploadHint(isZh)}</p>
         </div>
       </div>
 

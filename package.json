@@ -16,7 +16,8 @@
     "test:handoff": "tsx dev/handoff.test.ts",
     "test:inbound": "tsx dev/inbound.test.ts",
     "test:function": "tsx dev/function-smoke.ts",
-    "test:client": "tsx dev/client-smoke.ts"
+    "test:client": "tsx dev/client-smoke.ts",
+    "test:legacyword": "tsx dev/legacy-word.test.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",

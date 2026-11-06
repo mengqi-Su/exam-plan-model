@@ -60,12 +60,13 @@ const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
     en: "Up to 20 materials can be processed at once. Please split the batch.",
   },
   UNSUPPORTED_FORMAT: {
-    zh: "不支持此文件格式。请上传 PDF、DOCX、PPTX、TXT、Markdown、CSV 或 JSON。",
-    en: "Unsupported file type. Upload PDF, DOCX, PPTX, TXT, Markdown, CSV, or JSON.",
+    zh: "不支持此文件格式。请上传 PDF、Word（.doc / .docx）、PPTX、TXT、Markdown、CSV 或 JSON。",
+    en: "Unsupported file type. Upload PDF, Word (.doc / .docx), PPTX, TXT, Markdown, CSV, or JSON.",
   },
+  // 旧版 Word（.doc）现在能本地直接读，剩下只有旧版 PowerPoint 还得让用户另存一次。
   LEGACY_OFFICE_UNSUPPORTED: {
-    zh: "不支持旧版 DOC/PPT 格式，请另存为 DOCX/PPTX 或 PDF 后重试。",
-    en: "Legacy DOC/PPT files are not supported. Save as DOCX/PPTX or PDF first.",
+    zh: "旧版 PowerPoint（.ppt）暂时读不了，请用 PowerPoint 或 WPS 另存为 .pptx 或 PDF 后上传。",
+    en: "Legacy PowerPoint (.ppt) can't be read yet. Save it as .pptx or PDF, then upload.",
   },
   SCANNED_PDF_AI_REQUIRED: {
     zh: "该 PDF 没有可提取的文字层（可能是扫描件），且 AI 解析不可用。请上传可复制文字的 PDF、DOCX 或 PPTX。",

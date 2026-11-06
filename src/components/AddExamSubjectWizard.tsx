@@ -28,7 +28,7 @@ import {
   UserStudyPreferences,
 } from "../types";
 import { useI18n } from "../lib/i18n";
-import { parseDocumentFile } from "../lib/documentParser";
+import { parseDocumentFile, UPLOAD_ACCEPT, uploadHint } from "../lib/documentParser";
 import { GenerationError, MAX_AI_MATERIALS, prepareMaterialsForAI, runGeneration } from "../lib/aiClient";
 import { daysBetween, toLocalDateString } from "../lib/date";
 import { DEFAULT_WEEK_SCHEDULE } from "../lib/storage";
@@ -955,7 +955,7 @@ export function AddExamSubjectWizard({
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".pdf,.docx,.pptx,.txt,.md,.markdown,.csv,.json,.rtf"
+                accept={UPLOAD_ACCEPT}
                 onChange={(event) => {
                   void handleFileUpload(event.target.files);
                   event.target.value = "";
@@ -971,12 +971,7 @@ export function AddExamSubjectWizard({
                   ? parsingStatus || tt("正在读取资料...", "Reading materials...")
                   : tt("拖拽资料到这里，或点击选择文件", "Drop materials here, or click to browse")}
               </p>
-              <p className="mt-1 text-[12px] leading-relaxed text-[#8a8580]">
-                {tt(
-                  "PDF、DOCX、PPTX、TXT、MD、CSV · 单个文件 ≤ 10 MB",
-                  "PDF, DOCX, PPTX, TXT, MD, CSV · max 10 MB each"
-                )}
-              </p>
+              <p className="mt-1 text-[12px] leading-relaxed text-[#8a8580]">{uploadHint(language !== "en")}</p>
             </label>
 
             {courseDocuments.length > 0 && (

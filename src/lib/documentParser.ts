@@ -1,4 +1,5 @@
 import { MAX_UPLOAD_BYTES } from "./aiClient";
+import { LegacyWordError, extractLegacyWordText, isOleCompoundFile } from "./legacyWord";
 
 export interface ParsedDocumentResult {
   text: string;
@@ -9,6 +10,7 @@ export interface ParsedDocumentResult {
 
 const SUPPORTED_EXTENSIONS = new Set([
   "pdf",
+  "doc",
   "docx",
   "pptx",
   "txt",
@@ -20,11 +22,27 @@ const SUPPORTED_EXTENSIONS = new Set([
 ]);
 
 const TEXT_EXTENSIONS = new Set(["txt", "md", "markdown", "json", "csv", "rtf"]);
+
+// 上传白名单只在这里说一次：资料弹窗和新建向导共用，免得加一种格式要改两处、两边说法还不一样。
+export const UPLOAD_ACCEPT = Array.from(SUPPORTED_EXTENSIONS)
+  .map((e) => `.${e}`)
+  .join(",");
+
+export function uploadHint(isZh: boolean): string {
+  return isZh
+    ? "PDF / Word（.doc·.docx）/ PPTX / TXT / MD · 单文件 ≤ 10 MB"
+    : "PDF / Word (.doc · .docx) / PPTX / TXT / MD · max 10 MB each";
+}
+// 旧版 PowerPoint 走的是另一套 OLE 流（PowerPoint Document，记录式结构），
+// 与 Word 的 piece table 完全不同，不值得在这里重写一遍。但它和 .doc 共用同一个文件头，
+// 所以要单独说清楚「另存为 pptx」，不能只甩一句「格式不支持」。
+const LEGACY_PRESENTATION_EXTENSIONS = new Set(["ppt", "pps", "pot", "dps"]);
 const MAX_MATERIAL_CHARS = 120_000;
 const MAX_ZIP_ENTRY_BYTES = 8 * 1024 * 1024;
 
 // 文档解析全部在浏览器本地完成（本地优先，文件不离开设备）：
-//   文本类直接读取；DOCX/PPTX 用内置 ZIP+XML 解析；PDF 用 pdf.js 提取文字层。
+//   文本类直接读取；DOCX/PPTX 用内置 ZIP+XML 解析；PDF 用 pdf.js 提取文字层；
+//   旧版 .doc 走 legacyWord 的 OLE + piece table。
 // 这样站点云函数只负责 AI 规划，无需任何 Node 专有解析库。
 export async function parseDocumentFile(
   file: File,
@@ -34,11 +52,19 @@ export async function parseDocumentFile(
   const isZh = language !== "en";
   const ext = file.name.split(".").pop()?.toLowerCase() || "";
 
+  if (LEGACY_PRESENTATION_EXTENSIONS.has(ext)) {
+    throw new Error(
+      isZh
+        ? "这是旧版 PowerPoint（.ppt）文件，请用 PowerPoint 或 WPS 另存为 .pptx 或 PDF 后上传。"
+        : "That is a legacy PowerPoint (.ppt) file. Save it as .pptx or PDF, then upload."
+    );
+  }
+
   if (!SUPPORTED_EXTENSIONS.has(ext)) {
     throw new Error(
       isZh
-        ? "不支持此文件格式。请上传 PDF、DOCX、PPTX、TXT、Markdown、CSV 或 JSON。"
-        : "Unsupported file type. Upload PDF, DOCX, PPTX, TXT, Markdown, CSV, or JSON."
+        ? "不支持此文件格式。请上传 PDF、Word（.doc / .docx）、PPTX、TXT、Markdown、CSV 或 JSON。"
+        : "Unsupported file type. Upload PDF, Word (.doc / .docx), PPTX, TXT, Markdown, CSV, or JSON."
     );
   }
 
@@ -72,22 +98,96 @@ export async function parseDocumentFile(
     throw new Error(isZh ? "文件内容为空。" : "The file is empty.");
   }
 
-  if (ext === "docx") {
-    const text = await extractDocxText(buffer, isZh);
+  // 以文件头为准，扩展名只用来挑报错文案：老师发的 .doc 里有人塞的是 zip 装的 docx，
+  // .docx 里也常见还是 OLE 的老文件。按扩展名硬解只会给出误导性的「文件已损坏」。
+  const kind = sniffKind(new Uint8Array(buffer));
+
+  if (kind === "ole") {
+    const text = extractLegacyDocText(buffer, isZh);
     return { text, fileName: file.name, length: text.length };
   }
 
-  if (ext === "pptx") {
-    const text = await extractPptxText(buffer, isZh);
+  if (kind === "zip") {
+    const text = ext === "pptx" ? await extractPptxText(buffer, isZh) : await extractDocxText(buffer, isZh);
     return { text, fileName: file.name, length: text.length };
   }
 
-  if (ext === "pdf") {
+  if (kind === "pdf") {
     const { text, pageCount } = await extractPdfText(buffer, isZh);
     return { text, fileName: file.name, pageCount, length: text.length };
   }
 
-  throw new Error(isZh ? "不支持此文件格式。" : "Unsupported file type.");
+  // 剩下的是「二进制看版的文本」：RTF 存成 .doc、HTML 存成 .doc 都走这条路。
+  if (kind === "unknown" || kind === "rtf") {
+    const rawText = decodeLooseText(buffer);
+    if (rawText && !containsBinaryGarbage(rawText)) {
+      const cleaned = stripRtf(rawText);
+      if (cleaned.trim().length >= 10) {
+        const trimmed = cleaned.trim();
+        return { text: trimmed, fileName: file.name, length: trimmed.length };
+      }
+    }
+  }
+
+  throw new Error(
+    isZh
+      ? "这个文件读不出文字，请确认它是真正的 PDF、Word 或 PPTX，而不是快捷方式或云文档占位。"
+      : "No text could be read from this file. Make sure it is a real PDF, Word or PPTX file, not a shortcut or cloud placeholder."
+  );
+}
+
+/* ---------------- 文件头识别 ---------------- */
+
+type FileKind = "ole" | "zip" | "pdf" | "rtf" | "unknown";
+
+function sniffKind(bytes: Uint8Array): FileKind {
+  if (!bytes || bytes.length < 4) return "unknown";
+  if (isOleCompoundFile(bytes)) return "ole";
+  if (bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04) return "zip";
+  if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return "pdf"; // %PDF
+  if (bytes[0] === 0x7b && bytes[1] === 0x5c && bytes[2] === 0x72 && bytes[3] === 0x74) return "rtf"; // {\rtf
+  return "unknown";
+}
+
+/* ---------------- 旧版 Word（.doc） ---------------- */
+
+function extractLegacyDocText(buffer: ArrayBuffer, isZh: boolean): string {
+  let text: string;
+  try {
+    text = extractLegacyWordText(buffer);
+  } catch (error) {
+    const code = error instanceof LegacyWordError ? error.code : "decode";
+    throw new Error(legacyWordMessage(code, isZh));
+  }
+  if (text.trim().length < 10) {
+    throw new Error(
+      isZh
+        ? "这份 Word 文档里没有正文文字（可能是空白页或只放了图片）。"
+        : "This Word document has no text (it may be blank or image-only)."
+    );
+  }
+  return text.slice(0, MAX_MATERIAL_CHARS);
+}
+
+function legacyWordMessage(code: string, isZh: boolean): string {
+  if (code === "encrypted_doc") {
+    return isZh
+      ? "这份 Word 文档加了打开密码，请先去掉密码再上传。"
+      : "This Word file is password-protected. Remove the password before uploading.";
+  }
+  if (code === "not_word97") {
+    return isZh
+      ? "这份 .doc 比 Word 97 还老，请用 Word 或 WPS 另存为 .docx 后上传。"
+      : "This .doc predates Word 97. Save it as .docx before uploading.";
+  }
+  if (code === "not_ole") {
+    return isZh
+      ? "文件后缀是 Word，但内容并不是 Word 文档，可能被改过后缀或只下载了一半。"
+      : "The extension says Word but the content is not a Word document — it may be renamed or only half downloaded.";
+  }
+  return isZh
+    ? "无法读取这份 Word 文档，请确认文件完整未损坏，或另存为 .docx / PDF 后重试。"
+    : "Could not read this Word document. Check that the file is intact, or save it as .docx / PDF and retry.";
 }
 
 /* ---------------- 文本读取 ---------------- */
@@ -99,6 +199,15 @@ function readFileAsText(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsText(file, "utf-8");
   });
+}
+
+// 文件头认不出来的最后一搏：按 UTF-8 松解，交给 containsBinaryGarbage 判断是否真有成文的文字。
+function decodeLooseText(buffer: ArrayBuffer): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: false }).decode(new Uint8Array(buffer).subarray(0, 2_000_000));
+  } catch {
+    return "";
+  }
 }
 
 function stripRtf(text: string): string {
