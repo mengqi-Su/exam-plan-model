@@ -172,11 +172,96 @@ console.log('  ok  待办过多时重排直接用本地规则（单次调用装�
 
 const missing = await call('/ai/units', { materials: [], language: 'zh' });
 assert.equal(missing.data.code, 'EMPTY_MATERIALS');
-const badMode = await handler(new Request(`${base}/ai/nope`, { method: 'POST', body: '{}' }));
+const badMode = await handler(new Request(`${base}/ai/nope`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: '{}'
+}));
 assert.equal(badMode.status, 404);
 const wrongMethod = await handler(new Request(`${base}/ai/units`, { method: 'DELETE' }));
 assert.equal(wrongMethod.status, 405);
 console.log('  ok  空资料 / 未知路由 / 非 POST 都有明确响应');
+
+/* ---------------- 请求闸门：来源、类型、体积、频率 ---------------- */
+
+// 来源与频率用例打在 /ai/nope 上：闸门在路由分发之前，能走到 404 就说明「放行到了门口以内」，
+// 而 body 用例必须走一个真会读 body 的路由（/ai/plan-schedule，256 KB 上限，纯本地计算）。
+async function gate(
+  path: string,
+  headers: Record<string, string>,
+  body?: BodyInit
+): Promise<{ status: number; data: any; retryAfter: string | null }> {
+  const res = await handler(new Request(`${base}${path}`, { method: 'POST', headers, body }));
+  return {
+    status: res.status,
+    data: await res.json(),
+    retryAfter: res.headers.get('Retry-After'),
+  };
+}
+
+const jsonType = { 'Content-Type': 'application/json' };
+const nopePath = '/ai/nope';
+const bodyPath = '/ai/plan-schedule';
+
+const notJson = await gate(bodyPath, { 'Content-Type': 'text/plain' }, '{"language":"zh"}');
+assert.equal(notJson.status, 415, JSON.stringify(notJson.data));
+assert.equal(notJson.data.code, 'unsupported_media_type');
+console.log('  ok  闸门：非 JSON Content-Type 一律 415');
+
+const crossOrigin = await gate(nopePath, { ...jsonType, Origin: 'https://evil.example.com', 'Sec-Fetch-Site': 'cross-site' });
+assert.equal(crossOrigin.status, 403, JSON.stringify(crossOrigin.data));
+assert.equal(crossOrigin.data.code, 'cross_origin');
+console.log('  ok  闸门：跨站页面借浏览器打我们 -> 403');
+
+// 同域与本地开发要放行；没有 Origin 的调用（curl、探活、发布后核对）也要放行，
+// 否则运维和验证一起被挡在门外，而这类调用本来也借不到用户的登录态。
+for (const origin of ['https://exam-plan-ai-zfc3er164xi.qoder.zone', 'http://127.0.0.1:4400', 'http://localhost:5173']) {
+  const ok = await gate(nopePath, { ...jsonType, Origin: origin, 'Sec-Fetch-Site': 'same-origin' }, '{}');
+  assert.equal(ok.status, 404, `${origin} 应放行到路由层，实际 ${ok.status}`);
+}
+const noOrigin = await gate(nopePath, jsonType, '{}');
+assert.equal(noOrigin.status, 404);
+console.log('  ok  闸门：本站与本地来源放行，无 Origin 的调用也放行');
+
+// 上限按字节算：中文一字 3 字节，旧写法按字符判断等于把上限放宽三倍。
+const tooBig = await gate(bodyPath, jsonType, JSON.stringify({ preferences: { note: '字'.repeat(120_000) } }));
+assert.equal(tooBig.status, 413, JSON.stringify(tooBig.data));
+assert.equal(tooBig.data.code, 'body_too_large');
+console.log('  ok  闸门：按字节封顶的 body 超限即 413');
+
+// 声明很小、实际很大时，流式读取仍要在超限处中止，而不是信了 Content-Length 就整块收下。
+const declaredSmall = await gate(
+  bodyPath,
+  { 'Content-Type': 'application/json', 'Content-Length': '16' },
+  '{"materials":"' + '字'.repeat(200_000) + '"}'
+);
+assert.equal(declaredSmall.status, 413, JSON.stringify(declaredSmall.data));
+assert.equal(declaredSmall.data.code, 'body_too_large');
+console.log('  ok  闸门：Content-Length 撒谎时，流式读取仍然中止');
+
+const brokenJson = await gate(bodyPath, jsonType, 'not-json-at-all');
+assert.equal(brokenJson.status, 400, JSON.stringify(brokenJson.data));
+assert.equal(brokenJson.data.code, 'bad_body');
+console.log('  ok  闸门：body 不是 JSON 时给 bad_body，不再混进「请求格式错误」');
+
+// 令牌桶：一次正常生成是几十个并发小请求，额度必须先让这种人过去；
+// 真正的脚本刷量在桶空之后吃 429 + Retry-After。这里用独立 IP，不污染其他用例。
+const spamIp = { ...jsonType, 'X-Forwarded-For': '203.0.113.9' };
+let limited: { status: number; data: any; retryAfter: string | null } | null = null;
+for (let i = 0; i < 140; i++) {
+  const attempt = await gate(nopePath, spamIp, '{}');
+  if (attempt.status === 429) limited = attempt;
+  else assert.equal(attempt.status, 404, `第 ${i + 1} 次不该被限流：${JSON.stringify(attempt.data)}`);
+}
+assert.ok(limited, '刷到 140 次应当撞到令牌桶');
+assert.equal(limited!.data.code, 'rate_limited');
+assert.ok(Number(limited!.retryAfter) >= 1, `429 要带 Retry-After，实际 ${limited!.retryAfter}`);
+console.log(`  ok  闸门：突发 120 次之后限流（Retry-After ${limited!.retryAfter}s）`);
+
+// 额度按来源 IP 分桶：邻居被刷爆不该把新用户一起关在门外。
+const freshIp = await gate(nopePath, { ...jsonType, 'X-Forwarded-For': '203.0.113.10' }, '{}');
+assert.equal(freshIp.status, 404);
+console.log('  ok  闸门：限流按来源 IP 分桶，不牵连别人');
 
 /* ---------------- 上游客户端：用假 fetch 验证调用形状、截断与时间预算 ---------------- */
 

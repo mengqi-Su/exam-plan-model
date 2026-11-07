@@ -232,6 +232,36 @@ const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
     zh: "请求内容格式无效，请刷新页面后重试。",
     en: "Invalid request format. Refresh the page and try again.",
   },
+  // 下面是函数闸门（functions/requestGuard.ts）的拒绝码。
+  body_too_large: {
+    zh: "这次提交的内容超过了服务上限，请减少资料数量后重试。",
+    en: "This request is over the service limit. Reduce the materials and try again.",
+  },
+  body_timeout: {
+    zh: "上传太慢了，请检查网络，或减少资料量后重试。",
+    en: "The upload was too slow. Check your connection, or reduce the materials and try again.",
+  },
+  bad_body: {
+    zh: "请求内容格式无效，请刷新页面后重试。",
+    en: "Invalid request format. Refresh the page and try again.",
+  },
+  unsupported_media_type: {
+    zh: "这个接口只接受 JSON 请求，请刷新页面后重试。",
+    en: "This endpoint only accepts JSON requests. Refresh the page and try again.",
+  },
+  cross_origin: {
+    zh: "当前页面不能调用规划服务，请在本站页面内使用。",
+    en: "This page cannot call the planning service. Use it from within the site.",
+  },
+  rate_limited: {
+    zh: "请求太频繁了，请等一会儿再试。",
+    en: "Too many requests. Please wait a moment and try again.",
+  },
+  // 与 rate_limited 分开：那是等几分钟，重试有意义；这是等明天，重试只是耗时间。
+  daily_quota_reached: {
+    zh: "今天的调用次数已用完，请明天再试。",
+    en: "You've used up today's allowance. Please try again tomorrow.",
+  },
   internal_error: {
     zh: "服务暂时不可用，请稍后重试。",
     en: "The service is temporarily unavailable. Please try again later.",
@@ -295,7 +325,7 @@ const FUNCTION_BASE = "/functions/v1/app";
 // 站点网关单请求约 60 秒超时，因此每次只让模型产出一小段 JSON，由浏览器并发调用拼接。
 const CONCURRENCY = 4;
 const CALL_RETRY_DELAYS = [2500, 9000];
-// 这些错误码是瞬时的（限流、抖动、坏输出），自动重试；配置与额度类错误直接告诉用户。
+// 这些错误码是瞬时的（限流、抖动、坏输出、上传太慢），自动重试；配置与额度类错误直接告诉用户。
 const RETRYABLE_CODES = new Set([
   "ai_rate_limited",
   "ai_unavailable",
@@ -303,6 +333,10 @@ const RETRYABLE_CODES = new Set([
   "AI_EMPTY",
   "PLAN_CHUNK_EMPTY",
   "internal_error",
+  // 闸门给的瞬时拒绝也是等一会儿就可能过：重试比解释对用户有用。
+  // 日额度用满是另一个 code（daily_quota_reached），不在这里——那要等明天，重试没有意义。
+  "rate_limited",
+  "body_timeout",
 ]);
 // 输出长度上限/时间预算用完：同一份大请求重试只会再撞一次，改成把这段日历拆成单天再要。
 const SPLITTABLE_CODES = new Set(["ai_output_capped", "ai_timeout", "PLAN_CHUNK_EMPTY"]);
