@@ -4,6 +4,9 @@
 //   2) 注入函数确实把 meta 放在 charset 之后——策略解析之前出现的外链不受它管。
 //   3) 反面样本：anchor 找不到时必须抛错。构建宁可失败，也不要安静地发布一份没有 CSP 的产物；
 //      这条不测的话，改一行 index.html 就能让整套策略形同不存在。
+// 测的是我们自己拼出来的那一段策略，不是线上文档里的整串：托管网关会注入它自己的加载脚本，
+// 并补一条带哈希的 script-src-elem。那条不属于这里任何一条断言，也别为了让两处字符串相等
+// 就把手上这份策略放松——线上多出来的是哈希白名单，不是 'unsafe-inline'。
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CONTENT_SECURITY_POLICY, injectCsp } from '../csp.config.ts';
