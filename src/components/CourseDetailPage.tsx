@@ -169,6 +169,18 @@ export function CourseDetailPage({
   // 比 rAF 稳：后台标签页里 rAF 会被暂停，滚动就永远等不到。
   const [knowledgeReveal, setKnowledgeReveal] = useState(0);
 
+  /**
+   * 「去上传资料」点一次算一次：它是一次请求，不是一种状态。
+   * 换科目时必须在渲染这一趟就清零——留到 effect 里，按 plan.id 重建的资料区
+   * 会先带着上一门那份未消化的请求挂载，弹窗就替一门没点过的科目打开了。
+   */
+  const [uploadRequest, setUploadRequest] = useState(0);
+  const [uploadRequestFrom, setUploadRequestFrom] = useState(plan.id);
+  if (plan.id !== uploadRequestFrom) {
+    setUploadRequestFrom(plan.id);
+    setUploadRequest(0);
+  }
+
   useEffect(() => {
     if (!knowledgeReveal || !showKnowledge) return;
     knowledgeRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -177,6 +189,13 @@ export function CourseDetailPage({
   const revealKnowledge = () => {
     setShowKnowledge(true);
     setKnowledgeReveal((n) => n + 1);
+  };
+
+  // 按钮写的是「去上传资料」，那就该把人送到上传口：先展开资料区，再把上传弹窗打开，
+  // 不该让人在展开之后自己找那颗「上传文件」。
+  const revealUpload = () => {
+    revealKnowledge();
+    setUploadRequest((n) => n + 1);
   };
 
   const handleSaveExam = (draft: ExamDraft) => {
@@ -348,7 +367,7 @@ export function CourseDetailPage({
                     <p className="ui-row-title">{pendingCopy.title}</p>
                     <button
                       onClick={() =>
-                        readiness === "awaiting-materials" ? revealKnowledge() : onRequestPlanGeneration?.(plan)
+                        readiness === "awaiting-materials" ? revealUpload() : onRequestPlanGeneration?.(plan)
                       }
                       className="ui-btn ui-btn-primary mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium"
                     >
@@ -461,10 +480,14 @@ export function CourseDetailPage({
           >
             {showKnowledge ? (
               <div ref={knowledgeRef} className="ui-card p-4 sm:p-5 animate-fadeIn">
+                {/* 资料区整块按科目重建：它内部记着上一门的提示、当前文件夹、勾选与草稿，
+                    换一门科目还留着，就是拿另一门的进度说这一门的事。 */}
                 <CourseKnowledgeHub
+                  key={plan.id}
                   plan={plan}
                   onUpdatePlan={onUpdatePlan}
                   onRequestDeleteCourse={onRequestDeletePlan}
+                  uploadRequest={uploadRequest}
                   focusUnitId={activeFocus?.topicId ?? null}
                   focusSubtopicTitle={activeFocus?.subtopicTitle ?? ""}
                   focusNonce={focusNonce}

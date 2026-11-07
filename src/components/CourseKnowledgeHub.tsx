@@ -33,6 +33,11 @@ interface CourseKnowledgeHubProps {
   onUpdatePlan: (updatedPlan: ExamStudyPlan) => void;
   onDeleteCourse?: () => void;
   onRequestDeleteCourse?: (plan?: ExamStudyPlan | null) => void;
+  /**
+   * 页头「去上传资料」按了几次。只当它是一个递增的请求号：
+   * 值变了就把上传弹窗打开，是什么科目、资料库还剩几个位置都不归这里管。
+   */
+  uploadRequest?: number;
   /** 回程联动定位：展开并滚动到指定单元/子考点 */
   focusUnitId?: string | null;
   focusSubtopicTitle?: string;
@@ -44,6 +49,7 @@ export function CourseKnowledgeHub({
   onUpdatePlan,
   onDeleteCourse,
   onRequestDeleteCourse,
+  uploadRequest = 0,
   focusUnitId = null,
   focusSubtopicTitle = "",
   focusNonce = 0,
@@ -57,6 +63,12 @@ export function CourseKnowledgeHub({
   const [showPasteBox, setShowPasteBox] = useState(false);
   const [showUploadBox, setShowUploadBox] = useState(false);
   const [activeFolderDocType, setActiveFolderDocType] = useState<StudyMaterial["type"]>("notes");
+
+  // 页头那句「去上传资料」已经把动作说死了，这里就是那一步：
+  // 展开资料区之后还要人自己找「上传文件」，等于一句话办半件事。
+  useEffect(() => {
+    if (uploadRequest > 0) setShowUploadBox(true);
+  }, [uploadRequest]);
 
   const [isExtracting, setIsExtracting] = useState(false);
   const [successNote, setSuccessNote] = useState<string | null>(null);

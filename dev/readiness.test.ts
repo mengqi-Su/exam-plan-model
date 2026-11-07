@@ -3,6 +3,7 @@
 // 判断只允许在 lib/planReadiness 一处，页面拿到的文案必须两种语言都齐全，
 // 否则同一门科目在总览卡写「待上传」、在详情页写「0% 完成」，用户分不清它是坏了还是还没开始。
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { isPlanPending, planReadiness, readinessCopy } from '../src/lib/planReadiness.ts';
 
 let passed = 0;
@@ -68,6 +69,19 @@ check('两种待办状态的说法不通用：差资料和差生成说的是两�
   assert.notEqual(zh.action, gen.action);
   assert.equal(zh.action, '去上传资料');
   assert.equal(gen.action, '生成学习计划');
+});
+
+/* 文案答应的那个动作，页面就得真的做到：
+   「去上传资料」不能只把资料区展开、再让人自己找「上传文件」；
+   而资料区里存着上一门的提示（库满、失败、勾选、草稿），换一门科目必须整块重建，
+   否则 0 份资料的科目头上会挂着另一门「最多存 100 份」的话。 */
+check('「去上传资料」直通上传弹窗，资料区按科目重建', () => {
+  const page = readFileSync('src/components/CourseDetailPage.tsx', 'utf8');
+  const hub = readFileSync('src/components/CourseKnowledgeHub.tsx', 'utf8');
+  assert.match(page, /revealUpload\(\)/, '差资料那条动作要走「展开资料区 + 开上传弹窗」');
+  assert.match(page, /<CourseKnowledgeHub\s+key=\{plan\.id\}/, '换科目不留上一门的提示');
+  assert.match(page, /uploadRequest=\{uploadRequest\}/, '请求由页头交给资料区');
+  assert.match(hub, /if \(uploadRequest > 0\) setShowUploadBox\(true\);/, '资料区收到请求就把门打开');
 });
 
 console.log(`\n${passed} readiness checks passed`);
