@@ -18,6 +18,7 @@ import {
   mergeDailyMemos,
 } from "../lib/storage";
 import { toLocalDateString } from "../lib/date";
+import { pl } from "../lib/text";
 import { STARQUIZ_URL } from "../lib/links";
 
 interface SettingsPageProps {
@@ -243,7 +244,7 @@ export function SettingsPage({
         showToast(
           isZh
             ? `已导入 ${validPlans.length} 个备考计划。`
-            : `Imported ${validPlans.length} study plan(s).`
+            : `Imported ${pl(validPlans.length, "study plan", "study plans")}.`
         );
       } catch (error) {
         console.error("Failed to import backup", error);

@@ -194,7 +194,9 @@ await acheck('库已满：不吞位置，也不假装收下了', async () => {
 
 check('跳过几份要说得清，中英文各一句', () => {
   assert.equal(duplicateMaterialsNotice(3, true), '已跳过 3 份内容重复的资料。');
-  assert.equal(duplicateMaterialsNotice(1, false), 'Skipped 1 material(s) with the same content.');
+  /* 英文单数就是 material、复数就是 materials：写成 material(s) 是没判断就交出去的作业 */
+  assert.equal(duplicateMaterialsNotice(1, false), 'Skipped 1 material with the same content.');
+  assert.equal(duplicateMaterialsNotice(2, false), 'Skipped 2 materials with the same content.');
   assert.ok(!/[\u4e00-\u9fa5]/.test(duplicateMaterialsNotice(2, false)));
 });
 

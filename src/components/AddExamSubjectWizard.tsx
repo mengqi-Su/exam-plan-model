@@ -31,6 +31,13 @@ import {
 import { useI18n } from "../lib/i18n";
 import { MAX_MATERIAL_CHARS, parseDocumentFile, UPLOAD_ACCEPT } from "../lib/documentParser";
 import {
+  UPLOAD_CHAR_BUDGET,
+  type UploadTask,
+  pickFailedFiles,
+  runUploadQueue,
+  uploadOutcomeNotice,
+} from "../lib/uploadQueue";
+import {
   GenerationError,
   MAX_AI_MATERIALS,
   MAX_LIBRARY_MATERIALS,
@@ -54,7 +61,7 @@ import {
 } from "../lib/dailyHours";
 import { mergeTopics, nonTextbookTitles, replaceTextbookTopics } from "../lib/topics";
 import { duplicateMaterialsNotice, mergeMaterials } from "../lib/materials";
-import { visibleChars } from "../lib/text";
+import { clauseJoin, labelColon, pl, visibleChars } from "../lib/text";
 import {
   clearWizardDraft,
   loadWizardDraft,
@@ -65,6 +72,7 @@ import { RulerTimePicker } from "./RulerTimePicker";
 import { TextbookOutlineDialog } from "./TextbookOutlineDialog";
 import { ModalShell } from "./ModalShell";
 import { NoticeBand } from "./NoticeBand";
+import { UploadQueuePanel } from "./UploadQueuePanel";
 
 interface AddExamSubjectWizardProps {
   onPlanCreated: (newPlan: ExamStudyPlan, notice?: string | null) => void;
@@ -154,6 +162,11 @@ export function AddExamSubjectWizard({
   }, [courseDocuments]);
   const [isParsingFiles, setIsParsingFiles] = useState(false);
   const [parsingStatus, setParsingStatus] = useState("");
+  /* 一批资料的读取队列：并发 2、每份读到哪看得见、能停下、失败的那几份能单独重来。
+     以前这里只有一个转圈加一句「正在读取 (3/20)」——卡住时既停不下来，也不知道剩下还有几份。 */
+  const [uploadTasks, setUploadTasks] = useState<UploadTask[]>([]);
+  const cancelUploadRef = useRef(false);
+  const uploadBatchRef = useRef<{ files: File[]; keepKeys?: Map<string, string> } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showPasteForm, setShowPasteForm] = useState(false);
   const [pasteDocTitle, setPasteDocTitle] = useState("");
@@ -335,6 +348,11 @@ export function AddExamSubjectWizard({
     setShowTopics(false);
     setStep(1);
     setError(null);
+    // 队列里那一串文件名是上一次填写的产物：草稿丢了它们也该跟着丢，
+    // 否则下一份空表单开头就浮着一句「这一批读了 3 份」，看起来像还没填就已经传过资料。
+    setUploadTasks([]);
+    uploadBatchRef.current = null;
+    cancelUploadRef.current = false;
     void clearWizardDraft();
   };
 
@@ -574,6 +592,84 @@ export function AddExamSubjectWizard({
     setError({ message, headline, code, tone: "error" });
   const remark = (message: string) => setError({ message, tone: "notice" });
 
+  /* 一批资料的读取：交给队列跑（并发 2、每份状态可见、能取消、失败能重来），
+     这里只管把读出来的正文拼成资料、按指纹去重，然后把结果说清楚。 */
+  const runUploadBatch = async (files: File[], keepKeys?: Map<string, string>) => {
+    if (files.length === 0) return;
+    cancelUploadRef.current = false;
+    uploadBatchRef.current = { files, keepKeys };
+    setIsParsingFiles(true);
+    const outcome = await runUploadQueue<{ text: string; name: string; sizeBytes: number }>(files, {
+      run: async (file, task) => {
+        const parsed = await parseDocumentFile(file, language, (status) => setParsingStatus(status));
+        // 字节数在开工那一刻就知道，跟着结果走：重试时文件名可能重复，回头再查一遍并不可靠
+        return { text: parsed.text, name: task.name, sizeBytes: file.size };
+      },
+      textOf: (value) => value.text,
+      onTasks: setUploadTasks,
+      isCancelled: () => cancelUploadRef.current,
+      charBudget: UPLOAD_CHAR_BUDGET,
+      keepKeys,
+    });
+    setIsParsingFiles(false);
+    setParsingStatus("");
+
+    const newDocs: StudyMaterial[] = [];
+    let suggestedName = "";
+    for (const item of outcome.done) {
+      const { type, categoryGroup } = inferDocumentType(item.name);
+      newDocs.push({
+        id: `mat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name: item.name,
+        type,
+        categoryGroup,
+        content: item.value.text,
+        sizeBytes: item.value.sizeBytes,
+        uploadedAt: new Date().toISOString(),
+        difficulty: type === "past_exam" ? "hard" : "medium",
+        summaryNotes: item.value.text.slice(0, 160) + (item.value.text.length > 160 ? "..." : ""),
+      });
+      if (!suggestedName) suggestedName = suggestExamName(item.name);
+    }
+
+    // 解析完才谈得上「内容一样」：按正文指纹去重，换个文件名的同一份资料不会进两遍
+    const merged = newDocs.length > 0 ? await mergeMaterials(courseDocuments, newDocs, MAX_LIBRARY_MATERIALS) : null;
+    const accepted = merged ? merged.accepted : [];
+    const duplicates = merged ? merged.duplicates : 0;
+
+    if (accepted.length > 0) {
+      setCourseDocuments((prev) => [...prev, ...accepted]);
+      invalidateAiResult();
+      if (!examName.trim() && suggestedName) {
+        setExamName(suggestedName);
+      }
+    }
+
+    const notices: string[] = [];
+    const isZh = language !== "en";
+    // 预算与取消是「这一批的边界」，重复是「结果」，都不是故障：这三句都走纸色底
+    const queueNotice = uploadOutcomeNotice(outcome, isZh);
+    if (queueNotice) notices.push(queueNotice);
+    if (duplicates > 0) notices.push(duplicateMaterialsNotice(duplicates, isZh));
+    // 「有文件没读出来」才是失败。混进同一条红消息，用户会去查那个其实没坏的重复文件。
+    if (outcome.failed.length > 0) {
+      const labels = outcome.failed.map((task) => `${task.name}${labelColon(isZh)}${task.error || tt("解析失败", "parse failed")}`);
+      const extra =
+        labels.length > 3
+          ? tt(`（另有 ${labels.length - 3} 个失败）`, `(+${pl(labels.length - 3, "more file", "more files")})`)
+          : "";
+      const detail = labels.slice(0, 3).join(isZh ? "；" : "; ") + extra;
+      fail(
+        notices.length > 0 ? clauseJoin([detail, ...notices], isZh) : detail,
+        tt("有文件没读出来", "Some files could not be read")
+      );
+    } else if (notices.length > 0) {
+      remark(clauseJoin(notices, isZh));
+    } else {
+      setError(null);
+    }
+  };
+
   const handleFileUpload = async (files: FileList | File[] | null) => {
     if (!files || isParsingFiles || isWorking) return;
     const incoming = Array.from(files);
@@ -590,7 +686,6 @@ export function AddExamSubjectWizard({
     }
 
     const remainingSlots = MAX_LIBRARY_MATERIALS - courseDocuments.length;
-    const fileArray = incoming.slice(0, remainingSlots);
     if (incoming.length > remainingSlots) {
       remark(
         tt(
@@ -598,89 +693,31 @@ export function AddExamSubjectWizard({
           `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Only the first ${remainingSlots} files were processed.`
         )
       );
-    } else {
-      setError(null);
+      await runUploadBatch(incoming.slice(0, remainingSlots));
+      return;
     }
 
-    setIsParsingFiles(true);
-    const newDocs: StudyMaterial[] = [];
-    const failures: string[] = [];
-    let suggestedName = "";
+    setError(null);
+    await runUploadBatch(incoming);
+  };
 
-    for (let i = 0; i < fileArray.length; i += 1) {
-      const file = fileArray[i];
-      setParsingStatus(
-        tt(
-          `正在读取 (${i + 1}/${fileArray.length})：${file.name}`,
-          `Reading (${i + 1}/${fileArray.length}): ${file.name}`
-        )
-      );
+  /* 只重来失败那几份：成功的不该被再读一遍——既慢，又会在资料库里造出双胞胎。 */
+  const retryFailedUploads = async () => {
+    const batch = uploadBatchRef.current;
+    if (!batch || isParsingFiles || isWorking) return;
+    const { files, keepKeys } = pickFailedFiles(batch.files, uploadTasks);
+    if (files.length === 0) return;
+    await runUploadBatch(files, keepKeys);
+  };
 
-      try {
-        const parsed = await parseDocumentFile(file, language, (status) => setParsingStatus(status));
-        const { type, categoryGroup } = inferDocumentType(file.name);
-        newDocs.push({
-          id: `mat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          name: file.name,
-          type,
-          categoryGroup,
-          content: parsed.text,
-          sizeBytes: file.size,
-          uploadedAt: new Date().toISOString(),
-          difficulty: type === "past_exam" ? "hard" : "medium",
-          summaryNotes: parsed.text.slice(0, 160) + (parsed.text.length > 160 ? "..." : ""),
-        });
-        if (!suggestedName) {
-          suggestedName = suggestExamName(file.name);
-        }
-      } catch (err: any) {
-        failures.push(`${file.name}：${err?.message || tt("解析失败", "parse failed")}`);
-      }
-    }
+  const cancelUploadBatch = () => {
+    cancelUploadRef.current = true;
+  };
 
-    setIsParsingFiles(false);
-    setParsingStatus("");
-
-    // 解析完才谈得上「内容一样」：按正文指纹去重，换个文件名的同一份资料不会进两遍
-    const merged = newDocs.length > 0 ? await mergeMaterials(courseDocuments, newDocs, MAX_LIBRARY_MATERIALS) : null;
-    const accepted = merged ? merged.accepted : [];
-    const duplicates = merged ? merged.duplicates : 0;
-
-    if (accepted.length > 0) {
-      setCourseDocuments((prev) => [...prev, ...accepted]);
-      invalidateAiResult();
-      if (!examName.trim() && suggestedName) {
-        setExamName(suggestedName);
-      }
-    }
-
-    const notices: string[] = [];
-    if (incoming.length > remainingSlots) {
-      notices.push(
-        tt(
-          `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，本次仅处理前 ${remainingSlots} 份。`,
-          `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Only the first ${remainingSlots} files were processed.`
-        )
-      );
-    }
-    if (duplicates > 0) notices.push(duplicateMaterialsNotice(duplicates, language !== "en"));
-    // 「有文件没读出来」才是失败，「跳过了重复的」「只处理了前几份」只是这一批的结果。
-    // 混进同一条红消息，用户会去查那个其实没坏的重复文件。
-    if (failures.length > 0) {
-      const extra =
-        failures.length > 3
-          ? tt(`（另有 ${failures.length - 3} 个失败）`, ` (+${failures.length - 3} more failed)`)
-          : "";
-      const detail = failures.slice(0, 3).join("；") + extra;
-      fail(
-        notices.length > 0 ? `${detail}；${notices.join("；")}` : detail,
-        tt("有文件没读出来", "Some files could not be read")
-      );
-    } else if (notices.length > 0) {
-      remark(notices.join("；"));
-    } else {
-      setError(null);
-    }
+  const dismissUploadQueue = () => {
+    if (isParsingFiles) return;
+    setUploadTasks([]);
+    uploadBatchRef.current = null;
   };
 
   const handleDrop = (event: React.DragEvent<HTMLLabelElement>) => {
@@ -1345,6 +1382,14 @@ export function AddExamSubjectWizard({
                   : tt("拖拽资料到这里，或点击选择文件", "Drop materials here, or click to browse")}
               </p>
             </label>
+
+            <UploadQueuePanel
+              tasks={uploadTasks}
+              isRunning={isParsingFiles}
+              onCancel={cancelUploadBatch}
+              onRetry={() => void retryFailedUploads()}
+              onDismiss={dismissUploadQueue}
+            />
 
             {courseDocuments.length > 0 && (
               <ul className="divide-y divide-[#f0ede8] overflow-hidden rounded-xl border border-[#eae7e1] bg-white">

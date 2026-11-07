@@ -1,5 +1,6 @@
 import { StudyMaterial } from "../types";
 import { sha256Hex } from "./hash";
+import { pl } from "./text";
 
 /* 资料并进列表只有这一条规则：先给正文算指纹，再按正文去重，最后才轮到份数上限。
    上传、粘贴、资料库弹窗三个入口都走这里，免得哪天只有其中一个记得去重。 */
@@ -65,5 +66,5 @@ export async function mergeMaterials(
 export function duplicateMaterialsNotice(count: number, isZh: boolean): string {
   return isZh
     ? `已跳过 ${count} 份内容重复的资料。`
-    : `Skipped ${count} material(s) with the same content.`;
+    : `Skipped ${pl(count, "material", "materials")} with the same content.`;
 }

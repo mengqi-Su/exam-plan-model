@@ -34,7 +34,14 @@ export const UPLOAD_ACCEPT = Array.from(SUPPORTED_EXTENSIONS)
 const LEGACY_PRESENTATION_EXTENSIONS = new Set(["ppt", "pps", "pot", "dps"]);
 /** 一份资料的正文上限：解析器截到这里，粘贴入口和草稿落盘都按同一个数说话。 */
 export const MAX_MATERIAL_CHARS = 120_000;
-const MAX_ZIP_ENTRY_BYTES = 8 * 1024 * 1024;
+/* 压缩包的四道闸门，测试和文案都从这里取数，别在别处再写一遍字面量。
+   单份 8 MB 挡不住 zip bomb：一个 10 MB 的包能声明 4000 份各 8 MB 的 XML，
+   照单全收就是把浏览器按死。所以除了单份上限，还要管总量、压缩比和份数。 */
+export const MAX_ZIP_ENTRY_BYTES = 8 * 1024 * 1024;
+export const MAX_ZIP_TOTAL_BYTES = 32 * 1024 * 1024;
+export const MAX_ZIP_TEXT_ENTRIES = 1_000;
+/** 真正的讲义 XML 一般压 5~30 倍；这个数之上的先当作炸弹处理，连解压都不开始。 */
+export const MAX_ZIP_RATIO = 200;
 
 // 文档解析全部在浏览器本地完成（本地优先，文件不离开设备）：
 //   文本类直接读取；DOCX/PPTX 用内置 ZIP+XML 解析；PDF 用 pdf.js 提取文字层；
@@ -261,8 +268,10 @@ async function inflateRaw(data: Uint8Array, maxOutput: number): Promise<Uint8Arr
   return out;
 }
 
-// 极简 ZIP 读取：拒绝 ZIP64，限制条目数与解压体积，防止恶意压缩包耗尽内存。
-async function readZipEntries(
+/* 极简 ZIP 读取：拒绝 ZIP64，限制条目数、单份体积、压缩比与解压总量，防止恶意压缩包耗尽内存。
+   导出只为本机的 dev/zip-bomb.test.ts 能直接对着这几道闸门断言——正文层的
+   parseDocumentFile 会把它们的效果混在一起，看不出到底是哪一道在挡。 */
+export async function readZipEntries(
   buffer: ArrayBuffer,
   filter: (name: string) => boolean
 ): Promise<ZipEntry[]> {
@@ -290,7 +299,8 @@ async function readZipEntries(
   const decoder = new TextDecoder("utf-8");
   const entries: ZipEntry[] = [];
   let cursor = cdOffset;
-  const safeEntryCount = Math.min(entryCount, 4_000);
+  const safeEntryCount = Math.min(entryCount, MAX_ZIP_TEXT_ENTRIES);
+  let expandedBytes = 0;
 
   for (let i = 0; i < safeEntryCount; i++) {
     if (cursor + 46 > len || view.getUint32(cursor, true) !== 0x02014b50) break;
@@ -310,6 +320,9 @@ async function readZipEntries(
     if (!filter(name)) continue;
     if (compressedSize === 0xffffffff || uncompressedSize === 0xffffffff) continue;
     if (compressedSize > MAX_ZIP_ENTRY_BYTES || uncompressedSize > MAX_ZIP_ENTRY_BYTES) continue;
+    // 先按声明的压缩比拒绝，连解压都不开始：炸弹的那 8 MB 只有在解开之后才看得见
+    if (method === 8 && compressedSize > 0 && uncompressedSize / compressedSize > MAX_ZIP_RATIO) continue;
+    if (expandedBytes + uncompressedSize > MAX_ZIP_TOTAL_BYTES) break;
     if (localOffset + 30 > len || view.getUint32(localOffset, true) !== 0x04034b50) continue;
 
     const localNameLength = view.getUint16(localOffset + 26, true);
@@ -324,13 +337,14 @@ async function readZipEntries(
       raw = compressed;
     } else if (method === 8) {
       try {
-        raw = await inflateRaw(compressed, Math.max(uncompressedSize, 1));
+        raw = await inflateRaw(compressed, Math.min(Math.max(uncompressedSize, 1), MAX_ZIP_ENTRY_BYTES));
       } catch {
         continue;
       }
     } else {
       continue;
     }
+    expandedBytes += raw.byteLength;
     entries.push({ name, data: raw });
   }
 

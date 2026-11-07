@@ -661,7 +661,7 @@ export const translations = {
     phaseFocus: "Focus: {focus}",
 
     inboundRecordedTitle: "Practice result received",
-    inboundRecordedBody: "Target topic “{topic}”: {graded} graded question(s), {correct} correct — saved to your practice receipts.",
+    inboundRecordedBody: "Target topic “{topic}”: {correct} of {graded} correct — saved to your practice receipts.",
     inboundDuplicateTitle: "Already recorded",
     inboundDuplicateBody: "This attempt was counted once already; located topic “{topic}” for you.",
     inboundLocateTitle: "Back at your topic",
@@ -674,14 +674,14 @@ export const translations = {
     inboundInvalidTitle: "Link could not be read",
     inboundInvalidBody: "The return link was incomplete or failed validation, so the planner opened normally.",
     receiptEyebrow: "StarQuiz practice receipt",
-    receiptBody: "Target topic “{topic}”: {graded} graded question(s), {correct} correct, {pct}% accuracy.",
+    receiptBody: "Target topic “{topic}”: {correct} of {graded} correct, {pct}% accuracy.",
     receiptMeta: "Finished {time}",
-    receiptUnmatchedBody: "Received a practice record ({graded} graded / {correct} correct) with no matching topic in this plan.",
+    receiptUnmatchedBody: "Received a practice record ({correct} of {graded} correct) with no matching topic in this plan.",
     receiptLocateAction: "Show topic",
     receiptDismissAction: "Dismiss",
     receiptPendingTag: "Pending",
     receiptUnmatchedTag: "Unmatched",
-    receiptCountTag: "{count} receipt(s) waiting",
+    receiptCountTag: "{count} to review",
   },
 };
 

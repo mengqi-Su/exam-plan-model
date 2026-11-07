@@ -5,3 +5,18 @@
 export function visibleChars(text: string): number {
   return String(text || "").replace(/\s/g, "").length;
 }
+
+/* 英文计数的单复数只在这一处管。`1 file(s)` 是没人肯在模板里判断单复数留下的写法，
+   两头不靠：说人话的英文要么 "1 file" 要么 "3 files"。中文不看这个词，所以只有英文分支调用。 */
+export function pl(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+/* 小句之间怎么连、文件名和原因之间用什么标点，都跟着语言走。
+   英文界面里印出「；」「：」，是拼句子的时候没问当前是什么语言。 */
+export function clauseJoin(parts: string[], isZh: boolean): string {
+  return parts.filter(Boolean).join(isZh ? "；" : "; ");
+}
+export function labelColon(isZh: boolean): string {
+  return isZh ? "：" : ": ";
+}

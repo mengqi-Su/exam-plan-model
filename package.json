@@ -21,7 +21,10 @@
     "test:readiness": "tsx dev/readiness.test.ts",
     "test:materials": "tsx dev/material-selection.test.ts",
     "test:countdown": "tsx dev/countdown.test.ts",
-    "test:draft": "tsx dev/wizard-draft.test.ts"
+    "test:draft": "tsx dev/wizard-draft.test.ts",
+    "test:queue": "tsx dev/upload-queue.test.ts",
+    "test:zipbomb": "tsx dev/zip-bomb.test.ts",
+    "test:copy": "tsx dev/copy-guard.test.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
