@@ -11,13 +11,13 @@ import {
   Clock,
   Eye,
   FileText,
+  History,
   Loader2,
   Plus,
   Sliders,
   Sparkles,
   Trash2,
   Upload,
-  X,
 } from "lucide-react";
 import {
   DaySchedulePreference,
@@ -26,9 +26,10 @@ import {
   SyllabusTopic,
   TextbookOutline,
   UserStudyPreferences,
+  WizardDraft,
 } from "../types";
 import { useI18n } from "../lib/i18n";
-import { parseDocumentFile, UPLOAD_ACCEPT } from "../lib/documentParser";
+import { MAX_MATERIAL_CHARS, parseDocumentFile, UPLOAD_ACCEPT } from "../lib/documentParser";
 import {
   GenerationError,
   MAX_AI_MATERIALS,
@@ -52,9 +53,18 @@ import {
   weeklyTotalHours,
 } from "../lib/dailyHours";
 import { mergeTopics, nonTextbookTitles, replaceTextbookTopics } from "../lib/topics";
+import { duplicateMaterialsNotice, mergeMaterials } from "../lib/materials";
+import { visibleChars } from "../lib/text";
+import {
+  clearWizardDraft,
+  loadWizardDraft,
+  saveWizardDraft,
+  type WizardDraftInput,
+} from "../lib/wizardDraft";
 import { RulerTimePicker } from "./RulerTimePicker";
 import { TextbookOutlineDialog } from "./TextbookOutlineDialog";
 import { ModalShell } from "./ModalShell";
+import { NoticeBand } from "./NoticeBand";
 
 interface AddExamSubjectWizardProps {
   onPlanCreated: (newPlan: ExamStudyPlan, notice?: string | null) => void;
@@ -154,7 +164,12 @@ export function AddExamSubjectWizard({
   const [isWorking, setIsWorking] = useState(false);
   const [workStage, setWorkStage] = useState<"extracting" | "planning">("extracting");
   const [genStatus, setGenStatus] = useState("");
-  const [error, setError] = useState<{ message: string; code?: string } | null>(null);
+  const [error, setError] = useState<{
+    message: string;
+    code?: string;
+    tone?: "error" | "notice";
+    headline?: string;
+  } | null>(null);
   const [aiReady, setAiReady] = useState<boolean | null>(null);
   const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
   const [textbookDialogOpen, setTextbookDialogOpen] = useState(false);
@@ -210,6 +225,207 @@ export function AddExamSubjectWizard({
     setStep(2);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPlan?.id]);
+
+  /**
+   * 还没变成科目的那份填写也存进本地库。值得落盘的是解析好的资料正文：
+   * 一份 PDF 解析要几十秒，刷新、关掉标签页或浏览器崩了就等于重传一遍——
+   * 之前只能靠用户「别刷新」，现在填到哪就存到哪，下次打开向导接回来。
+   * 带着已有科目补最后一步用的是那门科目自己的数据，不碰这份新建草稿。
+   */
+  const [restoredDraft, setRestoredDraft] = useState<{ materials: number; topics: number; dropped: number } | null>(null);
+  const draftSnapshotRef = useRef<WizardDraftInput | null>(null);
+  const draftReadyRef = useRef(false);
+  const draftTimerRef = useRef<number | null>(null);
+  const draftSavedKeyRef = useRef("");
+  const draftDroppedRef = useRef(false);
+  const draftEnabled = !isRefill;
+
+  // 只比「哪些值变了」，不比资料正文本身：正文只会跟着资料列表一起进出，
+  // 把上百 KB 的文本拿来算指纹会让每次自动保存都变成一次全量字符串拼接。
+  const draftSignature = (draft: WizardDraftInput) =>
+    [
+      draft.step,
+      draft.examName,
+      draft.subject,
+      draft.startDate,
+      draft.examDate,
+      draft.examTime,
+      draft.targetScore,
+      draft.requirements,
+      draft.dailySchedules.map((day) => `${day.dayOfWeek}:${day.availableHours}:${day.enabled ? 1 : 0}`).join(","),
+      draft.materials.map((material) => material.id).join(","),
+      draft.aiSelectedIds.join(","),
+      draft.topics.map((topic) => topic.id).join(","),
+      draft.textbookLabel,
+    ].join("|");
+
+  // 一份空表单不值得占草稿：接回来只会让用户以为上次填过什么
+  const draftWorthSaving = (draft: WizardDraftInput) =>
+    !!draft.examName.trim() ||
+    !!draft.examDate ||
+    !!draft.requirements.trim() ||
+    draft.materials.length > 0 ||
+    draft.topics.length > 0;
+
+  const persistDraft = (draft: WizardDraftInput) => {
+    if (!draftEnabled || draftDroppedRef.current) return;
+    const key = draftSignature(draft);
+    if (key === draftSavedKeyRef.current) return;
+    draftSavedKeyRef.current = key;
+    if (!draftWorthSaving(draft)) {
+      void clearWizardDraft();
+      return;
+    }
+    void saveWizardDraft(draft);
+  };
+
+  const stopDraftTimer = () => {
+    if (draftTimerRef.current === null) return;
+    window.clearTimeout(draftTimerRef.current);
+    draftTimerRef.current = null;
+  };
+
+  /** 交出一门科目，草稿到此为止：别等下次打开又接回一份已经变成科目的填写。 */
+  const dropDraft = () => {
+    draftDroppedRef.current = true;
+    stopDraftTimer();
+    setRestoredDraft(null);
+    void clearWizardDraft();
+  };
+
+  const applyDraft = (draft: WizardDraft) => {
+    setExamName(draft.examName);
+    setSubject(draft.subject);
+    setStartDate(draft.startDate || toLocalDateString());
+    setExamDate(draft.examDate);
+    setExamTime(draft.examTime);
+    setTargetScore(draft.targetScore);
+    setRequirements(draft.requirements);
+    setDailySchedules(draft.dailySchedules);
+    setCourseDocuments(draft.materials);
+    setAiSelectedIds(draft.aiSelectedIds);
+    setTopics(draft.topics);
+    setTextbookLabel(draft.textbookLabel);
+    // 回到哪一步看的是「还差什么」，不是草稿里记的那个数字：
+    // 停在生成那一步却什么资料都没有，点下去只会撞出一条本来不必出现的报错。
+    const detailsOk =
+      !!draft.examName.trim() &&
+      !!draft.examDate &&
+      daysBetween(draft.startDate, draft.examDate) >= 0 &&
+      hasStudyDays(draft.dailySchedules);
+    const sourceOk = (draft.materials.length > 0 && draft.aiSelectedIds.length > 0) || draft.topics.length > 0;
+    setStep(draft.step === 3 && detailsOk && sourceOk ? 3 : draft.step >= 2 && detailsOk ? 2 : 1);
+  };
+
+  const handleDiscardDraft = () => {
+    stopDraftTimer();
+    setRestoredDraft(null);
+    setExamName("");
+    setSubject("");
+    setStartDate(toLocalDateString());
+    setExamDate("");
+    setExamTime("");
+    setTargetScore("");
+    setRequirements("");
+    setDailySchedules(uniformWeekSchedules(DEFAULT_DAILY_HOURS, language !== "en"));
+    setCourseDocuments([]);
+    setAiSelectedIds([]);
+    setTopics([]);
+    setTextbookLabel("");
+    setShowTopics(false);
+    setStep(1);
+    setError(null);
+    void clearWizardDraft();
+  };
+
+  useEffect(() => {
+    if (!draftEnabled) return;
+    let cancelled = false;
+    void loadWizardDraft().then((draft) => {
+      if (cancelled) return;
+      if (draft) {
+        applyDraft(draft);
+        setError(null);
+        setRestoredDraft({
+          materials: draft.materials.length,
+          topics: draft.topics.length,
+          dropped: draft.droppedMaterials || 0,
+        });
+      }
+      // 读完了才允许写：否则挂载那一次渲染会用空表单把上一份真草稿盖掉
+      draftReadyRef.current = true;
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftEnabled]);
+
+  const draftPayload: WizardDraftInput = {
+    step,
+    examName,
+    subject,
+    startDate,
+    examDate,
+    examTime,
+    targetScore,
+    requirements,
+    dailySchedules,
+    materials: courseDocuments,
+    aiSelectedIds,
+    topics,
+    textbookLabel,
+  };
+
+  useEffect(() => {
+    if (!draftEnabled || !draftReadyRef.current) return;
+    draftSnapshotRef.current = draftPayload;
+    stopDraftTimer();
+    draftTimerRef.current = window.setTimeout(() => {
+      draftTimerRef.current = null;
+      persistDraft(draftPayload);
+    }, 600);
+    return stopDraftTimer;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    draftEnabled,
+    step,
+    examName,
+    subject,
+    startDate,
+    examDate,
+    examTime,
+    targetScore,
+    requirements,
+    dailySchedules,
+    courseDocuments,
+    aiSelectedIds,
+    topics,
+    textbookLabel,
+  ]);
+
+  // 刷新和关标签页不会卸载组件，所以还在防抖里的那次改动要靠 pagehide / 切到后台补写；
+  // 正常关闭向导走的是卸载，同一句 flush 再认一次。
+  useEffect(() => {
+    if (!draftEnabled) return;
+    const flush = () => {
+      const snapshot = draftSnapshotRef.current;
+      if (!snapshot || draftTimerRef.current === null) return;
+      stopDraftTimer();
+      persistDraft(snapshot);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      flush();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftEnabled]);
 
   useEffect(() => {
     let cancelled = false;
@@ -351,30 +567,37 @@ export function AddExamSubjectWizard({
     setError((prev) => (prev && !prev.code ? null : prev));
   };
 
+  /* 一句话结果的两种说法，全站只在这里分一次：
+     fail   = 这件事没做成（系统故障、文件读不出来）——红底，帽子说清是哪一步；
+     remark = 这件事做成了，或者你的输入需要调整一下——纸色底，句子自己说完，不扣「生成未完成」。 */
+  const fail = (message: string, headline: string, code?: string) =>
+    setError({ message, headline, code, tone: "error" });
+  const remark = (message: string) => setError({ message, tone: "notice" });
+
   const handleFileUpload = async (files: FileList | File[] | null) => {
     if (!files || isParsingFiles || isWorking) return;
     const incoming = Array.from(files);
     if (incoming.length === 0) return;
 
     if (courseDocuments.length >= MAX_LIBRARY_MATERIALS) {
-      setError({
-        message: tt(
+      remark(
+        tt(
           `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，请先删除部分文件。`,
           `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Remove some files first.`
-        ),
-      });
+        )
+      );
       return;
     }
 
     const remainingSlots = MAX_LIBRARY_MATERIALS - courseDocuments.length;
     const fileArray = incoming.slice(0, remainingSlots);
     if (incoming.length > remainingSlots) {
-      setError({
-        message: tt(
+      remark(
+        tt(
           `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，本次仅处理前 ${remainingSlots} 份。`,
           `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Only the first ${remainingSlots} files were processed.`
-        ),
-      });
+        )
+      );
     } else {
       setError(null);
     }
@@ -418,20 +641,45 @@ export function AddExamSubjectWizard({
     setIsParsingFiles(false);
     setParsingStatus("");
 
-    if (newDocs.length > 0) {
-      setCourseDocuments((prev) => [...prev, ...newDocs]);
+    // 解析完才谈得上「内容一样」：按正文指纹去重，换个文件名的同一份资料不会进两遍
+    const merged = newDocs.length > 0 ? await mergeMaterials(courseDocuments, newDocs, MAX_LIBRARY_MATERIALS) : null;
+    const accepted = merged ? merged.accepted : [];
+    const duplicates = merged ? merged.duplicates : 0;
+
+    if (accepted.length > 0) {
+      setCourseDocuments((prev) => [...prev, ...accepted]);
       invalidateAiResult();
       if (!examName.trim() && suggestedName) {
         setExamName(suggestedName);
       }
     }
 
+    const notices: string[] = [];
+    if (incoming.length > remainingSlots) {
+      notices.push(
+        tt(
+          `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，本次仅处理前 ${remainingSlots} 份。`,
+          `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Only the first ${remainingSlots} files were processed.`
+        )
+      );
+    }
+    if (duplicates > 0) notices.push(duplicateMaterialsNotice(duplicates, language !== "en"));
+    // 「有文件没读出来」才是失败，「跳过了重复的」「只处理了前几份」只是这一批的结果。
+    // 混进同一条红消息，用户会去查那个其实没坏的重复文件。
     if (failures.length > 0) {
       const extra =
         failures.length > 3
           ? tt(`（另有 ${failures.length - 3} 个失败）`, ` (+${failures.length - 3} more failed)`)
           : "";
-      setError({ message: failures.slice(0, 3).join("；") + extra });
+      const detail = failures.slice(0, 3).join("；") + extra;
+      fail(
+        notices.length > 0 ? `${detail}；${notices.join("；")}` : detail,
+        tt("有文件没读出来", "Some files could not be read")
+      );
+    } else if (notices.length > 0) {
+      remark(notices.join("；"));
+    } else {
+      setError(null);
     }
   };
 
@@ -449,37 +697,52 @@ export function AddExamSubjectWizard({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleAddPastedDocument = () => {
+  const handleAddPastedDocument = async () => {
     if (isWorking) return;
     const content = pasteDocContent.trim();
     if (!content) return;
+    // 一份资料的正文上限：粘贴这条路没有解析器替我们截断，超了就说清楚，别让它悄悄变短
+    // 这里说「字符」（含空白的原始长度），因为上限管的就是这个；界面其他地方说「字」= 不数空白。
+    if (content.length > MAX_MATERIAL_CHARS) {
+      remark(
+        tt(
+          `粘贴的内容有 ${content.length.toLocaleString()} 字符，一份资料最多 ${MAX_MATERIAL_CHARS.toLocaleString()} 字符，请拆分后分次加入。`,
+          `That paste is ${content.length.toLocaleString()} characters; one material holds up to ${MAX_MATERIAL_CHARS.toLocaleString()}. Split it and add it in parts.`
+        )
+      );
+      return;
+    }
     if (courseDocuments.length >= MAX_LIBRARY_MATERIALS) {
-      setError({
-        message: tt(
+      remark(
+        tt(
           `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，请先删除部分文件。`,
           `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Remove some files first.`
-        ),
-      });
+        )
+      );
       return;
     }
 
     const title =
       pasteDocTitle.trim() || `${tt("粘贴笔记", "Pasted notes")} ${courseDocuments.length + 1}`;
 
-    setCourseDocuments((prev) => [
-      ...prev,
-      {
-        id: `mat-paste-${Date.now()}`,
-        name: title,
-        type: "notes",
-        categoryGroup: "study_material",
-        content,
-        sizeBytes: new Blob([content]).size,
-        uploadedAt: new Date().toISOString(),
-        difficulty: "medium",
-        summaryNotes: content.slice(0, 160) + (content.length > 160 ? "..." : ""),
-      },
-    ]);
+    const pasted: StudyMaterial = {
+      id: `mat-paste-${Date.now()}`,
+      name: title,
+      type: "notes",
+      categoryGroup: "study_material",
+      content,
+      sizeBytes: new Blob([content]).size,
+      uploadedAt: new Date().toISOString(),
+      difficulty: "medium",
+      summaryNotes: content.slice(0, 160) + (content.length > 160 ? "..." : ""),
+    };
+    // 粘出来的正文和库里已有的一模一样时不重复收：留着输入框里的字，让用户自己决定改哪一处
+    const merged = await mergeMaterials(courseDocuments, [pasted], MAX_LIBRARY_MATERIALS);
+    if (merged.accepted.length === 0) {
+      remark(duplicateMaterialsNotice(merged.duplicates, language !== "en"));
+      return;
+    }
+    setCourseDocuments((prev) => [...prev, ...merged.accepted]);
     invalidateAiResult();
     setPasteDocTitle("");
     setPasteDocContent("");
@@ -606,17 +869,17 @@ export function AddExamSubjectWizard({
     if (workingRef.current || isParsingFiles) return;
 
     if (!examName.trim() || !startDate || !examDate || daysBetween(startDate, examDate) < 0 || !hoursReady) {
-      setError({ message: tt("请先完善考试信息。", "Complete the exam details first.") });
+      remark(tt("请先完善考试信息。", "Complete the exam details first."));
       setStep(1);
       return;
     }
     if (courseDocuments.length === 0 && topics.length === 0) {
-      setError({
-        message: tt(
+      remark(
+        tt(
           "先上传一份考纲、讲义、真题或笔记，或者用「整理教材目录」按教材名拿考点。",
           "Upload a syllabus, slides, past paper, or notes first — or outline a textbook by name to get topics."
-        ),
-      });
+        )
+      );
       setStep(2);
       return;
     }
@@ -640,15 +903,26 @@ export function AddExamSubjectWizard({
       }
       setWorkStage("planning");
       const newPlan = await requestPlan(activeTopics);
+      dropDraft();
       onPlanCreated(newPlan, null);
     } catch (err: any) {
       if (err instanceof GenerationError) {
-        setError({ message: err.message, code: err.code });
+        fail(
+          err.message,
+          err.code === "AI_NOT_CONFIGURED"
+            ? tt("AI 尚未配置", "AI is not configured")
+            : tt("生成未完成", "Generation failed"),
+          err.code
+        );
       } else {
         console.error("Unexpected plan generation error:", err);
-        setError({
-          message: tt("生成过程中出现异常，请稍后重试。", "Something went wrong while generating the plan. Please try again."),
-        });
+        fail(
+          tt(
+            "生成过程中出现异常，请稍后重试。",
+            "Something went wrong while generating the plan. Please try again."
+          ),
+          tt("生成未完成", "Generation failed")
+        );
       }
     } finally {
       workingRef.current = false;
@@ -666,6 +940,7 @@ export function AddExamSubjectWizard({
     const now = new Date().toISOString();
     const identity = planIdentity();
     const preferences = buildPreferences([]);
+    dropDraft();
     onPlanCreated(
       {
         id: identity.id,
@@ -797,6 +1072,39 @@ export function AddExamSubjectWizard({
 
   const wizardContent = (
     <>
+      {restoredDraft && !isWorking && (
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl border border-[#eae7e1] bg-[#faf9f6] px-4 py-2.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <History className="h-3.5 w-3.5 shrink-0 text-[#8a8580]" />
+            <span className="text-[13px] font-medium text-[#1c1b1a]">
+              {tt("已接回上次未完成的草稿", "Your unfinished draft is back")}
+            </span>
+            {restoredDraft.materials > 0 && (
+              <span className="ui-chip tabular-nums">
+                {tt(`${restoredDraft.materials} 份资料`, `${restoredDraft.materials} materials`)}
+              </span>
+            )}
+            {restoredDraft.topics > 0 && (
+              <span className="ui-chip tabular-nums">
+                {tt(`${restoredDraft.topics} 个考点`, `${restoredDraft.topics} topics`)}
+              </span>
+            )}
+            {restoredDraft.dropped > 0 && (
+              <span className="ui-chip tabular-nums">
+                {tt(`${restoredDraft.dropped} 份太大没接回来`, `${restoredDraft.dropped} too large to keep`)}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={handleDiscardDraft}
+            disabled={isParsingFiles}
+            className="ui-btn ui-btn-ghost shrink-0 px-2.5 py-1 text-[12px] disabled:opacity-40"
+          >
+            {tt("丢掉草稿", "Discard draft")}
+          </button>
+        </div>
+      )}
+
       {aiReady === false && (
         <div className="flex items-start gap-2.5 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-4 py-3 text-[#8A5A00]">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -813,26 +1121,12 @@ export function AddExamSubjectWizard({
       )}
 
       {error && (
-        <div className="flex items-start justify-between gap-3 rounded-xl border border-[#f5d6d0] bg-[#FDF0EE] px-4 py-3 text-[#B42318]">
-          <div className="flex min-w-0 items-start gap-2.5">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <div className="min-w-0 text-[13px]">
-              <p className="font-medium">
-                {error.code === "AI_NOT_CONFIGURED"
-                  ? tt("AI 尚未配置", "AI is not configured")
-                  : tt("生成未完成", "Generation failed")}
-              </p>
-              <p className="mt-0.5 leading-relaxed">{error.message}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setError(null)}
-            className="shrink-0 rounded-lg p-1 transition-colors hover:bg-[#B42318]/10 cursor-pointer"
-            aria-label={tt("关闭提示", "Dismiss error")}
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        <NoticeBand
+          tone={error.tone ?? "error"}
+          headline={error.headline}
+          message={error.message}
+          onDismiss={() => setError(null)}
+        />
       )}
 
       {/* STEP 1 — Exam details */}
@@ -1080,7 +1374,7 @@ export function AddExamSubjectWizard({
                       <p className="mt-0.5 text-[11px] text-[#8a8580] tabular-nums">
                         {typeLabels[doc.type]} ·{" "}
                         {Math.max(1, Math.round((doc.sizeBytes || doc.content.length) / 1024))} KB ·{" "}
-                        {doc.content.length.toLocaleString()} {tt("字", "chars")}
+                        {visibleChars(doc.content).toLocaleString()} {tt("字", "chars")}
                       </p>
                     </div>
                     <button
@@ -1390,7 +1684,7 @@ export function AddExamSubjectWizard({
         size="lg"
         note={
           previewDoc &&
-          `${previewDoc.content.length.toLocaleString()} ${tt("字符", "chars")} · ${typeLabels[previewDoc.type]}`
+          `${visibleChars(previewDoc.content).toLocaleString()} ${tt("字", "chars")} · ${typeLabels[previewDoc.type]}`
         }
         footer={
           <button

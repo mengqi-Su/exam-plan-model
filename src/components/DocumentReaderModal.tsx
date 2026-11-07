@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { StudyMaterial } from "../types";
 import { useI18n } from "../lib/i18n";
+import { visibleChars } from "../lib/text";
 
 interface DocumentReaderModalProps {
   doc: StudyMaterial | null;
@@ -110,7 +111,7 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
   // Word count and reading time estimate
   const stats = useMemo(() => {
     if (!doc?.content) return { words: 0, readMinutes: 1 };
-    const charCount = doc.content.length;
+    const charCount = visibleChars(doc.content);
     const readMinutes = Math.max(1, Math.ceil(charCount / 380));
     return {
       words: charCount,
@@ -460,7 +461,7 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
                       <span>{new Date(doc.uploadedAt).toLocaleDateString()}</span>
                     </span>
                   )}
-                  <span className="tabular-nums">{stats.words.toLocaleString()} {isZh ? "字符" : "chars"}</span>
+                  <span className="tabular-nums">{stats.words.toLocaleString()} {isZh ? "字" : "chars"}</span>
                 </div>
               </div>
 

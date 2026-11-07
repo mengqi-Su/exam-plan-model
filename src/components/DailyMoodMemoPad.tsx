@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { PenLine, Check, Trash2 } from "lucide-react";
 import { getDailyMemo, saveDailyMemo, deleteDailyMemo } from "../lib/storage";
+import { visibleChars } from "../lib/text";
 
 interface DailyMoodMemoPadProps {
   dateStr: string;
@@ -129,7 +130,7 @@ export function DailyMoodMemoPad({
         />
         <div className="flex items-center justify-between text-[10px] text-[#a39e97] pt-1 tabular-nums">
           <span>
-            {content.length} {isZh ? "字" : "chars"}
+            {visibleChars(content)} {isZh ? "字" : "chars"}
           </span>
           <span>{isZh ? "自动保存" : "Auto-saved"}</span>
         </div>

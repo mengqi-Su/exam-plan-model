@@ -15,7 +15,7 @@ import type { LucideIcon } from "lucide-react";
 import { ExamStudyPlan, PracticeEvent } from "../types";
 import type { FocusTarget } from "../lib/inbound";
 import { useI18n } from "../lib/i18n";
-import { toLocalDateString } from "../lib/date";
+import { countdownClockLabel, examCountdown, toLocalDateString } from "../lib/date";
 import { planReadiness, readinessCopy } from "../lib/planReadiness";
 import { SectionBlock } from "./SectionBlock";
 import { PageIconGlyph } from "./PageIconGlyph";
@@ -83,47 +83,22 @@ export function CourseDetailPage({
     setScheduleNotice(null);
   }, [plan.id]);
 
-  const [countdown, setCountdown] = useState({
-    days: 0,
-    hours: 0,
-    minutes: 0,
-    seconds: 0,
-  });
+  // 只负责一秒一跳的节拍；天数和时分秒怎么算全在 lib/date 一处
+  const [countdownNow, setCountdownNow] = useState(() => new Date());
 
   useEffect(() => {
     if (!plan?.examDate) return;
-    const calculateCountdown = () => {
-      const [y, m, d] = plan.examDate.split("-").map(Number);
-      const [h, min] = (plan.examTime || "09:00").split(":").map(Number);
-      const target = new Date(y, m - 1, d, h, min, 0).getTime();
-      const diff = target - new Date().getTime();
-
-      if (diff > 0) {
-        setCountdown({
-          days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-          minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-          seconds: Math.floor((diff % (1000 * 60)) / 1000),
-        });
-      } else {
-        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-      }
-    };
-
-    calculateCountdown();
-    const interval = setInterval(calculateCountdown, 1000);
+    const interval = setInterval(() => setCountdownNow(new Date()), 1000);
     return () => clearInterval(interval);
-  }, [plan?.examDate, plan?.examTime]);
+  }, [plan?.examDate]);
 
   // 倒计时收进页头属性行：一行文字，不再挂一块黑色翻页钟。
+  // 这里的整天数和今日页「还剩 N 天」、总览卡 D-N、编辑弹窗那句预告是同一个数。
   const countdownText = useMemo(() => {
-    if (!plan.examDate) return isZh ? "未设定" : "Not set";
-    const pad = (value: number) => String(value).padStart(2, "0");
-    const total = countdown.days * 86400 + countdown.hours * 3600 + countdown.minutes * 60 + countdown.seconds;
-    if (total <= 0) return isZh ? "已到期" : "Passed";
-    const clock = `${pad(countdown.hours)}:${pad(countdown.minutes)}:${pad(countdown.seconds)}`;
-    return isZh ? `${countdown.days} 天 ${clock}` : `${countdown.days}d ${clock}`;
-  }, [countdown, plan.examDate, isZh]);
+    const countdown = examCountdown(plan.examDate, plan.examTime, countdownNow);
+    if (!countdown) return isZh ? "未设定" : "Not set";
+    return countdownClockLabel(countdown, isZh);
+  }, [countdownNow, plan.examDate, plan.examTime, isZh]);
 
   // 日期和时间合成一条属性：属性行按「事实」分行，不按录入字段分行。
   const examWhenText = useMemo(() => {

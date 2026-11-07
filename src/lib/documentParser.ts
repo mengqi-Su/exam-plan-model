@@ -32,7 +32,8 @@ export const UPLOAD_ACCEPT = Array.from(SUPPORTED_EXTENSIONS)
 // 与 Word 的 piece table 完全不同，不值得在这里重写一遍。但它和 .doc 共用同一个文件头，
 // 所以要单独说清楚「另存为 pptx」，不能只甩一句「格式不支持」。
 const LEGACY_PRESENTATION_EXTENSIONS = new Set(["ppt", "pps", "pot", "dps"]);
-const MAX_MATERIAL_CHARS = 120_000;
+/** 一份资料的正文上限：解析器截到这里，粘贴入口和草稿落盘都按同一个数说话。 */
+export const MAX_MATERIAL_CHARS = 120_000;
 const MAX_ZIP_ENTRY_BYTES = 8 * 1024 * 1024;
 
 // 文档解析全部在浏览器本地完成（本地优先，文件不离开设备）：
@@ -103,7 +104,7 @@ export async function parseDocumentFile(
   }
 
   if (kind === "zip") {
-    const text = ext === "pptx" ? await extractPptxText(buffer, isZh) : await extractDocxText(buffer, isZh);
+    const text = await extractOoxmlText(buffer, ext, isZh);
     return { text, fileName: file.name, length: text.length };
   }
 
@@ -354,6 +355,35 @@ function cleanExtractedText(raw: string): string {
     .filter(Boolean)
     .join("\n")
     .slice(0, MAX_MATERIAL_CHARS);
+}
+
+/* ---------------- OOXML（zip 装的 Word / PPT） ---------------- */
+
+/* 压缩包到底是 Word 还是 PPT，由容器里有什么决定，不由扩展名决定：
+   老师把 docx 改名成 .doc 发出来是常事，反过来也有。先按用户以为的那一种解析，
+   对不上再试另一种。两条路都读不出正文时，说的那句要照着文件本身（一个读不出正文的压缩包），
+   不是照着猜错的扩展名——「这个 DOCX 损坏了」会把人引去重装 Office，而问题只是后缀写错了。 */
+async function extractOoxmlText(buffer: ArrayBuffer, ext: string, isZh: boolean): Promise<string> {
+  const wantsSlides = ext === "pptx";
+  const first = wantsSlides ? extractPptxText : extractDocxText;
+  const second = wantsSlides ? extractDocxText : extractPptxText;
+  let firstError: Error | null = null;
+  try {
+    return await first(buffer, isZh);
+  } catch (error) {
+    firstError = error instanceof Error ? error : new Error(String(error));
+  }
+  try {
+    return await second(buffer, isZh);
+  } catch {
+    const error = new Error(
+      isZh
+        ? "这个压缩包里读不到正文，可能是改了扩展名的其他文件。"
+        : "No text could be read from this archive — it may be a different file type with a changed extension."
+    );
+    if (firstError) error.cause = firstError;
+    throw error;
+  }
 }
 
 /* ---------------- DOCX ---------------- */

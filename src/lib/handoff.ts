@@ -1,4 +1,5 @@
 import { resolvePracticeTopicPath } from "./links";
+import { visibleChars } from "./text";
 
 /**
  * 考试级联动快照：点「练这个考点」时，把这场考试在 Exam Plan 里上传的资料与真题，
@@ -65,11 +66,6 @@ interface HandoffPlanLike {
 
 function trimmed(value: unknown): string {
   return String(value === null || value === undefined ? "" : value).trim();
-}
-
-/** 与 StarQuiz 的 aiVisibleChars 同口径：空白不计入，闸门才不会两端算出不同结果。 */
-function visibleChars(text: string): number {
-  return text.replace(/\s/g, "").length;
 }
 
 function isPastPaper(material: any): boolean {

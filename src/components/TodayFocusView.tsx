@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { AppTab, ExamStudyPlan, StudyTask } from "../types";
-import { addDays, daysBetween, toLocalDateString } from "../lib/date";
+import { addDays, countdownDaysLabel, examCountdown, toLocalDateString } from "../lib/date";
+import type { ExamCountdown } from "../lib/date";
 import { useI18n } from "../lib/i18n";
 import { playCompletionChime } from "../lib/audio";
 import { starquizPracticeUrlForTask } from "../lib/links";
@@ -68,14 +69,16 @@ export function TodayFocusView({
     return sortDayItems(rows);
   }, [plans, selectedDate]);
 
+  // 最近一场还没考的考试：天数由 lib/date 统一算，和科目页那条倒计时是同一个数
   const nearestExam = useMemo(() => {
-    const upcoming = plans
-      .filter((plan) => !!plan.examDate)
-      .map((plan) => ({ plan, days: daysBetween(todayStr, plan.examDate) }))
-      .filter((entry) => entry.days >= 0)
-      .sort((a, b) => a.days - b.days);
+    const upcoming: Array<{ plan: ExamStudyPlan; countdown: ExamCountdown }> = [];
+    plans.forEach((plan) => {
+      const countdown = examCountdown(plan.examDate, plan.examTime);
+      if (countdown && !countdown.passed) upcoming.push({ plan, countdown });
+    });
+    upcoming.sort((a, b) => a.countdown.examAt - b.countdown.examAt);
     return upcoming[0] || null;
-  }, [plans, todayStr]);
+  }, [plans]);
 
   const findItem = (taskId: string) => dayItems.find((item) => item.task.id === taskId);
 
@@ -179,14 +182,7 @@ export function TodayFocusView({
             {nearestExam && (
               <span className="ui-chip gap-1 tabular-nums">
                 <CalendarDays className="w-3 h-3" />
-                {nearestExam.plan.examName} ·{" "}
-                {nearestExam.days === 0
-                  ? isZh
-                    ? "今天考试"
-                    : "Exam today"
-                  : isZh
-                    ? `还剩 ${nearestExam.days} 天`
-                    : `${nearestExam.days} days left`}
+                {nearestExam.plan.examName} · {countdownDaysLabel(nearestExam.countdown, isZh)}
               </span>
             )}
           </div>

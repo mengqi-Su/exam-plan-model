@@ -3,7 +3,8 @@ import { ImagePlus, Pencil } from "lucide-react";
 import { ModalShell } from "./ModalShell";
 import { ExamStudyPlan } from "../types";
 import { useI18n } from "../lib/i18n";
-import { daysBetween, toLocalDateString } from "../lib/date";
+import { countdownDays, examCountdown } from "../lib/date";
+import type { ExamCountdown } from "../lib/date";
 import { PAGE_ICON_CHOICES, autoPageIcon } from "../lib/pageIcon";
 import {
   COVER_PRESETS,
@@ -15,6 +16,18 @@ import {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}$/;
+
+// 改日期时那一句话的三种情形。天数只来自 lib/date 的倒计时，
+// 「考试就在今天」按自然日判断，不看还剩几小时，免得今天早上新建的科目被写成已过。
+function datePreviewText(countdown: ExamCountdown, isZh: boolean): string {
+  if (countdown.calendarDays === 0) return isZh ? "按这个日期，考试就在今天。" : "The exam lands on today.";
+  if (countdown.passed) {
+    const past = Math.abs(countdown.calendarDays);
+    return isZh ? `按这个日期，考试已经过了 ${past} 天。` : `This date is ${past} days in the past.`;
+  }
+  const days = countdownDays(countdown);
+  return isZh ? `按这个日期，距考试还有 ${days} 天。` : `${days} days left with this date.`;
+}
 
 export interface ExamDraft {
   examName: string;
@@ -92,10 +105,11 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
     }
   };
 
-  const remainingDays = useMemo(() => {
+  // 改日期时的天数预告和保存后科目页、今日页说的是同一个数：都走 lib/date 一处算法
+  const countdown = useMemo(() => {
     if (!DATE_RE.test(draft.examDate.trim())) return null;
-    return daysBetween(toLocalDateString(), draft.examDate.trim());
-  }, [draft.examDate]);
+    return examCountdown(draft.examDate.trim(), draft.examTime.trim() || "09:00");
+  }, [draft.examDate, draft.examTime]);
 
   const handleSubmit = () => {
     const examDate = draft.examDate.trim();
@@ -310,18 +324,8 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
         <span className="ui-row-meta">
           {error ? (
             <span className="text-[#B42318]">{error}</span>
-          ) : remainingDays !== null ? (
-            isZh
-              ? remainingDays > 0
-                ? `按这个日期，距考试还有 ${remainingDays} 天。`
-                : remainingDays === 0
-                  ? "按这个日期，考试就在今天。"
-                  : `按这个日期，考试已经过了 ${-remainingDays} 天。`
-              : remainingDays > 0
-                ? `${remainingDays} days left with this date.`
-                : remainingDays === 0
-                  ? "The exam lands on today."
-                  : `This date is ${-remainingDays} days in the past.`
+          ) : countdown ? (
+            datePreviewText(countdown, isZh)
           ) : null}
         </span>
         {plan.startDate && (

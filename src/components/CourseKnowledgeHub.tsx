@@ -19,12 +19,14 @@ import {
   runGeneration,
 } from "../lib/aiClient";
 import { mergeTopics, nonTextbookTitles, replaceTextbookTopics } from "../lib/topics";
+import { duplicateMaterialsNotice, mergeMaterials } from "../lib/materials";
 import { TabbedFolderArchive } from "./TabbedFolderArchive";
 import { UploadModal } from "./UploadModal";
 import { NoteModal } from "./NoteModal";
 import { DocumentReaderModal } from "./DocumentReaderModal";
 import { HierarchicalTopicTreeView } from "./HierarchicalTopicTreeView";
 import { TextbookOutlineDialog } from "./TextbookOutlineDialog";
+import { NoticeBand } from "./NoticeBand";
 
 interface CourseKnowledgeHubProps {
   plan: ExamStudyPlan;
@@ -49,6 +51,8 @@ export function CourseKnowledgeHub({
   const { language } = useI18n();
 
   const [extractError, setExtractError] = useState<string | null>(null);
+  // 这批资料收得怎么样（跳过几份重复、只收下前几份）——是结果，不是故障，所以不放红底。
+  const [libraryNotice, setLibraryNotice] = useState<string | null>(null);
 
   const [showPasteBox, setShowPasteBox] = useState(false);
   const [showUploadBox, setShowUploadBox] = useState(false);
@@ -93,25 +97,32 @@ export function CourseKnowledgeHub({
   };
 
   // 资料库上限和单次生成上限是两件事：库满了要说清收下了几份，不静默丢文件。
-  const addToLibrary = (incoming: StudyMaterial[]) => {
+  // 去重排在上限之前：同一份正文换个文件名传第二遍，不该挤掉真正的新资料。
+  const addToLibrary = async (incoming: StudyMaterial[]) => {
+    if (incoming.length === 0) return;
     const slots = MAX_LIBRARY_MATERIALS - materials.length;
     if (slots <= 0) {
-      setExtractError(
+      setLibraryNotice(
         language === "zh"
           ? `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，请先删除部分文件。`
           : `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Remove some files first.`
       );
       return;
     }
-    const accepted = incoming.slice(0, slots);
-    if (incoming.length > slots) {
-      setExtractError(
+    const merged = await mergeMaterials(materials, incoming, MAX_LIBRARY_MATERIALS);
+    if (merged.accepted.length > 0) updatePlanMaterials([...merged.accepted, ...materials]);
+    const notices: string[] = [];
+    if (merged.overflow > 0) {
+      notices.push(
         language === "zh"
-          ? `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，本次仅收下前 ${accepted.length} 份。`
-          : `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Only the first ${accepted.length} files were kept.`
+          ? `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，本次仅收下前 ${merged.accepted.length} 份。`
+          : `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Only the first ${merged.accepted.length} files were kept.`
       );
     }
-    updatePlanMaterials([...accepted, ...materials]);
+    if (merged.duplicates > 0) {
+      notices.push(duplicateMaterialsNotice(merged.duplicates, language === "zh"));
+    }
+    setLibraryNotice(notices.length > 0 ? notices.join(language === "zh" ? "；" : "; ") : null);
   };
 
   const handleDeleteDoc = (docId: string) => {
@@ -259,6 +270,10 @@ export function CourseKnowledgeHub({
           <Sparkles className="w-4 h-4 shrink-0" />
           <span>{successNote}</span>
         </div>
+      )}
+
+      {libraryNotice && (
+        <NoticeBand tone="notice" message={libraryNotice} onDismiss={() => setLibraryNotice(null)} />
       )}
 
       {extractError && (

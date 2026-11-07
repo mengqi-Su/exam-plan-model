@@ -85,6 +85,8 @@ export interface StudyMaterial {
   summaryNotes?: string;
   keyTraps?: string[];
   chunksCount?: number;
+  /** 正文的 SHA-256（64 位十六进制）：去重看它，不看文件名。上线前的老资料没有这个字段。 */
+  contentHash?: string;
 }
 
 export interface UserStudyPreferences {
@@ -300,5 +302,33 @@ export interface PracticeEvent {
   status: PracticeEventStatus;
   appliedAt?: string;
   resolution?: PracticeEventResolution;
+}
+
+/**
+ * 新建科目向导里还没变成科目的那份填写。
+ *
+ * 值得落盘的只有资料正文：一份 PDF 解析要几十秒，刷新一下就没了等于让用户重传一遍。
+ * 其余字段都是便宜的文字，留着是为了接回来时不用重答一遍考试信息。
+ * 全站只有「当前这一份」草稿（id 固定），交出一门科目或用户主动丢掉时就清空。
+ */
+export interface WizardDraft {
+  schemaVersion: 1;
+  id: 'current';
+  updatedAt: string;
+  step: 1 | 2 | 3;
+  examName: string;
+  subject: string;
+  startDate: string;
+  examDate: string;
+  examTime: string;
+  targetScore: string;
+  requirements: string;
+  dailySchedules: DaySchedulePreference[];
+  materials: StudyMaterial[];
+  aiSelectedIds: string[];
+  topics: SyllabusTopic[];
+  textbookLabel: string;
+  /** 超出草稿字数预算、这次没能存进来的资料份数：接回草稿时如实告诉用户。 */
+  droppedMaterials?: number;
 }
 

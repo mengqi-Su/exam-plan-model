@@ -9,6 +9,8 @@
  * 任何改动都要同步另一端，并跑 `npm run test:topickey`（含两端互校）。
  */
 
+import { sha256Hex as sha256HexFromCrypto } from "./hash";
+
 export const TOPIC_KEY_ALGORITHM = "exam-plan-topic-v1";
 export const TOPIC_KEY_PREFIX = "t1_";
 /** 取 SHA-256 前 128 bit，即 32 个十六进制字符。 */
@@ -68,14 +70,9 @@ export function topicCanonicalPath(input: TopicPathInput): string {
   ]);
 }
 
-/** 只用 Web Crypto SHA-256；环境不支持就报错，绝不静默换成另一种哈希。 */
+/** 钥匙用的哈希就是全站那一个 SHA-256；这里只留名字，免得两端互校时找不着北。 */
 export async function sha256Hex(text: string): Promise<string> {
-  const subtle = globalThis.crypto && globalThis.crypto.subtle;
-  if (!subtle) {
-    throw new TopicKeyError("当前环境缺少 Web Crypto SHA-256，请在 HTTPS 或 localhost 下使用。");
-  }
-  const digest = await subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return sha256HexFromCrypto(text);
 }
 
 export async function computeTopicKey(input: TopicPathInput): Promise<string> {

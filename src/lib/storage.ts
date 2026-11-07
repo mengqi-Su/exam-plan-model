@@ -7,10 +7,13 @@ const STORAGE_KEY_DAILY_MEMOS = "exam_planner_daily_memos_v1";
 const STORAGE_KEY_PRACTICE_EVENTS = "exam_planner_practice_events_v1";
 
 const DB_NAME = "exam_planner_local";
-/** v2：新增 practice_events（StarQuiz 回流的练习事件），旧 plans 数据原地保留 */
-const DB_VERSION = 2;
+/** v2：新增 practice_events（StarQuiz 回流的练习事件），旧 plans 数据原地保留
+ *  v3：新增 wizard_draft（新建科目向导的未完成草稿）*/
+const DB_VERSION = 3;
 const PLAN_STORE = "plans";
 const PRACTICE_STORE = "practice_events";
+/** 向导草稿只有一个：同一时间只会开着一个新建向导，所以固定一条记录。 */
+export const WIZARD_DRAFT_STORE = "wizard_draft";
 
 function openPlanDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -28,6 +31,10 @@ function openPlanDatabase(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(PRACTICE_STORE)) {
         db.createObjectStore(PRACTICE_STORE, { keyPath: "attemptId" });
       }
+      // 建 v3 时旧 plans / practice_events 都不动：草稿是第四个独立 store，不需要迁移任何历史数据。
+      if (!db.objectStoreNames.contains(WIZARD_DRAFT_STORE)) {
+        db.createObjectStore(WIZARD_DRAFT_STORE, { keyPath: "id" });
+      }
     };
     request.onblocked = () => {
       // 另一个标签页还占着旧版本；不报错也不挂死，交给调用方超时后走回退
@@ -41,6 +48,44 @@ function openPlanDatabase(): Promise<IDBDatabase> {
       resolve(db);
     };
     request.onerror = () => reject(request.error || new Error("Failed to open local database"));
+  });
+}
+
+/**
+ * 三个 store 说的是同一句话：整份读出、整份重写。
+ * 连接在事务完成或中止时才关——在 request.onsuccess 里关会切断还没取完的结果。
+ */
+export async function readLocalStore<T>(storeName: string): Promise<T[]> {
+  const db = await openPlanDatabase();
+  return new Promise<T[]>((resolve, reject) => {
+    const tx = db.transaction(storeName, "readonly");
+    const request = tx.objectStore(storeName).getAll();
+    request.onsuccess = () => resolve((request.result || []) as T[]);
+    request.onerror = () => reject(request.error || new Error(`Failed to read ${storeName}`));
+    tx.oncomplete = () => db.close();
+    tx.onabort = () => db.close();
+  });
+}
+
+export async function rewriteLocalStore(storeName: string, records: unknown[]): Promise<void> {
+  const db = await openPlanDatabase();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
+    store.clear();
+    records.forEach((record) => store.put(record));
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error || new Error(`Failed to write ${storeName}`));
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(tx.error || new Error(`${storeName} write was aborted`));
+    };
   });
 }
 
@@ -77,15 +122,7 @@ function backfillTaskTopicIds(plans: ExamStudyPlan[]): ExamStudyPlan[] {
 
 export async function loadSavedPlans(): Promise<ExamStudyPlan[]> {
   try {
-    const db = await openPlanDatabase();
-    const plans = await new Promise<ExamStudyPlan[]>((resolve, reject) => {
-      const tx = db.transaction(PLAN_STORE, "readonly");
-      const request = tx.objectStore(PLAN_STORE).getAll();
-      request.onsuccess = () => resolve((request.result || []) as ExamStudyPlan[]);
-      request.onerror = () => reject(request.error || new Error("Failed to read local plans"));
-      tx.oncomplete = () => db.close();
-      tx.onabort = () => db.close();
-    });
+    const plans = await readLocalStore<ExamStudyPlan>(PLAN_STORE);
     if (plans.length > 0) {
       return backfillTaskTopicIds(plans.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")));
     }
@@ -108,25 +145,7 @@ export async function loadSavedPlans(): Promise<ExamStudyPlan[]> {
 export async function savePlans(plans: ExamStudyPlan[]): Promise<void> {
   let indexedDbError: unknown = null;
   try {
-    const db = await openPlanDatabase();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(PLAN_STORE, "readwrite");
-      const store = tx.objectStore(PLAN_STORE);
-      store.clear();
-      plans.forEach((plan) => store.put(plan));
-      tx.oncomplete = () => {
-        db.close();
-        resolve();
-      };
-      tx.onerror = () => {
-        db.close();
-        reject(tx.error || new Error("Failed to write local plans"));
-      };
-      tx.onabort = () => {
-        db.close();
-        reject(tx.error || new Error("Local write was aborted"));
-      };
-    });
+    await rewriteLocalStore(PLAN_STORE, plans);
     localStorage.removeItem(LEGACY_STORAGE_KEY_PLANS);
     return;
   } catch (e) {
@@ -167,9 +186,11 @@ export async function clearPlannerData(): Promise<void> {
   try {
     const db = await openPlanDatabase();
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction([PLAN_STORE, PRACTICE_STORE], "readwrite");
+      const tx = db.transaction([PLAN_STORE, PRACTICE_STORE, WIZARD_DRAFT_STORE], "readwrite");
       tx.objectStore(PLAN_STORE).clear();
       tx.objectStore(PRACTICE_STORE).clear();
+      // 清空本地数据也该把未完成草稿一起丢掉，否则重新打开向导还会接回一份「已经没有科目可接」的填写
+      tx.objectStore(WIZARD_DRAFT_STORE).clear();
       tx.oncomplete = () => {
         db.close();
         resolve();
@@ -313,15 +334,9 @@ function dedupeByAttemptId(events: PracticeEvent[]): PracticeEvent[] {
 
 export async function loadPracticeEvents(): Promise<PracticeEvent[]> {
   try {
-    const db = await openPlanDatabase();
-    const events = await new Promise<PracticeEvent[]>((resolve, reject) => {
-      const tx = db.transaction(PRACTICE_STORE, "readonly");
-      const request = tx.objectStore(PRACTICE_STORE).getAll();
-      request.onsuccess = () => resolve((request.result || []).map(sanitizePracticeEvent).filter((e): e is PracticeEvent => !!e));
-      request.onerror = () => reject(request.error || new Error("Failed to read practice events"));
-      tx.oncomplete = () => db.close();
-      tx.onabort = () => db.close();
-    });
+    const events = (await readLocalStore<PracticeEvent>(PRACTICE_STORE))
+      .map(sanitizePracticeEvent)
+      .filter((event): event is PracticeEvent => !!event);
     const merged = dedupeByAttemptId(events);
     // IndexedDB 恢复可用但库是空的：把回退期间写进 localStorage 的回执迁回来，
     // 否则下一次成功写入会顺手删掉回退键，回执就无声消失了。
@@ -344,25 +359,7 @@ export async function savePracticeEvents(events: PracticeEvent[]): Promise<void>
   const merged = dedupeByAttemptId(events.map(sanitizePracticeEvent).filter((e): e is PracticeEvent => !!e));
   let indexedDbError: unknown = null;
   try {
-    const db = await openPlanDatabase();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(PRACTICE_STORE, "readwrite");
-      const store = tx.objectStore(PRACTICE_STORE);
-      store.clear();
-      merged.forEach((event) => store.put(event));
-      tx.oncomplete = () => {
-        db.close();
-        resolve();
-      };
-      tx.onerror = () => {
-        db.close();
-        reject(tx.error || new Error("Failed to write practice events"));
-      };
-      tx.onabort = () => {
-        db.close();
-        reject(tx.error || new Error("Practice event write was aborted"));
-      };
-    });
+    await rewriteLocalStore(PRACTICE_STORE, merged);
     localStorage.removeItem(STORAGE_KEY_PRACTICE_EVENTS);
     return;
   } catch (e) {

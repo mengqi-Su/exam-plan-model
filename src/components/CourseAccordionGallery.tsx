@@ -8,6 +8,7 @@ import {
   Plus,
 } from "lucide-react";
 import { AppTab, ExamStudyPlan } from "../types";
+import { countdownDnLabel, examCountdown } from "../lib/date";
 import { PageIconGlyph } from "./PageIconGlyph";
 import { planReadiness, readinessCopy } from "../lib/planReadiness";
 
@@ -40,16 +41,6 @@ export function CourseAccordionGallery({
 
   const effectiveExpandedId = activeHoverId !== null ? activeHoverId : selectedId;
 
-  const getDaysRemaining = (examDateStr?: string) => {
-    if (!examDateStr) return null;
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const [y, m, d] = examDateStr.split("-").map(Number);
-    const examDate = new Date(y, m - 1, d);
-    const diffTime = examDate.getTime() - now.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-
   const requestDelete = (plan: ExamStudyPlan) => {
     if (onRequestDeletePlan) onRequestDeletePlan(plan);
     else if (onDeletePlan) onDeletePlan(plan.id);
@@ -63,10 +54,12 @@ export function CourseAccordionGallery({
   const cardFacts = (plan: ExamStudyPlan) => {
     const completedCount = plan.tasks.filter((t) => t.status === "completed").length;
     const totalCount = plan.tasks.length;
+    const countdown = examCountdown(plan.examDate, plan.examTime);
     return {
       pending: readinessCopy(planReadiness(plan), isZh),
       progress: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0,
-      daysLeft: getDaysRemaining(plan.examDate),
+      // D-N 和今日页、科目页那条倒计时是同一个数：都由 lib/date 算，卡片不再自己数天
+      examLabel: countdown ? countdownDnLabel(countdown, isZh) : null,
     };
   };
 
@@ -105,7 +98,7 @@ export function CourseAccordionGallery({
       >
         {plans.map((plan) => {
           const isExpanded = effectiveExpandedId === plan.id;
-          const { pending, progress, daysLeft } = cardFacts(plan);
+          const { pending, progress, examLabel } = cardFacts(plan);
 
           return (
             <div
@@ -158,9 +151,9 @@ export function CourseAccordionGallery({
                           {plan.examName}
                         </h3>
                       </div>
-                      {daysLeft !== null && (
+                      {examLabel && (
                         <span className="ui-chip shrink-0 tabular-nums">
-                          {daysLeft <= 0 ? (isZh ? "今天考试" : "Today") : `D-${daysLeft}`}
+                          {examLabel}
                         </span>
                       )}
                     </div>
@@ -231,8 +224,8 @@ export function CourseAccordionGallery({
                     </span>
                   </div>
                   <div className="flex flex-col items-center gap-1 w-full pt-2">
-                    {daysLeft !== null && (
-                      <span className="text-[10px] font-medium tabular-nums text-[#8a8580]">D-{daysLeft}</span>
+                    {examLabel && (
+                      <span className="text-[10px] font-medium tabular-nums text-[#8a8580]">{examLabel}</span>
                     )}
                     {/* 没排任务的科目在窄条上不给百分数：一格 0% 只会读成「落后了」。 */}
                     {!pending && (
@@ -353,7 +346,7 @@ export function CourseAccordionGallery({
 
         {plans.map((plan) => {
           const isExpanded = effectiveExpandedId === plan.id;
-          const { pending, progress, daysLeft } = cardFacts(plan);
+          const { pending, progress, examLabel } = cardFacts(plan);
 
           return (
             <div key={plan.id} className="ui-card overflow-hidden">
@@ -386,7 +379,7 @@ export function CourseAccordionGallery({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  {daysLeft !== null && <span className="ui-chip tabular-nums">D-{daysLeft}</span>}
+                  {examLabel && <span className="ui-chip tabular-nums">{examLabel}</span>}
                   <ChevronDown
                     className={`w-4 h-4 text-[#a39e97] transition-transform ${isExpanded ? "rotate-180" : ""}`}
                   />

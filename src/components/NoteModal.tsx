@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FileText, Check } from "lucide-react";
 import { StudyMaterial } from "../types";
 import { useI18n } from "../lib/i18n";
+import { visibleChars } from "../lib/text";
 import { ModalShell } from "./ModalShell";
 
 interface NoteModalProps {
@@ -117,7 +118,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
           <div className="flex items-center justify-between mb-1">
             <label className={labelCls}>{isZh ? "内容文本" : "Content"}</label>
             <span className="text-[11px] text-[#a39e97] tabular-nums">
-              {content.length} {isZh ? "字" : "chars"}
+              {visibleChars(content)} {isZh ? "字" : "chars"}
             </span>
           </div>
           <textarea
