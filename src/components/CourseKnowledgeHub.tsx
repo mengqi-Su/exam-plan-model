@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   AlertCircle,
   BookOpen,
@@ -10,7 +10,14 @@ import {
 } from "lucide-react";
 import { SyllabusTopic, StudyMaterial, ExamStudyPlan, TextbookOutline } from "../types";
 import { useI18n } from "../lib/i18n";
-import { prepareMaterialsForAI, runGeneration } from "../lib/aiClient";
+import {
+  MAX_AI_MATERIALS,
+  MAX_LIBRARY_MATERIALS,
+  aiSelectionNotice,
+  defaultAiSelection,
+  prepareMaterialsForAI,
+  runGeneration,
+} from "../lib/aiClient";
 import { mergeTopics, nonTextbookTitles, replaceTextbookTopics } from "../lib/topics";
 import { TabbedFolderArchive } from "./TabbedFolderArchive";
 import { UploadModal } from "./UploadModal";
@@ -61,12 +68,50 @@ export function CourseKnowledgeHub({
   const materials: StudyMaterial[] = plan.materials || [];
   const topics: SyllabusTopic[] = plan.topics || [];
 
+  // 资料库容量和单次生成用量分开：库里能存 100 份，重新提炼只吃勾选的 20 份。
+  const [aiSelectedIds, setAiSelectedIds] = useState<string[]>([]);
+  useEffect(() => {
+    setAiSelectedIds((prev) => defaultAiSelection(plan.materials, prev));
+  }, [plan.materials]);
+
+  const toggleAiSelected = (docId: string) => {
+    setAiSelectedIds((prev) => {
+      if (prev.includes(docId)) return prev.filter((id) => id !== docId);
+      if (prev.length >= MAX_AI_MATERIALS) return prev;
+      return [...prev, docId];
+    });
+  };
+
+  const selectionNotice = aiSelectionNotice(materials.length, aiSelectedIds.length, language);
+
   const updatePlanMaterials = (newMaterials: StudyMaterial[]) => {
     onUpdatePlan({
       ...plan,
       materials: newMaterials,
       updatedAt: new Date().toISOString(),
     });
+  };
+
+  // 资料库上限和单次生成上限是两件事：库满了要说清收下了几份，不静默丢文件。
+  const addToLibrary = (incoming: StudyMaterial[]) => {
+    const slots = MAX_LIBRARY_MATERIALS - materials.length;
+    if (slots <= 0) {
+      setExtractError(
+        language === "zh"
+          ? `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，请先删除部分文件。`
+          : `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Remove some files first.`
+      );
+      return;
+    }
+    const accepted = incoming.slice(0, slots);
+    if (incoming.length > slots) {
+      setExtractError(
+        language === "zh"
+          ? `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，本次仅收下前 ${accepted.length} 份。`
+          : `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Only the first ${accepted.length} files were kept.`
+      );
+    }
+    updatePlanMaterials([...accepted, ...materials]);
   };
 
   const handleDeleteDoc = (docId: string) => {
@@ -84,6 +129,15 @@ export function CourseKnowledgeHub({
       return;
     }
 
+    if (materials.length > 0 && aiSelectedIds.length === 0) {
+      setExtractError(
+        language === "zh"
+          ? "请先在资料库里勾选要用于本次提炼的资料。"
+          : "Check the materials you want this run to use in the library first."
+      );
+      return;
+    }
+
     setIsExtracting(true);
     setExtractError(null);
     setSuccessNote(null);
@@ -92,7 +146,7 @@ export function CourseKnowledgeHub({
       const { result } = await runGeneration<{ summary?: string; topics?: SyllabusTopic[] }>(
         "syllabus",
         {
-          materials: prepareMaterialsForAI(materials),
+          materials: prepareMaterialsForAI(materials, aiSelectedIds),
           examName: plan.examName || (language === "zh" ? "即将到来的期末考试" : "Upcoming Exam"),
           subject: plan.subject || (language === "zh" ? "综合学科" : "General"),
         },
@@ -216,11 +270,22 @@ export function CourseKnowledgeHub({
 
       <section className="space-y-4">
         {/* 1. Main Knowledge Base Archive View */}
-        <div className="pt-1">
+        <div className="space-y-3 pt-1">
+          {selectionNotice && (
+            <div className="flex items-start justify-between gap-3 rounded-xl border border-[#e5e2dc] bg-[#faf9f6] px-3.5 py-3">
+              <p className="text-[13px] leading-relaxed text-[#1c1b1a]">{selectionNotice}</p>
+              <span className="shrink-0 text-[12px] text-[#6b6660] tabular-nums">
+                {isZh ? "本次生成" : "This run"} {aiSelectedIds.length} / {MAX_AI_MATERIALS}
+              </span>
+            </div>
+          )}
           <TabbedFolderArchive
             materials={materials}
             onPreviewDoc={(doc) => setPreviewDoc(doc)}
             onDeleteDoc={(docId) => handleDeleteDoc(docId)}
+            selectedIds={aiSelectedIds}
+            onToggleSelected={toggleAiSelected}
+            selectionLimit={MAX_AI_MATERIALS}
             onOpenUpload={(folderType) => {
               if (folderType) setActiveFolderDocType(folderType);
               setShowUploadBox(true);
@@ -246,7 +311,7 @@ export function CourseKnowledgeHub({
           currentSyllabusContent=""
           initialType={activeFolderDocType}
           onUploadSuccess={(newAttachedMaterials) => {
-            updatePlanMaterials([...newAttachedMaterials, ...materials]);
+            addToLibrary(newAttachedMaterials);
           }}
         />
 
@@ -272,7 +337,7 @@ export function CourseKnowledgeHub({
               summaryNotes: noteData.content.slice(0, 150) + "...",
               difficulty: "medium",
             };
-            updatePlanMaterials([newDoc, ...materials]);
+            addToLibrary([newDoc]);
           }}
         />
       </section>

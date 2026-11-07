@@ -29,7 +29,15 @@ import {
 } from "../types";
 import { useI18n } from "../lib/i18n";
 import { parseDocumentFile, UPLOAD_ACCEPT } from "../lib/documentParser";
-import { GenerationError, MAX_AI_MATERIALS, prepareMaterialsForAI, runGeneration } from "../lib/aiClient";
+import {
+  GenerationError,
+  MAX_AI_MATERIALS,
+  MAX_LIBRARY_MATERIALS,
+  aiSelectionNotice,
+  defaultAiSelection,
+  prepareMaterialsForAI,
+  runGeneration,
+} from "../lib/aiClient";
 import { daysBetween, toLocalDateString } from "../lib/date";
 import {
   DEFAULT_DAILY_HOURS,
@@ -129,6 +137,11 @@ export function AddExamSubjectWizard({
   const [requirements, setRequirements] = useState("");
 
   const [courseDocuments, setCourseDocuments] = useState<StudyMaterial[]>([]);
+  // 资料库能存 100 份，一次生成只吃 20 份：勾哪几份由用户决定，默认勾前 20 份。
+  const [aiSelectedIds, setAiSelectedIds] = useState<string[]>([]);
+  useEffect(() => {
+    setAiSelectedIds((prev) => defaultAiSelection(courseDocuments, prev));
+  }, [courseDocuments]);
   const [isParsingFiles, setIsParsingFiles] = useState(false);
   const [parsingStatus, setParsingStatus] = useState("");
   const [isDragging, setIsDragging] = useState(false);
@@ -255,8 +268,9 @@ export function AddExamSubjectWizard({
     daysBetween(startDate, examDate) >= 0 &&
     hoursReady;
   // 考点有两种来路：上传资料提炼，或只填教材名让 AI 回忆目录。任意一条走通都算「有了输入」，
-  // 所以只有两者都空时才拦住下一步。
-  const materialsReady = (courseDocuments.length > 0 || topics.length > 0) && !isParsingFiles;
+  // 所以只有两者都空时才拦住下一步。资料这条路还要求至少勾选一份——库里存着不等于这次会用。
+  const materialsReady =
+    ((courseDocuments.length > 0 && aiSelectedIds.length > 0) || topics.length > 0) && !isParsingFiles;
 
   const steps = [
     { n: 1 as const, label: tt("考试信息", "Exam details"), icon: CalendarDays },
@@ -342,23 +356,23 @@ export function AddExamSubjectWizard({
     const incoming = Array.from(files);
     if (incoming.length === 0) return;
 
-    if (courseDocuments.length >= MAX_AI_MATERIALS) {
+    if (courseDocuments.length >= MAX_LIBRARY_MATERIALS) {
       setError({
         message: tt(
-          `一次最多添加 ${MAX_AI_MATERIALS} 份资料，请先删除部分文件。`,
-          `Up to ${MAX_AI_MATERIALS} materials can be added. Remove some files first.`
+          `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，请先删除部分文件。`,
+          `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Remove some files first.`
         ),
       });
       return;
     }
 
-    const remainingSlots = MAX_AI_MATERIALS - courseDocuments.length;
+    const remainingSlots = MAX_LIBRARY_MATERIALS - courseDocuments.length;
     const fileArray = incoming.slice(0, remainingSlots);
     if (incoming.length > remainingSlots) {
       setError({
         message: tt(
-          `一次最多添加 ${MAX_AI_MATERIALS} 份资料，本次仅处理前 ${remainingSlots} 份。`,
-          `Up to ${MAX_AI_MATERIALS} materials can be added. Only the first ${remainingSlots} files were processed.`
+          `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，本次仅处理前 ${remainingSlots} 份。`,
+          `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Only the first ${remainingSlots} files were processed.`
         ),
       });
     } else {
@@ -439,11 +453,11 @@ export function AddExamSubjectWizard({
     if (isWorking) return;
     const content = pasteDocContent.trim();
     if (!content) return;
-    if (courseDocuments.length >= MAX_AI_MATERIALS) {
+    if (courseDocuments.length >= MAX_LIBRARY_MATERIALS) {
       setError({
         message: tt(
-          `一次最多添加 ${MAX_AI_MATERIALS} 份资料，请先删除部分文件。`,
-          `Up to ${MAX_AI_MATERIALS} materials can be added. Remove some files first.`
+          `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，请先删除部分文件。`,
+          `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Remove some files first.`
         ),
       });
       return;
@@ -476,7 +490,7 @@ export function AddExamSubjectWizard({
     const { result } = await runGeneration<{ summary?: string; topics?: SyllabusTopic[] }>(
       "syllabus",
       {
-        materials: prepareMaterialsForAI(courseDocuments),
+        materials: prepareMaterialsForAI(courseDocuments, aiSelectedIds),
         examName: examName.trim(),
         subject: subject.trim(),
       },
@@ -540,7 +554,7 @@ export function AddExamSubjectWizard({
       {
         topics: activeTopics,
         preferences,
-        materials: prepareMaterialsForAI(courseDocuments),
+        materials: prepareMaterialsForAI(courseDocuments, aiSelectedIds),
       },
       { language, onStatus: setGenStatus }
     );
@@ -676,7 +690,20 @@ export function AddExamSubjectWizard({
     );
   };
 
-  const materialLimitReached = courseDocuments.length >= MAX_AI_MATERIALS;
+  const materialLimitReached = courseDocuments.length >= MAX_LIBRARY_MATERIALS;
+  const aiSelectionFull = aiSelectedIds.length >= MAX_AI_MATERIALS;
+  const selectionNotice = aiSelectionNotice(courseDocuments.length, aiSelectedIds.length, language);
+
+  // 勾满 20 份后其余 checkbox 直接禁用：上限在勾选那一刻就说清，不留到生成时才报错。
+  const toggleAiSelected = (id: string) => {
+    if (isWorking) return;
+    setAiSelectedIds((prev) => {
+      if (prev.includes(id)) return prev.filter((item) => item !== id);
+      if (prev.length >= MAX_AI_MATERIALS) return prev;
+      return [...prev, id];
+    });
+    invalidateAiResult();
+  };
 
   const inputClass = "ui-field";
   const labelClass = "ui-field-label";
@@ -981,12 +1008,17 @@ export function AddExamSubjectWizard({
               <Upload className="h-4 w-4 text-[#8a8580]" />
               <span>{tt("考点来源", "Topic source")}</span>
             </h2>
-            <span className="text-[12px] text-[#a39e97] tabular-nums">
-              {courseDocuments.length} / {MAX_AI_MATERIALS}
+            <span className="text-[12px] text-[#6b6660] tabular-nums">
+              {tt("本次生成", "This run")} {aiSelectedIds.length} / {MAX_AI_MATERIALS}
             </span>
           </div>
 
           <fieldset disabled={isWorking} className="min-w-0 space-y-3 p-4 sm:p-5">
+            {selectionNotice && (
+              <p className="rounded-xl border border-[#e5e2dc] bg-[#faf9f6] px-3 py-2.5 text-[13px] leading-relaxed text-[#1c1b1a]">
+                {selectionNotice}
+              </p>
+            )}
             <label
               onDragOver={(event) => {
                 event.preventDefault();
@@ -1024,6 +1056,22 @@ export function AddExamSubjectWizard({
               <ul className="divide-y divide-[#f0ede8] overflow-hidden rounded-xl border border-[#eae7e1] bg-white">
                 {courseDocuments.map((doc) => (
                   <li key={doc.id} className="flex items-center gap-2.5 px-3 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={aiSelectedIds.includes(doc.id)}
+                      disabled={!aiSelectedIds.includes(doc.id) && aiSelectionFull}
+                      onChange={() => toggleAiSelected(doc.id)}
+                      aria-label={tt(`本次生成使用 ${doc.name}`, `Use ${doc.name} in this run`)}
+                      title={
+                        !aiSelectedIds.includes(doc.id) && aiSelectionFull
+                          ? tt(
+                              `一次生成最多用 ${MAX_AI_MATERIALS} 份，先取消勾选其他资料`,
+                              `One run uses at most ${MAX_AI_MATERIALS} files. Uncheck another file first.`
+                            )
+                          : tt("勾选后用于本次生成", "Checked files are used in this run")
+                      }
+                      className="h-4 w-4 shrink-0 cursor-pointer accent-[#1c1b1a] disabled:cursor-not-allowed disabled:opacity-40"
+                    />
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f1efe9] text-[#6b6660]">
                       <FileText className="h-4 w-4" />
                     </span>

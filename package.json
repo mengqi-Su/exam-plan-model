@@ -18,7 +18,8 @@
     "test:function": "tsx dev/function-smoke.ts",
     "test:client": "tsx dev/client-smoke.ts",
     "test:legacyword": "tsx dev/legacy-word.test.ts",
-    "test:readiness": "tsx dev/readiness.test.ts"
+    "test:readiness": "tsx dev/readiness.test.ts",
+    "test:materials": "tsx dev/material-selection.test.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",

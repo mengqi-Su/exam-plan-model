@@ -165,6 +165,10 @@ interface TabbedFolderArchiveProps {
   onOpenUpload?: (folderType?: StudyMaterial["type"]) => void;
   onOpenPaste?: (folderType?: StudyMaterial["type"]) => void;
   onDeleteCourse?: () => void;
+  /** 传了这三个就变成「可勾选的资料库」：勾中的那份才会进下一次 AI 生成。 */
+  selectedIds?: string[];
+  onToggleSelected?: (docId: string) => void;
+  selectionLimit?: number;
 }
 
 export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
@@ -173,6 +177,9 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
   onDeleteDoc,
   onOpenUpload,
   onOpenPaste,
+  selectedIds,
+  onToggleSelected,
+  selectionLimit,
 }) => {
   const { language } = useI18n();
   const isZh = language === "zh";
@@ -440,6 +447,10 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                 {activeFolderDocs.map((doc) => {
                   const badge = getDocExtensionBadge(doc);
+                  const selectable = !!onToggleSelected && !!selectedIds;
+                  const checked = selectable && selectedIds!.includes(doc.id);
+                  const selectionFull =
+                    selectable && selectedIds!.length >= (selectionLimit ?? Number.POSITIVE_INFINITY);
                   return (
                     <div
                       key={doc.id}
@@ -448,6 +459,28 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                       className="group relative flex flex-col items-center p-3 rounded-xl border border-transparent hover:border-[#eae7e1] hover:bg-[#faf9f6] transition-all duration-150 cursor-pointer text-center"
                       title={`${doc.name} (${isZh ? "点击打开" : "click to open"})`}
                     >
+                      {selectable && (
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={!checked && selectionFull}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={() => onToggleSelected!(doc.id)}
+                          aria-label={
+                            isZh ? `本次生成使用 ${doc.name}` : `Use ${doc.name} in this run`
+                          }
+                          title={
+                            !checked && selectionFull
+                              ? isZh
+                                ? `一次生成最多用 ${selectionLimit} 份，先取消勾选其他资料`
+                                : `One run uses at most ${selectionLimit} files. Uncheck another file first.`
+                              : isZh
+                                ? "勾选后用于本次生成"
+                                : "Checked files are used in this run"
+                          }
+                          className="absolute top-1 left-1 z-10 h-4 w-4 cursor-pointer accent-[#1c1b1a] disabled:cursor-not-allowed disabled:opacity-40"
+                        />
+                      )}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

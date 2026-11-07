@@ -1,7 +1,10 @@
 import { StudyMaterial, TextbookChapter, TextbookOutline } from "../types";
 import { attachTaskTopicIds } from "./links";
 
+// 资料库容量和单次生成用量是两件事：库里能存 100 份，一次生成只吃 20 份。
+// 20 这个数字来自提示词预算（每份均分 45,000 字），再多后面的资料就到不了模型面前。
 export const MAX_AI_MATERIALS = 20;
+export const MAX_LIBRARY_MATERIALS = 100;
 // 单次 AI 调用只需要片段文本：本地阅读器仍保留完整原文
 export const MAX_AI_CHARS_PER_MATERIAL = 60_000;
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -13,8 +16,41 @@ export interface AiResponseMeta {
   planningDays?: number;
 }
 
-export function prepareMaterialsForAI(materials?: StudyMaterial[]) {
-  return (materials || []).slice(0, MAX_AI_MATERIALS).map((material) => ({
+/**
+ * 默认勾选前 20 份；用户已经手动选过就沿用他的选择，只剔除被删掉的资料。
+ * 全部取消后回到默认，免得「一份都没选」把生成按钮永久卡死。
+ */
+export function defaultAiSelection(materials: StudyMaterial[] | undefined, previous?: string[]): string[] {
+  const list = materials || [];
+  const alive = new Set(list.map((material) => material.id));
+  const kept = (previous || []).filter((id) => alive.has(id)).slice(0, MAX_AI_MATERIALS);
+  if (kept.length) return kept;
+  return list.slice(0, MAX_AI_MATERIALS).map((material) => material.id);
+}
+
+/** 勾选上限处的原因：说清这次用了多少、剩下的去哪了，不做静默截断。 */
+export function aiSelectionNotice(total: number, selected: number, language: string): string | null {
+  if (total <= MAX_AI_MATERIALS) return null;
+  const unused = total - selected;
+  return language === "zh"
+    ? `资料库共 ${total} 份，一次生成最多用 ${MAX_AI_MATERIALS} 份：本次用勾选的 ${selected} 份，其余 ${unused} 份留在资料库。`
+    : `${total} materials in the library, but one run uses at most ${MAX_AI_MATERIALS}: this run uses the ${selected} checked files, and the other ${unused} stay in the library.`;
+}
+
+/**
+ * 只把勾选的资料交给 AI。超出单次上限就明确报错，绝不替用户悄悄丢掉后面的资料——
+ * 选哪几份是用户在列表里勾的，这里只负责忠实执行。
+ */
+export function prepareMaterialsForAI(materials?: StudyMaterial[], selectedIds?: string[]) {
+  const list = materials || [];
+  const picked = selectedIds ? list.filter((material) => selectedIds.includes(material.id)) : list;
+  if (picked.length > MAX_AI_MATERIALS) {
+    throw new GenerationError(
+      `一次生成最多用 ${MAX_AI_MATERIALS} 份资料，当前勾选了 ${picked.length} 份，请取消勾选一部分。`,
+      "TOO_MANY_MATERIALS"
+    );
+  }
+  return picked.map((material) => ({
     id: material.id,
     name: material.name,
     type: material.type,
@@ -56,8 +92,8 @@ const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
     en: "Each file must be 10 MB or smaller.",
   },
   TOO_MANY_MATERIALS: {
-    zh: "一次最多上传 20 份资料，请分批处理。",
-    en: "Up to 20 materials can be processed at once. Please split the batch.",
+    zh: "一次生成最多用 20 份资料，请取消勾选一部分。",
+    en: "One run uses at most 20 materials. Uncheck some files and try again.",
   },
   UNSUPPORTED_FORMAT: {
     zh: "不支持此文件格式。请上传 PDF、Word（.doc / .docx）、PPTX、TXT、Markdown、CSV 或 JSON。",
