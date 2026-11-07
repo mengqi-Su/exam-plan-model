@@ -1,11 +1,28 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, type Plugin} from 'vite';
+import {injectCsp} from './csp.config.ts';
+
+/**
+ * 只在构建产物里注入 CSP（理由见 csp.config.ts 顶部）。
+ * dev 不注入：vite 自己的内联 bootstrap 与 ws: 心跳会逼着策略放开 'unsafe-inline'，
+ * 那等于给生产开同一个口子。
+ */
+const cspMeta: Plugin = {
+  name: 'csp-meta',
+  apply: 'build',
+  transformIndexHtml: {
+    order: 'pre',
+    handler(html) {
+      return injectCsp(html);
+    },
+  },
+};
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), cspMeta],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
