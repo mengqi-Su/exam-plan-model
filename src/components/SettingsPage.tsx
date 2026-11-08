@@ -361,7 +361,7 @@ export function SettingsPage({
                         updateSetting("defaultStudyPace", e.target.value as AppSettings["defaultStudyPace"])
                       }
                       aria-label={isZh ? "默认复习节奏" : "Default study pace"}
-                      className="min-w-[180px] cursor-pointer appearance-none rounded-lg border border-[#e5e2dc] bg-white py-2 pl-3 pr-9 text-[13px] text-[#1c1b1a] focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-[#1c1b1a]"
+                      className="min-w-[180px] cursor-pointer appearance-none rounded-lg border border-[#e5e2dc] bg-white py-2 pl-3 pr-9 text-[13px] text-[#1c1b1a]"
                     >
                       <option value="spaced_repetition">{isZh ? "间隔复习" : "Spaced Repetition"}</option>
                       <option value="balanced">{isZh ? "稳健平衡" : "Balanced"}</option>

@@ -341,7 +341,7 @@ export function TextbookOutlineDialog({
                 maxLength={300}
                 onChange={(event) => patchDraft(draft.id, { title: event.target.value })}
                 aria-label={tt("章节名称", "Chapter title")}
-                className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-[13px] text-[#1c1b1a] outline-none transition-colors hover:border-[#e5e2dc] focus:border-[#cfc9c0] focus:bg-white"
+                className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-1.5 py-1 text-[13px] text-[#1c1b1a] transition-colors hover:border-[#e5e2dc] focus:border-[#cfc9c0] focus:bg-white"
               />
               {isAlreadyThere(draft.title) && (
                 <span className="ui-chip shrink-0">{tt("已有", "Exists")}</span>
@@ -355,7 +355,7 @@ export function TextbookOutlineDialog({
                   value={draft.weightPercentage}
                   onChange={(event) => patchDraft(draft.id, { weightPercentage: Math.max(0, Math.min(100, Number(event.target.value) || 0)) })}
                   aria-label={tt("建议权重", "Suggested weight")}
-                  className="w-14 rounded-lg border border-[#e5e2dc] bg-white px-1.5 py-1 text-[12px] tabular-nums text-[#1c1b1a] outline-none focus:border-[#cfc9c0]"
+                  className="w-14 rounded-lg border border-[#e5e2dc] bg-white px-1.5 py-1 text-[12px] tabular-nums text-[#1c1b1a] focus:border-[#cfc9c0]"
                 />
               </label>
               <label className="flex shrink-0 items-center gap-1">
@@ -367,7 +367,7 @@ export function TextbookOutlineDialog({
                   value={draft.estimatedHours}
                   onChange={(event) => patchDraft(draft.id, { estimatedHours: Math.max(0, Math.min(120, Number(event.target.value) || 0)) })}
                   aria-label={tt("建议学时", "Suggested hours")}
-                  className="w-14 rounded-lg border border-[#e5e2dc] bg-white px-1.5 py-1 text-[12px] tabular-nums text-[#1c1b1a] outline-none focus:border-[#cfc9c0]"
+                  className="w-14 rounded-lg border border-[#e5e2dc] bg-white px-1.5 py-1 text-[12px] tabular-nums text-[#1c1b1a] focus:border-[#cfc9c0]"
                 />
               </label>
             </div>

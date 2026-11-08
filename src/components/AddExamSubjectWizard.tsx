@@ -1235,7 +1235,7 @@ export function AddExamSubjectWizard({
                   onChange={(event) => handleDailyHoursChange(event.target.value)}
                   onBlur={() => setDailyHoursDraft(null)}
                   placeholder={tt("按天设置", "Per day")}
-                  className="w-full min-w-0 bg-transparent px-3 py-2.5 text-[13px] text-[#1c1b1a] tabular-nums outline-none placeholder:font-normal placeholder:text-[#a39e97]"
+                  className="w-full min-w-0 bg-transparent px-3 py-2.5 text-[13px] text-[#1c1b1a] tabular-nums placeholder:font-normal placeholder:text-[#a39e97]"
                 />
                 <span className="flex items-center border-l border-[#f0ede8] bg-[#f1efe9] px-3 text-[11px] font-medium text-[#6b6660]">
                   {tt("小时 / 天", "h / day")}
@@ -1276,7 +1276,7 @@ export function AddExamSubjectWizard({
                   type="time"
                   value={examTime}
                   onChange={(event) => setExamTime(event.target.value)}
-                  className="w-full rounded-lg border border-[#e5e2dc] bg-white py-2.5 pl-9 pr-3 text-[13px] text-[#1c1b1a] outline-none transition-colors focus:border-[#cfc9c0]"
+                  className="w-full rounded-lg border border-[#e5e2dc] bg-white py-2.5 pl-9 pr-3 text-[13px] text-[#1c1b1a] transition-colors focus:border-[#cfc9c0]"
                 />
               </div>
             </label>
@@ -1469,7 +1469,7 @@ export function AddExamSubjectWizard({
                   value={pasteDocContent}
                   onChange={(event) => setPasteDocContent(event.target.value)}
                   placeholder={tt("粘贴考纲章节、课堂笔记或典型题目...", "Paste syllabus sections, notes, or sample problems...")}
-                  className="w-full resize-y rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] leading-relaxed text-[#1c1b1a] outline-none transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97]"
+                  className="w-full resize-y rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] leading-relaxed text-[#1c1b1a] transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97]"
                 />
                 <div className="flex justify-end gap-2">
                   <button
@@ -1568,7 +1568,7 @@ export function AddExamSubjectWizard({
                   "例如：重点复习第三、四章；周末安排真题模拟；考前留两天总复习...",
                   "e.g. Focus on chapters 3–4; reserve weekends for mock papers; keep the last two days for review..."
                 )}
-                className="w-full resize-y rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] leading-relaxed text-[#1c1b1a] outline-none transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97]"
+                className="w-full resize-y rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] leading-relaxed text-[#1c1b1a] transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97]"
               />
             </label>
 

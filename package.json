@@ -25,6 +25,7 @@
     "test:queue": "tsx dev/upload-queue.test.ts",
     "test:zipbomb": "tsx dev/zip-bomb.test.ts",
     "test:csp": "tsx dev/csp.test.ts",
+    "test:focus": "tsx dev/focus.test.ts",
     "test:copy": "tsx dev/copy-guard.test.ts"
   },
   "dependencies": {

@@ -225,7 +225,7 @@ export function TodayFocusView({
                 value={selectedDate}
                 onChange={(event) => event.target.value && onSelectDate(event.target.value)}
                 aria-label={isZh ? "选择日期" : "Choose date"}
-                className="h-8 rounded-[7px] border-0 bg-transparent px-2 text-[13px] tabular-nums text-[#1c1b1a] outline-none cursor-pointer"
+                className="h-8 rounded-[7px] border-0 bg-transparent px-2 text-[13px] tabular-nums text-[#1c1b1a] cursor-pointer"
               />
             </label>
           </div>

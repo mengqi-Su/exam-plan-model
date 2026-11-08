@@ -203,7 +203,7 @@ export function MasterCalendarView({
   const viewingTodayMonth = todayStr.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`);
 
   const selectCls =
-    "text-xs bg-transparent text-[#1c1b1a] outline-none cursor-pointer";
+    "text-xs bg-transparent text-[#1c1b1a] cursor-pointer";
   const filterWrapCls =
     "flex items-center gap-1.5 rounded-lg border border-[#e5e2dc] bg-white px-2.5 py-1.5";
 
@@ -285,7 +285,7 @@ export function MasterCalendarView({
                 placeholder={isZh ? "搜索考点..." : "Search..."}
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
-                className="pl-8 pr-2.5 py-1.5 text-xs rounded-lg border border-[#e5e2dc] bg-white text-[#1c1b1a] placeholder-[#a39e97] outline-none focus:border-[#cfc9c0] w-32 sm:w-40 transition-colors"
+                className="pl-8 pr-2.5 py-1.5 text-xs rounded-lg border border-[#e5e2dc] bg-white text-[#1c1b1a] placeholder-[#a39e97] focus:border-[#cfc9c0] w-32 sm:w-40 transition-colors"
               />
             </div>
           </div>

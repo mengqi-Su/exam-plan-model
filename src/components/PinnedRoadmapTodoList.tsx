@@ -410,7 +410,7 @@ export function PinnedRoadmapTodoList({
                         value={task.notes || ""}
                         onChange={(e) => onSaveNotes(task.id, e.target.value)}
                         placeholder={language === "zh" ? "记录卡点、易错点或下一步..." : "Capture blockers, traps, or the next step..."}
-                        className="w-full bg-[#faf9f6] rounded-lg border border-[#e5e2dc] p-2.5 text-[13px] text-[#1c1b1a] placeholder-[#a39e97] focus:outline-none focus:border-[#1c1b1a] leading-relaxed"
+                        className="w-full bg-[#faf9f6] rounded-lg border border-[#e5e2dc] p-2.5 text-[13px] text-[#1c1b1a] placeholder-[#a39e97] focus:border-[#1c1b1a] leading-relaxed"
                         autoFocus
                         aria-label={language === "zh" ? "任务笔记" : "Task notes"}
                       />

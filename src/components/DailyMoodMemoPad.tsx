@@ -126,7 +126,7 @@ export function DailyMoodMemoPad({
               : "Write down your thoughts, reflections, or note to self..."
           }
           rows={4}
-          className="w-full p-2.5 rounded-lg bg-white border border-[#ece5d2] text-xs text-[#1c1b1a] placeholder-[#b5ae9e] focus:outline-none focus:border-[#d9cfae] resize-y leading-relaxed transition-colors"
+          className="w-full p-2.5 rounded-lg bg-white border border-[#ece5d2] text-xs text-[#1c1b1a] placeholder-[#b5ae9e] focus:border-[#d9cfae] resize-y leading-relaxed transition-colors"
         />
         <div className="flex items-center justify-between text-[10px] text-[#a39e97] pt-1 tabular-nums">
           <span>

@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* dev/ 里的回归用例故意写了反面类名（outline-none 之类）来验守卫抓不抓得住。
+   Tailwind 的自动来源扫描会把它们当成真用到的类，编译进生产样式表——没人用，却白占体积，
+   还会让「产物里不该有 outline 抹除」这类核对读到假阳性。把测试目录排除在扫描之外。 */
+@source not "../dev";
+
 @theme {
   --font-sans: 'Google Sans', 'Product Sans', 'Roboto', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'Roboto Mono', 'Noto Sans SC', ui-monospace, monospace;
@@ -50,11 +55,18 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
+  /* 焦点指示的唯一出处（清单 A11Y-03）。
+   * 这条写在 base 层，而 Tailwind 的 utilities 层排在它后面——所以任何一处
+   * `outline-none` / `focus:outline-none` 都会把它整个压掉，键盘用户就再也看不见焦点在哪。
+   * 修法是删掉那些工具类，而不是在这里加 !important 或再造一个 ring 组件类：
+   * 组件层同样输给 utilities，只有让这条规则成为唯一出处才不会再被绕过。
+   * 由 dev/focus.test.ts 守着，新写一个 outline-none 就会红。 */
   :focus-visible {
     outline: 2px solid #111111;
     outline-offset: 2px;
   }
 
+  /* 输入类控件把环贴在边框外侧（offset 0）：留 2px 会和相邻控件的环连成一片。 */
   input:focus-visible,
   textarea:focus-visible,
   select:focus-visible {
@@ -214,7 +226,7 @@
   }
   /* 表单控件统一规格：字重与行文字同层（13px/400），边框比卡片再浅一档，聚焦才加深。 */
   .ui-field {
-    @apply w-full rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] text-[#1c1b1a] outline-none transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97];
+    @apply w-full rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] text-[#1c1b1a] transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97];
   }
   /* 表单标签走元信息层（12），但比 ui-row-meta 深一档，才能在白底上压住输入框。 */
   .ui-field-label {

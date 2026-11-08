@@ -264,7 +264,7 @@ export function HierarchicalTopicTreeView({
   }, [topics, searchQuery]);
 
   const inputCls =
-    "rounded-lg bg-white border border-[#e5e2dc] text-[#1c1b1a] placeholder-[#a39e97] outline-none focus:border-[#cfc9c0]";
+    "rounded-lg bg-white border border-[#e5e2dc] text-[#1c1b1a] placeholder-[#a39e97] focus:border-[#cfc9c0]";
 
   return (
     <div className="space-y-4 text-[#1c1b1a]">

@@ -433,7 +433,7 @@ export function CourseKnowledgeHub({
                 value={newTopicTitle}
                 onChange={(e) => setNewTopicTitle(e.target.value)}
                 placeholder={isZh ? "大单元名称（如：第 6 单元：红黑树平衡推导）" : "Unit title..."}
-                className="sm:col-span-2 rounded-lg px-3 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] placeholder-[#a39e97] outline-none focus:border-[#cfc9c0]"
+                className="sm:col-span-2 rounded-lg px-3 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] placeholder-[#a39e97] focus:border-[#cfc9c0]"
               />
               <div className="flex items-center gap-1.5">
                 <span className="ui-row-meta">{isZh ? "权重" : "Weight"}</span>
@@ -443,7 +443,7 @@ export function CourseKnowledgeHub({
                   max={100}
                   value={newTopicWeight}
                   onChange={(e) => setNewTopicWeight(Number(e.target.value))}
-                  className="w-16 rounded-lg px-2 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] tabular-nums outline-none focus:border-[#cfc9c0]"
+                  className="w-16 rounded-lg px-2 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] tabular-nums focus:border-[#cfc9c0]"
                 />
                 <span className="ui-row-meta">%</span>
               </div>
@@ -455,7 +455,7 @@ export function CourseKnowledgeHub({
                   max={50}
                   value={newTopicHours}
                   onChange={(e) => setNewTopicHours(Number(e.target.value))}
-                  className="w-16 rounded-lg px-2 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] tabular-nums outline-none focus:border-[#cfc9c0]"
+                  className="w-16 rounded-lg px-2 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] tabular-nums focus:border-[#cfc9c0]"
                 />
                 <span className="ui-row-meta">{isZh ? "小时" : "hrs"}</span>
               </div>
@@ -465,7 +465,7 @@ export function CourseKnowledgeHub({
               value={newTopicSubtopics}
               onChange={(e) => setNewTopicSubtopics(e.target.value)}
               placeholder={isZh ? "细分考点列表，逗号分隔（如：插入旋转、删除调整、时间复杂度）" : "Subtopics (comma separated)..."}
-              className="w-full rounded-lg px-3 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] placeholder-[#a39e97] outline-none focus:border-[#cfc9c0]"
+              className="w-full rounded-lg px-3 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] placeholder-[#a39e97] focus:border-[#cfc9c0]"
             />
             <div className="flex justify-end gap-2">
               <button

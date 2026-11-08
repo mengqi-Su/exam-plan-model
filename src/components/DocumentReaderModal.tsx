@@ -378,7 +378,7 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={isZh ? "在本文档内搜索关键词..." : "Search in this document..."}
-              className={`w-full max-w-md px-2.5 py-1 rounded-md border ${themeStyles.border} outline-none text-xs ${
+              className={`w-full max-w-md px-2.5 py-1 rounded-md border ${themeStyles.border} text-xs ${
                 isDark ? "bg-[#18181A] text-[#E4E4E7] placeholder-[#6b6b73]" : "bg-white text-[#1c1b1a] placeholder-[#a39e97]"
               }`}
               autoFocus

@@ -428,7 +428,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={isZh ? "搜索文件…" : "Search..."}
-                    className="w-full pl-8 pr-2.5 py-1.5 rounded-lg bg-white text-[13px] text-[#1c1b1a] placeholder-[#a39e97] outline-none border border-[#e5e2dc] focus:border-[#cfc9c0]"
+                    className="w-full pl-8 pr-2.5 py-1.5 rounded-lg bg-white text-[13px] text-[#1c1b1a] placeholder-[#a39e97] border border-[#e5e2dc] focus:border-[#cfc9c0]"
                   />
                 </div>
               )}
