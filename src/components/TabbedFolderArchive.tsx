@@ -14,95 +14,69 @@ import {
 } from "lucide-react";
 import { StudyMaterial } from "../types";
 import { useI18n } from "../lib/i18n";
+import { pl } from "../lib/text";
+import { getCourseAccent } from "../lib/courseAccents";
 
 export type FolderCategoryKey = "syllabus" | "lecture" | "exam" | "notes";
 
+/* 夹子的身份只剩四件事：认key、两个语言的名字、图标，外加「粘贴/上传时默认归到哪一类」。
+   原来这里还挂着 tabBg / tabHoverBg / bodyBg / textColor / subtextColor / badgeBg / badgeText / code
+   八个字段——那是上一版「每个夹子一整块彩色」的残留，渲染早就改成白卡 + 一小条身份色，
+   八个字段一个字都没人读，却留着 #FCD33B / #D8D8D8 / #8E8E8E 这几个不合格的浅色当诱饵（清单 UI-03）。 */
 interface FolderCategoryConfig {
   key: FolderCategoryKey;
-  code: string;
   nameZh: string;
   nameEn: string;
   icon: React.ElementType;
-  tabBg: string;
-  tabHoverBg: string;
-  bodyBg: string;
-  textColor: string;
-  subtextColor: string;
-  badgeBg: string;
-  badgeText: string;
   defaultDocType: StudyMaterial["type"];
 }
 
 export const FOLDER_CONFIGS: FolderCategoryConfig[] = [
   {
     key: "syllabus",
-    code: "01",
     nameZh: "考纲",
     nameEn: "Syllabus",
     icon: BookOpen,
-    tabBg: "bg-[#FCD33B]",
-    tabHoverBg: "hover:bg-[#f5cc2f]",
-    bodyBg: "bg-[#FCD33B]",
-    textColor: "text-[#111111]",
-    subtextColor: "text-[#333333]",
-    badgeBg: "bg-[#111111]",
-    badgeText: "text-white",
     defaultDocType: "syllabus",
   },
   {
     key: "lecture",
-    code: "02",
     nameZh: "讲义",
     nameEn: "Lectures",
     icon: GraduationCap,
-    tabBg: "bg-[#D8D8D8]",
-    tabHoverBg: "hover:bg-[#CECECE]",
-    bodyBg: "bg-[#D8D8D8]",
-    textColor: "text-[#111111]",
-    subtextColor: "text-[#444444]",
-    badgeBg: "bg-[#111111]",
-    badgeText: "text-white",
     defaultDocType: "lecture_slides",
   },
   {
     key: "exam",
-    code: "03",
     nameZh: "真题",
     nameEn: "Past exams",
     icon: FileQuestion,
-    tabBg: "bg-[#8E8E8E]",
-    tabHoverBg: "hover:bg-[#7F7F7F]",
-    bodyBg: "bg-[#8E8E8E]",
-    textColor: "text-[#111111]",
-    subtextColor: "text-[#222222]",
-    badgeBg: "bg-[#111111]",
-    badgeText: "text-white",
     defaultDocType: "past_exam",
   },
   {
     key: "notes",
-    code: "04",
     nameZh: "笔记",
     nameEn: "Notes",
     icon: FileText,
-    tabBg: "bg-[#E6E0D6]",
-    tabHoverBg: "hover:bg-[#DCD5C9]",
-    bodyBg: "bg-[#E6E0D6]",
-    textColor: "text-[#111111]",
-    subtextColor: "text-[#444444]",
-    badgeBg: "bg-[#111111]",
-    badgeText: "text-white",
     defaultDocType: "notes",
   },
 ];
 
-// Restrained, modern folder accents (tab + icon tint) on white cards.
-const FOLDER_ACCENTS: Record<FolderCategoryKey, { accent: string; tint: string }> = {
-  syllabus: { accent: "#D9A521", tint: "#FBF3DC" },
-  lecture: { accent: "#6E8CA8", tint: "#EEF2F6" },
-  exam: { accent: "#A9756A", tint: "#F5EEEB" },
-  notes: { accent: "#6F9A78", tint: "#EDF3EE" },
+/* 夹子的身份色直接取科目身份色那四个色相（赭黄 / 蓝灰 / 陶土 / 苔绿），不再自成一套：
+   同一门课在日历点、轮盘扇形和资料夹标签上是同一个颜色，而全站只需要一张色表。
+   tint 是这四个色各自的极浅底色，只当标签底色用。
+   原来这一组是 #D9A521 / #6E8CA8 / #A9756A / #6F9A78，印在自己的 tint 上只有 2.03–3.37:1，
+   夹子数量那行 11–12px 的小字其实是读不出来的（清单 UI-03）。 */
+const FOLDER_TINTS: Record<FolderCategoryKey, string> = {
+  syllabus: "#FBF3DC",
+  lecture: "#EEF2F6",
+  exam: "#F5EEEB",
+  notes: "#EDF3EE",
 };
+
+const FOLDER_ACCENTS = Object.fromEntries(
+  FOLDER_CONFIGS.map((f, i) => [f.key, { accent: getCourseAccent(i), tint: FOLDER_TINTS[f.key] }]),
+) as Record<FolderCategoryKey, { accent: string; tint: string }>;
 
 export function getDocCategoryKey(doc: StudyMaterial): FolderCategoryKey {
   const name = doc.name.toLowerCase();
@@ -153,7 +127,7 @@ function getDocExtensionBadge(doc: StudyMaterial): { ext: string; colorBg: strin
     return { ext: "EXAM", colorBg: "bg-[#F3EEF8]", colorText: "text-[#6B4E8E]", label: "真题考卷" };
   }
   if (name.endsWith(".md") || name.endsWith(".markdown")) {
-    return { ext: "MD", colorBg: "bg-[#F1EFE9]", colorText: "text-[#6B6660]", label: "Markdown 笔记" };
+    return { ext: "MD", colorBg: "bg-[#f1efe9]", colorText: "text-[#6b6660]", label: "Markdown 笔记" };
   }
   return { ext: "TXT", colorBg: "bg-[#EEF4EF]", colorText: "text-[#3F6B4F]", label: "文本笔记" };
 }
@@ -247,7 +221,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
         {/* Folder tab notch */}
         <div className="flex items-end pl-1">
           <div
-            className="h-4 w-24 rounded-t-md"
+            className="h-4 w-24 rounded-t-lg"
             style={{
               backgroundColor: a.accent,
               opacity: 0.9,
@@ -377,7 +351,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                   >
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: a.accent }} />
                     <span>{isZh ? f.nameZh : f.nameEn}</span>
-                    <span className="text-[11px] ui-subtle tabular-nums">{count}</span>
+                    <span className="text-[11px] ui-muted tabular-nums">{count}</span>
                   </button>
                 );
               })}
@@ -416,19 +390,19 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                 />
                 <h3 className="ui-group-title">{activeFolderLabel}</h3>
                 <span className="ui-row-meta tabular-nums">
-                  {activeFolderDocs.length} {isZh ? "个文件" : "files"}
+                  {isZh ? `${activeFolderDocs.length} 个文件` : pl(activeFolderDocs.length, "file", "files")}
                 </span>
               </div>
 
               {activeFolderDocs.length > 3 && (
                 <div className="relative w-44">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#a39e97]" />
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6b6660]" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={isZh ? "搜索文件…" : "Search..."}
-                    className="w-full pl-8 pr-2.5 py-1.5 rounded-lg bg-white text-[13px] text-[#1c1b1a] placeholder-[#a39e97] border border-[#e5e2dc] focus:border-[#cfc9c0]"
+                    className="w-full pl-8 pr-2.5 py-1.5 rounded-lg bg-white text-[13px] text-[#1c1b1a] placeholder-[#716c65] border border-[#e5e2dc] focus:border-[#cfc9c0]"
                   />
                 </div>
               )}
@@ -436,7 +410,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
 
             {activeFolderDocs.length === 0 && (
               <div className="py-16 text-center space-y-2">
-                <FolderOpen className="w-12 h-12 mx-auto text-[#cfc9c0]" />
+                <FolderOpen className="w-12 h-12 mx-auto text-[#6b6660]" />
                 <p className="ui-row-title">
                   {isZh ? "此文件夹为空" : "This folder is empty"}
                 </p>
@@ -486,7 +460,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                           e.stopPropagation();
                           onDeleteDoc(doc.id);
                         }}
-                        className="opacity-0 group-hover:opacity-100 absolute top-1 right-1 p-1 rounded-md text-[#a39e97] hover:text-[#B42318] hover:bg-[#FDF0EE] transition-all cursor-pointer z-10"
+                        className="opacity-0 group-hover:opacity-100 absolute top-1 right-1 p-1 rounded-lg text-[#6b6660] hover:text-[#B42318] hover:bg-[#FDF0EE] transition-all cursor-pointer z-10"
                         title={isZh ? "删除此文件" : "Delete file"}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -497,9 +471,9 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                           className="absolute top-0 right-0 w-3.5 h-3.5 bg-[#f5f3ee] border-l border-b border-[#eae7e1] rounded-tr-lg"
                           style={{ clipPath: "polygon(0 0, 100% 100%, 0 100%)" }}
                         />
-                        <File className="w-7 h-7 text-[#a39e97] group-hover:text-[#6b6660]" />
+                        <File className="w-7 h-7 text-[#6b6660] group-hover:text-[#6b6660]" />
                         <span
-                          className={`absolute -bottom-1.5 -right-1.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md border border-white shadow-[0_1px_2px_rgba(28,27,26,0.1)] ${badge.colorBg} ${badge.colorText}`}
+                          className={`absolute -bottom-1.5 -right-1.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-lg border border-white shadow-[0_1px_2px_rgba(28,27,26,0.1)] ${badge.colorBg} ${badge.colorText}`}
                         >
                           {badge.ext}
                         </span>

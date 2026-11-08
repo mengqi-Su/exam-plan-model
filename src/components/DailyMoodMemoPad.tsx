@@ -79,11 +79,11 @@ export function DailyMoodMemoPad({
   const isZh = language === "zh";
 
   return (
-    <div className="rounded-xl border border-[#ece5d2] bg-[#fffdf5] text-[#1c1b1a] text-xs shadow-sm overflow-hidden">
+    <div className="rounded-xl border border-[#ece5d2] bg-[#fffdf5] text-[#1c1b1a] text-[12px] shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-3 py-2 border-b border-[#f0ead8] bg-[#fffbe9] flex items-center justify-between">
         <div className="flex items-center gap-1.5 font-semibold text-[#6b6660]">
-          <PenLine className="w-3.5 h-3.5 text-[#a39e97]" />
+          <PenLine className="w-3.5 h-3.5 text-[#6b6660]" />
           <span className="text-[11px]">
             {isZh ? "随心记便签" : "Daily memo"}
           </span>
@@ -91,7 +91,7 @@ export function DailyMoodMemoPad({
 
         <div className="flex items-center gap-2">
           {savedTimeStr && (
-            <span className="text-[10px] text-[#8a8580] flex items-center gap-0.5 tabular-nums">
+            <span className="text-[11px] text-[#6b6660] flex items-center gap-0.5 tabular-nums">
               {isSaved ? (
                 <>
                   <Check className="w-3 h-3 text-[#3F6B4F]" />
@@ -106,7 +106,7 @@ export function DailyMoodMemoPad({
           {content && (
             <button
               onClick={handleClear}
-              className="text-[#a39e97] hover:text-[#B42318] transition-colors p-0.5 cursor-pointer"
+              className="text-[#6b6660] hover:text-[#B42318] transition-colors p-0.5 cursor-pointer"
               title={isZh ? "清空便签" : "Clear"}
             >
               <Trash2 className="w-3 h-3" />
@@ -126,9 +126,9 @@ export function DailyMoodMemoPad({
               : "Write down your thoughts, reflections, or note to self..."
           }
           rows={4}
-          className="w-full p-2.5 rounded-lg bg-white border border-[#ece5d2] text-xs text-[#1c1b1a] placeholder-[#b5ae9e] focus:border-[#d9cfae] resize-y leading-relaxed transition-colors"
+          className="w-full p-2.5 rounded-lg bg-white border border-[#ece5d2] text-[12px] text-[#1c1b1a] placeholder-[#716c65] focus:border-[#d9cfae] resize-y leading-relaxed transition-colors"
         />
-        <div className="flex items-center justify-between text-[10px] text-[#a39e97] pt-1 tabular-nums">
+        <div className="flex items-center justify-between text-[11px] text-[#6b6660] pt-1 tabular-nums">
           <span>
             {visibleChars(content)} {isZh ? "字" : "chars"}
           </span>

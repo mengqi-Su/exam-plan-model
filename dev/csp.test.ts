@@ -1,4 +1,4 @@
-// CSP 的三条底线，一次性检查：npm run test:csp
+// CSP 的底线，一次性检查：npm run test:csp
 //   1) 策略本身不许悄悄变松：script-src 里没有 'unsafe-inline'/'unsafe-eval'，
 //      object/frame/base/form 四条闸门都得在。
 //   2) 注入函数确实把 meta 放在 charset 之后——策略解析之前出现的外链不受它管。
@@ -48,10 +48,20 @@ await check('四道闸门都在：object / frame / base / form', () => {
   assert.equal(directives.get('form-action'), "'self'");
 });
 
-await check('只跟自己的云函数说话，字体走两个 Google host', () => {
+await check('只跟自己的云函数说话，策略里没有任何第三方主机', () => {
   assert.equal(directives.get('connect-src'), "'self' blob:");
-  assert.ok(directives.get('style-src')!.includes('https://fonts.googleapis.com'));
-  assert.ok(directives.get('font-src')!.includes('https://fonts.gstatic.com'));
+  /* 字体改系统栈之后（清单 UI-02），googleapis / gstatic 两条白名单就该跟着撤掉：
+     留着等于给一个已经不存在的请求继续开门。 */
+  assert.equal(directives.get('font-src'), "'self'");
+  assert.ok(!CONTENT_SECURITY_POLICY.includes('https://'), '策略里不该再出现任何外部主机');
+});
+
+await check('文档与策略同步：index.html 不再外链字体样式表', () => {
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  /* 这两条必须一起改。只删策略里的 host 而留下 <link>，线上就是一份被 CSP 拦掉的
+     渲染阻塞请求；只删 <link> 而留下 host，则是白留一条外部门。 */
+  assert.ok(!html.includes('fonts.googleapis.com'), 'index.html 仍在向 googleapis 取字体样式表');
+  assert.ok(!html.includes('fonts.gstatic.com'), 'index.html 仍在预连接 gstatic');
 });
 
 await check('注入位置在 charset 之后，且重复构建不会插两遍', () => {

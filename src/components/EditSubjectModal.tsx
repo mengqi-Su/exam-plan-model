@@ -174,7 +174,7 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
                   type="button"
                   aria-pressed={selected}
                   onClick={() => patch("icon", selected ? "" : emoji)}
-                  className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border text-[18px] leading-none transition-colors ${
+                  className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border text-[20px] leading-none transition-colors ${
                     selected
                       ? "border-[#cfc9c0] bg-[#f1efe9]"
                       : "border-transparent hover:bg-[#f1efe9]"
@@ -210,7 +210,7 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
               className={`flex h-10 w-16 cursor-pointer items-center justify-center rounded-lg border text-[11px] transition-colors ${
                 draft.cover === ""
                   ? "border-[#1c1b1a]/60 bg-[#f1efe9] text-[#1c1b1a]"
-                  : "border-[#e5e1d9] bg-[#fbfaf7] text-[#a39e97] hover:border-[#cfc9c0]"
+                  : "border-[#e5e1d9] bg-[#fbfaf7] text-[#6b6660] hover:border-[#cfc9c0]"
               }`}
             >
               {isZh ? "无" : "None"}

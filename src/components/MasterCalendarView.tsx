@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { ExamStudyPlan, StudyTask, DailyMemoNote } from "../types";
 import { useI18n } from "../lib/i18n";
-import { getPaletteByIndex } from "../lib/themePalettes";
+import { getCourseAccent } from "../lib/courseAccents";
 import { getDailyMemos } from "../lib/storage";
 import { DailyMoodMemoPad } from "./DailyMoodMemoPad";
 import { PageIconGlyph } from "./PageIconGlyph";
@@ -29,13 +29,16 @@ interface MasterCalendarViewProps {
 }
 
 // Subtle mood signal for the day-cell memo dot (replaces the old emoji badges).
+/* 六个心情各自压到能在白格上认出 6px 点的深度（清单 UI-03）：
+   原来 motivated #E0A800 / inspired #D9A521 / tired #8A8580 在白底只有 2.15 / 2.24 / 3.65:1，
+   前两个基本是一个不存在的点。色相沿用科目身份色那四个，另两个补上紫和中性灰。 */
 const MEMO_DOT: Record<string, string> = {
-  motivated: "#E0A800",
-  calm: "#6E8CA8",
-  inspired: "#D9A521",
-  breakthrough: "#3F6B4F",
-  anxious: "#A9756A",
-  tired: "#8A8580",
+  motivated: "#8A6A12",
+  calm: "#46658A",
+  inspired: "#6B4E8E",
+  breakthrough: "#4A7353",
+  anxious: "#8A5348",
+  tired: "#6b6660",
 };
 
 export function MasterCalendarView({
@@ -70,9 +73,9 @@ export function MasterCalendarView({
 
   const todayStr = useMemo(() => toLocalDateString(), []);
 
-  const getPlanPalette = (planId: string) => {
+  const getCourseAccentForPlan = (planId: string) => {
     const idx = plans.findIndex((p) => p.id === planId);
-    return getPaletteByIndex(idx >= 0 ? idx : 0);
+    return getCourseAccent(idx >= 0 ? idx : 0);
   };
 
   const allAggregatedTasks = useMemo(() => {
@@ -203,7 +206,7 @@ export function MasterCalendarView({
   const viewingTodayMonth = todayStr.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`);
 
   const selectCls =
-    "text-xs bg-transparent text-[#1c1b1a] cursor-pointer";
+    "text-[12px] bg-transparent text-[#1c1b1a] cursor-pointer";
   const filterWrapCls =
     "flex items-center gap-1.5 rounded-lg border border-[#e5e2dc] bg-white px-2.5 py-1.5";
 
@@ -214,8 +217,8 @@ export function MasterCalendarView({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <CalendarIcon className="w-4 h-4 text-[#a39e97]" />
-              <h2 className="text-lg font-semibold text-[#1c1b1a] tracking-tight tabular-nums">
+              <CalendarIcon className="w-4 h-4 text-[#6b6660]" />
+              <h2 className="text-[20px] font-semibold text-[#1c1b1a] tracking-tight tabular-nums">
                 {monthTitle}
               </h2>
             </div>
@@ -223,14 +226,14 @@ export function MasterCalendarView({
             <div className="flex items-center gap-0.5 rounded-lg bg-[#f1efe9] p-0.5">
               <button
                 onClick={handlePrevMonth}
-                className="p-1.5 rounded-md text-[#6b6660] hover:bg-white hover:text-[#1c1b1a] transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-[#6b6660] hover:bg-white hover:text-[#1c1b1a] transition-colors cursor-pointer"
                 title={isZh ? "上个月" : "Previous month"}
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={handleJumpToToday}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg text-[12px] font-medium transition-colors cursor-pointer ${
                   viewingTodayMonth
                     ? "bg-white text-[#1c1b1a] shadow-sm"
                     : "text-[#6b6660] hover:bg-white/60"
@@ -240,7 +243,7 @@ export function MasterCalendarView({
               </button>
               <button
                 onClick={handleNextMonth}
-                className="p-1.5 rounded-md text-[#6b6660] hover:bg-white hover:text-[#1c1b1a] transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg text-[#6b6660] hover:bg-white hover:text-[#1c1b1a] transition-colors cursor-pointer"
                 title={isZh ? "下个月" : "Next month"}
               >
                 <ChevronRight className="w-4 h-4" />
@@ -250,7 +253,7 @@ export function MasterCalendarView({
 
           <div className="flex flex-wrap items-center gap-2">
             <div className={filterWrapCls}>
-              <Layers className="w-3.5 h-3.5 text-[#a39e97]" />
+              <Layers className="w-3.5 h-3.5 text-[#6b6660]" />
               <select
                 value={courseFilter}
                 onChange={(e) => setCourseFilter(e.target.value)}
@@ -266,7 +269,7 @@ export function MasterCalendarView({
             </div>
 
             <div className={filterWrapCls}>
-              <Filter className="w-3.5 h-3.5 text-[#a39e97]" />
+              <Filter className="w-3.5 h-3.5 text-[#6b6660]" />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
@@ -279,13 +282,13 @@ export function MasterCalendarView({
             </div>
 
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-[#a39e97] absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-[#6b6660] absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder={isZh ? "搜索考点..." : "Search..."}
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
-                className="pl-8 pr-2.5 py-1.5 text-xs rounded-lg border border-[#e5e2dc] bg-white text-[#1c1b1a] placeholder-[#a39e97] focus:border-[#cfc9c0] w-32 sm:w-40 transition-colors"
+                className="pl-8 pr-2.5 py-1.5 text-[12px] rounded-lg border border-[#e5e2dc] bg-white text-[#1c1b1a] placeholder-[#716c65] focus:border-[#cfc9c0] w-32 sm:w-40 transition-colors"
               />
             </div>
           </div>
@@ -295,9 +298,10 @@ export function MasterCalendarView({
       <div className="grid grid-cols-1 lg:grid-cols-12">
         {/* Calendar grid */}
         <div className="lg:col-span-8 p-3 sm:p-4">
-          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-[#8a8580] mb-1.5">
+          <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-medium text-[#6b6660] mb-1.5">
             {weekHeaders.map((w, idx) => (
-              <div key={idx} className={idx === 0 || idx === 6 ? "text-[#a39e97]" : ""}>
+              /* 周末用主墨、工作日用次墨：两档都读得清，层级靠深浅而不是靠「淡到看不见」（清单 UI-03） */
+              <div key={idx} className={idx === 0 || idx === 6 ? "text-[#1c1b1a]" : ""}>
                 {w}
               </div>
             ))}
@@ -326,19 +330,19 @@ export function MasterCalendarView({
                       ? "border-[#cfc9c0] bg-[#f1efe9] text-[#1c1b1a]"
                       : isCurrentMonth
                       ? "border-[#eae7e1] bg-white hover:bg-[#faf9f6] hover:border-[#ddd8d0] text-[#1c1b1a]"
-                      : "border-transparent bg-[#faf9f6] text-[#a39e97] opacity-70 hover:opacity-100"
+                      : "border-transparent bg-[#faf9f6] text-[#6b6660]"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span
-                      className={`text-xs font-medium tabular-nums w-5 h-5 flex items-center justify-center rounded-full ${
+                      className={`text-[12px] font-medium tabular-nums w-5 h-5 flex items-center justify-center rounded-full ${
                         isSelected
                           ? "bg-white text-[#1c1b1a]"
                           : isToday
                           ? "bg-[#1c1b1a] text-white"
                           : isCurrentMonth
                           ? "text-[#1c1b1a]"
-                          : "text-[#a39e97]"
+                          : "text-[#6b6660]"
                       }`}
                     >
                       {dayNum}
@@ -349,16 +353,16 @@ export function MasterCalendarView({
                         <span
                           className="w-1.5 h-1.5 rounded-full shrink-0"
                           style={{
-                            backgroundColor: isSelected
-                              ? "#FCD33B"
-                              : MEMO_DOT[dayMemo.mood || ""] || "#D9A521",
+                            /* 选中格已经是墨底，它的强调色就是白（日期牌也是白底），便签点跟着走，
+                               原来这里单独用一块明黄 #FCD33B，只有「这一格被选中」的意思，却多引入一个颜色。 */
+                            backgroundColor: isSelected ? "#ffffff" : MEMO_DOT[dayMemo.mood || ""] || "#6b6660",
                           }}
                           title={isZh ? `随心便签: ${dayMemo.content || "有记录"}` : `Memo: ${dayMemo.content || "Recorded"}`}
                         />
                       )}
 
                       {dayTasks.length > 0 && (
-                        <span className={`text-[10px] tabular-nums ${isSelected ? "text-white/70" : "text-[#8a8580]"}`}>
+                        <span className={`text-[11px] tabular-nums ${isSelected ? "text-white/70" : "text-[#6b6660]"}`}>
                           {completedInDay}/{dayTasks.length}
                         </span>
                       )}
@@ -369,7 +373,7 @@ export function MasterCalendarView({
                     {dayExams.map((exam) => (
                       <div
                         key={`exam-${exam.id}`}
-                        className={`rounded px-1 py-0.5 text-[9px] font-medium truncate flex items-center gap-0.5 ${
+                        className={`rounded-lg px-1 py-0.5 text-[11px] font-medium truncate flex items-center gap-0.5 ${
                           isSelected ? "bg-white/15 text-white" : "bg-[#FDF0EE] text-[#B42318]"
                         }`}
                         title={isZh ? `大考日: ${exam.examName}` : `Exam day: ${exam.examName}`}
@@ -381,25 +385,25 @@ export function MasterCalendarView({
 
                     {dayTasks.slice(0, 2).map(({ task, plan }) => {
                       const isTaskDone = task.status === "completed";
-                      const coursePalette = getPlanPalette(plan.id);
+                      const courseAccent = getCourseAccentForPlan(plan.id);
 
                       return (
                         <div
                           key={`task-${task.id}`}
-                          className={`rounded px-1 py-0.5 text-[9px] truncate flex items-center gap-1 ${
+                          className={`rounded-lg px-1 py-0.5 text-[11px] truncate flex items-center gap-1 ${
                             isSelected
                               ? isTaskDone
                                 ? "bg-white/10 text-white/50 line-through"
                                 : "bg-white/10 text-white/90"
                               : isTaskDone
-                              ? "bg-[#f1efe9] text-[#a39e97] line-through"
+                              ? "bg-[#f1efe9] text-[#6b6660] line-through"
                               : "bg-[#faf9f6] text-[#1c1b1a]"
                           }`}
                           title={`${plan.examName}: ${task.title}`}
                         >
                           <span
                             className="w-1.5 h-1.5 rounded-full shrink-0"
-                            style={{ backgroundColor: coursePalette.accentColor }}
+                            style={{ backgroundColor: courseAccent }}
                           />
                           <span className="truncate flex-1">{task.title}</span>
                         </div>
@@ -407,7 +411,7 @@ export function MasterCalendarView({
                     })}
 
                     {dayTasks.length > 2 && (
-                      <div className={`text-[9px] pl-1 ${isSelected ? "text-white/60" : "text-[#a39e97]"}`}>
+                      <div className={`text-[11px] pl-1 ${isSelected ? "text-white/60" : "text-[#6b6660]"}`}>
                         +{dayTasks.length - 2} {isZh ? "项" : "more"}
                       </div>
                     )}
@@ -423,13 +427,13 @@ export function MasterCalendarView({
           <div className="space-y-3">
             <div className="flex items-center justify-between pb-3 border-b border-[#f0ede8]">
               <div>
-                <span className="text-[11px] font-medium text-[#8a8580] block">
+                <span className="text-[11px] font-medium text-[#6b6660] block">
                   {isZh ? "选中日期任务" : "Selected date"}
                 </span>
-                <h3 className="text-base font-semibold text-[#1c1b1a] flex items-center gap-1.5 tabular-nums">
+                <h3 className="text-[15px] font-semibold text-[#1c1b1a] flex items-center gap-1.5 tabular-nums">
                   <span>{activeDayDate}</span>
                   {activeDayDate === todayStr && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#1c1b1a] text-white font-medium">
+                    <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-[#1c1b1a] text-white font-medium">
                       {isZh ? "今日" : "Today"}
                     </span>
                   )}
@@ -443,12 +447,12 @@ export function MasterCalendarView({
 
             {activeDayExams.length > 0 && (
               <div className="p-3 rounded-lg bg-[#FDF0EE] border border-[#f5d6d0] space-y-1">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#B42318]">
+                <div className="flex items-center gap-1.5 text-[12px] font-semibold text-[#B42318]">
                   <Target className="w-4 h-4" />
                   <span>{isZh ? "考试日提醒" : "Exam day"}</span>
                 </div>
                 {activeDayExams.map((ex) => (
-                  <p key={ex.id} className="text-xs text-[#8c2f26]">
+                  <p key={ex.id} className="text-[12px] text-[#B42318]">
                     {ex.examName}（{ex.subject}）
                   </p>
                 ))}
@@ -457,8 +461,8 @@ export function MasterCalendarView({
 
             {activeDayTasks.length === 0 ? (
               <div className="py-10 text-center space-y-2">
-                <CheckCircle2 className="w-8 h-8 text-[#ddd8d0] mx-auto" />
-                <p className="text-xs text-[#8a8580]">
+                <CheckCircle2 className="w-8 h-8 text-[#6b6660] mx-auto" />
+                <p className="text-[12px] text-[#6b6660]">
                   {isZh ? "该日期没有排定的复习任务" : "No tasks scheduled for this day"}
                 </p>
               </div>
@@ -471,8 +475,10 @@ export function MasterCalendarView({
                     <div
                       key={`${plan.id}-${task.id}`}
                       className={`p-2.5 rounded-lg border transition-all space-y-2 ${
+                        /* 已完成已经有三个信号：绿勾、划线、次墨色。整块再压 75% 透明度是第四个，
+                           而它会把行里的 11px 灰字带到 2.9:1，等于把信息删掉了（清单 UI-03）。 */
                         isCompleted
-                          ? "bg-[#faf9f6] border-[#eae7e1] opacity-75"
+                          ? "bg-[#faf9f6] border-[#eae7e1]"
                           : "bg-white border-[#eae7e1] hover:border-[#ddd8d0]"
                       }`}
                     >
@@ -485,18 +491,18 @@ export function MasterCalendarView({
                           {isCompleted ? (
                             <CheckCircle2 className="w-4 h-4 text-[#3F6B4F]" />
                           ) : (
-                            <Circle className="w-4 h-4 text-[#cfc9c0] hover:text-[#8a8580]" />
+                            <Circle className="w-4 h-4 text-[#6b6660] hover:text-[#1c1b1a]" />
                           )}
                         </button>
 
                         <div className="min-w-0 flex-1 space-y-1">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[#f1efe9] px-2 py-0.5 text-[10px] font-medium text-[#6b6660] truncate max-w-[140px]">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#f1efe9] px-2 py-0.5 text-[11px] font-medium text-[#6b6660] truncate max-w-[140px]">
                               {/* 点名科目就用页面图标，和侧栏 / 总览 / 页头一致；日历格里的色点留给任务色标。 */}
-                              <PageIconGlyph plan={plan} className="text-[10px]" />
+                              <PageIconGlyph plan={plan} className="text-[11px]" />
                               <span className="truncate">{plan.examName}</span>
                             </span>
-                            <span className="text-[10px] text-[#8a8580] flex items-center gap-0.5 tabular-nums">
+                            <span className="text-[11px] text-[#6b6660] flex items-center gap-0.5 tabular-nums">
                               <Clock className="w-2.5 h-2.5" />
                               <span>{task.durationMinutes}{isZh ? "分钟" : "m"}</span>
                             </span>
@@ -504,14 +510,14 @@ export function MasterCalendarView({
 
                           <p
                             className={`text-[13px] font-medium leading-snug ${
-                              isCompleted ? "line-through text-[#a39e97]" : "text-[#1c1b1a]"
+                              isCompleted ? "line-through text-[#6b6660]" : "text-[#1c1b1a]"
                             }`}
                           >
                             {task.title}
                           </p>
 
                           {task.topicTitle && (
-                            <p className="text-[11px] text-[#8a8580] truncate">
+                            <p className="text-[11px] text-[#6b6660] truncate">
                               {task.topicTitle}
                             </p>
                           )}

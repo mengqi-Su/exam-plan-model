@@ -18,7 +18,7 @@ interface DraftChapter extends TextbookChapter {
 }
 
 const CONFIDENCE_TONE: Record<string, string> = {
-  high: "bg-[#EAF3EC] text-[#2F6B41]",
+  high: "bg-[#EAF3EC] text-[#3F6B4F]",
   medium: "bg-[#FBF3DC] text-[#8A5A00]",
   low: "bg-[#FBEAE8] text-[#B42318]",
 };
@@ -221,7 +221,7 @@ export function TextbookOutlineDialog({
 
         {isWorking && (
           <div className="flex items-center gap-2 rounded-lg bg-[#faf9f6] px-3 py-2">
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-[#8a8580]" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-[#6b6660]" />
             <span className="ui-row-meta flex-1">{status}</span>
             <button onClick={stopWorking} className="ui-btn-text">
               {tt("取消", "Cancel")}
@@ -328,8 +328,8 @@ export function TextbookOutlineDialog({
                 role="checkbox"
                 aria-checked={draft.checked}
                 aria-label={tt(`勾选第 ${draft.index} 章`, `Tick chapter ${draft.index}`)}
-                className={`flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded border transition-colors cursor-pointer ${
-                  draft.checked ? "border-[#1c1b1a] bg-[#1c1b1a] text-white" : "border-[#cfc9c0] bg-white text-transparent hover:border-[#8a8580]"
+                className={`flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-lg border transition-colors cursor-pointer ${
+                  draft.checked ? "border-[#1c1b1a] bg-[#1c1b1a] text-white" : "border-[#cfc9c0] bg-white text-transparent hover:border-[#6b6660]"
                 }`}
               >
                 <Check className="h-3 w-3" />

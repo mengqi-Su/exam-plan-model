@@ -71,11 +71,11 @@ export function CourseAccordionGallery({
   if (!plans || plans.length === 0) {
     return (
       <div className="ui-card p-10 sm:p-14 flex flex-col items-center justify-center text-center space-y-5 animate-fadeIn">
-        <div className="w-14 h-14 rounded-2xl bg-[#f1efe9] flex items-center justify-center">
-          <BookOpen className="w-7 h-7 text-[#8a8580]" />
+        <div className="w-14 h-14 rounded-xl bg-[#f1efe9] flex items-center justify-center">
+          <BookOpen className="w-7 h-7 text-[#6b6660]" />
         </div>
         <div className="space-y-2 max-w-md">
-          <h3 className="text-lg font-semibold tracking-tight text-[#1c1b1a]">
+          <h3 className="text-[20px] font-semibold tracking-tight text-[#1c1b1a]">
             {isZh ? "还没有备考科目" : "No subjects yet"}
           </h3>
         </div>
@@ -146,7 +146,7 @@ export function CourseAccordionGallery({
                             e.stopPropagation();
                             enterCourse(plan.id);
                           }}
-                          className="min-w-0 text-lg font-semibold text-[#1c1b1a] hover:underline cursor-pointer tracking-tight leading-snug line-clamp-2"
+                          className="min-w-0 text-[20px] font-semibold text-[#1c1b1a] hover:underline cursor-pointer tracking-tight leading-snug line-clamp-2"
                         >
                           {plan.examName}
                         </h3>
@@ -217,7 +217,7 @@ export function CourseAccordionGallery({
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-between h-full w-full py-2">
-                  <PageIconGlyph plan={plan} className="text-[17px]" />
+                  <PageIconGlyph plan={plan} className="text-[20px]" />
                   <div className="flex-1 flex items-center justify-center overflow-hidden pt-2">
                     <span className="text-[12px] font-medium text-[#6b6660] whitespace-nowrap rotate-90 origin-center max-w-[220px] truncate">
                       {plan.examName}
@@ -225,7 +225,7 @@ export function CourseAccordionGallery({
                   </div>
                   <div className="flex flex-col items-center gap-1 w-full pt-2">
                     {examLabel && (
-                      <span className="text-[10px] font-medium tabular-nums text-[#8a8580]">{examLabel}</span>
+                      <span className="text-[11px] font-medium tabular-nums text-[#6b6660]">{examLabel}</span>
                     )}
                     {/* 没排任务的科目在窄条上不给百分数：一格 0% 只会读成「落后了」。 */}
                     {!pending && (
@@ -282,7 +282,7 @@ export function CourseAccordionGallery({
                 </div>
 
                 <div className="my-auto py-6">
-                  <h3 className="text-xl font-semibold text-[#1c1b1a] tracking-tight">
+                  <h3 className="text-[20px] font-semibold text-[#1c1b1a] tracking-tight">
                     {isZh ? "创建新的考试科目计划" : "Create a new subject plan"}
                   </h3>
                 </div>
@@ -306,11 +306,11 @@ export function CourseAccordionGallery({
                   <Plus className="w-4 h-4" />
                 </span>
                 <div className="flex-1 flex items-center justify-center my-3 overflow-hidden">
-                  <span className="text-[12px] font-medium text-[#8a8580] whitespace-nowrap rotate-90 origin-center">
+                  <span className="text-[12px] font-medium text-[#6b6660] whitespace-nowrap rotate-90 origin-center">
                     {isZh ? "新建科目" : "New subject"}
                   </span>
                 </div>
-                <ArrowUpRight className="w-4 h-4 text-[#a39e97]" />
+                <ArrowUpRight className="w-4 h-4 text-[#6b6660]" />
               </div>
             )}
           </div>
@@ -340,7 +340,7 @@ export function CourseAccordionGallery({
                 {isZh ? "新建考试科目" : "New subject"}
               </span>
             </div>
-            <ArrowUpRight className="w-4 h-4 text-[#a39e97]" />
+            <ArrowUpRight className="w-4 h-4 text-[#6b6660]" />
           </div>
         )}
 
@@ -368,9 +368,9 @@ export function CourseAccordionGallery({
                 className="p-4 flex items-center justify-between gap-3 cursor-pointer"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <PageIconGlyph plan={plan} className="text-[18px]" />
+                  <PageIconGlyph plan={plan} className="text-[20px]" />
                   <div className="min-w-0">
-                    <h4 className="text-[14px] font-semibold text-[#1c1b1a] truncate">{plan.examName}</h4>
+                    <h4 className="text-[13px] font-semibold text-[#1c1b1a] truncate">{plan.examName}</h4>
                     <span className="text-[12px] ui-muted block mt-0.5 truncate">
                       {plan.subject} ·{" "}
                       {pending ? pending.title : `${progress}% ${isZh ? "完成" : "done"}`}
@@ -381,7 +381,7 @@ export function CourseAccordionGallery({
                 <div className="flex items-center gap-2 shrink-0">
                   {examLabel && <span className="ui-chip tabular-nums">{examLabel}</span>}
                   <ChevronDown
-                    className={`w-4 h-4 text-[#a39e97] transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                    className={`w-4 h-4 text-[#6b6660] transition-transform ${isExpanded ? "rotate-180" : ""}`}
                   />
                 </div>
               </div>

@@ -264,7 +264,7 @@ export function HierarchicalTopicTreeView({
   }, [topics, searchQuery]);
 
   const inputCls =
-    "rounded-lg bg-white border border-[#e5e2dc] text-[#1c1b1a] placeholder-[#a39e97] focus:border-[#cfc9c0]";
+    "rounded-lg bg-white border border-[#e5e2dc] text-[#1c1b1a] placeholder-[#716c65] focus:border-[#cfc9c0]";
 
   return (
     <div className="space-y-4 text-[#1c1b1a]">
@@ -273,7 +273,7 @@ export function HierarchicalTopicTreeView({
           标题由外层段落给出、重新提炼由段落头部负责，这里不再重复一套同名控件。 */}
       <div className="ui-card flex items-center gap-2 p-2.5">
         <div className="relative flex-1 min-w-0">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#a39e97]" />
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6b6660]" />
           <input
             type="text"
             value={searchQuery}
@@ -304,7 +304,7 @@ export function HierarchicalTopicTreeView({
       {/* Tree Content */}
       {filteredTopics.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[#ddd8d0] bg-[#faf9f6] p-8 text-center space-y-2">
-          <BookOpen className="w-6 h-6 mx-auto text-[#a39e97]" />
+          <BookOpen className="w-6 h-6 mx-auto text-[#6b6660]" />
           <p className="ui-row-title">
             {isZh ? "暂未匹配到考点或知识树为空" : "No matching topics"}
           </p>
@@ -352,7 +352,7 @@ export function HierarchicalTopicTreeView({
                   <div className="flex items-start sm:items-center gap-2.5 flex-1 min-w-0">
                     <button
                       onClick={() => toggleUnit(topic.id)}
-                      className="p-1 rounded-md text-[#6b6660] hover:bg-black/[0.05] hover:text-[#1c1b1a] transition-colors cursor-pointer mt-0.5 sm:mt-0 shrink-0"
+                      className="p-1 rounded-lg text-[#6b6660] hover:bg-black/[0.05] hover:text-[#1c1b1a] transition-colors cursor-pointer mt-0.5 sm:mt-0 shrink-0"
                       title={isExpanded ? (isZh ? "折叠大单元" : "Collapse") : isZh ? "展开大单元" : "Expand"}
                     >
                       {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -389,14 +389,14 @@ export function HierarchicalTopicTreeView({
                         </div>
                         <button
                           onClick={() => handleSaveEditTopic(tIdx)}
-                          className="p-1.5 rounded-md bg-[#1c1b1a] text-white hover:bg-[#333333] transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg bg-[#1c1b1a] text-white hover:opacity-85 transition-opacity cursor-pointer"
                           title={isZh ? "保存" : "Save"}
                         >
                           <Check className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => setEditingTopicId(null)}
-                          className="p-1.5 rounded-md border border-[#e5e2dc] bg-white text-[#6b6660] hover:bg-[#faf9f6] transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg border border-[#e5e2dc] bg-white text-[#6b6660] hover:bg-[#faf9f6] transition-colors cursor-pointer"
                           title={isZh ? "取消" : "Cancel"}
                         >
                           <X className="w-3.5 h-3.5" />
@@ -461,7 +461,7 @@ export function HierarchicalTopicTreeView({
                       </button>
                       <button
                         onClick={() => handleStartEditTopic(topic)}
-                        className="p-1.5 rounded-md border border-[#e5e2dc] bg-white text-[#6b6660] hover:bg-[#faf9f6] hover:text-[#1c1b1a] transition-colors cursor-pointer"
+                        className="p-1.5 rounded-lg border border-[#e5e2dc] bg-white text-[#6b6660] hover:bg-[#faf9f6] hover:text-[#1c1b1a] transition-colors cursor-pointer"
                         title={isZh ? "编辑大单元" : "Edit unit"}
                       >
                         <Edit2 className="w-3.5 h-3.5" />
@@ -469,7 +469,7 @@ export function HierarchicalTopicTreeView({
                       {onDeleteTopic && (
                         <button
                           onClick={() => onDeleteTopic(topic.id)}
-                          className="p-1.5 rounded-md border border-[#e5e2dc] bg-white text-[#6b6660] hover:bg-[#FDF0EE] hover:text-[#B42318] hover:border-[#f0d0cc] transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg border border-[#e5e2dc] bg-white text-[#6b6660] hover:bg-[#FDF0EE] hover:text-[#B42318] hover:border-[#f0d0cc] transition-colors cursor-pointer"
                           title={isZh ? "删除整个大单元" : "Delete unit"}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -491,12 +491,12 @@ export function HierarchicalTopicTreeView({
                     {addingSubtopicUnitId === topic.id && (
                       <div className="rounded-lg border border-[#eae7e1] bg-[#faf9f6] p-3 space-y-2.5 animate-fadeIn">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="ui-subgroup-title">
+                          <span className="ui-group-title">
                             {isZh ? `为「${topic.title}」添加细分考点` : "Add subtopic to this unit"}
                           </span>
                           <button
                             onClick={() => setAddingSubtopicUnitId(null)}
-                            className="p-1 rounded-md text-[#a39e97] hover:text-[#1c1b1a] hover:bg-black/[0.04] transition-colors cursor-pointer"
+                            className="p-1 rounded-lg text-[#6b6660] hover:text-[#1c1b1a] hover:bg-black/[0.04] transition-colors cursor-pointer"
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -605,7 +605,7 @@ export function HierarchicalTopicTreeView({
                                       <a
                                         href={starquizPracticeUrl({ ...linkBase, level: "subtopic", unit: topic.title, topic: sub.title })}
                                         onClick={primeHandoff("subtopic", topic.title, sub.title)}
-                                        className="p-1.5 rounded-md text-[#a39e97] hover:bg-[#f1efe9] hover:text-[#1c1b1a] transition-colors cursor-pointer"
+                                        className="p-1.5 rounded-lg text-[#6b6660] hover:bg-[#f1efe9] hover:text-[#1c1b1a] transition-colors cursor-pointer"
                                         title={isZh ? `去 StarQuiz 练「${sub.title}」` : `Practice "${sub.title}" in StarQuiz`}
                                       >
                                         <ArrowUpRight className="w-3.5 h-3.5" />
@@ -614,7 +614,7 @@ export function HierarchicalTopicTreeView({
                                     {editable && (
                                       <button
                                         onClick={() => handleDeleteSubtopic(tIdx, topic, sIdx)}
-                                        className="p-1.5 rounded-md text-[#a39e97] hover:bg-[#FDF0EE] hover:text-[#B42318] transition-colors cursor-pointer"
+                                        className="p-1.5 rounded-lg text-[#6b6660] hover:bg-[#FDF0EE] hover:text-[#B42318] transition-colors cursor-pointer"
                                         title={isZh ? "删除此细分考点" : "Delete subtopic"}
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />

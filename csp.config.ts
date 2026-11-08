@@ -23,9 +23,10 @@ export const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   // 没有内联脚本、没有 eval：vite 产物是外链 module，pdf.js 与解析库全在同源 chunk 里
   "script-src 'self'",
-  // 'unsafe-inline' 是给组件的 style={{…}} 属性留的；字体样式表来自 googleapis
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' https://fonts.gstatic.com",
+  // 'unsafe-inline' 是给组件的 style={{…}} 属性留的
+  "style-src 'self' 'unsafe-inline'",
+  // 字体改用系统栈（清单 UI-02），不再向 fonts.gstatic.com 取任何切片
+  "font-src 'self'",
   // data: 给封面与 favicon，blob: 给本地资料预览与导出的下载链接
   "img-src 'self' data: blob:",
   // 浏览器只跟自己的云函数说话：AI Key 与用户资料都不经第三方

@@ -46,7 +46,7 @@ export function NotionSidebar({
       <div className="hidden md:block fixed top-3 left-3 z-40">
         <button
           onClick={onToggle}
-          className="p-2 min-w-9 min-h-9 rounded-lg border border-[#eae7e1] bg-white text-[#8a8580] shadow-[0_1px_2px_rgba(28,27,26,0.04)] transition-colors hover:text-[#1c1b1a] hover:bg-[#faf9f6] cursor-pointer"
+          className="p-2 min-w-9 min-h-9 rounded-lg border border-[#eae7e1] bg-white text-[#6b6660] shadow-[0_1px_2px_rgba(28,27,26,0.04)] transition-colors hover:text-[#1c1b1a] hover:bg-[#faf9f6] cursor-pointer"
           title={isZh ? "展开侧栏" : "Open sidebar"}
           aria-label={isZh ? "展开侧栏" : "Open sidebar"}
         >
@@ -69,7 +69,7 @@ export function NotionSidebar({
     >
       <div className="p-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-6 h-6 rounded-md bg-[#1c1b1a] text-white flex items-center justify-center text-[10px] font-semibold shrink-0 tracking-tight">
+          <div className="w-6 h-6 rounded-lg bg-[#1c1b1a] text-white flex items-center justify-center text-[11px] font-semibold shrink-0 tracking-tight">
             EP
           </div>
           <span className="font-semibold text-[13px] text-[#1c1b1a] tracking-tight block truncate">
@@ -79,7 +79,7 @@ export function NotionSidebar({
 
         <button
           onClick={onToggle}
-          className="p-2 min-w-9 min-h-9 rounded-lg text-[#8a8580] hover:text-[#1c1b1a] hover:bg-black/[0.04] transition-colors cursor-pointer"
+          className="p-2 min-w-9 min-h-9 rounded-lg text-[#6b6660] hover:text-[#1c1b1a] hover:bg-black/[0.04] transition-colors cursor-pointer"
           title={isZh ? "收起侧栏" : "Collapse sidebar"}
           aria-label={isZh ? "收起侧栏" : "Collapse sidebar"}
         >
@@ -107,7 +107,7 @@ export function NotionSidebar({
 
       <div className="flex-1 overflow-y-auto px-2.5 pt-2 space-y-0.5 border-t border-[#e7e4de]">
         <div className="flex items-center justify-between px-2.5 py-1.5 mb-0.5">
-          <span className="text-[11px] font-medium text-[#a39e97]">{isZh ? "备考科目" : "Courses"}</span>
+          <span className="text-[11px] font-medium text-[#6b6660]">{isZh ? "备考科目" : "Courses"}</span>
           <span className="ui-chip tabular-nums">{plans.length}</span>
         </div>
 
@@ -145,7 +145,7 @@ export function NotionSidebar({
                       onDeletePlan(p.id);
                     }
                   }}
-                  className="opacity-0 group-hover:opacity-100 p-2 mr-1 text-[#a39e97] hover:text-[#B42318] transition-all shrink-0 cursor-pointer rounded-md"
+                  className="opacity-0 group-hover:opacity-100 p-2 mr-1 text-[#6b6660] hover:text-[#B42318] transition-all shrink-0 cursor-pointer rounded-lg"
                   title={isZh ? "删除此科目" : "Delete subject"}
                   aria-label={isZh ? `删除科目 ${p.examName}` : `Delete subject ${p.examName}`}
                 >
@@ -157,7 +157,7 @@ export function NotionSidebar({
         })}
 
         {plans.length === 0 && (
-          <p className="text-[12px] text-[#a39e97] px-2.5 py-1.5">{isZh ? "暂无科目" : "No subjects yet"}</p>
+          <p className="text-[12px] text-[#6b6660] px-2.5 py-1.5">{isZh ? "暂无科目" : "No subjects yet"}</p>
         )}
 
         <button

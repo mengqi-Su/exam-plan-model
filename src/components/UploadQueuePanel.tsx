@@ -78,7 +78,7 @@ export const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
       <ul className="max-h-40 divide-y divide-[#f0ede8] overflow-y-auto">
         {tasks.map((task) => (
           <li key={task.key} className="flex items-center gap-2 px-3 py-1.5">
-            <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[#8a8580]">
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[#6b6660]">
               {task.state === "working" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {task.state === "done" && <Check className="h-3.5 w-3.5" />}
               {task.state === "failed" && <AlertCircle className="h-3.5 w-3.5 text-[#B42318]" />}

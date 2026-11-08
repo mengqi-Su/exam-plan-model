@@ -9,12 +9,12 @@ import {
   Timer,
   Volume2,
   VolumeX,
-  Star,
   Check
 } from "lucide-react";
 import { StudyTask } from "../types";
 import { playCompletionChime, playTimerFinishBell } from "../lib/audio";
 import { useI18n } from "../lib/i18n";
+import { MasteryStars } from "./MasteryStars";
 
 interface TaskFocusTimerModalProps {
   task: StudyTask;
@@ -103,7 +103,7 @@ export function TaskFocusTimerModal({
 
         <div className="px-5 py-3.5 bg-[#faf9f6] border-b ui-divider flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Timer className="w-4 h-4 text-[#8a8580]" />
+            <Timer className="w-4 h-4 text-[#6b6660]" />
             <span className="text-[15px] font-semibold tracking-tight text-[#1c1b1a]">
               {t("focusModalTitle")}
             </span>
@@ -116,7 +116,7 @@ export function TaskFocusTimerModal({
               title={soundEnabled ? (language === "zh" ? "关闭提示音" : "Mute Bell") : (language === "zh" ? "开启提示音" : "Enable Sound")}
               aria-label={soundEnabled ? (language === "zh" ? "关闭提示音" : "Mute bell") : (language === "zh" ? "开启提示音" : "Enable sound")}
             >
-              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-[#a39e97]" />}
+              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4 text-[#6b6660]" />}
             </button>
             <button
               onClick={onClose}
@@ -140,40 +140,40 @@ export function TaskFocusTimerModal({
           <div className="flex items-center gap-0.5 rounded-lg bg-[#f1efe9] p-0.5 text-[11px] font-medium">
             <button
               onClick={() => { setTimeLeft(25 * 60); setIsRunning(false); }}
-              className="px-2.5 py-1 rounded-[7px] text-[#6b6660] hover:text-[#1c1b1a] transition-colors cursor-pointer"
+              className="px-2.5 py-1 rounded-lg text-[#6b6660] hover:text-[#1c1b1a] transition-colors cursor-pointer"
             >
-              25 · {language === "zh" ? "番茄" : "Pomodoro"}
+              25 {language === "zh" ? "番茄" : "Pomodoro"}
             </button>
             <button
               onClick={() => { setTimeLeft(45 * 60); setIsRunning(false); }}
-              className="px-2.5 py-1 rounded-[7px] text-[#6b6660] hover:text-[#1c1b1a] transition-colors cursor-pointer"
+              className="px-2.5 py-1 rounded-lg text-[#6b6660] hover:text-[#1c1b1a] transition-colors cursor-pointer"
             >
-              45 · {language === "zh" ? "标准" : "Standard"}
+              45 {language === "zh" ? "标准" : "Standard"}
             </button>
             <button
               onClick={() => { setTimeLeft(60 * 60); setIsRunning(false); }}
-              className="px-2.5 py-1 rounded-[7px] text-[#6b6660] hover:text-[#1c1b1a] transition-colors cursor-pointer"
+              className="px-2.5 py-1 rounded-lg text-[#6b6660] hover:text-[#1c1b1a] transition-colors cursor-pointer"
             >
-              60 · {language === "zh" ? "深度" : "Deep"}
+              60 {language === "zh" ? "深度" : "Deep"}
             </button>
             <button
               onClick={() => { setTimeLeft(90 * 60); setIsRunning(false); }}
-              className="px-2.5 py-1 rounded-[7px] text-[#6b6660] hover:text-[#1c1b1a] transition-colors cursor-pointer"
+              className="px-2.5 py-1 rounded-lg text-[#6b6660] hover:text-[#1c1b1a] transition-colors cursor-pointer"
             >
-              90 · {language === "zh" ? "模考" : "Mock"}
+              90 {language === "zh" ? "模考" : "Mock"}
             </button>
           </div>
 
           <div className="relative w-48 h-48 rounded-xl border border-[#eae7e1] bg-[#faf9f6] flex flex-col items-center justify-center overflow-hidden">
-            <span className="text-4xl font-semibold tracking-tight text-[#1c1b1a] tabular-nums">
+            <span className="ui-display-num text-[#1c1b1a]">
               {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
             </span>
-            <span className="text-[12px] text-[#8a8580] mt-2">
+            <span className="text-[12px] text-[#6b6660] mt-2">
               {isRunning ? t("deepFocusing") : timeLeft === 0 ? t("timerComplete") : t("timerReady")}
             </span>
             <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-[#f0ede8] overflow-hidden">
               <div
-                className="h-full bg-[#FCD33B] transition-all duration-300"
+                className="h-full bg-[#1c1b1a] transition-all duration-300"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -211,7 +211,7 @@ export function TaskFocusTimerModal({
 
           {task.keyObjectives && task.keyObjectives.length > 0 && (
             <div className="w-full bg-[#faf9f6] rounded-xl border border-[#eae7e1] p-3 text-left space-y-1.5">
-              <h4 className="text-[12px] font-medium text-[#8a8580]">
+              <h4 className="text-[12px] font-medium text-[#6b6660]">
                 {t("objectivesForSession")}
               </h4>
               <div className="space-y-1">
@@ -230,7 +230,7 @@ export function TaskFocusTimerModal({
                     >
                       <Check className="w-2.5 h-2.5" strokeWidth={3} />
                     </span>
-                    <span className={checkedObjectives[i] ? "line-through text-[#a39e97]" : "text-[#1c1b1a]"}>
+                    <span className={checkedObjectives[i] ? "line-through text-[#6b6660]" : "text-[#1c1b1a]"}>
                       {obj}
                     </span>
                   </div>
@@ -241,22 +241,12 @@ export function TaskFocusTimerModal({
 
           <div className="w-full pt-4 border-t ui-divider flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-[13px]">
-              <span className="text-[#8a8580]">{t("selfMasteryRating")}</span>
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => setSelectedRating(star as any)}
-                    aria-label={`${star} / 5`}
-                    aria-pressed={selectedRating >= star}
-                    className={`p-0.5 rounded-md transition-colors cursor-pointer ${
-                      selectedRating >= star ? "text-[#FCD33B]" : "text-[#d8d4cc] hover:text-[#FCD33B]"
-                    }`}
-                  >
-                    <Star className="w-4 h-4" fill="currentColor" strokeWidth={0} />
-                  </button>
-                ))}
-              </div>
+              <span className="text-[#6b6660]">{t("selfMasteryRating")}</span>
+              <MasteryStars
+                value={selectedRating}
+                onChange={setSelectedRating}
+                labelFor={(star) => `${star} / 5`}
+              />
             </div>
 
             <button

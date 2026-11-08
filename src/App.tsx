@@ -1,12 +1,28 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { NotionSidebar } from "./components/NotionSidebar";
-import { MasterDashboard } from "./components/MasterDashboard";
-import { CourseDetailPage } from "./components/CourseDetailPage";
-import { AddExamSubjectWizard } from "./components/AddExamSubjectWizard";
-import { MasterCalendarView } from "./components/MasterCalendarView";
 import { TodayFocusView } from "./components/TodayFocusView";
-import { SettingsPage } from "./components/SettingsPage";
 import { DeleteConfirmModal } from "./components/DeleteConfirmModal";
+import { LoadingPane } from "./components/LoadingPane";
+
+/* 首屏只留「今日」和外壳：其余视图按需取（清单 PERF-01）。
+   科目页那一支最重（知识区、资料阅读器、掌握度轮盘都挂在它下面），
+   单独成块之后，打开应用不再顺带把 markdown 渲染器和图表一起下载。
+   写法固定为 lazy + .then 取命名导出——这些组件都没有 default。 */
+const MasterDashboard = lazy(() =>
+  import("./components/MasterDashboard").then((m) => ({ default: m.MasterDashboard }))
+);
+const CourseDetailPage = lazy(() =>
+  import("./components/CourseDetailPage").then((m) => ({ default: m.CourseDetailPage }))
+);
+const AddExamSubjectWizard = lazy(() =>
+  import("./components/AddExamSubjectWizard").then((m) => ({ default: m.AddExamSubjectWizard }))
+);
+const MasterCalendarView = lazy(() =>
+  import("./components/MasterCalendarView").then((m) => ({ default: m.MasterCalendarView }))
+);
+const SettingsPage = lazy(() =>
+  import("./components/SettingsPage").then((m) => ({ default: m.SettingsPage }))
+);
 import {
   AlertTriangle,
   Calendar,
@@ -322,7 +338,7 @@ export default function App() {
 
   if (!isHydrated) {
     return (
-      <div className="min-h-screen bg-[#f8f7f4] text-[#8a8580] flex items-center justify-center text-[13px]">
+      <div className="min-h-screen bg-[#f8f7f4] text-[#6b6660] flex items-center justify-center text-[13px]">
         <div className="flex items-center gap-2.5">
           <span className="w-4 h-4 rounded-full border-2 border-[#ddd9d2] border-t-[#1c1b1a] animate-spin" />
           <span>{language === "zh" ? "正在读取本地备考数据…" : "Loading local planner data…"}</span>
@@ -332,7 +348,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f7f4] text-[#111111] flex antialiased selection:bg-[#111111] selection:text-white font-sans">
+    <div className="min-h-screen bg-[#f8f7f4] text-[#1c1b1a] flex antialiased selection:bg-[#1c1b1a] selection:text-white font-sans">
       <NotionSidebar
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -359,7 +375,7 @@ export default function App() {
             className="flex items-center gap-2 cursor-pointer"
             aria-label={language === "zh" ? "回到今日" : "Back to today"}
           >
-            <span className="w-6 h-6 rounded-md bg-[#1c1b1a] text-white flex items-center justify-center text-[10px] font-semibold tracking-tight">
+            <span className="w-6 h-6 rounded-lg bg-[#1c1b1a] text-white flex items-center justify-center text-[11px] font-semibold tracking-tight">
               EP
             </span>
             <span className="text-[13px] font-semibold tracking-tight text-[#1c1b1a]">EXAM PLAN AI</span>
@@ -420,9 +436,9 @@ export default function App() {
               ) : (
                 <Info className="w-4 h-4 shrink-0 mt-0.5" />
               )}
-              <span className="min-w-0">
+              {/* 标题和正文各自一块，靠间距分开，不用 · 当分隔符（清单 UI-04）。 */}
+              <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
                 <span className="font-semibold">{inboundNotice.title}</span>
-                <span className="mx-1.5 opacity-40">·</span>
                 <span className="leading-relaxed">{inboundNotice.message}</span>
               </span>
             </span>
@@ -450,79 +466,87 @@ export default function App() {
           )}
 
           {currentTab === "dashboard" && (
-            <MasterDashboard
-              plans={plans}
-              activePlan={activePlan}
-              onSelectPlan={handleSelectPlan}
-              onNavigateToTab={handleNavigateToTab}
-              onDeletePlan={handleDeletePlan}
-              onRequestDeletePlan={(p) => setPlanToDelete(p)}
-              onAddNewSubject={handleNewPlan}
-            />
+            <Suspense fallback={<LoadingPane />}>
+              <MasterDashboard
+                plans={plans}
+                activePlan={activePlan}
+                onSelectPlan={handleSelectPlan}
+                onNavigateToTab={handleNavigateToTab}
+                onDeletePlan={handleDeletePlan}
+                onRequestDeletePlan={(p) => setPlanToDelete(p)}
+                onAddNewSubject={handleNewPlan}
+              />
+            </Suspense>
           )}
 
           {currentTab === "settings" && (
-            <SettingsPage
-              settings={appSettings}
-              onUpdateSettings={handleUpdateSettings}
-              plans={plans}
-              onImportPlans={handleImportPlans}
-              onClearAllData={handleClearAllData}
-            />
+            <Suspense fallback={<LoadingPane />}>
+              <SettingsPage
+                settings={appSettings}
+                onUpdateSettings={handleUpdateSettings}
+                plans={plans}
+                onImportPlans={handleImportPlans}
+                onClearAllData={handleClearAllData}
+              />
+            </Suspense>
           )}
 
           {currentTab === "master_calendar" && (
             <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6 animate-fadeIn">
-              <MasterCalendarView
-                plans={plans}
-                onToggleTaskStatus={(planId, taskId) => {
-                  setPlans((prev) =>
-                    prev.map((plan) => {
-                      if (plan.id !== planId) return plan;
-                      return {
-                        ...plan,
-                        tasks: plan.tasks.map((t) =>
-                          t.id === taskId
-                            ? {
-                                ...t,
-                                status: t.status === "completed" ? "pending" : "completed",
-                                completedAt: t.status === "completed" ? undefined : new Date().toISOString(),
-                              }
-                            : t
-                        ),
-                      };
-                    })
-                  );
-                }}
-                onStartFocusTimer={(task, planId) => {
-                  handleSelectPlan(planId);
-                  setSelectedDate(task.date);
-                  setCurrentTab("today");
-                }}
-                selectedDate={selectedDate}
-                onSelectDate={setSelectedDate}
-              />
+              <Suspense fallback={<LoadingPane />}>
+                <MasterCalendarView
+                  plans={plans}
+                  onToggleTaskStatus={(planId, taskId) => {
+                    setPlans((prev) =>
+                      prev.map((plan) => {
+                        if (plan.id !== planId) return plan;
+                        return {
+                          ...plan,
+                          tasks: plan.tasks.map((t) =>
+                            t.id === taskId
+                              ? {
+                                  ...t,
+                                  status: t.status === "completed" ? "pending" : "completed",
+                                  completedAt: t.status === "completed" ? undefined : new Date().toISOString(),
+                                }
+                              : t
+                          ),
+                        };
+                      })
+                    );
+                  }}
+                  onStartFocusTimer={(task, planId) => {
+                    handleSelectPlan(planId);
+                    setSelectedDate(task.date);
+                    setCurrentTab("today");
+                  }}
+                  selectedDate={selectedDate}
+                  onSelectDate={setSelectedDate}
+                />
+              </Suspense>
             </div>
           )}
 
           {currentTab === "course" &&
             (activePlan ? (
-              <CourseDetailPage
-                plan={activePlan}
-                onUpdatePlan={handleUpdatePlan}
-                onRequestDeletePlan={(p) => setPlanToDelete(p)}
-                onNavigateToTab={handleNavigateToTab}
-                onRequestPlanGeneration={handlePlanGenerationRequest}
-                focusTarget={focusTarget}
-                focusNonce={focusNonce}
-                practiceEvents={practiceEvents.filter((event) => event.planId === activePlan.id)}
-                onLocateReceipt={handleLocateReceipt}
-                onDismissReceipt={handleDismissReceipt}
-              />
+              <Suspense fallback={<LoadingPane />}>
+                <CourseDetailPage
+                  plan={activePlan}
+                  onUpdatePlan={handleUpdatePlan}
+                  onRequestDeletePlan={(p) => setPlanToDelete(p)}
+                  onNavigateToTab={handleNavigateToTab}
+                  onRequestPlanGeneration={handlePlanGenerationRequest}
+                  focusTarget={focusTarget}
+                  focusNonce={focusNonce}
+                  practiceEvents={practiceEvents.filter((event) => event.planId === activePlan.id)}
+                  onLocateReceipt={handleLocateReceipt}
+                  onDismissReceipt={handleDismissReceipt}
+                />
+              </Suspense>
             ) : (
               <div className="max-w-md mx-auto mt-16 ui-card p-8 text-center space-y-4 animate-fadeIn">
                 <div className="w-12 h-12 rounded-xl bg-[#f1efe9] flex items-center justify-center mx-auto">
-                  <LayoutDashboard className="w-6 h-6 text-[#8a8580]" />
+                  <LayoutDashboard className="w-6 h-6 text-[#6b6660]" />
                 </div>
                 <h3 className="text-[15px] font-semibold text-[#1c1b1a]">
                   {language === "zh" ? "暂无备考科目" : "No subjects yet"}
@@ -552,7 +576,7 @@ export default function App() {
               onClick={() => handleNavigateToTab(item.id)}
               aria-current={active ? "page" : undefined}
               className={`flex flex-col items-center justify-center gap-1 min-h-[56px] text-[11px] transition-colors cursor-pointer ${
-                active ? "text-[#1c1b1a] font-semibold" : "text-[#a39e97] font-medium"
+                active ? "text-[#1c1b1a] font-semibold" : "text-[#6b6660] font-medium"
               }`}
             >
               <Icon className="w-[18px] h-[18px]" />
@@ -570,17 +594,19 @@ export default function App() {
       />
 
       {isNewSubjectOpen && (
-        <AddExamSubjectWizard
-          variant="modal"
-          existingPlans={plans}
-          initialPlan={wizardPlan}
-          onPlanCreated={handlePlanGenerated}
-          onCancel={() => {
-            setIsNewSubjectOpen(false);
-            setWizardPlan(null);
-          }}
-          defaultStudyPace={appSettings.defaultStudyPace}
-        />
+        <Suspense fallback={null}>
+          <AddExamSubjectWizard
+            variant="modal"
+            existingPlans={plans}
+            initialPlan={wizardPlan}
+            onPlanCreated={handlePlanGenerated}
+            onCancel={() => {
+              setIsNewSubjectOpen(false);
+              setWizardPlan(null);
+            }}
+            defaultStudyPace={appSettings.defaultStudyPace}
+          />
+        </Suspense>
       )}
     </div>
   );

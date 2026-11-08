@@ -372,7 +372,7 @@ export function CourseKnowledgeHub({
       <section className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#f0ede8]">
           <div className="flex items-center gap-2">
-            <BrainCircuit className="w-4 h-4 ui-subtle" />
+            <BrainCircuit className="w-4 h-4 ui-muted" />
             <h3 className="ui-group-title">
               {isZh ? "AI 提炼的考点树状体系" : "Topic tree hierarchy"}
             </h3>
@@ -416,12 +416,12 @@ export function CourseKnowledgeHub({
         {isAddingTopic && (
           <div className="ui-card p-4 space-y-3 animate-fadeIn">
             <div className="flex items-center justify-between">
-              <h4 className="ui-subgroup-title">
+              <h4 className="ui-group-title">
                 {isZh ? "添加自定义大单元与考点树" : "Add custom unit & topics"}
               </h4>
               <button
                 onClick={() => setIsAddingTopic(false)}
-                className="p-1 rounded-md text-[#a39e97] hover:text-[#1c1b1a] hover:bg-black/[0.04] transition-colors cursor-pointer"
+                className="p-1 rounded-lg text-[#6b6660] hover:text-[#1c1b1a] hover:bg-black/[0.04] transition-colors cursor-pointer"
                 aria-label={isZh ? "关闭添加单元" : "Close add unit"}
               >
                 <X className="w-4 h-4" />
@@ -433,7 +433,7 @@ export function CourseKnowledgeHub({
                 value={newTopicTitle}
                 onChange={(e) => setNewTopicTitle(e.target.value)}
                 placeholder={isZh ? "大单元名称（如：第 6 单元：红黑树平衡推导）" : "Unit title..."}
-                className="sm:col-span-2 rounded-lg px-3 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] placeholder-[#a39e97] focus:border-[#cfc9c0]"
+                className="sm:col-span-2 rounded-lg px-3 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] placeholder-[#716c65] focus:border-[#cfc9c0]"
               />
               <div className="flex items-center gap-1.5">
                 <span className="ui-row-meta">{isZh ? "权重" : "Weight"}</span>
@@ -465,7 +465,7 @@ export function CourseKnowledgeHub({
               value={newTopicSubtopics}
               onChange={(e) => setNewTopicSubtopics(e.target.value)}
               placeholder={isZh ? "细分考点列表，逗号分隔（如：插入旋转、删除调整、时间复杂度）" : "Subtopics (comma separated)..."}
-              className="w-full rounded-lg px-3 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] placeholder-[#a39e97] focus:border-[#cfc9c0]"
+              className="w-full rounded-lg px-3 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] placeholder-[#716c65] focus:border-[#cfc9c0]"
             />
             <div className="flex justify-end gap-2">
               <button
@@ -487,7 +487,7 @@ export function CourseKnowledgeHub({
 
         {topics.length === 0 ? (
           <div className="rounded-xl border border-dashed border-[#ddd8d0] bg-[#faf9f6] px-5 py-8 text-center space-y-2">
-            <CheckCircle2 className="w-6 h-6 mx-auto text-[#a39e97]" />
+            <CheckCircle2 className="w-6 h-6 mx-auto text-[#6b6660]" />
             <p className="ui-note max-w-md mx-auto">
               {isZh ? "还没有考点" : "No topics yet"}
             </p>

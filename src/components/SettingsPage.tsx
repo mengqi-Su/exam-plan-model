@@ -88,8 +88,8 @@ function Segmented({
             role="radio"
             aria-checked={active}
             onClick={() => onSelect(opt.value)}
-            className={`rounded-md px-3 py-1.5 text-[13px] transition-all duration-150 cursor-pointer ${
-              active ? "bg-white font-medium text-[#1c1b1a] shadow-sm" : "text-[#8a8580] hover:text-[#1c1b1a]"
+            className={`rounded-lg px-3 py-1.5 text-[13px] transition-all duration-150 cursor-pointer ${
+              active ? "bg-white font-medium text-[#1c1b1a] shadow-sm" : "text-[#6b6660] hover:text-[#1c1b1a]"
             }`}
           >
             {opt.label}
@@ -134,7 +134,7 @@ function Row({
       }`}
     >
       <div className="min-w-0">
-        <div className="text-[14px] font-medium text-[#1c1b1a]">{title}</div>
+        <div className="text-[13px] font-medium text-[#1c1b1a]">{title}</div>
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -324,7 +324,7 @@ export function SettingsPage({
               <a
                 key={item.id}
                 href={`#${item.id}`}
-                className="block rounded-md px-3 py-1.5 text-[12px] text-[#a39e97] transition-colors hover:bg-black/[0.03] hover:text-[#1c1b1a]"
+                className="block rounded-lg px-3 py-1.5 text-[12px] text-[#6b6660] transition-colors hover:bg-black/[0.03] hover:text-[#1c1b1a]"
               >
                 {item.label}
               </a>
@@ -368,7 +368,7 @@ export function SettingsPage({
                       <option value="deep_mastery">{isZh ? "深度精通" : "Deep Mastery"}</option>
                       <option value="intensive_crash">{isZh ? "考前冲刺" : "Intensive Sprint"}</option>
                     </select>
-                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8a8580]" />
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b6660]" />
                   </div>
                 </Row>
               </div>
@@ -401,12 +401,12 @@ export function SettingsPage({
                 <div className="grid grid-cols-2 gap-px bg-[#f0ede8] sm:grid-cols-4">
                   {stats.map((item) => (
                     <div key={item.label} className="bg-white px-5 py-4">
-                      <div className="text-[12px] text-[#8a8580]">{item.label}</div>
-                      <div className="mt-1 text-xl font-semibold tabular-nums text-[#1c1b1a]">{item.value}</div>
+                      <div className="text-[12px] text-[#6b6660]">{item.label}</div>
+                      <div className="mt-1 text-[20px] font-semibold tabular-nums text-[#1c1b1a]">{item.value}</div>
                     </div>
                   ))}
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#f0ede8] px-5 py-3 text-[12px] text-[#8a8580]">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#f0ede8] px-5 py-3 text-[12px] text-[#6b6660]">
                   <span>
                     {storageInfo && storageInfo.quota > 0
                       ? `${isZh ? "浏览器配额" : "Quota"}: ${formatBytes(storageInfo.quota)}`
@@ -508,7 +508,7 @@ export function SettingsPage({
               href={STARQUIZ_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[12px] font-medium text-[#8a8580] underline underline-offset-2 transition-colors hover:text-[#1c1b1a]"
+              className="inline-flex items-center gap-1 text-[12px] font-medium text-[#6b6660] underline underline-offset-2 transition-colors hover:text-[#1c1b1a]"
             >
               {isZh ? "前往 StarQuiz 练习" : "Go to StarQuiz for practice"}
               <ArrowUpRight className="h-3 w-3" />
@@ -520,14 +520,14 @@ export function SettingsPage({
                 onClick={() => setShowRelease((prev) => !prev)}
                 aria-expanded={showRelease}
                 aria-controls="settings-release-details"
-                className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-[12px] text-[#a39e97] transition-colors hover:bg-black/[0.03] hover:text-[#6b6660] cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-[12px] text-[#6b6660] transition-colors hover:bg-black/[0.03] hover:text-[#6b6660] cursor-pointer"
               >
                 {isZh ? "版本与更新信息" : "Version & release notes"}
                 <ChevronDown
                   className={`h-3.5 w-3.5 transition-transform duration-200 ${showRelease ? "rotate-180" : ""}`}
                 />
               </button>
-              <span className="flex items-center gap-1.5 text-[12px] tabular-nums text-[#a39e97]">
+              <span className="flex items-center gap-1.5 text-[12px] tabular-nums text-[#6b6660]">
                 <span className={`h-1.5 w-1.5 rounded-full ${navigator.onLine ? "bg-[#3F6B4F]" : "bg-[#B42318]"}`} />
                 {APP_VERSION_DATA.version}
               </span>
@@ -535,22 +535,25 @@ export function SettingsPage({
 
             {showRelease && (
               <div id="settings-release-details" className="mt-3 space-y-4 animate-fadeIn">
-                <p className="text-[12px] leading-relaxed text-[#a39e97]">
-                  {APP_VERSION_DATA.releaseName} · {APP_VERSION_DATA.buildDate} · {APP_VERSION_DATA.buildNumber} ·{" "}
-                  {APP_VERSION_DATA.environment}
-                </p>
+                {/* 四项构建信息排成一行，用间距断句；原来串成一句 3.0.0 · 2026-11-01 · 118 · production，
+                    读者要自己找分隔符，而 · 在这里不承担任何语义（清单 UI-04）。 */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] leading-relaxed tabular-nums text-[#6b6660]">
+                  <span>{APP_VERSION_DATA.releaseName}</span>
+                  <span>{APP_VERSION_DATA.buildDate}</span>
+                  <span>{APP_VERSION_DATA.buildNumber}</span>
+                  <span>{APP_VERSION_DATA.environment}</span>
+                </div>
                 <div className="space-y-3">
                   {APP_VERSION_DATA.changelog.map((entry) => (
                     <div key={entry.version}>
-                      <div className="text-[12px] font-medium text-[#8a8580]">
-                        {entry.title}
-                        <span className="ml-1.5 tabular-nums text-[#a39e97]">
-                          {entry.version} · {entry.date}
-                        </span>
+                      <div className="flex flex-wrap items-baseline gap-x-2 text-[12px] text-[#6b6660]">
+                        <span className="font-medium">{entry.title}</span>
+                        <span className="tabular-nums">{entry.version}</span>
+                        <span className="tabular-nums">{entry.date}</span>
                       </div>
                       <ul className="mt-1 space-y-0.5">
                         {entry.highlights.map((highlight) => (
-                          <li key={highlight} className="flex gap-2 text-[12px] leading-relaxed text-[#a39e97]">
+                          <li key={highlight} className="flex gap-2 text-[12px] leading-relaxed text-[#6b6660]">
                             <span className="mt-[6px] h-1 w-1 shrink-0 rounded-full bg-[#e0dcd4]" />
                             <span>{highlight}</span>
                           </li>

@@ -254,29 +254,26 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
     <div className="space-y-3">
 
       <div className="flex items-center justify-between gap-2 border-b border-[#eeebe4] pb-2.5">
-        <span className="text-xs font-bold text-[#111111] uppercase tracking-wide">
+        <span className="text-[12px] font-bold text-[#1c1b1a]">
           {isZh ? "周一至周日学习时间规划" : "Weekly Study Cadence & Duration"}
         </span>
       </div>
 
-      <div className="relative rounded-2xl bg-[#faf9f6] border border-[#e8e6df] p-5 sm:p-7 overflow-hidden select-none">
+      <div className="relative rounded-xl bg-[#faf9f6] border border-[#e8e6df] p-5 sm:p-7 overflow-hidden select-none">
 
         <div className="flex items-center justify-between pb-3.5 border-b border-[#eeebe3]">
-          <div className="flex items-center space-x-2 font-mono text-xs text-[#888888]">
-            <span className="font-bold text-[#111111] uppercase tracking-wider">
-              {/* 中文时补一个大写英文名当装饰；英文界面下再拼一次就成了 "Monday · MONDAY"。 */}
-              {isZh ? `${dayLabel(selectedDay)} · ${dayName(selectedDay, false).toUpperCase()}` : dayLabel(selectedDay)}
-            </span>
+          <div className="flex items-center space-x-2 font-mono text-[12px] text-[#6b6660]">
+            <span className="font-bold text-[#1c1b1a]">{dayLabel(selectedDay)}</span>
           </div>
 
           <div className="flex items-center space-x-2">
             <button
               type="button"
               onClick={() => onToggleDayEnabled(selectedDay)}
-              className={`text-xs px-2.5 py-1 rounded border font-mono transition-colors cursor-pointer ${
+              className={`text-[12px] px-2.5 py-1 rounded-lg border font-mono transition-colors cursor-pointer ${
                 activeHours === 0
-                  ? "bg-[#111111] text-white border-[#111111]"
-                  : "bg-white text-[#666666] border-[#dedad1] hover:border-[#111111]"
+                  ? "bg-[#1c1b1a] text-white border-[#1c1b1a]"
+                  : "bg-white text-[#6b6660] border-[#dedad1] hover:border-[#1c1b1a]"
               }`}
             >
               {activeHours === 0 ? (language === "zh" ? "已设为休息" : "Resting") : (language === "zh" ? "设为休息日" : "Set Rest")}
@@ -285,10 +282,10 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
             <button
               type="button"
               onClick={() => setSyncToAll(!syncToAll)}
-              className={`text-xs px-2.5 py-1 rounded border font-mono transition-colors flex items-center space-x-1 cursor-pointer ${
+              className={`text-[12px] px-2.5 py-1 rounded-lg border font-mono transition-colors flex items-center space-x-1 cursor-pointer ${
                 syncToAll
-                  ? "bg-[#111111] text-white border-[#111111]"
-                  : "bg-white text-[#666666] border-[#dedad1] hover:border-[#111111]"
+                  ? "bg-[#1c1b1a] text-white border-[#1c1b1a]"
+                  : "bg-white text-[#6b6660] border-[#dedad1] hover:border-[#1c1b1a]"
               }`}
             >
               <Link2 className="w-3.5 h-3.5" />
@@ -358,17 +355,15 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                     <div
                       className={`rounded-full transition-all duration-200 ${
                         isSelected
-                          ? "w-2.5 h-2.5 bg-[#111111] shadow-sm -ml-[5px]"
-                          : "w-1.5 h-1.5 bg-[#a39f96] group-hover:bg-[#111111] -ml-[3px]"
+                          ? "w-2.5 h-2.5 bg-[#1c1b1a] shadow-sm -ml-[5px]"
+                          : "w-1.5 h-1.5 bg-[#6b6660] group-hover:bg-[#1c1b1a] -ml-[3px]"
                       }`}
                     />
 
                     <span
                       style={{ transform: `rotate(${angleDeg * 0.65}deg)` }}
                       className={`font-black font-mono transition-all duration-300 italic select-none ${
-                        isSelected
-                          ? "text-3xl sm:text-4xl text-[#111111] tracking-tight"
-                          : "text-2xl text-[#999999]"
+                        isSelected ? "ui-display-num text-[#1c1b1a]" : "text-[24px] text-[#6b6660]"
                       }`}
                     >
                       {meta.indexStr}
@@ -380,17 +375,15 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 pb-1 text-center">
-              <span className="text-sm font-bold text-[#111111]">{dayLabel(selectedDay)}</span>
+              <span className="text-[13px] font-bold text-[#1c1b1a]">{dayLabel(selectedDay)}</span>
               {dayMeta[selectedDay].isWeekend && (
-                <span className="text-[9px] px-1 py-0.5 bg-[#111111] text-white font-mono rounded">
+                <span className="text-[11px] px-1 py-0.5 bg-[#1c1b1a] text-white font-mono rounded-lg">
                   {language === "zh" ? "周末" : "WE"}
                 </span>
               )}
-              <span className="text-xs text-[#777777] font-mono">
+              <span className="text-[12px] text-[#6b6660] font-mono">
                 {activeHours === 0
-                  ? language === "zh"
-                    ? "休息蓄力 · 0h"
-                    : "Rest Day · 0h"
+                  ? (language === "zh" ? "休息蓄力" : "Rest day")
                   : `${activeHours} ${language === "zh" ? "小时学习时间" : "hrs target"}`}
               </span>
             </div>
@@ -403,12 +396,12 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
               <div className="pointer-events-none absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-[#faf9f6] to-transparent z-20" />
               <div className="pointer-events-none absolute inset-y-0 right-0 w-14 bg-gradient-to-l from-[#faf9f6] to-transparent z-20" />
 
-              <div className="pointer-events-none absolute z-30 flex flex-col items-center justify-between w-11 h-20 bg-white rounded-xl border border-[#111111] shadow-sm py-1.5">
-                <span className="text-[11px] font-mono font-bold text-[#111111]">
+              <div className="pointer-events-none absolute z-30 flex flex-col items-center justify-between w-11 h-20 bg-white rounded-xl border border-[#1c1b1a] shadow-sm py-1.5">
+                <span className="text-[11px] font-mono font-bold text-[#1c1b1a]">
                   {Math.floor(activeHours).toString().padStart(2, "0")}
                 </span>
-                <div className="w-[2px] h-6 bg-[#111111] rounded-full" />
-                <span className="text-[9px] font-mono text-[#888888]">
+                <div className="w-[2px] h-6 bg-[#1c1b1a] rounded-full" />
+                <span className="text-[11px] font-mono text-[#6b6660]">
                   {activeHours % 1 === 0 ? "00" : "30"}
                 </span>
               </div>
@@ -444,8 +437,8 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                         <div className="h-3.5 flex items-center justify-center">
                           {isWholeHour ? (
                             <span
-                              className={`text-[10px] font-mono transition-colors ${
-                                isCurrent ? "text-transparent" : "text-[#999999] group-hover:text-[#111111]"
+                              className={`text-[11px] font-mono transition-colors ${
+                                isCurrent ? "text-transparent" : "text-[#6b6660] group-hover:text-[#1c1b1a]"
                               }`}
                             >
                               {hourNum.toString().padStart(2, "0")}
@@ -459,13 +452,13 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                           {isWholeHour ? (
                             <div
                               className={`w-[1.5px] h-6 transition-colors ${
-                                isCurrent ? "bg-transparent" : "bg-[#111111] group-hover:bg-[#111111]"
+                                isCurrent ? "bg-transparent" : "bg-[#1c1b1a]"
                               }`}
                             />
                           ) : (
                             <div
                               className={`w-[1px] h-3 transition-colors ${
-                                isCurrent ? "bg-transparent" : "bg-[#c5c1b8] group-hover:bg-[#555555]"
+                                isCurrent ? "bg-transparent" : "bg-[#6b6660] group-hover:bg-[#1c1b1a]"
                               }`}
                             />
                           )}
@@ -474,8 +467,8 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                         <div className="h-3.5 flex items-center justify-center">
                           {isWholeHour ? (
                             <span
-                              className={`text-[8px] font-mono ${
-                                isCurrent ? "text-transparent" : "text-[#a6a298]"
+                              className={`text-[11px] font-mono ${
+                                isCurrent ? "text-transparent" : "text-[#6b6660]"
                               }`}
                             >
                               {hourNum}h
@@ -495,10 +488,10 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
             </div>
 
             <div className="text-center space-y-0.5">
-              <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-[#111111] italic">
+              <div className="ui-display-num font-black font-mono text-[#1c1b1a] italic">
                 {activeHours > 0 ? formattedTime : "--:--"}
               </div>
-              <div className="text-[11px] text-[#888888] font-mono uppercase tracking-wider">
+              <div className="text-[11px] text-[#6b6660] font-mono">
                 {language === "zh" ? "单日备考投入时长" : "Daily Target Hours"}
               </div>
             </div>
@@ -509,10 +502,10 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                   key={h}
                   type="button"
                   onClick={() => handleHoursChange(h)}
-                  className={`px-2.5 py-0.5 text-xs rounded font-mono transition-colors cursor-pointer border ${
+                  className={`px-2.5 py-0.5 text-[12px] rounded-lg font-mono transition-colors cursor-pointer border ${
                     activeHours === h
-                      ? "bg-[#111111] text-white border-[#111111] font-bold"
-                      : "bg-white text-[#444444] border-[#dedad1] hover:border-[#111111]"
+                      ? "bg-[#1c1b1a] text-white border-[#1c1b1a] font-bold"
+                      : "bg-white text-[#6b6660] border-[#dedad1] hover:border-[#1c1b1a]"
                   }`}
                 >
                   {h}h
@@ -522,8 +515,8 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center justify-between pt-3.5 mt-3.5 border-t border-[#eeebe3] text-xs font-mono">
-          <span className="text-[11px] text-[#999999]">
+        <div className="flex items-center justify-between pt-3.5 mt-3.5 border-t border-[#eeebe3] text-[12px] font-mono">
+          <span className="text-[11px] text-[#6b6660]">
             {language === "zh" ? "快捷星期跳转" : "Quick Day Switch"}:
           </span>
           <div className="flex items-center space-x-1.5">
@@ -532,10 +525,10 @@ export const RulerTimePicker: React.FC<RulerTimePickerProps> = ({
                 key={d}
                 type="button"
                 onClick={() => setSelectedDay(d)}
-                className={`px-2 py-0.5 rounded text-xs transition-colors cursor-pointer ${
+                className={`px-2 py-0.5 rounded-lg text-[12px] transition-colors cursor-pointer ${
                   selectedDay === d
-                    ? "bg-[#111111] text-white font-bold"
-                    : "text-[#666666] bg-white border border-[#dedad1] hover:border-[#111111]"
+                    ? "bg-[#1c1b1a] text-white font-bold"
+                    : "text-[#6b6660] bg-white border border-[#dedad1] hover:border-[#1c1b1a]"
                 }`}
               >
                 {dayLabel(d)}

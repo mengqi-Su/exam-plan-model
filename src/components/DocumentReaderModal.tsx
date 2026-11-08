@@ -1,6 +1,5 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import React, { useState, useMemo, useEffect, useRef, lazy, Suspense } from "react";
+import { LoadingPane } from "./LoadingPane";
 import {
   X,
   Sparkles,
@@ -31,7 +30,18 @@ interface DocumentReaderModalProps {
 }
 
 type ReaderTheme = "paper" | "dark" | "sepia";
-type FontSize = "sm" | "base" | "lg" | "xl";
+
+/* 阅读字号的四个档位，全部取自主标尺（清单 UI-04）。
+   写成字面量而不是拼字符串：Tailwind 扫的是源码里的类名，拼出来的 text-[Npx] 不会被编译进样式表。 */
+const FONT_STEPS = [
+  { px: 13, cls: "text-[13px]" },
+  { px: 15, cls: "text-[15px]" },
+  { px: 20, cls: "text-[20px]" },
+  { px: 24, cls: "text-[24px]" },
+] as const;
+
+/* 正文渲染器按需取：整套 markdown 依赖只有打开资料时才用得上（清单 PERF-01）。 */
+const MarkdownBody = lazy(() => import("./MarkdownBody").then((m) => ({ default: m.MarkdownBody })));
 
 export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
   doc,
@@ -43,7 +53,7 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
   const isZh = language === "zh";
 
   const [theme, setTheme] = useState<ReaderTheme>("paper");
-  const [fontSize, setFontSize] = useState<FontSize>("base");
+  const [fontSize, setFontSize] = useState<(typeof FONT_STEPS)[number]["px"]>(15);
   const [showToc, setShowToc] = useState(true);
   const [showInsights, setShowInsights] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -180,13 +190,12 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
       headerBg: "bg-[#FAF8F5]",
       contentBg: "bg-[#FCFBF9]",
       text: "text-[#1c1b1a]",
-      secondaryText: "text-[#8a8580]",
+      secondaryText: "text-[#6b6660]",
       border: "border-[#e5e2dc]",
       subtleBorder: "border-[#f0ede8]",
       codeBg: "bg-[#F2EFE9]",
       blockquoteBg: "bg-[#F5F2EB]",
       tocBg: "bg-[#F7F5F0]",
-      tocActive: "bg-[#EAE5DA] text-[#1c1b1a] font-medium",
       tocHover: "hover:bg-[#EFECE4]",
       accent: "#1c1b1a",
     },
@@ -195,13 +204,12 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
       headerBg: "bg-[#ECE4DC]",
       contentBg: "bg-[#F5EFEB]",
       text: "text-[#2B2319]",
-      secondaryText: "text-[#7A6A58]",
+      secondaryText: "text-[#6b5842]",
       border: "border-[#DECFC0]",
       subtleBorder: "border-[#E7DCD0]",
       codeBg: "bg-[#EAE0D3]",
       blockquoteBg: "bg-[#EAE0D3]",
       tocBg: "bg-[#ECE4DC]",
-      tocActive: "bg-[#DFCFC1] text-[#2B2319] font-medium",
       tocHover: "hover:bg-[#E4D7C9]",
       accent: "#6b5842",
     },
@@ -216,30 +224,31 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
       codeBg: "bg-[#27272A]",
       blockquoteBg: "bg-[#222226]",
       tocBg: "bg-[#202024]",
-      tocActive: "bg-[#2E2E34] text-white font-medium",
       tocHover: "hover:bg-[#27272D]",
-      accent: "#FCD33B",
+      accent: "#E4E4E7",
     },
   }[theme];
 
   const isDark = theme === "dark";
   const toolHover = isDark ? "hover:bg-white/10" : "hover:bg-black/[0.06]";
   const toolActive = isDark ? "bg-white/15" : "bg-black/[0.08]";
-  const toolBtn = `p-1.5 rounded-md border ${themeStyles.border} ${toolHover} transition-colors cursor-pointer`;
+  const toolBtn = `p-1.5 rounded-lg border ${themeStyles.border} ${toolHover} transition-colors cursor-pointer`;
   const subtleFill = isDark ? "bg-white/[0.04]" : "bg-black/[0.03]";
 
-  // Font size classes
-  const fontClasses = {
-    sm: "text-[13px] leading-relaxed",
-    base: "text-[15px] leading-relaxed",
-    lg: "text-[17px] leading-relaxed",
-    xl: "text-[19px] leading-loose",
-  }[fontSize];
+  const fontIndex = Math.max(
+    0,
+    FONT_STEPS.findIndex((s) => s.px === fontSize),
+  );
+  const fontClasses = `${FONT_STEPS[fontIndex].cls} leading-relaxed`;
+  const stepFont = (delta: number) => {
+    const next = Math.min(FONT_STEPS.length - 1, Math.max(0, fontIndex + delta));
+    setFontSize(FONT_STEPS[next].px);
+  };
 
   const themeBtn = (key: ReaderTheme, label: string, activeCls: string, idleCls: string, title: string) => (
     <button
       onClick={() => setTheme(key)}
-      className={`px-2.5 py-1 text-[11px] font-medium rounded-md cursor-pointer transition-colors ${
+      className={`px-2.5 py-1 text-[11px] font-medium rounded-lg cursor-pointer transition-colors ${
         theme === key ? activeCls : idleCls
       }`}
       title={title}
@@ -255,30 +264,29 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`relative flex flex-col w-full transition-all duration-200 border ${themeStyles.border} ${themeStyles.modalBg} ${
-          isFullscreen ? "h-[98vh] max-w-[98vw] rounded-xl" : "h-[90vh] max-w-5xl rounded-2xl"
-        } shadow-[0_24px_70px_rgba(0,0,0,0.35)] overflow-hidden`}
+        className={`relative flex w-full flex-col overflow-hidden rounded-2xl border shadow-[0_24px_70px_rgba(0,0,0,0.35)] transition-all duration-200 ${themeStyles.border} ${themeStyles.modalBg} ${
+          isFullscreen ? "h-[98vh] max-w-[98vw]" : "h-[90vh] max-w-5xl"
+        }`}
       >
         {/* 1. TOP HEADER & READING TOOLBAR */}
         <div className={`shrink-0 px-4 sm:px-6 py-3 border-b ${themeStyles.border} ${themeStyles.headerBg} flex flex-wrap items-center justify-between gap-3`}>
           {/* Document Title & Badge */}
           <div className="flex items-center gap-2.5 truncate max-w-xl">
-            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 ${badge.cls}`}>
+            <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${badge.cls}`}>
               {badge.label}
             </span>
-            <h2 className={`text-sm sm:text-base font-semibold truncate ${themeStyles.text}`} title={doc.name}>
+            <h2 className={`text-[13px] sm:text-[15px] font-semibold truncate ${themeStyles.text}`} title={doc.name}>
               {doc.name}
             </h2>
           </div>
 
           {/* Reading Controls Toolbar */}
-          <div className="flex items-center gap-1.5 sm:gap-2 text-xs">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-[12px]">
             {/* Reading Stats */}
-            <div className={`hidden md:flex items-center gap-2 text-[11px] ${themeStyles.secondaryText} px-2.5 py-1 rounded-md ${subtleFill} tabular-nums`}>
+            {/* 三段读数靠 gap 分开即可，不需要 · 当分隔符（清单 UI-04）。 */}
+            <div className={`hidden md:flex items-center gap-2.5 text-[11px] ${themeStyles.secondaryText} px-2.5 py-1 rounded-lg ${subtleFill} tabular-nums`}>
               <span>{stats.words.toLocaleString()} {isZh ? "字" : "chars"}</span>
-              <span className="opacity-40">·</span>
               <span>{isZh ? `约 ${stats.readMinutes} 分钟` : `~${stats.readMinutes} min`}</span>
-              <span className="opacity-40">·</span>
               <span className={`font-medium ${themeStyles.text}`}>{readingProgress}%</span>
             </div>
 
@@ -295,7 +303,7 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
             {tocItems.length > 0 && (
               <button
                 onClick={() => setShowToc(!showToc)}
-                className={`flex items-center gap-1 px-2 py-1.5 rounded-md border ${themeStyles.border} ${toolHover} transition-colors cursor-pointer text-xs ${showToc ? toolActive : ""}`}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg border ${themeStyles.border} ${toolHover} transition-colors cursor-pointer text-[12px] ${showToc ? toolActive : ""}`}
                 title={isZh ? "章节大纲目录" : "Table of contents"}
               >
                 <ListTree className="w-3.5 h-3.5" />
@@ -304,29 +312,21 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
             )}
 
             {/* Font Size Adjusters */}
-            <div className={`flex items-center rounded-md border ${themeStyles.border} overflow-hidden`}>
+            <div className={`flex items-center rounded-lg border ${themeStyles.border} overflow-hidden`}>
               <button
-                onClick={() => {
-                  if (fontSize === "xl") setFontSize("lg");
-                  else if (fontSize === "lg") setFontSize("base");
-                  else if (fontSize === "base") setFontSize("sm");
-                }}
-                disabled={fontSize === "sm"}
+                onClick={() => stepFont(-1)}
+                disabled={fontIndex === 0}
                 className={`px-1.5 py-1.5 ${toolHover} disabled:opacity-30 cursor-pointer`}
                 title={isZh ? "缩小字号" : "Decrease font size"}
               >
                 <ZoomOut className="w-3 h-3" />
               </button>
-              <span className={`px-1.5 text-[10px] font-medium select-none uppercase ${themeStyles.secondaryText}`}>
-                {fontSize}
+              <span className={`px-1.5 text-[11px] font-medium select-none tabular-nums ${themeStyles.secondaryText}`}>
+                {FONT_STEPS[fontIndex].px}
               </span>
               <button
-                onClick={() => {
-                  if (fontSize === "sm") setFontSize("base");
-                  else if (fontSize === "base") setFontSize("lg");
-                  else if (fontSize === "lg") setFontSize("xl");
-                }}
-                disabled={fontSize === "xl"}
+                onClick={() => stepFont(1)}
+                disabled={fontIndex === FONT_STEPS.length - 1}
                 className={`px-1.5 py-1.5 ${toolHover} disabled:opacity-30 cursor-pointer`}
                 title={isZh ? "放大字号" : "Increase font size"}
               >
@@ -335,7 +335,7 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
             </div>
 
             {/* Reading Theme Toggle */}
-            <div className={`flex items-center gap-0.5 rounded-md border ${themeStyles.border} p-0.5`}>
+            <div className={`flex items-center gap-0.5 rounded-lg border ${themeStyles.border} p-0.5`}>
               {themeBtn("paper", "纸", "bg-[#1c1b1a] text-white", `${themeStyles.text} ${toolHover}`, isZh ? "纸质白模式" : "Paper theme")}
               {themeBtn("sepia", "柔", "bg-[#4A3B2C] text-white", `${themeStyles.text} ${toolHover}`, isZh ? "羊皮纸护眼模式" : "Sepia theme")}
               {themeBtn("dark", "夜", "bg-white text-[#18181A]", `${themeStyles.text} ${toolHover}`, isZh ? "暗夜专注模式" : "Dark theme")}
@@ -371,15 +371,15 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
 
         {/* Optional Search Bar Row */}
         {showSearch && (
-          <div className={`px-4 sm:px-6 py-2 border-b ${themeStyles.subtleBorder} ${themeStyles.headerBg} flex items-center gap-2 text-xs animate-fadeIn`}>
+          <div className={`px-4 sm:px-6 py-2 border-b ${themeStyles.subtleBorder} ${themeStyles.headerBg} flex items-center gap-2 text-[12px] animate-fadeIn`}>
             <Search className={`w-3.5 h-3.5 ${themeStyles.secondaryText}`} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={isZh ? "在本文档内搜索关键词..." : "Search in this document..."}
-              className={`w-full max-w-md px-2.5 py-1 rounded-md border ${themeStyles.border} text-xs ${
-                isDark ? "bg-[#18181A] text-[#E4E4E7] placeholder-[#6b6b73]" : "bg-white text-[#1c1b1a] placeholder-[#a39e97]"
+              className={`w-full max-w-md px-2.5 py-1 rounded-lg border ${themeStyles.border} text-[12px] ${
+                isDark ? "bg-[#18181A] text-[#E4E4E7] placeholder-[#A1A1AA]" : "bg-white text-[#1c1b1a] placeholder-[#716c65]"
               }`}
               autoFocus
             />
@@ -398,13 +398,13 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
         <div className="flex-1 flex overflow-hidden">
           {/* Left Table of Contents */}
           {showToc && tocItems.length > 0 && (
-            <aside className={`w-56 sm:w-64 shrink-0 border-r ${themeStyles.border} ${themeStyles.tocBg} p-3.5 overflow-y-auto flex flex-col text-xs select-none transition-all`}>
+            <aside className={`w-56 sm:w-64 shrink-0 border-r ${themeStyles.border} ${themeStyles.tocBg} p-3.5 overflow-y-auto flex flex-col text-[12px] select-none transition-all`}>
               <div className={`flex items-center justify-between pb-2 mb-2 border-b ${themeStyles.subtleBorder}`}>
                 <span className={`font-medium text-[11px] flex items-center gap-1.5 ${themeStyles.secondaryText}`}>
                   <ListTree className="w-3.5 h-3.5" />
                   <span>{isZh ? "章节提纲" : "Contents"}</span>
                 </span>
-                <span className={`text-[10px] tabular-nums ${themeStyles.secondaryText} opacity-70`}>{tocItems.length} {isZh ? "节" : ""}</span>
+                <span className={`text-[11px] tabular-nums ${themeStyles.secondaryText}`}>{tocItems.length} {isZh ? "节" : ""}</span>
               </div>
 
               <div className="space-y-0.5">
@@ -412,12 +412,15 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
                   <button
                     key={idx}
                     onClick={() => scrollToHeading(item.text)}
-                    className={`w-full text-left py-1.5 px-2 rounded-md transition-colors cursor-pointer truncate ${themeStyles.tocHover} ${themeStyles.text} ${
+                    /* 层级靠缩进 + 字重 + 颜色分，不用 opacity：
+                       二级标题原来写 opacity-90、三级 opacity-70，压在主文字色上三级只剩 2.92:1，读不出。
+                       现在三级走现成的次级色档，纸白 / 羊皮纸 / 暗夜三套主题都过 4.5:1。 */
+                    className={`w-full text-left py-1.5 px-2 rounded-lg transition-colors cursor-pointer truncate ${themeStyles.tocHover} ${
                       item.level === 1
-                        ? "font-medium text-xs"
+                        ? `${themeStyles.text} font-medium text-[12px]`
                         : item.level === 2
-                        ? "pl-5 text-[12px] opacity-90"
-                        : "pl-8 text-[11px] opacity-70"
+                        ? `${themeStyles.secondaryText} pl-5 text-[12px]`
+                        : `${themeStyles.secondaryText} pl-8 text-[11px]`
                     }`}
                     title={item.text}
                   >
@@ -438,17 +441,17 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
               {/* Document Header Info Card */}
               <div className={`p-4 sm:p-5 rounded-xl border ${themeStyles.subtleBorder} ${subtleFill} space-y-3`}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
+                  <h1 className="text-[20px] sm:text-[24px] font-semibold tracking-tight">
                     {doc.name}
                   </h1>
                   {doc.difficulty && (
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${difficultyBadge.cls}`}>
+                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${difficultyBadge.cls}`}>
                       {difficultyBadge.label}
                     </span>
                   )}
                 </div>
 
-                <div className={`flex flex-wrap items-center gap-2 text-xs ${themeStyles.secondaryText}`}>
+                <div className={`flex flex-wrap items-center gap-2 text-[12px] ${themeStyles.secondaryText}`}>
                   {doc.topicTag && (
                     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ${isDark ? "bg-white/10" : "bg-black/[0.05]"}`}>
                       <Layers className="w-3 h-3" />
@@ -470,8 +473,8 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
                 <div className={`rounded-xl border overflow-hidden ${isDark ? "border-[#3a3524]" : "border-[#f0e2c0]"}`}>
                   <div
                     onClick={() => setShowInsights(!showInsights)}
-                    className={`flex items-center justify-between px-4 py-2.5 text-xs font-medium cursor-pointer select-none ${
-                      isDark ? "bg-[#2a2618] text-[#FCD33B]" : "bg-[#FFF6DD] text-[#8A5A00]"
+                    className={`flex items-center justify-between px-4 py-2.5 text-[12px] font-medium cursor-pointer select-none ${
+                      isDark ? "bg-[#2a2618] text-[#d8b878]" : "bg-[#FFF6DD] text-[#8A5A00]"
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -482,13 +485,13 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
                   </div>
 
                   {showInsights && (
-                    <div className={`p-4 space-y-3 ${themeStyles.blockquoteBg} border-t ${themeStyles.subtleBorder} text-xs`}>
+                    <div className={`p-4 space-y-3 ${themeStyles.blockquoteBg} border-t ${themeStyles.subtleBorder} text-[12px]`}>
                       {doc.summaryNotes && (
                         <div className="space-y-1">
                           <span className={`font-medium text-[11px] block ${themeStyles.secondaryText}`}>
                             {isZh ? "核心考查重点提炼" : "Core takeaways"}
                           </span>
-                          <p className="leading-relaxed opacity-95">
+                          <p className="leading-relaxed">
                             {doc.summaryNotes}
                           </p>
                         </div>
@@ -514,105 +517,24 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
 
               {/* Formatted Markdown Content Reader */}
               <div className={`markdown-reading-body ${fontClasses} space-y-4 leading-relaxed`}>
-                <Markdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    h1: ({ node, ...props }) => (
-                      <h1
-                        className={`text-xl sm:text-2xl font-semibold pt-6 pb-2 border-b ${themeStyles.subtleBorder} mt-8 mb-4 tracking-tight`}
-                        {...props}
-                      />
-                    ),
-                    h2: ({ node, ...props }) => (
-                      <h2
-                        className={`text-lg sm:text-xl font-semibold pt-4 pb-1.5 border-b ${themeStyles.subtleBorder} mt-6 mb-3 tracking-tight`}
-                        {...props}
-                      />
-                    ),
-                    h3: ({ node, ...props }) => (
-                      <h3 className="text-base sm:text-lg font-semibold pt-3 mt-4 mb-2" {...props} />
-                    ),
-                    h4: ({ node, ...props }) => (
-                      <h4 className="text-sm sm:text-base font-semibold mt-3 mb-1" {...props} />
-                    ),
-                    p: ({ node, ...props }) => (
-                      <p className="my-3 leading-relaxed" {...props} />
-                    ),
-                    ul: ({ node, ...props }) => (
-                      <ul className="my-3 list-disc pl-6 space-y-1.5" {...props} />
-                    ),
-                    ol: ({ node, ...props }) => (
-                      <ol className="my-3 list-decimal pl-6 space-y-1.5 font-medium" {...props} />
-                    ),
-                    li: ({ node, ...props }) => (
-                      <li className="leading-relaxed" {...props} />
-                    ),
-                    blockquote: ({ node, ...props }) => (
-                      <blockquote
-                        className={`my-4 pl-4 py-2 border-l-2 ${themeStyles.border} ${themeStyles.blockquoteBg} italic text-sm rounded-r-md`}
-                        {...props}
-                      />
-                    ),
-                    table: ({ node, ...props }) => (
-                      <div className={`overflow-x-auto my-4 rounded-lg border ${themeStyles.subtleBorder}`}>
-                        <table className="w-full text-left text-xs border-collapse" {...props} />
-                      </div>
-                    ),
-                    thead: ({ node, ...props }) => (
-                      <thead className={`${isDark ? "bg-white/[0.06]" : "bg-black/[0.04]"} font-medium border-b ${themeStyles.subtleBorder}`} {...props} />
-                    ),
-                    th: ({ node, ...props }) => (
-                      <th className={`p-2.5 border ${themeStyles.subtleBorder} font-medium`} {...props} />
-                    ),
-                    td: ({ node, ...props }) => (
-                      <td className={`p-2.5 border ${themeStyles.subtleBorder}`} {...props} />
-                    ),
-                    code: ({ node, className, children, ...props }) => {
-                      const isInline = !className && typeof children === "string" && !children.includes("\n");
-                      if (isInline) {
-                        return (
-                          <code
-                            className={`px-1.5 py-0.5 rounded-md font-mono text-[12px] ${themeStyles.codeBg} border ${themeStyles.subtleBorder}`}
-                            {...props}
-                          >
-                            {children}
-                          </code>
-                        );
-                      }
-                      return (
-                        <div className="relative my-4 group">
-                          <pre
-                            className={`p-4 rounded-lg overflow-x-auto font-mono text-xs ${themeStyles.codeBg} border ${themeStyles.subtleBorder} leading-relaxed`}
-                          >
-                            <code {...props}>{children}</code>
-                          </pre>
-                        </div>
-                      );
-                    },
-                    hr: () => <hr className={`my-8 border-t ${themeStyles.subtleBorder}`} />,
-                    a: ({ node, ...props }) => (
-                      <a
-                        className={`font-medium underline hover:opacity-80 ${isDark ? "text-[#8ab4f8]" : "text-[#1D4ED8]"}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        {...props}
-                      />
-                    ),
-                  }}
-                >
-                  {doc.content || (isZh ? "*（本文档暂无文本内容）*" : "*(No content available)*")}
-                </Markdown>
+                <Suspense fallback={<LoadingPane />}>
+                  <MarkdownBody
+                    theme={themeStyles}
+                    isDark={isDark}
+                    content={doc.content || (isZh ? "*（本文档暂无文本内容）*" : "*(No content available)*")}
+                  />
+                </Suspense>
               </div>
             </div>
           </main>
         </div>
 
         {/* 3. BOTTOM ACTIONS FOOTER */}
-        <div className={`shrink-0 px-4 sm:px-6 py-3 border-t ${themeStyles.border} ${themeStyles.headerBg} flex flex-wrap items-center justify-between gap-3 text-xs`}>
+        <div className={`shrink-0 px-4 sm:px-6 py-3 border-t ${themeStyles.border} ${themeStyles.headerBg} flex flex-wrap items-center justify-between gap-3 text-[12px]`}>
           <div className="flex items-center gap-2">
             <button
               onClick={handleCopy}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border ${themeStyles.border} ${toolHover} transition-colors cursor-pointer font-medium ${themeStyles.text}`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${themeStyles.border} ${toolHover} transition-colors cursor-pointer font-medium ${themeStyles.text}`}
               title={isZh ? "复制全部纯文本" : "Copy all text"}
             >
               {isCopied ? <Check className={`w-3.5 h-3.5 ${isDark ? "text-[#7fbf95]" : "text-[#3F6B4F]"}`} /> : <Copy className="w-3.5 h-3.5" />}
@@ -621,7 +543,7 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
 
             <button
               onClick={handlePrint}
-              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-md border ${themeStyles.border} ${toolHover} transition-colors cursor-pointer ${themeStyles.text}`}
+              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${themeStyles.border} ${toolHover} transition-colors cursor-pointer ${themeStyles.text}`}
               title={isZh ? "打印或导出 PDF" : "Print or export PDF"}
             >
               <Printer className="w-3.5 h-3.5" />
@@ -634,10 +556,10 @@ export const DocumentReaderModal: React.FC<DocumentReaderModalProps> = ({
               onClick={onClose}
               className={`px-4 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
                 isDark
-                  ? "bg-white text-[#18181A] hover:bg-[#e4e4e7]"
+                  ? "bg-white text-[#18181A] hover:bg-[#E4E4E7]"
                   : theme === "sepia"
                   ? "bg-[#4A3B2C] text-white hover:bg-[#5c4a37]"
-                  : "bg-[#1c1b1a] text-white hover:bg-[#333333]"
+                  : "bg-[#1c1b1a] text-white hover:opacity-85"
               }`}
             >
               {isZh ? "完成阅读" : "Done"}

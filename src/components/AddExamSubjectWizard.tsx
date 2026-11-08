@@ -61,7 +61,7 @@ import {
 } from "../lib/dailyHours";
 import { mergeTopics, nonTextbookTitles, replaceTextbookTopics } from "../lib/topics";
 import { duplicateMaterialsNotice, mergeMaterials } from "../lib/materials";
-import { clauseJoin, labelColon, pl, visibleChars } from "../lib/text";
+import { clauseJoin, labelColon, pl, unitNoun, visibleChars } from "../lib/text";
 import {
   clearWizardDraft,
   loadWizardDraft,
@@ -1051,7 +1051,7 @@ export function AddExamSubjectWizard({
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>{tt("返回现有计划", "Back to plans")}</span>
         </button>
-        <span className="text-[12px] text-[#a39e97] tabular-nums">
+        <span className="text-[12px] text-[#6b6660] tabular-nums">
           {tt(`本地已有 ${existingPlans.length} 门科目`, `${existingPlans.length} subjects saved`)}
         </span>
       </div>
@@ -1083,16 +1083,16 @@ export function AddExamSubjectWizard({
                       ? "border-[#1c1b1a] bg-[#1c1b1a] text-white font-medium"
                       : isDone
                         ? "border-[#e7e4de] bg-white text-[#1c1b1a] font-medium hover:border-[#cfc9c0] cursor-pointer"
-                        : "border-transparent bg-[#f1efe9] text-[#a39e97] cursor-not-allowed"
+                        : "border-transparent bg-[#f1efe9] text-[#6b6660] cursor-not-allowed"
                   }`}
                 >
                   <span
-                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-medium tabular-nums ${
+                    className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-medium tabular-nums ${
                       isCurrent
                         ? "bg-white text-[#1c1b1a]"
                         : isDone
                           ? "bg-[#3F6B4F] text-white"
-                          : "bg-[#e7e4de] text-[#a39e97]"
+                          : "bg-[#e7e4de] text-[#6b6660]"
                     }`}
                   >
                     {isDone ? <Check className="h-3 w-3" /> : s.n}
@@ -1112,7 +1112,7 @@ export function AddExamSubjectWizard({
       {restoredDraft && !isWorking && (
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl border border-[#eae7e1] bg-[#faf9f6] px-4 py-2.5">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <History className="h-3.5 w-3.5 shrink-0 text-[#8a8580]" />
+            <History className="h-3.5 w-3.5 shrink-0 text-[#6b6660]" />
             <span className="text-[13px] font-medium text-[#1c1b1a]">
               {tt("已接回上次未完成的草稿", "Your unfinished draft is back")}
             </span>
@@ -1147,7 +1147,7 @@ export function AddExamSubjectWizard({
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="min-w-0 text-[13px]">
             <p className="font-medium">{tt("AI 服务尚未配置，暂时无法自动生成", "AI is not configured on this site yet")}</p>
-            <p className="mt-0.5 leading-relaxed text-[#8A5A00]/80">
+            <p className="mt-0.5 leading-relaxed">
               {tt(
                 "请在站点设置中填写 DeepSeek API Key 后刷新重试。你的资料仍保存在本地。",
                 "Add a DeepSeek API key in the site settings, then refresh. Your materials stay local."
@@ -1171,7 +1171,7 @@ export function AddExamSubjectWizard({
         <section className="ui-card overflow-hidden">
           <div className={sectionHeadCls}>
             <h2 className="ui-section-title flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-[#8a8580]" />
+              <CalendarDays className="h-4 w-4 text-[#6b6660]" />
               <span>{tt("考试信息", "Exam details")}</span>
             </h2>
           </div>
@@ -1235,7 +1235,7 @@ export function AddExamSubjectWizard({
                   onChange={(event) => handleDailyHoursChange(event.target.value)}
                   onBlur={() => setDailyHoursDraft(null)}
                   placeholder={tt("按天设置", "Per day")}
-                  className="w-full min-w-0 bg-transparent px-3 py-2.5 text-[13px] text-[#1c1b1a] tabular-nums placeholder:font-normal placeholder:text-[#a39e97]"
+                  className="w-full min-w-0 bg-transparent px-3 py-2.5 text-[13px] text-[#1c1b1a] tabular-nums placeholder:font-normal placeholder:text-[#716c65]"
                 />
                 <span className="flex items-center border-l border-[#f0ede8] bg-[#f1efe9] px-3 text-[11px] font-medium text-[#6b6660]">
                   {tt("小时 / 天", "h / day")}
@@ -1251,10 +1251,10 @@ export function AddExamSubjectWizard({
                 className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-[12px] font-medium text-[#1c1b1a] transition-colors hover:bg-white cursor-pointer"
               >
                 <span className="flex items-center gap-2">
-                  <Sliders className="h-3.5 w-3.5 text-[#8a8580]" />
+                  <Sliders className="h-3.5 w-3.5 text-[#6b6660]" />
                   {tt("高级设置", "Advanced settings")}
                 </span>
-                <ChevronDown className={`h-4 w-4 text-[#8a8580] transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
+                <ChevronDown className={`h-4 w-4 text-[#6b6660] transition-transform ${showAdvanced ? "rotate-180" : ""}`} />
               </button>
               {showAdvanced && (
                 <div className="border-t border-[#f0ede8] bg-white p-3 sm:p-4">
@@ -1271,7 +1271,7 @@ export function AddExamSubjectWizard({
             <label>
               <span className={labelClass}>{tt("考试时间（可选）", "Exam time (optional)")}</span>
               <div className="relative">
-                <Clock className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#a39e97]" />
+                <Clock className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#6b6660]" />
                 <input
                   type="time"
                   value={examTime}
@@ -1309,19 +1309,18 @@ export function AddExamSubjectWizard({
           {daysDiff !== null && daysDiff >= 0 && hoursReady && windowEstimate && (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[#f0ede8] bg-[#faf9f6] px-4 py-2.5 text-[12px] text-[#6b6660] sm:px-5">
               <span className="tabular-nums">
-                {tt("备考周期", "Span")} <strong className="font-semibold text-[#1c1b1a]">{daysDiff}</strong> {tt("天", "days")}
+                {tt("备考周期", "Span")} <strong className="font-semibold text-[#1c1b1a]">{daysDiff}</strong>{" "}
+                {tt("天", unitNoun(daysDiff, { one: "day", many: "days" }))}
               </span>
-              <span className="text-[#d6d2cb]">·</span>
               <span className="tabular-nums">
                 {tt("学习日", "Study days")}{" "}
-                <strong className="font-semibold text-[#1c1b1a]">{windowEstimate.studyDays}</strong> {tt("天", "days")}
+                <strong className="font-semibold text-[#1c1b1a]">{windowEstimate.studyDays}</strong>{" "}
+                {tt("天", unitNoun(windowEstimate.studyDays, { one: "day", many: "days" }))}
               </span>
-              <span className="text-[#d6d2cb]">·</span>
               <span className="tabular-nums">
                 {tt("周总学时", "Weekly")}{" "}
                 <strong className="font-semibold text-[#1c1b1a]">{weeklyTotalHours(dailySchedules)}</strong>h
               </span>
-              <span className="text-[#d6d2cb]">·</span>
               <span className="tabular-nums">
                 {tt("全程预计", "Total")}{" "}
                 <strong className="font-semibold text-[#1c1b1a]">{windowEstimate.totalHours}</strong>h
@@ -1336,7 +1335,7 @@ export function AddExamSubjectWizard({
         <section className="ui-card overflow-hidden">
           <div className={sectionHeadCls}>
             <h2 className="ui-section-title flex items-center gap-2">
-              <Upload className="h-4 w-4 text-[#8a8580]" />
+              <Upload className="h-4 w-4 text-[#6b6660]" />
               <span>{tt("考点来源", "Topic source")}</span>
             </h2>
             <span className="text-[12px] text-[#6b6660] tabular-nums">
@@ -1376,7 +1375,7 @@ export function AddExamSubjectWizard({
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-[#1c1b1a] shadow-sm">
                 {isParsingFiles ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5" />}
               </div>
-              <p className="text-[14px] font-medium text-[#1c1b1a]">
+              <p className="text-[13px] font-medium text-[#1c1b1a]">
                 {isParsingFiles
                   ? parsingStatus || tt("正在读取资料...", "Reading materials...")
                   : tt("拖拽资料到这里，或点击选择文件", "Drop materials here, or click to browse")}
@@ -1416,7 +1415,7 @@ export function AddExamSubjectWizard({
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-medium text-[#1c1b1a]">{doc.name}</p>
-                      <p className="mt-0.5 text-[11px] text-[#8a8580] tabular-nums">
+                      <p className="mt-0.5 text-[11px] text-[#6b6660] tabular-nums">
                         {typeLabels[doc.type]} ·{" "}
                         {Math.max(1, Math.round((doc.sizeBytes || doc.content.length) / 1024))} KB ·{" "}
                         {visibleChars(doc.content).toLocaleString()} {tt("字", "chars")}
@@ -1469,7 +1468,7 @@ export function AddExamSubjectWizard({
                   value={pasteDocContent}
                   onChange={(event) => setPasteDocContent(event.target.value)}
                   placeholder={tt("粘贴考纲章节、课堂笔记或典型题目...", "Paste syllabus sections, notes, or sample problems...")}
-                  className="w-full resize-y rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] leading-relaxed text-[#1c1b1a] transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97]"
+                  className="w-full resize-y rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] leading-relaxed text-[#1c1b1a] transition-colors focus:border-[#cfc9c0] placeholder:text-[#716c65]"
                 />
                 <div className="flex justify-end gap-2">
                   <button
@@ -1499,7 +1498,7 @@ export function AddExamSubjectWizard({
 
             <div className="flex flex-col items-start justify-between gap-2 rounded-xl border border-[#eae7e1] bg-[#faf9f6] px-4 py-3 sm:flex-row sm:items-center">
               <div className="min-w-0">
-                <h3 className="ui-subgroup-title">{tt("只填教材名，按目录整理考点", "No files? Name the textbook instead")}</h3>
+                <h3 className="ui-group-title">{tt("只填教材名，按目录整理考点", "No files? Name the textbook instead")}</h3>
                 {textbookTopicCount > 0 && (
                   <p className="ui-row-meta mt-1 leading-relaxed tabular-nums">
                     {tt(
@@ -1527,7 +1526,7 @@ export function AddExamSubjectWizard({
         <section className="ui-card overflow-hidden">
           <div className={sectionHeadCls}>
             <h2 className="ui-section-title flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-[#8a8580]" />
+              <Sparkles className="h-4 w-4 text-[#6b6660]" />
               <span>{tt("生成计划", "Generate")}</span>
             </h2>
           </div>
@@ -1535,22 +1534,28 @@ export function AddExamSubjectWizard({
           <div className="space-y-4 p-4 sm:p-5">
             <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#eae7e1] bg-[#faf9f6] p-4 text-[13px] sm:grid-cols-3">
               <div className="min-w-0">
-                <div className="text-[11px] text-[#8a8580]">{tt("考试", "Exam")}</div>
+                <div className="text-[11px] text-[#6b6660]">{tt("考试", "Exam")}</div>
                 <div className="mt-0.5 truncate font-medium text-[#1c1b1a]">{examName || "—"}</div>
               </div>
               <div className="min-w-0">
-                <div className="text-[11px] text-[#8a8580]">{tt("周期", "Span")}</div>
-                <div className="mt-0.5 font-medium text-[#1c1b1a] tabular-nums">
-                  {daysDiff !== null && daysDiff >= 0 && windowEstimate
-                    ? `${daysDiff} ${tt("天", "days")} · ${windowEstimate.studyDays} ${tt("学习日", "study days")} · ${windowEstimate.totalHours}h`
-                    : "—"}
+                <div className="text-[11px] text-[#6b6660]">{tt("周期", "Span")}</div>
+                <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2.5 font-medium text-[#1c1b1a] tabular-nums">
+                  {daysDiff !== null && daysDiff >= 0 && windowEstimate ? (
+                    <>
+                      <span>{`${daysDiff} ${tt("天", unitNoun(daysDiff, { one: "day", many: "days" }))}`}</span>
+                      <span>{`${windowEstimate.studyDays} ${tt("学习日", pl(windowEstimate.studyDays, "study day", "study days"))}`}</span>
+                      <span>{`${windowEstimate.totalHours}h`}</span>
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </div>
               </div>
               <div className="min-w-0">
-                <div className="text-[11px] text-[#8a8580]">{tt("考点来源", "Source")}</div>
+                <div className="text-[11px] text-[#6b6660]">{tt("考点来源", "Source")}</div>
                 <div className="mt-0.5 truncate font-medium text-[#1c1b1a] tabular-nums">
                   {courseDocuments.length > 0
-                    ? `${courseDocuments.length} ${tt("份资料", "files")}`
+                    ? tt(`${courseDocuments.length} 份资料`, pl(courseDocuments.length, "file", "files"))
                     : tt(`《${textbookLabel || tt("教材", "textbook")}》目录`, `outline of "${textbookLabel || "textbook"}"`)}
                 </div>
               </div>
@@ -1568,7 +1573,7 @@ export function AddExamSubjectWizard({
                   "例如：重点复习第三、四章；周末安排真题模拟；考前留两天总复习...",
                   "e.g. Focus on chapters 3–4; reserve weekends for mock papers; keep the last two days for review..."
                 )}
-                className="w-full resize-y rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] leading-relaxed text-[#1c1b1a] transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97]"
+                className="w-full resize-y rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] leading-relaxed text-[#1c1b1a] transition-colors focus:border-[#cfc9c0] placeholder:text-[#716c65]"
               />
             </label>
 
@@ -1592,13 +1597,13 @@ export function AddExamSubjectWizard({
                     {topics.map((topic, index) => (
                       <div key={topic.id || index} className="flex items-start justify-between gap-3 px-3 py-2">
                         <span className="flex min-w-0 items-start gap-2 text-[13px] leading-relaxed text-[#1c1b1a]">
-                          <span className="shrink-0 text-[#a39e97] tabular-nums">{index + 1}.</span>
+                          <span className="shrink-0 text-[#6b6660] tabular-nums">{index + 1}.</span>
                           <span className="min-w-0">{topic.title}</span>
                           {topic.source === "textbook" && (
                             <span className="ui-chip shrink-0">{tt("教材目录", "Textbook")}</span>
                           )}
                         </span>
-                        <span className="shrink-0 text-[11px] text-[#8a8580] tabular-nums">
+                        <span className="shrink-0 text-[11px] text-[#6b6660] tabular-nums">
                           {topic.weightPercentage || 0}% · ~{topic.estimatedHours || 0}h
                         </span>
                       </div>
@@ -1610,7 +1615,7 @@ export function AddExamSubjectWizard({
 
             {isWorking && (
               <div className="space-y-2 rounded-xl border border-[#eae7e1] bg-[#faf9f6] px-4 py-3 text-[13px]">
-                <div className={`flex items-center gap-2 ${workStage === "planning" ? "text-[#8a8580]" : "font-medium text-[#1c1b1a]"}`}>
+                <div className={`flex items-center gap-2 ${workStage === "planning" ? "text-[#6b6660]" : "font-medium text-[#1c1b1a]"}`}>
                   {workStage === "planning" ? (
                     <CheckCircle2 className="h-4 w-4 text-[#3F6B4F]" />
                   ) : (
@@ -1618,7 +1623,7 @@ export function AddExamSubjectWizard({
                   )}
                   <span>{tt("读取资料并提取考点", "Reading materials & extracting topics")}</span>
                 </div>
-                <div className={`flex items-center gap-2 ${workStage === "planning" ? "font-medium text-[#1c1b1a]" : "text-[#a39e97]"}`}>
+                <div className={`flex items-center gap-2 ${workStage === "planning" ? "font-medium text-[#1c1b1a]" : "text-[#6b6660]"}`}>
                   {workStage === "planning" ? (
                     <Loader2 className="h-4 w-4 animate-spin text-[#1c1b1a]" />
                   ) : (
@@ -1627,7 +1632,7 @@ export function AddExamSubjectWizard({
                   <span>{tt("按日历编排每日任务", "Scheduling daily tasks")}</span>
                 </div>
                 {genStatus && (
-                  <p className="border-t border-[#eeeae3] pt-2 text-[12px] leading-relaxed text-[#8a8580] tabular-nums">
+                  <p className="border-t border-[#eeeae3] pt-2 text-[12px] leading-relaxed text-[#6b6660] tabular-nums">
                     {genStatus}
                   </p>
                 )}
@@ -1740,7 +1745,7 @@ export function AddExamSubjectWizard({
           </button>
         }
       >
-        <div className="whitespace-pre-wrap font-mono text-[12.5px] leading-relaxed text-[#1c1b1a]">
+        <div className="whitespace-pre-wrap font-mono text-[12px] leading-relaxed text-[#1c1b1a]">
           {previewDoc?.content || tt("文档内容为空", "Empty document content")}
         </div>
       </ModalShell>

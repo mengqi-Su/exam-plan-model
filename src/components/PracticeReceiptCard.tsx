@@ -61,12 +61,18 @@ export function PracticeReceiptCard({ events, onLocate, onDismiss, maxVisible = 
                     : t("receiptBody", { topic: event.path.topic, graded: event.graded, correct: event.correct, pct })}
                 </p>
                 <p className="ui-row-meta tabular-nums flex items-center gap-2 flex-wrap">
-                  <span>
-                    {unmatched
-                      ? `${event.path.subject} · ${event.path.unit} · ${event.path.topic} · ${localTimeLabel(event.completedAt)}`
-                      : t("receiptMeta", { time: localTimeLabel(event.completedAt) })}
-                  </span>
-                  <span className={`ui-chip ${unmatched ? "!text-[#8a5a00] !bg-[#FFF6DD]" : ""}`}>
+                  {unmatched ? (
+                    <>
+                      {/* 来源路径三段各占一块，由外层 gap 断句，不再用 · 串成一行 */}
+                      <span>{event.path.subject}</span>
+                      <span>{event.path.unit}</span>
+                      <span>{event.path.topic}</span>
+                      <span>{localTimeLabel(event.completedAt)}</span>
+                    </>
+                  ) : (
+                    <span>{t("receiptMeta", { time: localTimeLabel(event.completedAt) })}</span>
+                  )}
+                  <span className={`ui-chip ${unmatched ? "!text-[#8A5A00] !bg-[#FFF6DD]" : ""}`}>
                     {unmatched ? t("receiptUnmatchedTag") : t("receiptPendingTag")}
                   </span>
                 </p>
@@ -83,7 +89,7 @@ export function PracticeReceiptCard({ events, onLocate, onDismiss, maxVisible = 
                 )}
                 <button
                   onClick={() => onDismiss(event.attemptId)}
-                  className="p-1.5 rounded-md border border-transparent text-[#a39e97] hover:bg-[#f1efe9] hover:text-[#1c1b1a] transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg border border-transparent text-[#6b6660] hover:bg-[#f1efe9] hover:text-[#1c1b1a] transition-colors cursor-pointer"
                   aria-label={t("receiptDismissAction")}
                   title={t("receiptDismissAction")}
                 >

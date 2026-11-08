@@ -17,6 +17,7 @@ import type { FocusTarget } from "../lib/inbound";
 import { useI18n } from "../lib/i18n";
 import { countdownClockLabel, examCountdown, toLocalDateString } from "../lib/date";
 import { planReadiness, readinessCopy } from "../lib/planReadiness";
+import { pl } from "../lib/text";
 import { SectionBlock } from "./SectionBlock";
 import { PageIconGlyph } from "./PageIconGlyph";
 import { PageCover } from "./PageCover";
@@ -384,7 +385,7 @@ export function CourseDetailPage({
                     <li key={task.id} className="flex items-start gap-3 px-4 sm:px-5 py-3.5">
                       <span className="mt-[3px] w-[46px] shrink-0 ui-row-value">{task.startTime || "—"}</span>
                       <div className="flex-1 min-w-0">
-                        <p className={`ui-row-title ${done ? "text-[#a39e97]" : ""}`}>{task.title}</p>
+                        <p className={`ui-row-title ${done ? "text-[#6b6660]" : ""}`}>{task.title}</p>
                         <p className="mt-1 ui-row-meta truncate">
                           {task.topicTitle}
                           {task.durationMinutes ? ` · ${task.durationMinutes} ${isZh ? "分钟" : "min"}` : ""}
@@ -458,9 +459,11 @@ export function CourseDetailPage({
           <SectionBlock
             title={isZh ? "课程资料与考点体系" : "Materials & topics"}
             hint={
-              <span className="tabular-nums">
-                {stats.materialsCount} {isZh ? "份资料" : "files"} · {stats.topicsCount}{" "}
-                {isZh ? "个考点" : "topics"}
+              /* 两个计数各占一格，由 gap 断句；原来串成「12 files · 8 topics」，
+                 而且英文写死复数，一份资料的时候会显示 "1 files"（清单 UI-04）。 */
+              <span className="flex flex-wrap items-baseline gap-x-3 tabular-nums">
+                <span>{isZh ? `${stats.materialsCount} 份资料` : pl(stats.materialsCount, "file", "files")}</span>
+                <span>{isZh ? `${stats.topicsCount} 个考点` : pl(stats.topicsCount, "topic", "topics")}</span>
               </span>
             }
             action={
@@ -473,7 +476,7 @@ export function CourseDetailPage({
                   {showKnowledge ? (isZh ? "收起" : "Collapse") : isZh ? "展开" : "Expand"}
                 </span>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-[#a39e97] transition-transform ${showKnowledge ? "rotate-180" : ""}`}
+                  className={`w-3.5 h-3.5 text-[#6b6660] transition-transform ${showKnowledge ? "rotate-180" : ""}`}
                 />
               </button>
             }

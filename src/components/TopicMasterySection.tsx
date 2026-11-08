@@ -1,8 +1,12 @@
-import React, { useMemo } from "react";
+import React, { useMemo, lazy, Suspense } from "react";
 import { ExamStudyPlan } from "../types";
 import { useI18n } from "../lib/i18n";
 import { SectionBlock } from "./SectionBlock";
-import { DomainMasteryWheelChart } from "./DomainMasteryWheelChart";
+
+/* 轮盘是一张自绘 SVG，只有展开掌握度这一段才用得上，按需取（清单 PERF-01）。 */
+const DomainMasteryWheelChart = lazy(() =>
+  import("./DomainMasteryWheelChart").then((m) => ({ default: m.DomainMasteryWheelChart }))
+);
 
 interface TopicMasterySectionProps {
   plan: ExamStudyPlan;
@@ -34,7 +38,9 @@ export function TopicMasterySection({ plan }: TopicMasterySectionProps) {
     <SectionBlock
       title={isZh ? "考点掌握度" : "Topic mastery"}
     >
-      <DomainMasteryWheelChart topics={topicMastery} language={language} />
+      <Suspense fallback={null}>
+        <DomainMasteryWheelChart topics={topicMastery} language={language} />
+      </Suspense>
     </SectionBlock>
   );
 }

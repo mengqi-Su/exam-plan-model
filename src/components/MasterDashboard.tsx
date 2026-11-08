@@ -108,9 +108,9 @@ export function MasterDashboard({
         <div className="ui-card p-4">
           <div className="flex items-center justify-between">
             <span className="text-[12px] ui-muted">{isZh ? "备考科目" : "Subjects"}</span>
-            <BookOpen className="w-4 h-4 ui-subtle" />
+            <BookOpen className="w-4 h-4 ui-muted" />
           </div>
-          <div className="mt-2.5 text-3xl font-semibold tabular-nums tracking-tight">
+          <div className="ui-stat-value mt-2.5">
             {workspaceMetrics.totalSubjects}
           </div>
         </div>
@@ -118,11 +118,11 @@ export function MasterDashboard({
         <div className="ui-card p-4">
           <div className="flex items-center justify-between">
             <span className="text-[12px] ui-muted">{isZh ? "最近考试" : "Nearest exam"}</span>
-            <Clock className="w-4 h-4 ui-subtle" />
+            <Clock className="w-4 h-4 ui-muted" />
           </div>
-          <div className="mt-2.5 text-3xl font-semibold tabular-nums tracking-tight">{nearestDisplay}</div>
+          <div className="ui-stat-value mt-2.5">{nearestDisplay}</div>
           {workspaceMetrics.nearestPlan && (
-            <div className="mt-1 truncate text-[12px] ui-subtle">
+            <div className="mt-1 truncate text-[12px] ui-muted">
               {workspaceMetrics.nearestPlan.examName}
             </div>
           )}
@@ -131,20 +131,20 @@ export function MasterDashboard({
         <div className="ui-card p-4">
           <div className="flex items-center justify-between">
             <span className="text-[12px] ui-muted">{isZh ? "今日进度" : "Today"}</span>
-            <CheckSquare className="w-4 h-4 ui-subtle" />
+            <CheckSquare className="w-4 h-4 ui-muted" />
           </div>
-          <div className="mt-2.5 text-3xl font-semibold tabular-nums tracking-tight">
+          <div className="ui-stat-value mt-2.5">
             {workspaceMetrics.todayCompleted}
-            <span className="text-xl ui-subtle font-medium"> / {workspaceMetrics.todayTotal}</span>
+            <span className="text-[20px] ui-muted font-medium"> / {workspaceMetrics.todayTotal}</span>
           </div>
         </div>
 
         <div className="ui-card p-4">
           <div className="flex items-center justify-between">
             <span className="text-[12px] ui-muted">{isZh ? "总进度" : "Progress"}</span>
-            <TrendingUp className="w-4 h-4 ui-subtle" />
+            <TrendingUp className="w-4 h-4 ui-muted" />
           </div>
-          <div className="mt-2.5 text-3xl font-semibold tabular-nums tracking-tight">
+          <div className="ui-stat-value mt-2.5">
             {workspaceMetrics.awaitingSchedule ? "—" : `${workspaceMetrics.globalProgress}%`}
           </div>
           {workspaceMetrics.awaitingSchedule ? (

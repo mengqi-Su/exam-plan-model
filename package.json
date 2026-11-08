@@ -26,7 +26,8 @@
     "test:zipbomb": "tsx dev/zip-bomb.test.ts",
     "test:csp": "tsx dev/csp.test.ts",
     "test:focus": "tsx dev/focus.test.ts",
-    "test:copy": "tsx dev/copy-guard.test.ts"
+    "test:copy": "tsx dev/copy-guard.test.ts",
+    "test:scale": "tsx dev/design-scale.test.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",

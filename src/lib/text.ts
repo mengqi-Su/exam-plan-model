@@ -12,6 +12,12 @@ export function pl(n: number, one: string, many: string): string {
   return `${n} ${n === 1 ? one : many}`;
 }
 
+/* 数字和名词分开排版的场合（数字加粗、单位留在灰字里），只需要让后面那个词跟着数走。
+   跟 pl() 同一条规则，别在调用处各写一份 n === 1。 */
+export function unitNoun(n: number, en: { one: string; many: string }): string {
+  return n === 1 ? en.one : en.many;
+}
+
 /* 小句之间怎么连、文件名和原因之间用什么标点，都跟着语言走。
    英文界面里印出「；」「：」，是拼句子的时候没问当前是什么语言。 */
 export function clauseJoin(parts: string[], isZh: boolean): string {

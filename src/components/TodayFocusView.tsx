@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, lazy, Suspense } from "react";
 import {
   CalendarDays,
   CheckCircle2,
@@ -9,7 +9,6 @@ import {
   Sun,
   ArrowUpRight,
 } from "lucide-react";
-import confetti from "canvas-confetti";
 import { AppTab, ExamStudyPlan, StudyTask } from "../types";
 import { addDays, countdownDaysLabel, examCountdown, toLocalDateString } from "../lib/date";
 import type { ExamCountdown } from "../lib/date";
@@ -18,7 +17,11 @@ import { playCompletionChime } from "../lib/audio";
 import { starquizPracticeUrlForTask } from "../lib/links";
 import { primeHandoffForTask } from "../lib/handoff";
 import { PinnedRoadmapTodoList } from "./PinnedRoadmapTodoList";
-import { TaskFocusTimerModal } from "./TaskFocusTimerModal";
+
+/* 专注计时器点开才需要，首屏（今日）不必先把它下载下来（清单 PERF-01）。 */
+const TaskFocusTimerModal = lazy(() =>
+  import("./TaskFocusTimerModal").then((m) => ({ default: m.TaskFocusTimerModal }))
+);
 
 interface TodayFocusViewProps {
   plans: ExamStudyPlan[];
@@ -111,7 +114,10 @@ export function TodayFocusView({
         (candidate) => candidate.task.id === taskId || candidate.task.status === "completed"
       );
       if (allDone && dayItems.length > 0) {
-        confetti({ particleCount: 55, spread: 65, origin: { y: 0.7 } });
+        /* 撒花只是锦上添花：按需取，取不到也不该影响「任务已完成」这件事本身。 */
+        import("canvas-confetti")
+          .then(({ default: confetti }) => confetti({ particleCount: 55, spread: 65, origin: { y: 0.7 } }))
+          .catch(() => undefined);
       }
     }
   };
@@ -188,7 +194,7 @@ export function TodayFocusView({
           </div>
 
           <h1 className="ui-page-title mt-2">{isZh ? "今日待办" : "Today Tasks"}</h1>
-          <p className="mt-1 text-[13px] text-[#8a8580] tabular-nums">
+          <p className="mt-1 text-[13px] text-[#6b6660] tabular-nums">
             {selectedDate}
             {" · "}
             {dayItems.length === 0
@@ -211,7 +217,7 @@ export function TodayFocusView({
           <div className="flex items-center gap-0.5 rounded-lg bg-[#f1efe9] p-0.5">
             <button
               onClick={() => onSelectDate(todayStr)}
-              className={`px-3 min-h-8 rounded-[7px] text-[13px] font-medium transition-all cursor-pointer ${
+              className={`px-3 min-h-8 rounded-lg text-[13px] font-medium transition-all cursor-pointer ${
                 isToday
                   ? "bg-white text-[#1c1b1a] shadow-[0_1px_2px_rgba(28,27,26,0.08)]"
                   : "text-[#6b6660] hover:text-[#1c1b1a]"
@@ -225,7 +231,7 @@ export function TodayFocusView({
                 value={selectedDate}
                 onChange={(event) => event.target.value && onSelectDate(event.target.value)}
                 aria-label={isZh ? "选择日期" : "Choose date"}
-                className="h-8 rounded-[7px] border-0 bg-transparent px-2 text-[13px] tabular-nums text-[#1c1b1a] cursor-pointer"
+                className="h-8 rounded-lg border-0 bg-transparent px-2 text-[13px] tabular-nums text-[#1c1b1a] cursor-pointer"
               />
             </label>
           </div>
@@ -242,7 +248,7 @@ export function TodayFocusView({
 
       {plans.length === 0 ? (
         <div className="ui-card py-16 px-6 text-center space-y-4">
-          <div className="w-12 h-12 rounded-xl bg-[#f1efe9] text-[#8a8580] flex items-center justify-center mx-auto">
+          <div className="w-12 h-12 rounded-xl bg-[#f1efe9] text-[#6b6660] flex items-center justify-center mx-auto">
             <Sun className="w-6 h-6" />
           </div>
           <h2 className="text-[15px] font-semibold tracking-tight">
@@ -255,7 +261,7 @@ export function TodayFocusView({
         </div>
       ) : dayItems.length === 0 ? (
         <div className="ui-card py-14 px-6 text-center space-y-3 border-dashed">
-          <CheckCircle2 className="w-8 h-8 text-[#a39e97] mx-auto" />
+          <CheckCircle2 className="w-8 h-8 text-[#6b6660] mx-auto" />
           <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
             <button
               onClick={() => onNavigateToTab("master_calendar")}
@@ -331,14 +337,16 @@ export function TodayFocusView({
       )}
 
       {activeTimer && (
-        <TaskFocusTimerModal
-          task={activeTimer.task}
-          isOpen={true}
-          onClose={() => setActiveTimer(null)}
-          onTaskCompleted={handleTimerCompleted}
-          soundAlertsEnabled={soundAlertsEnabled}
-          defaultFocusDuration={defaultFocusDuration}
-        />
+        <Suspense fallback={null}>
+          <TaskFocusTimerModal
+            task={activeTimer.task}
+            isOpen={true}
+            onClose={() => setActiveTimer(null)}
+            onTaskCompleted={handleTimerCompleted}
+            soundAlertsEnabled={soundAlertsEnabled}
+            defaultFocusDuration={defaultFocusDuration}
+          />
+        </Suspense>
       )}
 
     </div>

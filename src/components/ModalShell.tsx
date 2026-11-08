@@ -126,7 +126,7 @@ export function ModalShell({
           >
             <div className="min-w-0 flex-1 space-y-1">
               {eyebrow && (
-                <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-[#a39e97]">{eyebrow}</div>
+                <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-[#6b6660]">{eyebrow}</div>
               )}
               <div className="flex min-w-0 items-center gap-2.5">
                 {icon && (
@@ -146,7 +146,7 @@ export function ModalShell({
               onClick={onClose}
               disabled={closeDisabled}
               aria-label={closeLabel}
-              className="shrink-0 rounded-md p-1.5 text-[#a39e97] transition-colors hover:bg-[#f1efe9] hover:text-[#1c1b1a] cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+              className="shrink-0 rounded-lg p-1.5 text-[#6b6660] transition-colors hover:bg-[#f1efe9] hover:text-[#1c1b1a] cursor-pointer disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
             >
               <X className="h-4 w-4" />
             </button>

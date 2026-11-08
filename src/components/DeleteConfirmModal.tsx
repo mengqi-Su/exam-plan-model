@@ -2,6 +2,7 @@ import React from "react";
 import { Trash2 } from "lucide-react";
 import { ExamStudyPlan } from "../types";
 import { useI18n } from "../lib/i18n";
+import { pl } from "../lib/text";
 import { ModalShell } from "./ModalShell";
 
 interface DeleteConfirmModalProps {
@@ -48,11 +49,13 @@ export function DeleteConfirmModal({ isOpen, plan, onClose, onConfirm }: DeleteC
     >
       <div className="ui-card px-4 py-3.5">
         <p className="ui-row-title truncate">{plan.examName}</p>
-        <p className="mt-1.5 ui-row-meta tabular-nums">
-          {plan.examDate || (isZh ? "考期未定" : "Date TBD")} ·{" "}
-          {plan.tasks?.length || 0} {isZh ? "项任务" : "tasks"} ·{" "}
-          {plan.materials?.length || 0} {isZh ? "份资料" : "files"}
-        </p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 ui-row-meta tabular-nums">
+          <span>{plan.examDate || (isZh ? "考期未定" : "Date TBD")}</span>
+          <span>{isZh ? `${plan.tasks?.length || 0} 项任务` : pl(plan.tasks?.length || 0, "task", "tasks")}</span>
+          <span>
+            {isZh ? `${plan.materials?.length || 0} 份资料` : pl(plan.materials?.length || 0, "file", "files")}
+          </span>
+        </div>
       </div>
     </ModalShell>
   );

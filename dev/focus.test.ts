@@ -54,7 +54,7 @@ await check('base :focus-visible 是 2px 实心深色环，输入类贴边框', 
   const rule = /:focus-visible\s*\{([^}]*)\}/.exec(css);
   assert.ok(rule, 'index.css 里必须有 :focus-visible');
   const body = rule![1];
-  assert.match(body, /outline:\s*2px solid #111111/, '环要 2px 实心、够深，不能只把边框调深一档');
+  assert.match(body, /outline:\s*2px solid #1c1b1a/, '环要 2px 实心、够深，不能只把边框调深一档');
   assert.match(body, /outline-offset:\s*2px/);
   const inputs = /input:focus-visible,\s*textarea:focus-visible,\s*select:focus-visible\s*\{([^}]*)\}/.exec(css);
   assert.ok(inputs, '输入类控件要单独把 offset 收成 0');
@@ -98,7 +98,7 @@ await check('守卫有效：反面写法抓得住，outline 标识符不误伤',
   assert.equal(offenders('type: "textbook_outline", outline: null', 'code').length, 0);
   assert.equal(offenders('{outline.summary && <p>{outline.summary}</p>}', 'code').length, 0);
   /* 正常写法的焦点环（base 那条）不该被自己的守卫拦下 */
-  assert.equal(offenders(':focus-visible { outline: 2px solid #111111; outline-offset: 2px; }', 'css').length, 0);
+  assert.equal(offenders(':focus-visible { outline: 2px solid #1c1b1a; outline-offset: 2px; }', 'css').length, 0);
 });
 
 console.log(`\n${passed} focus checks passed`);

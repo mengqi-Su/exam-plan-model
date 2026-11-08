@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { SyllabusTopic } from "../types";
 import { CheckCircle2 } from "lucide-react";
-import { getPaletteByIndex } from "../lib/themePalettes";
+import { getCourseAccent } from "../lib/courseAccents";
 
 export interface TopicMasteryItem extends SyllabusTopic {
   totalTasks: number;
@@ -178,7 +178,7 @@ export function DomainMasteryWheelChart({
               key={m.id}
               onClick={() => setActiveMetric(m.id)}
               aria-pressed={activeMetric === m.id}
-              className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors cursor-pointer ${
+              className={`px-2.5 py-1 rounded-lg text-[12px] font-medium transition-colors cursor-pointer ${
                 activeMetric === m.id
                   ? "bg-white text-[#1c1b1a] shadow-[0_1px_2px_rgba(28,27,26,0.08)]"
                   : "text-[#6b6660] hover:text-[#1c1b1a]"
@@ -204,7 +204,9 @@ export function DomainMasteryWheelChart({
               );
             })}
 
-            {/* Calibration tick marks */}
+            {/* Calibration tick marks
+                只有四分之一刻度（25 / 50 / 75 / 100）在传达读数，所以按 3:1 的图形下限压到 #6b6660（白底 5.68:1）；
+                其余 32 根是外圈装饰，跟 #ddd8d0 那一圈共用一个颜色，本来就不承担读数。 */}
             {Array.from({ length: 36 }).map((_, tickIdx) => {
               const angle = (tickIdx * 10 * Math.PI) / 180;
               const isMajor = tickIdx % 9 === 0;
@@ -217,7 +219,7 @@ export function DomainMasteryWheelChart({
                   y1={center + r1 * Math.sin(angle)}
                   x2={center + r2 * Math.cos(angle)}
                   y2={center + r2 * Math.sin(angle)}
-                  stroke={isMajor ? "#a39e97" : "#ddd8d0"}
+                  stroke={isMajor ? "#6b6660" : "#ddd8d0"}
                   strokeWidth={isMajor ? "1.5" : "0.75"}
                 />
               );
@@ -227,7 +229,7 @@ export function DomainMasteryWheelChart({
             {itemsToRender.map((item, idx) => {
               const isHovered = hoveredIdx === idx;
               const isSelected = selectedIdx === idx;
-              const palette = getPaletteByIndex(idx);
+              const accent = getCourseAccent(idx);
 
               let valDisplay = "";
               let fillRatio = 1.0;
@@ -248,6 +250,13 @@ export function DomainMasteryWheelChart({
 
               const clampedRatio = Math.max(0.18, Math.min(1.0, fillRatio));
               const { x: textX, y: textY } = getTextCenter(idx, 0.64);
+              /* 扇形是从内圈往外长的一段圆环，标签固定在 0.64 半径处（标题再往外 11px）。
+                 原来用一句 clampedRatio > 0.45 判断标签落在实心段还是空白段：那条线换算到半径
+                 是 0.45，而标签在 0.54–0.74 之间随角度浮动，所以 0.45–0.64 这一段选中时
+                 白字是印在浅色轨道上的；而未选中的扇形现在也是深身份色，压在上面的深色字同样读不出。
+                 改成按标签自身到圆心的距离判定：只要落在画出来的那段填充里就用白字。 */
+              const fillOuterR = innerRadius + (outerRadius - innerRadius) * Math.max(0.2, clampedRatio);
+              const onFilled = (y: number) => Math.hypot(textX - center, y - center) <= fillOuterR;
 
               return (
                 <g
@@ -272,9 +281,8 @@ export function DomainMasteryWheelChart({
                   {/* Active value arc fill */}
                   <path
                     d={getCircularSectorPath(idx, clampedRatio)}
-                    fill={isSelected ? "#1c1b1a" : palette.accentColor}
-                    fillOpacity={isSelected ? 1 : 0.9}
-                    stroke={isSelected ? "#1c1b1a" : "#ddd8d0"}
+                    fill={isSelected ? "#1c1b1a" : accent}
+                    stroke={isSelected ? "#1c1b1a" : accent}
                     strokeWidth={isSelected ? "1.5" : "1"}
                     className="transition-all duration-200"
                   />
@@ -285,7 +293,7 @@ export function DomainMasteryWheelChart({
                     y={textY - 3}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fill={isSelected ? (clampedRatio > 0.45 ? "#ffffff" : "#1c1b1a") : "#1c1b1a"}
+                    fill={onFilled(textY - 3) ? "#ffffff" : "#1c1b1a"}
                     className="font-semibold text-[12px] sm:text-[13px] pointer-events-none select-none"
                   >
                     {valDisplay}
@@ -297,8 +305,8 @@ export function DomainMasteryWheelChart({
                     y={textY + 11}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    fill={isSelected ? (clampedRatio > 0.45 ? "#ffffff" : "#6b6660") : "#8a8580"}
-                    className="font-medium text-[9px] sm:text-[10px] pointer-events-none select-none"
+                    fill={onFilled(textY + 11) ? "#ffffff" : "#6b6660"}
+                    className="font-medium text-[11px] pointer-events-none select-none"
                   >
                     {item.title.length > 5 ? `${item.title.slice(0, 4)}..` : item.title}
                   </text>
@@ -310,13 +318,13 @@ export function DomainMasteryWheelChart({
             <circle cx={center} cy={center} r={innerRadius - 2} fill="#ffffff" stroke="#ddd8d0" strokeWidth="1.5" />
             <circle cx={center} cy={center} r={innerRadius - 6} fill="#faf9f6" stroke="#f0ede8" strokeWidth="1" />
 
-            <text x={center} y={center - 13} textAnchor="middle" dominantBaseline="middle" className="text-[10px] font-medium fill-[#a39e97]">
+            <text x={center} y={center - 13} textAnchor="middle" dominantBaseline="middle" className="text-[11px] font-medium fill-[#6b6660]">
               {isZh ? "平均掌握度" : "Avg mastery"}
             </text>
-            <text x={center} y={center + 3} textAnchor="middle" dominantBaseline="middle" className="text-[16px] font-semibold fill-[#1c1b1a] tracking-tight">
+            <text x={center} y={center + 3} textAnchor="middle" dominantBaseline="middle" className="text-[20px] font-semibold fill-[#1c1b1a] tracking-tight">
               {overallAvgProgress}%
             </text>
-            <text x={center} y={center + 18} textAnchor="middle" dominantBaseline="middle" className="text-[10px] font-medium fill-[#8a8580]">
+            <text x={center} y={center + 18} textAnchor="middle" dominantBaseline="middle" className="text-[11px] font-medium fill-[#6b6660]">
               {totalSectors} {isZh ? "个考点" : "topics"}
             </text>
           </svg>
@@ -330,7 +338,7 @@ export function DomainMasteryWheelChart({
           <div className="flex items-start gap-2 min-w-0">
             <span
               className="w-3 h-3 rounded-full shrink-0 mt-1"
-              style={{ backgroundColor: getPaletteByIndex(selectedIdx).accentColor }}
+              style={{ backgroundColor: getCourseAccent(selectedIdx) }}
               aria-hidden="true"
             />
             <h4 className="ui-group-title min-w-0 break-words">{activeItem.title}</h4>
@@ -340,15 +348,13 @@ export function DomainMasteryWheelChart({
           </span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 ui-row-meta">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 ui-row-meta">
           <span>
             {isZh ? "权重" : "Weight"} <b className="ui-row-value">{activeItem.weightPercentage}%</b>
           </span>
-          <span>·</span>
           <span>
             {isZh ? "难度" : "Difficulty"} <b className="ui-row-value">{difficultyLabel(activeItem.difficulty)}</b>
           </span>
-          <span>·</span>
           <span>
             {isZh ? "预估" : "Est"} <b className="ui-row-value">{activeItem.estimatedHours || 6}h</b>
           </span>
@@ -366,7 +372,7 @@ export function DomainMasteryWheelChart({
               className="h-full rounded-full transition-all duration-300"
               style={{
                 width: `${activeItem.progressPercent}%`,
-                backgroundColor: getPaletteByIndex(selectedIdx).accentColor,
+                backgroundColor: getCourseAccent(selectedIdx),
               }}
             />
           </div>

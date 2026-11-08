@@ -48,14 +48,21 @@ export function PhaseRoadmapSection({ plan }: PhaseRoadmapSectionProps) {
             const isDone = pIdx < currentIdx;
             return (
               <li key={phase.id || `phase-step-${pIdx}`} className="relative flex gap-4 group">
+                {/* 三种阶段状态原来靠 #1c1b1a / #cfc9c0 / #e5e2dc 三个色阶区分，
+                    后两个在白卡上只有 1.62 和 1.31:1——「已完成」和「未开始」看起来是同一个灰点。
+                    现在实心／加深／空心三种形状各自都能读，颜色只做补充（清单 UI-03）。 */}
                 <span
                   className={`relative z-10 mt-1.5 w-2.5 h-2.5 rounded-full shrink-0 ring-4 ring-white transition-transform group-hover:scale-125 ${
-                    isCurrent ? "bg-[#1c1b1a]" : isDone ? "bg-[#cfc9c0]" : "bg-[#e5e2dc]"
+                    isCurrent
+                      ? "bg-[#1c1b1a]"
+                      : isDone
+                      ? "bg-[#6b6660]"
+                      : "border border-[#6b6660] bg-[#f8f7f4]"
                   }`}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                    <span className="text-[11px] font-medium tabular-nums ui-subtle">
+                    <span className="text-[11px] font-medium tabular-nums ui-muted">
                       {String(pIdx + 1).padStart(2, "0")}
                     </span>
                     <span className="ui-row-title">{phase.name}</span>
@@ -63,7 +70,7 @@ export function PhaseRoadmapSection({ plan }: PhaseRoadmapSectionProps) {
                       {phase.startDate?.slice(5)} ~ {phase.endDate?.slice(5)}
                     </span>
                     {isCurrent && (
-                      <span className="inline-flex items-center rounded-full bg-[#1c1b1a] text-white px-2 py-0.5 text-[10px] font-medium">
+                      <span className="inline-flex items-center rounded-full bg-[#1c1b1a] text-white px-2 py-0.5 text-[11px] font-medium">
                         {isZh ? "进行中" : "Current"}
                       </span>
                     )}
@@ -79,12 +86,14 @@ export function PhaseRoadmapSection({ plan }: PhaseRoadmapSectionProps) {
           })}
 
           <li className="relative flex gap-4">
-            <span className="relative z-10 mt-1.5 w-2.5 h-2.5 rounded-full shrink-0 ring-4 ring-white bg-[#FCD33B]" />
+            {/* 终点是整条路线唯一的目标标记：空心粗环，和「当前」的实心点一眼能分。
+                原来是一格 #FCD33B 明黄，在白卡上只有 1.35:1，等于没有画。 */}
+            <span className="relative z-10 mt-1.5 w-2.5 h-2.5 rounded-full shrink-0 ring-4 ring-white border-[3px] border-[#1c1b1a] bg-[#f8f7f4]" />
             <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              <span className="text-[11px] font-medium tabular-nums ui-subtle">
+              <span className="text-[11px] font-medium tabular-nums ui-muted">
                 {String(phases.length + 1).padStart(2, "0")}
               </span>
-              <span className="ui-subgroup-title">{isZh ? "终点 · 考试日" : "Final · Exam day"}</span>
+              <span className="ui-group-title">{isZh ? "考试日" : "Exam day"}</span>
               <span className="ui-chip tabular-nums">{plan.examDate || "—"}</span>
             </div>
           </li>

@@ -69,13 +69,13 @@ export const NoteModal: React.FC<NoteModalProps> = ({
       tone="warn"
       footer={
         <>
-          <button onClick={onClose} className="ui-btn ui-btn-ghost px-3 py-1.5 text-xs">
+          <button onClick={onClose} className="ui-btn ui-btn-ghost px-3 py-1.5 text-[12px]">
             {isZh ? "取消" : "Cancel"}
           </button>
           <button
             onClick={handleSave}
             disabled={!content.trim()}
-            className="ui-btn ui-btn-primary px-4 py-1.5 text-xs"
+            className="ui-btn ui-btn-primary px-4 py-1.5 text-[12px]"
           >
             <Check className="w-3.5 h-3.5" />
             <span>{isZh ? "保存至知识库" : "Save to knowledge base"}</span>
@@ -117,7 +117,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className={labelCls}>{isZh ? "内容文本" : "Content"}</label>
-            <span className="text-[11px] text-[#a39e97] tabular-nums">
+            <span className="text-[11px] text-[#6b6660] tabular-nums">
               {visibleChars(content)} {isZh ? "字" : "chars"}
             </span>
           </div>

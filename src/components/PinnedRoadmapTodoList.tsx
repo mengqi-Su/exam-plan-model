@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   Check,
   Play,
-  Star,
   Trash2,
   X,
   Calendar as CalendarIcon,
@@ -11,6 +10,7 @@ import {
 import { StudyTask, ExamStudyPlan } from "../types";
 import { generateGoogleCalendarUrl } from "../lib/calendarExport";
 import { useI18n } from "../lib/i18n";
+import { MasteryStars } from "./MasteryStars";
 
 interface PinnedRoadmapTodoListProps {
   plan?: ExamStudyPlan | null;
@@ -235,7 +235,7 @@ export function PinnedRoadmapTodoList({
       {/* Top Header Bar */}
       <div className="flex items-center justify-between pb-3 mb-5 border-b ui-divider">
         <div className="flex items-center gap-2.5">
-          <span className="w-2 h-2 rounded-full bg-[#FCD33B] inline-block shrink-0" />
+          <span className="w-2 h-2 rounded-full bg-[#1c1b1a] inline-block shrink-0" />
           <h2 className="text-[15px] font-semibold tracking-tight text-[#1c1b1a]">
             {language === "zh" ? "今日任务路线" : "Study roadmap"}
           </h2>
@@ -291,7 +291,7 @@ export function PinnedRoadmapTodoList({
               <div
                 className={`relative w-full max-w-sm sm:max-w-md rounded-xl bg-white overflow-visible transition-all duration-300 group ${
                   isCompleted
-                    ? "border border-[#eae7e1] opacity-70 shadow-[0_1px_2px_rgba(28,27,26,0.04)]"
+                    ? "border border-[#eae7e1] shadow-[0_1px_2px_rgba(28,27,26,0.04)]"
                     : "ui-card ui-card-hover hover:-translate-y-0.5"
                 }`}
                 style={{
@@ -343,7 +343,7 @@ export function PinnedRoadmapTodoList({
                         className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
                           isCompleted
                             ? "bg-[#1c1b1a] border-[#1c1b1a] text-white"
-                            : "bg-white/80 border-black/15 text-transparent hover:text-[#8a8580]"
+                            : "bg-white/80 border-black/15 text-transparent hover:text-[#6b6660]"
                         }`}
                         title={isCompleted ? t("statusPending") : t("statusDone")}
                         aria-label={isCompleted ? t("statusPending") : t("statusDone")}
@@ -355,8 +355,8 @@ export function PinnedRoadmapTodoList({
 
                   {/* Title directly inside colored header block */}
                   <h3
-                    className={`mt-2 text-[13px] sm:text-[14px] font-medium leading-snug cursor-pointer transition-colors ${
-                      isCompleted ? "line-through opacity-60" : ""
+                    className={`mt-2 text-[13px] font-medium leading-snug cursor-pointer transition-colors ${
+                      isCompleted ? "line-through" : ""
                     }`}
                     style={{ color: theme.titleColor }}
                     onClick={() => onToggleComplete(task.id)}
@@ -371,7 +371,7 @@ export function PinnedRoadmapTodoList({
                   {task.description && (
                     <p
                       className={`text-[13px] leading-relaxed ${
-                        isCompleted ? "line-through text-[#a39e97]" : "text-[#1c1b1a]"
+                        isCompleted ? "line-through text-[#6b6660]" : "text-[#1c1b1a]"
                       }`}
                     >
                       {task.description}
@@ -384,7 +384,7 @@ export function PinnedRoadmapTodoList({
                       {task.keyObjectives.map((obj, i) => (
                         <div key={i} className="flex items-start gap-1.5 text-[13px] leading-relaxed text-[#6b6660]">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#d8d4cc] mt-1.5 shrink-0" />
-                          <span className={isCompleted ? "line-through text-[#a39e97]" : ""}>
+                          <span className={isCompleted ? "line-through text-[#6b6660]" : ""}>
                             {obj}
                           </span>
                         </div>
@@ -395,11 +395,11 @@ export function PinnedRoadmapTodoList({
                   {/* Notes Drawer */}
                   {activeNotesId === task.id && (
                     <div className="pt-2.5 border-t ui-divider space-y-1.5">
-                      <div className="flex items-center justify-between text-[12px] font-medium text-[#8a8580]">
+                      <div className="flex items-center justify-between text-[12px] font-medium text-[#6b6660]">
                         <span>{language === "zh" ? "任务笔记" : "Task notes"}</span>
                         <button
                           onClick={() => setActiveNotesId(null)}
-                          className="p-1 rounded-md text-[#a39e97] hover:text-[#1c1b1a] cursor-pointer"
+                          className="p-1 rounded-lg text-[#6b6660] hover:text-[#1c1b1a] cursor-pointer"
                           aria-label={language === "zh" ? "关闭笔记" : "Close notes"}
                         >
                           <X className="w-3.5 h-3.5" />
@@ -410,7 +410,7 @@ export function PinnedRoadmapTodoList({
                         value={task.notes || ""}
                         onChange={(e) => onSaveNotes(task.id, e.target.value)}
                         placeholder={language === "zh" ? "记录卡点、易错点或下一步..." : "Capture blockers, traps, or the next step..."}
-                        className="w-full bg-[#faf9f6] rounded-lg border border-[#e5e2dc] p-2.5 text-[13px] text-[#1c1b1a] placeholder-[#a39e97] focus:border-[#1c1b1a] leading-relaxed"
+                        className="w-full bg-[#faf9f6] rounded-lg border border-[#e5e2dc] p-2.5 text-[13px] text-[#1c1b1a] placeholder-[#716c65] focus:border-[#1c1b1a] leading-relaxed"
                         autoFocus
                         aria-label={language === "zh" ? "任务笔记" : "Task notes"}
                       />
@@ -420,24 +420,11 @@ export function PinnedRoadmapTodoList({
                   {/* Action Footer */}
                   <div className="pt-2.5 border-t ui-divider flex items-center justify-between">
                     {/* Mastery rating */}
-                    <div className="flex items-center gap-0.5">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          onClick={() => onUpdateConfidence(task.id, star as any)}
-                          className={`p-1 min-w-6 min-h-6 rounded-md transition-colors cursor-pointer ${
-                            (task.confidenceRating || 0) >= star
-                              ? "text-[#FCD33B]"
-                              : "text-[#d8d4cc] hover:text-[#FCD33B]"
-                          }`}
-                          title={`${star} / 5`}
-                          aria-label={language === "zh" ? `掌握程度 ${star} 星` : `Confidence ${star} of 5`}
-                          aria-pressed={(task.confidenceRating || 0) >= star}
-                        >
-                          <Star className="w-3.5 h-3.5" fill="currentColor" strokeWidth={0} />
-                        </button>
-                      ))}
-                    </div>
+                    <MasteryStars
+                      value={task.confidenceRating || 0}
+                      onChange={(rating) => onUpdateConfidence(task.id, rating)}
+                      labelFor={(star) => (language === "zh" ? `掌握程度 ${star} 星` : `Confidence ${star} of 5`)}
+                    />
 
                     {/* Tool Buttons */}
                     <div className="flex items-center gap-1">
@@ -477,7 +464,7 @@ export function PinnedRoadmapTodoList({
 
                       <button
                         onClick={() => onDeleteTask(task.id)}
-                        className="p-2 min-w-8 min-h-8 rounded-lg border border-transparent text-[#a39e97] hover:border-[#FDF0EE] hover:bg-[#FDF0EE] hover:text-[#B42318] transition-colors cursor-pointer"
+                        className="p-2 min-w-8 min-h-8 rounded-lg border border-transparent text-[#6b6660] hover:border-[#FDF0EE] hover:bg-[#FDF0EE] hover:text-[#B42318] transition-colors cursor-pointer"
                         title={t("delete")}
                         aria-label={t("delete")}
                       >

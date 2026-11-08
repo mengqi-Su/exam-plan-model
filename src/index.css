@@ -5,54 +5,42 @@
    还会让「产物里不该有 outline 抹除」这类核对读到假阳性。把测试目录排除在扫描之外。 */
 @source not "../dev";
 
+/* 字体栈只写设备上真的有的字体（清单 UI-02）。
+   原来打头的 Google Sans / Product Sans 是 Google 内部字体，从来没有被加载过，
+   写在第一位只会让浏览器白问一遍再回退——声明与实际渲染对不上，改版时也没法预测字宽。
+   现在两端共用同一条系统栈：拉丁走各平台自己的 UI 字体，汉字走苹方 / 雅黑 / Noto CJK。
+   顺带去掉了对 Google Fonts 的依赖：那份 stylesheet 是渲染阻塞的第三方请求，
+   中文字体切片还要按字符范围陆续下载，对一个本地优先的规划器来说是纯负担。
+   小字号下系统字体有 hinting，比无 hinting 的网页中文字体更清楚。 */
 @theme {
-  --font-sans: 'Google Sans', 'Product Sans', 'Roboto', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'Roboto Mono', 'Noto Sans SC', ui-monospace, monospace;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+  /* 等宽只服务数字与代码：时间刻度、题号、代码块。正文一律用上面的 sans。 */
+  --font-mono: ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 }
 
 @layer base {
-  :root {
-    --blkswn-bg: #f8f7f4;
-    --blkswn-sidebar: #f2f0ea;
-    --blkswn-border: #111111;
-    --blkswn-border-light: #dedad1;
-    --blkswn-text: #111111;
-    --blkswn-text-muted: #555555;
-    --blkswn-text-subtle: #888888;
-    --palette-yellow: #FCD33B;
-    --palette-concrete: #D8D8D8;
-    --palette-stone: #B5B5B5;
-    --palette-slate: #282828;
-
-    /* Semantic roles: success / warning / danger / info */
-    --semantic-success: #3F6B4F;
-    --semantic-success-bg: #EEF4EF;
-    --semantic-warning: #8A5A00;
-    --semantic-warning-bg: #FFF6DD;
-    --semantic-danger: #B42318;
-    --semantic-danger-bg: #FDF0EE;
-    --semantic-info: #1D4ED8;
-    --semantic-info-bg: #EEF3FE;
-  }
+  /* 这里原来有一整块 --blkswn-* / --palette-* / --semantic-* 变量，全仓零引用：
+     旧设计系统留下的死声明。其中 --blkswn-text-subtle: #888888 在白底上只有 3.54:1，
+     留着等于给「次级文字」留一个随时会被重新捡起来用的不合格颜色（清单 UI-03）。
+     现在颜色只有两个来源：组件里的 Tailwind 字面量，和下面几条基础规则。 */
 
   *, *::before, *::after {
-    font-family: 'Google Sans', 'Product Sans', 'Roboto', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: var(--font-sans);
   }
 
   html, body, button, input, select, textarea, h1, h2, h3, h4, h5, h6, p, span, div {
-    font-family: 'Google Sans', 'Product Sans', 'Roboto', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: var(--font-sans);
     letter-spacing: -0.012em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    color: #111111;
+    color: #1c1b1a;
     background-color: #f8f7f4;
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.6;
     text-rendering: optimizeLegibility;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 
   /* 焦点指示的唯一出处（清单 A11Y-03）。
@@ -62,7 +50,7 @@
    * 组件层同样输给 utilities，只有让这条规则成为唯一出处才不会再被绕过。
    * 由 dev/focus.test.ts 守着，新写一个 outline-none 就会红。 */
   :focus-visible {
-    outline: 2px solid #111111;
+    outline: 2px solid #1c1b1a;
     outline-offset: 2px;
   }
 
@@ -85,7 +73,7 @@
   }
 
   .font-mono, code, kbd, samp, pre {
-    font-family: 'Roboto Mono', 'Noto Sans SC', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    font-family: var(--font-mono) !important;
     letter-spacing: -0.02em;
   }
 
@@ -121,7 +109,7 @@
     @apply transition-all duration-200 hover:border-[#ddd8d0] hover:shadow-[0_2px_10px_rgba(28,27,26,0.07)];
   }
   .ui-page-title {
-    @apply text-2xl font-semibold tracking-tight text-[#1c1b1a];
+    @apply text-[24px] font-semibold tracking-tight text-[#1c1b1a];
   }
   /* 文档页头（Notion 三段：页面图标 → 文档标题 → 属性行）。
      体量按 Notion 的比例来：页面图标 ≈ 标题字高的 1.8 倍，图标压得住标题；
@@ -143,34 +131,35 @@
      Notion 的标签和取值同字号同字重，只靠颜色分深浅，所以取值不加粗；
      标签定宽一列，取值才会在两行两列里对齐成表。前导图标只是标记，不是按钮。 */
   .ui-prop-icon {
-    @apply h-[15px] w-[15px] shrink-0 text-[#a39e97];
+    @apply h-[15px] w-[15px] shrink-0 text-[#6b6660];
   }
   .ui-prop-label {
-    @apply w-[4.2em] shrink-0 text-[15px] font-normal text-[#8a8580];
+    @apply w-[4.2em] shrink-0 text-[15px] font-normal text-[#6b6660];
   }
   .ui-prop-value {
     @apply min-w-0 truncate text-[15px] font-normal tabular-nums text-[#1c1b1a];
   }
   .ui-prop-empty {
-    @apply min-w-0 truncate text-[15px] font-normal text-[#a39e97];
+    @apply min-w-0 truncate text-[15px] font-normal text-[#6b6660];
   }
   .ui-section-title {
     @apply text-[15px] font-semibold tracking-tight text-[#1c1b1a];
   }
-  /* 一把标尺，和 StarQuiz 同一规格：文档 36（只有科目页头用）› 页面/数字 24 › 段·属性 15 › 组 13.5 › 子组·行 13 › 元信息 12 › 胶囊 11 › 徽标 10。
-     嵌套深度由缩进、字重、颜色和分组底色表达；不再用 0.5px 的字号差冒充层级。
-     12 层成对出现：ui-row-meta 是标签，ui-row-value 是紧跟其后的取值。 */
+  /* 一把标尺，和 StarQuiz 同一规格（清单 UI-04）。
+     读字的一档只有六级：段·属性 15 › 组·行·正文 13 › 元信息 12 › 胶囊 11，往上 24 是页面标题、20 是数字强调。
+     再大的字号不参与「读」，只用来标记一块区域的开头：文档页头 28（窄屏 24）、页图标 48、统计数字 30——
+     它们是显示层，只在这几处出现，组件里想放大字号请挂这些类，不要再造 text-3xl 这种第四方档位。
+     原来这里排了八级，其中 13.5 与 13 只差 0.5px：肉眼分不出，却逼着每个新页面重新决定该用哪个，
+     而 10 级（大写等宽徽标）在纸白上根本读不清。嵌套深度由缩进、字重、颜色和分组底色表达，
+     不靠零点几像素的字号差冒充。12 层成对出现：ui-row-meta 是标签，ui-row-value 是紧跟其后的取值。 */
   .ui-group-title {
-    @apply text-[13.5px] font-semibold tracking-tight text-[#1c1b1a];
-  }
-  .ui-subgroup-title {
     @apply text-[13px] font-semibold tracking-tight text-[#1c1b1a];
   }
   .ui-row-title {
     @apply text-[13px] font-medium tracking-tight text-[#1c1b1a];
   }
   .ui-row-meta {
-    @apply text-[12px] font-normal text-[#8a8580];
+    @apply text-[12px] font-normal text-[#6b6660];
   }
   .ui-row-value {
     @apply text-[12px] font-medium tabular-nums text-[#1c1b1a];
@@ -178,14 +167,19 @@
   .ui-note {
     @apply text-[13px] font-normal leading-relaxed text-[#6b6660];
   }
+  /* 统计数字走显示层：30 起步、宽屏 36，比页面标题还重一档，只给数字用。
+     ui-stat-value 是卡片里的单个数值，ui-display-num 是「大数字 + 单位」那种读数。 */
   .ui-stat-value {
-    @apply text-2xl font-semibold tracking-tight tabular-nums text-[#1c1b1a];
+    @apply text-[30px] font-semibold leading-none tracking-tight tabular-nums text-[#1c1b1a] sm:text-[36px];
   }
+  .ui-display-num {
+    @apply text-[30px] font-semibold leading-none tracking-tight tabular-nums sm:text-[36px];
+  }
+  /* 次级文字（和图标）只有这一档：纸白 #f8f7f4 上 5.31:1，最浅的轨道 #f1efe9 上 4.94:1，
+     当图形看也过 3:1。原来分了 ui-muted #8a8580（3.86）和 ui-subtle #a39e97（3.41）两档，
+     两档都不合格；收成一个之后也不会再有人「挑一档更浅的」用回去（清单 UI-03）。 */
   .ui-muted {
-    @apply text-[#8a8580];
-  }
-  .ui-subtle {
-    @apply text-[#a39e97];
+    @apply text-[#6b6660];
   }
   .ui-divider {
     @apply border-[#f0ede8];
@@ -194,18 +188,20 @@
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed;
   }
   .ui-btn-primary {
-    @apply bg-[#1c1b1a] text-white hover:bg-[#333333];
+    @apply bg-[#1c1b1a] text-white hover:bg-[#3a3937];
   }
   .ui-btn-ghost {
     @apply border border-[#e5e2dc] bg-white text-[#1c1b1a] hover:bg-[#faf9f6];
   }
-  /* 不可恢复操作的按钮只多这一档颜色，其他规格沿用 ui-btn。 */
+  /* 不可恢复操作的按钮只多这一档颜色，其他规格沿用 ui-btn。
+     hover 用减不透明度而不是再抄一个更深的红：全站红色只有 #B42318 一个字面量，
+     第二档深色迟早会变成「到底哪个才是危险红」的第三个问题。淡到 85% 后白字仍有 5.18:1。 */
   .ui-btn-danger {
-    @apply bg-[#B42318] text-white hover:bg-[#9a1d14];
+    @apply bg-[#B42318] text-white transition-[opacity,colors] hover:opacity-85;
   }
   /* 页头的次要动作走 Notion 那种无框文字按钮：平时浅灰， hover 才垫一层底色。 */
   .ui-btn-text {
-    @apply inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium text-[#8a8580] transition-colors hover:bg-[#f1efe9] hover:text-[#1c1b1a] cursor-pointer;
+    @apply inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[12px] font-medium text-[#6b6660] transition-colors hover:bg-[#f1efe9] hover:text-[#1c1b1a] cursor-pointer;
   }
   /* 压在封面上的那几颗（返回 / 编辑）只多一层半透明白垫，字号和档位沿用 ui-btn-text：
      浅纹理上也保证读得清，但不许再长成第二套按钮。 */
@@ -226,65 +222,13 @@
   }
   /* 表单控件统一规格：字重与行文字同层（13px/400），边框比卡片再浅一档，聚焦才加深。 */
   .ui-field {
-    @apply w-full rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] text-[#1c1b1a] transition-colors focus:border-[#cfc9c0] placeholder:text-[#a39e97];
+    @apply w-full rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] text-[#1c1b1a] transition-colors focus:border-[#cfc9c0] placeholder:text-[#716c65];
   }
-  /* 表单标签走元信息层（12），但比 ui-row-meta 深一档，才能在白底上压住输入框。 */
+  /* 表单标签走元信息层（12），靠字重（500 对 400）而不是更深的颜色和自己的取值分开。 */
   .ui-field-label {
     @apply mb-1.5 block text-[12px] font-medium text-[#6b6660];
   }
 }
-
-.editorial-border {
-  border-color: #111111;
-}
-
-.editorial-border-light {
-  border-color: #dedad1;
-}
-
-.editorial-tag {
-  font-family: 'Roboto Mono', 'Roboto', 'Noto Sans SC', monospace;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 2px 6px;
-  border: 1px solid #111111;
-  background-color: #ffffff;
-  color: #111111;
-  display: inline-flex;
-  align-items: center;
-  line-height: 1.2;
-}
-
-.editorial-tag-invert {
-  font-family: 'Roboto Mono', 'Roboto', 'Noto Sans SC', monospace;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 2px 6px;
-  border: 1px solid #111111;
-  background-color: #111111;
-  color: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  line-height: 1.2;
-}
-
-.editorial-tag-accent {
-  font-family: 'Roboto Mono', 'Roboto', 'Noto Sans SC', monospace;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 2px 6px;
-  border: 1px solid #111111;
-  background-color: #fef08a;
-  color: #111111;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  line-height: 1.2;
-}
-
 
 ::-webkit-scrollbar {
   width: 6px;
@@ -295,71 +239,18 @@
   background: #ffffff;
 }
 
+/* 滚动条滑块是图形，按 3:1 那条线算：原来的 #cccccc 在白轨道上只有 1.64:1，
+   看得见轨道看不见滑块，等于没有可拖的提示。用次级文字那一档灰，5.68:1，
+   hover 再收到主文字色，两层都在同一套色值里。 */
 ::-webkit-scrollbar-thumb {
-  background: #cccccc;
+  background: #6b6660;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #111111;
+  background: #1c1b1a;
 }
 
-
-.notion-tag-gray {
-  background-color: #f4f4f4;
-  color: #333333;
-  border: 1px solid #e5e5e5;
-}
-
-.notion-tag-brown {
-  background-color: #f5f0eb;
-  color: #5c4436;
-  border: 1px solid #e0d4ca;
-}
-
-.notion-tag-orange {
-  background-color: #fff7ed;
-  color: #c2410c;
-  border: 1px solid #fed7aa;
-}
-
-.notion-tag-yellow {
-  background-color: #fefce8;
-  color: #854d0e;
-  border: 1px solid #fef08a;
-}
-
-.notion-tag-green {
-  background-color: #f0fdf4;
-  color: #166534;
-  border: 1px solid #bbf7d0;
-}
-
-.notion-tag-blue {
-  background-color: #f8fafc;
-  color: #0f172a;
-  border: 1px solid #cbd5e1;
-}
-
-.notion-tag-purple {
-  background-color: #faf5ff;
-  color: #581c87;
-  border: 1px solid #e9d5ff;
-}
-
-.notion-tag-pink {
-  background-color: #fdf2f8;
-  color: #9d174d;
-  border: 1px solid #fbcfe8;
-}
-
-.notion-tag-red {
-  background-color: #fef2f2;
-  color: #991b1b;
-  border: 1px solid #fecaca;
-}
-
-.notion-callout {
-  background-color: #fafafa;
-  border: 1px solid #111111;
-}
+/* 这里原来排着 .notion-tag-gray…red 九个色块和 .notion-callout：那是照 Notion 标签面板抄的一整套，
+   但组件里的标签全部走 .ui-chip 和各自的字面量配色，九个类名零引用。
+   留着比删掉更危险——它们自带 #333333 / #111111 这类退役字面量，随时会被重新捡起来用（清单 UI-03）。 */
 
