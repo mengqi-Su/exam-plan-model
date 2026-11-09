@@ -1,7 +1,8 @@
-// 英文文案的两条底线，全站一次性检查：npm run test:copy
+// 文案底线，全站一次性检查：npm run test:copy
 //   1) 计数不许写 `file(s)`：说人话的英文要么单数要么复数，这种斜杠是没人肯在模板里
 //      判断单复数留下的写法，两头不靠。单复数只在 text.pl 判一次，其余地方调它。
 //   2) 英文句子不许带中文标点：拼句子时没问当前语言，就会在 "Read 3 files；" 里漏出「；」。
+//   3) 弹窗页头不挂解释灰字：眉栏和底栏 note 是状态读数，「标题下面一句说明」是说明文。
 // 词典 zh/en 占位符是否一致由 test:inbound 管，这里不重复一遍。
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -87,6 +88,23 @@ await check('计数只有一处算法：pl() 之外不许再拼单复数', () =>
   assert.ok(!PLURAL_HEDGE.test(codeOnly(text)), 'text.ts 自己也别留反面写法');
 });
 
+/* 弹窗页头不许挂解释句。眉栏（页面归属、已存数量）和底栏 note（字数、已选章数、进度）
+   都是状态读数，留着；「标题下面一句说明」是说明文，全站清掉，弹窗也不例外。
+   槽留着就一定会被下一个弹窗顺手填一句，所以连 prop 一起删——调用方由 tsc 直接拦住，
+   这里钉的是「别把槽加回来」。只查 ModalShell 这一个骨架：全站弹窗都从它出，不必逐个弹窗扫。 */
+function headerExplanationOffenses(src: string): string[] {
+  const code = codeOnly(src);
+  const bad: string[] = [];
+  if (/description\??:\s*React\.ReactNode/.test(code)) bad.push('页头又长出了 description 槽');
+  if (/<p[^>]*text-\[#6b6660\][^>]*>/.test(code)) bad.push('页头里有一段次要灰字 <p>');
+  return bad;
+}
+
+await check('弹窗页头只有眉栏和标题，没有解释灰字', () => {
+  const bad = headerExplanationOffenses(readFileSync('src/components/ModalShell.tsx', 'utf8'));
+  assert.deepEqual(bad, [], `\n${bad.join('\n')}`);
+});
+
 /* 反面样本：规则抓不住就等于没规则，这里先验自己 */
 await check('守卫有效：漏标点的英文和含糊复数都抓得住，中文句子不误伤', () => {
   assert.equal(valueOffense('Some files could not be read；try again'), 'Chinese punctuation in an English string');
@@ -97,6 +115,14 @@ await check('守卫有效：漏标点的英文和含糊复数都抓得住，中�
   /* 中英写在同一行的 tt()：只看整行会被汉字藏住，拆成字面量才抓得到 */
   const pair = 'fail(tt("有文件没读出来", "Some files could not be read；"))';
   assert.equal(literalsOnLine(pair).map(valueOffense).filter(Boolean).length, 1);
+  /* 页头解释句：槽和渲染各算一条，两条都在就报两条 */
+  assert.deepEqual(headerExplanationOffenses('  description?: React.ReactNode;'), ['页头又长出了 description 槽']);
+  assert.deepEqual(headerExplanationOffenses('<p className="text-[12px] leading-relaxed text-[#6b6660]">{description}</p>'), ['页头里有一段次要灰字 <p>']);
+  assert.equal(headerExplanationOffenses('description?: React.ReactNode;\n<p className="text-[12px] text-[#6b6660]">{x}</p>').length, 2);
+  /* 眉栏是 div、底栏 note 是 span，都是状态读数，不该被误伤 */
+  assert.deepEqual(headerExplanationOffenses('<div className="text-[11px] text-[#6b6660]">{eyebrow}</div><span className="ui-row-meta">{note}</span>'), []);
+  /* 注释里解释「为什么没有这个槽」是给人看的，不渲染出去 */
+  assert.deepEqual(headerExplanationOffenses('/** 没有 description?: React.ReactNode; 也没有 <p className="text-[#6b6660]"> */'), []);
 });
 
 console.log(`\n${passed} copy checks passed`);

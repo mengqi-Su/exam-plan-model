@@ -1040,13 +1040,6 @@ export function AddExamSubjectWizard({
     </>
   );
 
-  const modalDescription = isRefill
-    ? tt(
-        "考试信息已经存好了。放资料进来（或整理教材目录），AI 照你填的时间表排每日任务。",
-        "The exam details are already saved. Add materials (or outline a textbook) and AI schedules each day around the hours you set."
-      )
-    : tt("先填考试信息，资料可以稍后补。", "Add the exam details first; materials can come later.");
-
   const pageHeader = (
     <>
       <div className="flex items-center justify-between">
@@ -1785,7 +1778,6 @@ export function AddExamSubjectWizard({
         closeLabel={tt("关闭", "Close")}
         closeDisabled={isWorking || isParsingFiles}
         eyebrow={modalEyebrow}
-        description={modalDescription}
         subheader={wizardStepRail}
         footer={wizardFooter}
         footerMode="block"

@@ -7,6 +7,11 @@ import { X } from "lucide-react";
  *
  * 滚动口径也钉在这里：卡片高度封顶，只有中间那段内容滚，
  * 页头和底栏永远钉在屏幕上——按钮不会因为表单变长而跑到屏幕外面。
+ *
+ * 页头只有眉栏（页面归属、已存数量这类状态）和标题，没有「标题下面一句说明」的槽：
+ * 解释性次要灰字全站清掉，弹窗也不例外。要告诉用户为什么走不下去，
+ * 就写在挡住他的那一层里，紧跟一个能解开它的动作，而不是在页头预告一遍。
+ * 底栏的 note 是状态读数（字数、已选章数、进度），不是说明文，留着。
  */
 
 const SIZE_CLASS = {
@@ -46,8 +51,6 @@ export interface ModalShellProps {
   closeDisabled?: boolean;
   /** 标题上方那行小字（页面归属、已存数量这类） */
   eyebrow?: React.ReactNode;
-  /** 标题下面的一句说明 */
-  description?: React.ReactNode;
   icon?: React.ReactNode;
   /** warn 给资料/删除确认这类需要一点底色的图标块 */
   tone?: "neutral" | "warn";
@@ -72,7 +75,6 @@ export function ModalShell({
   closeLabel,
   closeDisabled = false,
   eyebrow,
-  description,
   icon,
   tone = "neutral",
   size = "md",
@@ -103,7 +105,7 @@ export function ModalShell({
 
   if (!open) return null;
 
-  const hasHeaderExtras = Boolean(eyebrow || subheader || description);
+  const hasHeaderExtras = Boolean(eyebrow || subheader);
 
   return (
     <div
@@ -144,9 +146,6 @@ export function ModalShell({
                 )}
                 <span className="ui-section-title truncate">{title}</span>
               </div>
-              {description && (
-                <p className="text-[12px] leading-relaxed text-[#6b6660]">{description}</p>
-              )}
             </div>
             <button
               onClick={onClose}
