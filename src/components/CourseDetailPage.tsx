@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
@@ -192,6 +193,35 @@ export function CourseDetailPage({
     setKnowledgeReveal((n) => n + 1);
   };
 
+  const toggleTask = (taskId: string) => {
+    const task = plan.tasks.find((item) => item.id === taskId);
+    if (!task) return;
+    const willComplete = task.status !== "completed";
+    onUpdatePlan({
+      ...plan,
+      updatedAt: new Date().toISOString(),
+      tasks: plan.tasks.map((item) =>
+        item.id === taskId
+          ? { ...item, status: willComplete ? "completed" : "pending", completedAt: willComplete ? new Date().toISOString() : undefined }
+          : item
+      ),
+    });
+  };
+
+  const primaryAction = (() => {
+    if (pendingCopy) {
+      return {
+        label: pendingCopy.action,
+        onClick: readiness === "awaiting-materials" ? revealKnowledge : () => onRequestPlanGeneration?.(plan),
+      };
+    }
+    const hasOpenToday = todayTasks.some((task) => task.status !== "completed" && task.status !== "skipped");
+    return {
+      label: hasOpenToday ? (isZh ? "继续今日" : "Continue today") : isZh ? "查看今日" : "Open today",
+      onClick: () => onNavigateToTab("today"),
+    };
+  })();
+
   // 按钮写的是「去上传资料」，那就该把人送到上传口：先展开资料区，再把上传弹窗打开，
   // 不该让人在展开之后自己找那颗「上传文件」。
   const revealUpload = () => {
@@ -317,6 +347,13 @@ export function CourseDetailPage({
             <PropItem icon={Hourglass} label={isZh ? "距考试" : "Days left"} value={countdownText} />
           </div>
 
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button onClick={primaryAction.onClick} className="ui-btn ui-btn-primary inline-flex items-center gap-1.5">
+              <span>{primaryAction.label}</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+
           {scheduleNotice && (
             <div className="flex items-start justify-between gap-3 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-3.5 py-2.5 text-[12px] text-[#8A5A00] animate-fadeIn">
               <span className="leading-relaxed">{scheduleNotice}</span>
@@ -392,7 +429,18 @@ export function CourseDetailPage({
                           {done && ` · ${isZh ? "已完成" : "done"}`}
                         </p>
                       </div>
-                      {done && <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-[#3F6B4F]" />}
+                      <button
+                        type="button"
+                        onClick={() => toggleTask(task.id)}
+                        aria-label={done ? (isZh ? "标记为未完成" : "Mark incomplete") : (isZh ? "标记完成" : "Mark complete")}
+                        className="mt-0.5 shrink-0 rounded-full text-[#6b6660] transition-colors hover:text-[#1c1b1a] cursor-pointer"
+                      >
+                        {done ? (
+                          <CheckCircle2 className="w-4 h-4 text-[#3F6B4F]" />
+                        ) : (
+                          <span className="block h-4 w-4 rounded-full border border-[#d8d4cc]" />
+                        )}
+                      </button>
                     </li>
                   );
                 })}

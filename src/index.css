@@ -105,7 +105,22 @@
   .ui-card {
     @apply rounded-xl border border-[#eae7e1] bg-white shadow-[0_1px_2px_rgba(28,27,26,0.04)];
   }
-  .ui-card-hover {
+  /* 弹窗里的分步内容不再套一层白卡：弹窗本身已经是纸面，
+     再描一圈会把「页头 / 内容 / 底栏」切成四块，也和新科目向导的平铺表单对不上。 */
+  .wizard-body .ui-card {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .wizard-body .ui-card > div:first-child {
+    padding: 0 0 10px;
+    margin-bottom: 14px;
+  }
+  .wizard-body .ui-card > div:not(:first-child),
+  .wizard-body .ui-card > fieldset {
+    padding: 0;
+  }  .ui-card-hover {
     @apply transition-all duration-200 hover:border-[#ddd8d0] hover:shadow-[0_2px_10px_rgba(28,27,26,0.07)];
   }
   .ui-page-title {
@@ -253,4 +268,19 @@
 /* 这里原来排着 .notion-tag-gray…red 九个色块和 .notion-callout：那是照 Notion 标签面板抄的一整套，
    但组件里的标签全部走 .ui-chip 和各自的字面量配色，九个类名零引用。
    留着比删掉更危险——它们自带 #333333 / #111111 这类退役字面量，随时会被重新捡起来用（清单 UI-03）。 */
+
+
+/* 弹窗内的分步内容：Tailwind utilities 在 components 层之后，靠层叠层压过组件规则；
+   这几条放在 layer 外，确保「平铺纸面」不会被 px-4 / p-5 工具类重新撑出缩进。 */
+.wizard-body .ui-card > div:first-child {
+  padding: 0 0 10px !important;
+  margin-bottom: 14px;
+}
+.wizard-body .ui-card > div:not(:first-child),
+.wizard-body .ui-card > fieldset {
+  padding: 0 !important;
+}
+.wizard-body .ui-card > fieldset {
+  padding-top: 0 !important;
+}
 

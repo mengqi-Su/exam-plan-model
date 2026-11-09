@@ -46,6 +46,8 @@ export interface ModalShellProps {
   closeDisabled?: boolean;
   /** 标题上方那行小字（页面归属、已存数量这类） */
   eyebrow?: React.ReactNode;
+  /** 标题下面的一句说明 */
+  description?: React.ReactNode;
   icon?: React.ReactNode;
   /** warn 给资料/删除确认这类需要一点底色的图标块 */
   tone?: "neutral" | "warn";
@@ -70,6 +72,7 @@ export function ModalShell({
   closeLabel,
   closeDisabled = false,
   eyebrow,
+  description,
   icon,
   tone = "neutral",
   size = "md",
@@ -100,7 +103,7 @@ export function ModalShell({
 
   if (!open) return null;
 
-  const hasHeaderExtras = Boolean(eyebrow || subheader);
+  const hasHeaderExtras = Boolean(eyebrow || subheader || description);
 
   return (
     <div
@@ -112,7 +115,7 @@ export function ModalShell({
     >
       <div
         onClick={(event) => event.stopPropagation()}
-        className={`flex max-h-[94vh] w-full flex-col overflow-hidden rounded-2xl border border-[#eae7e1] bg-white text-[#1c1b1a] shadow-[0_18px_50px_rgba(28,27,26,0.22)] sm:max-h-[88vh] ${SIZE_CLASS[size]}`}
+        className={`ui-modal flex max-h-[94vh] w-full flex-col overflow-hidden rounded-2xl border border-[#eae7e1] bg-white text-[#1c1b1a] shadow-[0_18px_50px_rgba(28,27,26,0.22)] sm:max-h-[88vh] ${SIZE_CLASS[size]}`}
       >
         <div
           className={`shrink-0 border-b border-[#f0ede8] bg-[#faf9f6] px-5 ${
@@ -141,6 +144,9 @@ export function ModalShell({
                 )}
                 <span className="ui-section-title truncate">{title}</span>
               </div>
+              {description && (
+                <p className="text-[12px] leading-relaxed text-[#6b6660]">{description}</p>
+              )}
             </div>
             <button
               onClick={onClose}

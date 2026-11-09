@@ -509,8 +509,8 @@ export function AddExamSubjectWizard({
   const steps = [
     { n: 1 as const, label: tt("考试信息", "Exam details"), icon: CalendarDays },
     // 第二步现在有两个并列入口（上传资料 / 教材名整理目录），标签不能再只说「上传」。
-    { n: 2 as const, label: tt("考点来源", "Topic source"), icon: Upload },
-    { n: 3 as const, label: tt("生成计划", "Generate"), icon: Sparkles },
+    { n: 2 as const, label: tt("资料", "Materials"), icon: Upload },
+    { n: 3 as const, label: tt("完成", "Finish"), icon: Sparkles },
   ];
 
   const goToStep = (target: 1 | 2 | 3) => {
@@ -1027,11 +1027,11 @@ export function AddExamSubjectWizard({
   // 悬浮版只出文字，页头骨架由 ModalShell 统一画；页面版自己带页头。
   const modalTitle = isRefill
     ? tt(`${initialPlan?.examName || ""} · 生成学习计划`, `Plan ${initialPlan?.examName || "this subject"}`)
-    : tt("从资料生成学习计划", "Build a plan from your materials");
+    : tt("新建科目", "New subject");
 
   const modalEyebrow = (
     <>
-      <span>{isRefill ? tt("继续这门科目", "Finish this subject") : tt("新建备考科目", "New subject")}</span>
+      <span>{isRefill ? tt("继续这门科目", "Finish this subject") : tt("备考规划", "Study plan")}</span>
       {!isRefill && (
         <span className="ui-chip tabular-nums">
           {tt(`已存 ${existingPlans.length} 门`, `${existingPlans.length} saved`)}
@@ -1039,6 +1039,13 @@ export function AddExamSubjectWizard({
       )}
     </>
   );
+
+  const modalDescription = isRefill
+    ? tt(
+        "考试信息已经存好了。放资料进来（或整理教材目录），AI 照你填的时间表排每日任务。",
+        "The exam details are already saved. Add materials (or outline a textbook) and AI schedules each day around the hours you set."
+      )
+    : tt("先填考试信息，资料可以稍后补。", "Add the exam details first; materials can come later.");
 
   const pageHeader = (
     <>
@@ -1069,7 +1076,6 @@ export function AddExamSubjectWizard({
         {steps.map((s, index) => {
           const isCurrent = s.n === step;
           const isDone = s.n < step;
-          const Icon = s.icon;
           return (
             <React.Fragment key={s.n}>
               {index > 0 && <span className="h-px w-4 shrink-0 bg-[#e7e4de] sm:w-6" aria-hidden />}
@@ -1097,7 +1103,6 @@ export function AddExamSubjectWizard({
                   >
                     {isDone ? <Check className="h-3 w-3" /> : s.n}
                   </span>
-                  <Icon className="hidden h-3.5 w-3.5 sm:block" />
                   <span className="truncate">{s.label}</span>
                 </button>
               </li>
@@ -1170,8 +1175,7 @@ export function AddExamSubjectWizard({
       {step === 1 && (
         <section className="ui-card overflow-hidden">
           <div className={sectionHeadCls}>
-            <h2 className="ui-section-title flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-[#6b6660]" />
+            <h2 className="ui-section-title">
               <span>{tt("考试信息", "Exam details")}</span>
             </h2>
           </div>
@@ -1334,13 +1338,9 @@ export function AddExamSubjectWizard({
       {step === 2 && (
         <section className="ui-card overflow-hidden">
           <div className={sectionHeadCls}>
-            <h2 className="ui-section-title flex items-center gap-2">
-              <Upload className="h-4 w-4 text-[#6b6660]" />
-              <span>{tt("考点来源", "Topic source")}</span>
+            <h2 className="ui-section-title">
+              <span>{tt("资料", "Materials")}</span>
             </h2>
-            <span className="text-[12px] text-[#6b6660] tabular-nums">
-              {tt("本次生成", "This run")} {aiSelectedIds.length} / {MAX_AI_MATERIALS}
-            </span>
           </div>
 
           <fieldset disabled={isWorking} className="min-w-0 space-y-3 p-4 sm:p-5">
@@ -1525,8 +1525,7 @@ export function AddExamSubjectWizard({
       {step === 3 && (
         <section className="ui-card overflow-hidden">
           <div className={sectionHeadCls}>
-            <h2 className="ui-section-title flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-[#6b6660]" />
+            <h2 className="ui-section-title">
               <span>{tt("生成计划", "Generate")}</span>
             </h2>
           </div>
@@ -1552,7 +1551,7 @@ export function AddExamSubjectWizard({
                 </div>
               </div>
               <div className="min-w-0">
-                <div className="text-[11px] text-[#6b6660]">{tt("考点来源", "Source")}</div>
+                <div className="text-[11px] text-[#6b6660]">{tt("资料", "Materials")}</div>
                 <div className="mt-0.5 truncate font-medium text-[#1c1b1a] tabular-nums">
                   {courseDocuments.length > 0
                     ? tt(`${courseDocuments.length} 份资料`, pl(courseDocuments.length, "file", "files"))
@@ -1688,7 +1687,7 @@ export function AddExamSubjectWizard({
             className="ui-btn ui-btn-primary order-3 min-w-0 flex-1 items-center justify-center gap-2 px-5 py-3 text-[13px] font-medium disabled:opacity-40 sm:flex-none sm:px-6"
           >
             <span>
-              {step === 1 ? tt("下一步：上传资料", "Next: Materials") : tt("下一步：生成计划", "Next: Generate")}
+              {step === 1 ? tt("下一步：添加资料", "Next: Materials") : tt("下一步：生成计划", "Next: Generate")}
             </span>
             <ArrowRight className="h-4 w-4" />
           </button>
@@ -1786,9 +1785,11 @@ export function AddExamSubjectWizard({
         closeLabel={tt("关闭", "Close")}
         closeDisabled={isWorking || isParsingFiles}
         eyebrow={modalEyebrow}
+        description={modalDescription}
         subheader={wizardStepRail}
         footer={wizardFooter}
         footerMode="block"
+        bodyClassName="wizard-body"
       >
         {wizardContent}
       </ModalShell>

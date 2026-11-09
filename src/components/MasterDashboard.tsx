@@ -1,15 +1,9 @@
 import React, { useMemo } from "react";
-import {
-  BookOpen,
-  CheckSquare,
-  Clock,
-  Plus,
-  TrendingUp,
-} from "lucide-react";
+import { Plus } from "lucide-react";
 import { AppTab, ExamStudyPlan } from "../types";
 import { useI18n } from "../lib/i18n";
 import { CourseAccordionGallery } from "./CourseAccordionGallery";
-import { parseLocalDate, toLocalDateString } from "../lib/date";
+import { countdownDnLabel, examCountdown, toLocalDateString } from "../lib/date";
 
 interface MasterDashboardProps {
   plans: ExamStudyPlan[];
@@ -35,13 +29,9 @@ export function MasterDashboard({
 
   const todayStr = useMemo(() => toLocalDateString(), []);
 
-  const getDaysRemaining = (examDateStr?: string) => {
-    if (!examDateStr) return null;
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const examDate = parseLocalDate(examDateStr);
-    const diffTime = examDate.getTime() - now.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const getDaysRemaining = (examDateStr?: string, examTime?: string) => {
+    const countdown = examCountdown(examDateStr, examTime);
+    return countdown ? countdownDnLabel(countdown, isZh) : null;
   };
 
   const workspaceMetrics = useMemo(() => {
@@ -60,7 +50,7 @@ export function MasterDashboard({
       .filter((p) => p.examDate)
       .sort((a, b) => (a.examDate || "").localeCompare(b.examDate || ""));
     const nearestPlan = sortedByDate[0] || null;
-    const nearestDays = nearestPlan ? getDaysRemaining(nearestPlan.examDate) : null;
+    const nearestDays = nearestPlan ? getDaysRemaining(nearestPlan.examDate, nearestPlan.examTime) : null;
 
     let todayTotal = 0;
     let todayCompleted = 0;
@@ -87,11 +77,7 @@ export function MasterDashboard({
 
   const nearestDisplay =
     workspaceMetrics.nearestDays !== null
-      ? workspaceMetrics.nearestDays <= 0
-        ? isZh
-          ? "今天"
-          : "Today"
-        : `D-${workspaceMetrics.nearestDays}`
+      ? workspaceMetrics.nearestDays
       : "—";
 
   return (
@@ -104,63 +90,29 @@ export function MasterDashboard({
         </button>
       </header>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="ui-card p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] ui-muted">{isZh ? "备考科目" : "Subjects"}</span>
-            <BookOpen className="w-4 h-4 ui-muted" />
-          </div>
-          <div className="ui-stat-value mt-2.5">
-            {workspaceMetrics.totalSubjects}
-          </div>
-        </div>
-
-        <div className="ui-card p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] ui-muted">{isZh ? "最近考试" : "Nearest exam"}</span>
-            <Clock className="w-4 h-4 ui-muted" />
-          </div>
-          <div className="ui-stat-value mt-2.5">{nearestDisplay}</div>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-[#eae7e1] bg-white px-4 py-3 text-[13px] text-[#6b6660]">
+        <span>
+          {isZh ? "科目" : "Subjects"} <b className="font-semibold tabular-nums text-[#1c1b1a]">{workspaceMetrics.totalSubjects}</b>
+        </span>
+        <span>
+          {isZh ? "最近考试" : "Nearest"}{" "}
+          <b className="font-semibold tabular-nums text-[#1c1b1a]">{nearestDisplay}</b>
           {workspaceMetrics.nearestPlan && (
-            <div className="mt-1 truncate text-[12px] ui-muted">
-              {workspaceMetrics.nearestPlan.examName}
-            </div>
+            <span className="ml-1.5 text-[12px] text-[#6b6660]">{workspaceMetrics.nearestPlan.examName}</span>
           )}
-        </div>
-
-        <div className="ui-card p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] ui-muted">{isZh ? "今日进度" : "Today"}</span>
-            <CheckSquare className="w-4 h-4 ui-muted" />
-          </div>
-          <div className="ui-stat-value mt-2.5">
-            {workspaceMetrics.todayCompleted}
-            <span className="text-[20px] ui-muted font-medium"> / {workspaceMetrics.todayTotal}</span>
-          </div>
-        </div>
-
-        <div className="ui-card p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] ui-muted">{isZh ? "总进度" : "Progress"}</span>
-            <TrendingUp className="w-4 h-4 ui-muted" />
-          </div>
-          <div className="ui-stat-value mt-2.5">
+        </span>
+        <span>
+          {isZh ? "今日" : "Today"}{" "}
+          <b className="font-semibold tabular-nums text-[#1c1b1a]">
+            {workspaceMetrics.todayCompleted}/{workspaceMetrics.todayTotal}
+          </b>
+        </span>
+        <span className="ml-auto">
+          {isZh ? "总进度" : "Progress"}{" "}
+          <b className="font-semibold tabular-nums text-[#1c1b1a]">
             {workspaceMetrics.awaitingSchedule ? "—" : `${workspaceMetrics.globalProgress}%`}
-          </div>
-          {workspaceMetrics.awaitingSchedule ? (
-            /* 全是「先建好、还没生成」的科目：0% 会被读成落后，这里只说它还没排任务。 */
-            <div className="mt-1.5 text-[12px] ui-muted">
-              {isZh ? "还没有排出的任务" : "Nothing scheduled yet"}
-            </div>
-          ) : (
-            <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-[#f1efe9]">
-              <div
-                className="h-full rounded-full bg-[#1c1b1a] transition-all duration-500"
-                style={{ width: `${workspaceMetrics.globalProgress}%` }}
-              />
-            </div>
-          )}
-        </div>
+          </b>
+        </span>
       </div>
 
       <section className="space-y-4">
