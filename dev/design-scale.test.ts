@@ -170,6 +170,42 @@ await check('装饰：不留 uppercase，也不留「·」当分隔符', () => {
   assert.deepEqual(bad, [], `\n${bad.join('\n')}`);
 });
 
+/* 封面带下沿：不许是一条硬边。带子最后一段必须渐隐到透明，露出页面自己的纸色——
+   用 mask 而不是叠一层纸色渐变，纸色才只有一处出处，换底色 / 做深色主题时不用跟着改第二遍。
+   与 StarQuiz 的 dev/design-scale.mjs 是同一条规则、同一组反面样本。 */
+const coverBandBlocks = (css: string) =>
+  [...css.matchAll(/([^{}]*\.ui-cover-band[^{}]*)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1].trim(), body: m[2] }));
+const WASHED = /(?:-webkit-)?mask-image:\s*linear-gradient\([^;]*,\s*transparent(?:\s+100%)?\s*\)/;
+/* 先取值再判断：写成 `border:\s*(?!0\b)` 会被 \s* 的回溯绕过——
+   零空白那一轮 lookahead 看到的是「 0」而不是「0」，于是 border:0 被误判成描边。 */
+const declOf = (body: string, prop: string) => {
+  const m = new RegExp(`(?:^|;)\\s*${prop}\\s*:([^;]*)`).exec(body);
+  return m ? m[1].trim() : "";
+};
+const EMPTY_EDGE = /^(?:0(?:px)?|none)(?:\s+(?:0(?:px)?|none))*$/;
+const coverSeamOffenses = (css: string): string[] => {
+  const blocks = coverBandBlocks(css);
+  if (!blocks.length) return [".ui-cover-band 不见了：收边规则无处落地"];
+  const bad: string[] = [];
+  if (!blocks.some((b) => WASHED.test(b.body))) {
+    bad.push("封面带下沿是硬边：需要一段以 transparent 收尾的 mask-image 渐隐");
+  }
+  for (const b of blocks) {
+    for (const prop of ["border", "border-bottom"]) {
+      const v = declOf(b.body, prop);
+      if (v && !EMPTY_EDGE.test(v)) bad.push(`封面带描了边 → ${b.selector} { ${prop}: ${v} }`);
+    }
+    const v = declOf(b.body, "box-shadow");
+    if (v && !EMPTY_EDGE.test(v)) bad.push(`封面带带了投影 → ${b.selector} { box-shadow: ${v} }`);
+  }
+  return bad;
+};
+
+await check('封面带下沿是收边不是硬边：渐隐到透明，且不描边不投影', () => {
+  const bad = coverSeamOffenses(liveOf("src/index.css"));
+  assert.deepEqual(bad, [], `\n${bad.join('\n')}`);
+});
+
 /* 白名单不是「写下来的数字」，是一条能重算的算术：色值改了、名单没改，这里先红。
    文字按 4.5:1，图形（图标/刻度）按 3:1——WCAG 的两条线，同一套相对亮度。 */
 const srgb = (c: number) => (c / 255 <= 0.03928 ? c / 255 / 12.92 : Math.pow((c / 255 + 0.055) / 1.055, 2.4));
@@ -245,6 +281,15 @@ await check('守卫有效：反面写法抓得住，正当写法不误伤', () =
   assert.deepEqual(styled('headerBg: "#FCD33B", name: "Canary Yellow"'), []);
   /* 注释里提旧颜色是交代原因，不算违规 */
   assert.equal(liveOf("src/lib/courseAccents.ts").includes("#fcd33b"), false);
+  /* 封面收边：硬边、描边、投影、假收边都要抓住，正当的 mask 不误伤（与 StarQuiz 同一组样本） */
+  assert.equal(coverSeamOffenses('.ui-cover-band { height: 240px; }').length, 1, '没有收边就是硬边');
+  assert.equal(coverSeamOffenses('.ui-cover-band { mask-image: linear-gradient(to bottom, #000, #f8f7f4); }').length, 1, '渐隐到实色不算收边，下沿还在');
+  assert.equal(coverSeamOffenses('.ui-cover-band { border-bottom: 1px solid #eae7e1; mask-image: linear-gradient(to bottom, #000 58%, transparent); }').length, 1);
+  assert.equal(coverSeamOffenses('.ui-cover-band { box-shadow: 0 1px 2px rgba(0,0,0,.1); mask-image: linear-gradient(to bottom, #000 58%, transparent); }').length, 1);
+  assert.equal(coverSeamOffenses('').length, 1, '整条规则被删掉也要报');
+  assert.equal(coverSeamOffenses('.ui-cover-band { mask-image: linear-gradient(to bottom, #000 58%, transparent 100%); }').length, 0);
+  assert.equal(coverSeamOffenses('.ui-cover-band { -webkit-mask-image: linear-gradient(to bottom, #000 58%, transparent); mask-image: linear-gradient(to bottom, #000 58%, transparent); border: 0; box-shadow: none; }').length, 0);
+  assert.equal(coverSeamOffenses('.ui-cover-band { @apply block h-[168px] w-full sm:h-[240px]; mask-image: linear-gradient(to bottom, #000 58%, transparent); }').length, 0, '@apply 与 mask 同块不算硬边');
   /* 对比度算术本身 */
   assert.ok(Math.abs(contrast("#1c1b1a", "#f8f7f4") - 16.05) < 0.1);
   assert.ok(contrast("#a39e97", "#ffffff") < 3, "退役的浅灰本来就该不合格，否则这条规则没有意义");

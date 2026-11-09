@@ -138,9 +138,15 @@
   }
   /* 封面带：和 Notion 一样占满整个页面区的宽度、贴着顶边，不缩进内容列、不做圆角——
      它是这份文档的底，不是内容列里的一张卡。高度只在这一处定义，
-     页图标靠内容列的负边距骑回它的下沿（约图标盒高的四分之一）。 */
+     页图标靠内容列的负边距骑回它的下沿（约图标盒高的四分之一）。
+     下沿不是一条边，是一段收边：最后 42% 渐隐到透明，露出页面自己的纸色（#f8f7f4），
+     封面和正文因此是同一块面。用 mask 而不是叠一层纸色渐变，纸色才只有一处出处，
+     换底色 / 做深色主题时这里不用跟着改第二遍；百分比跟着高度走，窄屏 168px 自动同口径。
+     与 StarQuiz 的 .ui-cover-band 同一条规则（dev/design-scale 两端各钉一遍）。 */
   .ui-cover-band {
     @apply block h-[168px] w-full overflow-hidden sm:h-[240px];
+    -webkit-mask-image: linear-gradient(to bottom, #000 58%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 58%, transparent 100%);
   }
   /* 属性一条 = 「图标 + 标签 + 取值」三元组，走 15 档，和段标题同档：
      Notion 的标签和取值同字号同字重，只靠颜色分深浅，所以取值不加粗；
