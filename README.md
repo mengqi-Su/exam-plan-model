@@ -4,6 +4,20 @@
 
 所有科目、资料、计划、完成记录都存在**你自己的浏览器**里。服务端只做一件事：调用模型。没有账号、没有后端数据库，关掉页面数据也还在，清掉站点数据才会丢。
 
+- **运行环境**：Node.js 20+；本地联调云函数另需 Deno
+- **数据**：全部在浏览器 IndexedDB，无账号、无后端数据库
+- **依赖密钥**：是（DeepSeek），未配置时降级为本地规则
+
+## 目录
+
+- [功能](#功能)
+- [快速开始](#快速开始)
+- [配置](#配置)
+- [常用脚本](#常用脚本)
+- [项目结构](#项目结构)
+- [设计约定](#设计约定)
+- [已知限制](#已知限制)
+
 ## 功能
 
 - **科目总览**：每门科目一张卡，显示考试日期、D-N 倒计时、整科进度和今日完成数；没传资料的科目会直接告诉你下一步该做什么。
@@ -28,6 +42,7 @@
 ## 快速开始
 
 ```bash
+# Node.js 20+
 npm install
 npm run dev            # 前端 http://localhost:5173
 npm run dev:function   # 另开一个终端：本地联调云函数，127.0.0.1:8000
@@ -35,18 +50,14 @@ npm run dev:function   # 另开一个终端：本地联调云函数，127.0.0.1:
 
 没有模型密钥也能跑：计划重排会退回本地规则，考点/计划生成会明确提示 AI 未启用。
 
-### 配置模型密钥
+## 配置
 
-密钥只在云函数运行时读取，**不要写进浏览器代码、构建产物或日志**。
+| 变量 | 必填 | 作用 |
+| --- | --- | --- |
+| `DEEPSEEK_API_KEY` / `API_KEY` | AI 功能必填 | 模型密钥，前者优先 |
+| `DEEPSEEK_MODEL` | 可选 | 覆盖默认模型 |
 
-```bash
-# .env.example 里有完整说明
-DEEPSEEK_API_KEY=...   # 优先
-API_KEY=...            # 兼容旧配置
-DEEPSEEK_MODEL=...     # 可选，覆盖默认模型
-```
-
-线上配置在 Qoder Sites 的应用 Secret 里。
+密钥只在云函数运行时读取，**不要写进浏览器代码、构建产物或日志**。完整说明见 [`.env.example`](.env.example)，线上配置在 Qoder Sites 的应用 Secret 里。
 
 ## 常用脚本
 
@@ -54,11 +65,15 @@ DEEPSEEK_MODEL=...     # 可选，覆盖默认模型
 npm run lint           # tsc --noEmit
 npm run build          # 产出 dist/
 npm run preview        # 预览构建结果
+npx tsx dev/planner.test.ts   # 单个回归测试，见下
 ```
+
+<!-- 维护者注：dev/ 下的 .test.ts 目前未登记到 package.json 的 scripts 里，
+     下表的命令是逐文件直接跑；新增测试时同步补到这里。 -->
 
 ### 回归测试
 
-`dev/` 下每个 `.test.ts` 都对应一处容易改坏的口径，直接跑单个文件：
+`dev/` 下每个 `.test.ts` 都对应一处容易改坏的口径：
 
 ```bash
 npx tsx dev/planner.test.ts        # 规划核心
@@ -71,7 +86,7 @@ npx tsx dev/zip-bomb.test.ts       # 压缩包炸弹防护
 npx tsx dev/topicKey.test.ts       # 考点键与 StarQuiz 对齐
 ```
 
-## 目录结构
+## 项目结构
 
 ```
 src/
