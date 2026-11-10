@@ -7,10 +7,11 @@
 //   3) 「新建科目」是同一排里的一条板条，不是网格末尾一块虚线瓷砖。
 //   4) 移动端同一批科目换成手风琴行，展开态由 aria-expanded 说出来，箭头跟着转。
 //   5) 键盘和指针同权：板条可聚焦，Enter / Space 与点击做同一件事。
-//   6) 总览页页头那条读数是一行裸字（与「今日」页同一口径），不是带边框的统计卡；
-//      科目计数全站一处，没值的项直接不写。
-//      字号钉在 13 标签 / 15 数字这一档：拆盒子的时候曾被顺手压成 12 档脚注，
-//      结果页头三个数在 24 的标题下面根本读不见——形态改了不代表可以连可读性一起改没。
+//   6) 总览页页头的三个数是三条「标签在上、数字在下」的读数格，靠空白分组，不装盒子、
+//      也不拼成一句中点分隔的话；科目计数全站一处，没值的格整格不写。
+//      字号钉在 13 标签 / 20 数字这一档（token：ui-metric-label / ui-metric-value）。
+//      这一条改过两次：先是带边框的统计卡被拆成一行 12 档脚注（读不见），
+//      再是字号补到 15 的散文行——形态和大小都不对，并列的数要排成一排才扫得过去。
 // 文案风格归 dev/copy-guard.test.ts，字阶圆角颜色归 dev/design-scale.test.ts，这里不重复。
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -39,16 +40,22 @@ function gridOffenses(text: string): string[] {
   return bad;
 }
 
-/* 总览页读数行的反面写法：四个短读数被 rounded+border+bg-white 框成「一块内容」，
-   最后一项再用 ml-auto 推到最右边拉出一段空洞，值靠手写 <b> 加粗，没数的地方印「—」。
-   这一行现在跟「今日」页同一口径——标题下一条裸字，中点断开，值走 ui-row-value。 */
+/* 页头读数条的反面写法，三代都有过：
+   第一代——四个短读数被 rounded+border+bg-white 框成「一块内容」，最后一项用 ml-auto
+   推到最右边拉出一段空洞，值靠手写 <b> 加粗，没数的地方印「—」。
+   第二代——盒子拆了，却挂上「今日」页列表脚注的 ui-row-meta / ui-row-value（12 档），
+   页头三个数在 24 的标题下面根本读不见。
+   第三代——字号补到 15 了，形态仍是一句中点分隔的话：要按顺序读完才知道哪个数属于哪件事。
+   现在的口径是三条格子：标签在上、数字在下，格子之间只留空白。 */
 function stripOffenses(text: string): string[] {
   const bad: string[] = [];
   if (/rounded-(?:xl|2xl|lg)[^>\n]*border[^>\n]*bg-white/.test(text)) bad.push('带边框的白底统计卡');
   if (/\bml-auto\b/.test(text)) bad.push('ml-auto 把最后一项推出一段空洞');
-  if (/<b[\s>]/.test(text)) bad.push('<b> 手写加粗：取值该挂 ui-row-value');
+  if (/<b[\s>]/.test(text)) bad.push('<b> 手写加粗：取值该挂 ui-metric-value');
   if (/nearestDisplay|"—"/.test(text)) bad.push('用「—」给一个不存在的数占位');
-  if (/\bui-row-(?:meta|value)\b/.test(text)) bad.push('读数行退回 12 档脚注：页头的数字要给眼睛看，不是列表附注');
+  if (/\bui-row-(?:meta|value)\b/.test(text)) bad.push('读数条退回 12 档脚注：页头的数字要给眼睛看，不是列表附注');
+  if (/\{" · "\}/.test(text)) bad.push('把几个读数串成一句中点分隔的话：并列的数要排成格子，扫一眼就拿到，不是读完才懂');
+  if (/ui-readout/.test(text)) bad.push('上一代散文读数的 token 又长回来了：格子形态不用它');
   return bad;
 }
 
@@ -132,30 +139,44 @@ await check('总览页仍然把这一排挂出来，没有绕过它另铺一份'
   assert.ok(/todayStr=\{todayStr\}/.test(dash), '今日口径由总览页传进来，卡组不自己算今天');
 });
 
-await check('总览页的读数是一行裸字，不是一张统计卡', () => {
+await check('总览页的读数是三条格子，不是一张卡也不是一句话', () => {
   const dash = codeOnly(read(DASHBOARD));
-  assert.deepEqual(stripOffenses(dash), [], `读数行被换回盒装了：\n${stripOffenses(dash).join('\n')}`);
-  /* 行本体：页头的一行读数，标签走 ui-readout（13），取值走 ui-readout-num（15）。
-     这行曾经挂的是 ui-row-meta / ui-row-value——那是列表脚注的 12 档，
-     坐在 24 的页面标题下面，眼睛要凑上去才读得见；页头要回答的三个数不该是这个待遇。 */
-  assert.ok(/<p className="ui-readout mt-1\.5">/.test(dash), '读数行是挂在标题下的一行字');
-  assert.ok((dash.match(/ui-readout-num/g) || []).length >= 3, '每个数字都升到 15 档，不各写各的加粗');
-  assert.ok(!/\bui-row-(?:meta|value)\b/.test(dash), '这行不退回 12 档脚注：页头的数要给眼睛看');
-  assert.ok(/<span className="ui-row-title">/.test(dash), '科目名是词不是数，走 13 medium');
-  assert.equal((dash.match(/\{" · "\}/g) || []).length, 2, '三项之间两个中点，都在句子里');
-  assert.ok(!/<span[^>]*>\s*·\s*<\/span>/.test(dash), '中点不独立成元素（design-scale 同一条规矩）');
+  assert.deepEqual(stripOffenses(dash), [], `读数条被改回了老写法：\n${stripOffenses(dash).join('\n')}`);
+  /* 形态：一格一个指标，横排，格与格之间只有空白（gap-x-10 = 40px），没有边框和底色。
+     三家设计系统对「并列短读数」给的是同一个形状——标签在上、数值在下（Ant Design
+     Statistic、Element 统计数值、Carbon Data grid），差别只在颜色与容器；分组靠空白。 */
+  assert.ok(/<div className="flex flex-wrap items-start gap-x-10 gap-y-4">/.test(dash), '格子横排、顶对齐，用空白分组');
+  assert.equal((dash.match(/className="min-w-0">/g) || []).length, 3, '三格各自 min-w-0，长名字截断而不是撑开这一排');
+  /* 层级：标签 13 灰 / 数字 20 加粗，成对出现，全站只有这一处定义（index.css 的 ui-metric-*） */
+  assert.equal((dash.match(/ui-metric-label/g) || []).length, 3, '三个标签同一档');
+  assert.equal((dash.match(/ui-metric-value/g) || []).length, 3, '三个数字同一档，不各写各的加粗');
+  assert.match(dash, /<p className="ui-metric-label">\{isZh \? "今日" : "Today"\}<\/p>\s*<p className="ui-metric-value">/, '标签在上、数字在下');
+  assert.ok(!/\bui-row-(?:meta|value)\b/.test(dash), '这排不退回 12 档脚注：页头的数要给眼睛看');
+  assert.ok(/<span[\s\S]{0,120}className="ui-row-title ml-2 inline-block max-w-\[220px\] truncate align-baseline"[\s\S]{0,200}title=\{/.test(dash), '科目名是词不是数：跟在 D-42 后面走 13 medium，截断时 title 给全名');
   /* 计数只数一遍：h1 后面那颗 chip 是全站唯一一处，段头「备考科目」整块没了 */
   assert.equal((dash.match(/\{plans\.length\}/g) || []).length, 1, '科目计数只有一处');
   assert.ok(!/ui-section-title/.test(dash) && !/备考科目/.test(dash), '卡组上面不再有一个和自己抢名字的段头');
-  /* 没值就不写这一项：0/0、— 和「0%」都是在说一件并不存在的事 */
-  assert.ok(/todayTotal === 0\s*\n?\s*\? isZh\s*\n?\s*\?\s*"今日无任务"/.test(dash), '今天没排任务时说实话，不摆 0/0');
-  assert.ok(/nearestDays !== null && \(/.test(dash), '没有带日期的考试时，「最近考试」整项消失');
+  /* 读数条住在页头下面一整行，而不是挤在标题那一列里——它该和下面的卡组同宽，数字才扫得过去 */
+  const buttonAt = dash.indexOf('onAddNewSubject} className="ui-btn ui-btn-primary');
+  assert.ok(buttonAt > 0 && dash.indexOf('ui-metric-label') > buttonAt, '读数排在「新建科目」那一行之后，横贯整页');
+  /* 没值就不写这一格：0/0、— 和「0%」都是在说一件并不存在的事 */
+  assert.ok(/todayTotal === 0\s*\n?\s*\? isZh\s*\n?\s*\?\s*"无"/.test(dash), '今天没排任务时这一格写「无」，不摆 0/0');
+  assert.ok(/nearestDays !== null && \(/.test(dash), '没有带日期的考试时，「最近考试」整格消失');
   assert.ok(!/awaitingSchedule \? "—"/.test(dash), '还没生成计划时不报 0%，也不报 —');
-  assert.ok(/!workspaceMetrics\.awaitingSchedule && \(/.test(dash), '总进度这一项在这种时候根本不出现');
+  assert.ok(/!workspaceMetrics\.awaitingSchedule && \(/.test(dash), '总进度这一格在这种时候根本不出现');
   /* 完成度是比例：数字后面跟一条内联条，纯装饰所以 aria-hidden；粗细跟着字号一起升，
-     1px 高的条在 15 的数字旁边只剩一层灰 */
+     1px 高的条在 20 的数字旁边只剩一层灰 */
   assert.ok(/aria-hidden="true"[\s\S]{0,200}inline-block h-1\.5 w-16/.test(dash), '内联进度条对读屏是装饰，百分数才是话');
   assert.ok(/style=\{\{ width: `\$\{workspaceMetrics\.globalProgress\}%` \}\}/.test(dash), '条的宽度和那个百分数同一个数');
+});
+
+await check('读数格的字号只有 token 一份，散文写法的 token 已删干净', () => {
+  const css = codeOnly(read('src/index.css'));
+  assert.ok(/\.ui-metric-label \{[^}]*text-\[13px\][^}]*text-\[#6b6660\]/.test(css), '标签 13 灰');
+  assert.ok(/\.ui-metric-value \{[^}]*text-\[20px\][^}]*font-semibold[^}]*tabular-nums[^}]*text-\[#1c1b1a\]/.test(css), '数字 20 加粗等宽');
+  /* 删槽位而不是删句子：上一代散文读数的 token 留着，下一个页面就会把三个数又拼成一句话 */
+  assert.ok(!/ui-readout/.test(css), 'ui-readout / ui-readout-num 已经从标尺里删掉');
+  assert.equal((css.match(/text-\[20px\]/g) || []).length, 1, '20 档在标尺里只有 ui-metric-value 一处定义');
 });
 
 /* 反面样本：规则抓不住就等于没规则，这里先验自己 */
@@ -167,19 +188,24 @@ await check('守卫有效：网格写法抓得住，百叶窗写法不误伤', (
   assert.deepEqual(gridOffenses('className="md:hidden space-y-2.5"'), [], '手风琴也不是网格');
   assert.deepEqual(gridOffenses(codeOnly('/* 以前被换成 grid-cols-3，现在恢复了 */ const a = 1;')), [], '注释不会渲染出去');
   assert.deepEqual(gridOffenses('className="flex gap-3 items-stretch"'), [], 'flex 排不是网格');
-  /* 统计卡那一段就是改版前的原文，一条都不能漏 */
+  /* 统计卡那一段就是第一代原文，一条都不能漏 */
   const OLD_STRIP = `<div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-[#eae7e1] bg-white px-4 py-3">
         <span>最近考试 <b className="font-semibold">{nearestDisplay}</b></span>
         <span className="ml-auto">总进度 <b>{p}%</b></span>
       </div>`;
   assert.deepEqual(stripOffenses(OLD_STRIP),
-    ['带边框的白底统计卡', 'ml-auto 把最后一项推出一段空洞', '<b> 手写加粗：取值该挂 ui-row-value', '用「—」给一个不存在的数占位'],
-    '这正是上一版的写法');
-  assert.deepEqual(stripOffenses('<p className="ui-readout mt-1.5">今日 <span className="ui-readout-num">2/5</span></p>'),
-    [], '裸字行不是统计卡');
+    ['带边框的白底统计卡', 'ml-auto 把最后一项推出一段空洞', '<b> 手写加粗：取值该挂 ui-metric-value', '用「—」给一个不存在的数占位'],
+    '这是第一代的写法');
   assert.deepEqual(stripOffenses('<p className="ui-row-meta mt-2 tabular-nums">今日 <span className="ui-row-value">2/5</span></p>'),
-    ['读数行退回 12 档脚注：页头的数字要给眼睛看，不是列表附注'],
-    '上一版就是这一行：盒子拆了，字号却压成了脚注那档');
+    ['读数条退回 12 档脚注：页头的数字要给眼睛看，不是列表附注'],
+    '第二代：盒子拆了，字号却压成了脚注那档');
+  const PROSE = `<p className="ui-readout mt-1.5">今日 <span className="ui-readout-num">2/5</span>{" · "}最近考试 <span className="ui-readout-num">D-42</span></p>`;
+  assert.deepEqual(stripOffenses(PROSE),
+    ['把几个读数串成一句中点分隔的话：并列的数要排成格子，扫一眼就拿到，不是读完才懂',
+      '上一代散文读数的 token 又长回来了：格子形态不用它'],
+    '第三代：字号升到 15 了，形态还是一句话——用户的答案是「你会排布信息吗」');
+  assert.deepEqual(stripOffenses('<div className="flex flex-wrap items-start gap-x-10 gap-y-4"><div className="min-w-0"><p className="ui-metric-label">今日</p><p className="ui-metric-value">2/5</p></div></div>'),
+    [], '现在的格子写法不误伤');
 });
 
 console.log(`\n${passed} subject-deck checks passed`);

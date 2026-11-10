@@ -185,17 +185,18 @@
   .ui-row-value {
     @apply text-[12px] font-medium tabular-nums text-[#1c1b1a];
   }
-  /* 页头那行裸读数走 15 档，不跟着 12 的元信息走。
-     12 是给一行列表的附属说明用的，它坐在 24 的页面标题下面时等于没写：
-     今天做了几分之几、还剩几天、整体推进到多少，是总览页要回答的三个问题，不是脚注。
-     所以这一行里标签留在 13 灰，数字升到 15 加粗（与段标题同档同字重），
-     中点跟着标签走——分隔符不该比它分隔的内容更显眼。
-     科目名是词不是数，走 13 medium，让 D-42 那种数字成为这一行的落点。 */
-  .ui-readout {
-    @apply text-[13px] font-normal leading-6 text-[#6b6660];
+  /* 并列的短读数排成一条读数条：一格一个指标，标签在上、数字在下，格与格之间只留空白。
+     这是各家设计系统对「同一层级的几个数」的统一做法（Ant Design 的 Statistic、
+     Element 的统计数值、Carbon 的数据格），不是把三个数拼成一句中点分隔的话——
+     散文写法要按顺序读完才知道哪个数是哪件事，横排的格子用眼睛扫一遍就拿到三个数。
+     层级由尺寸差给：标签 13 灰，数字 20 加粗。20 就是这把标尺里「数字强调」那一档，
+     以前没有 token，组件只能各自手写 text-[20px]，每一处自己决定多大多粗。
+     ui-metric-label 与 ui-metric-value 永远成对出现，单独的读数不上这条。 */
+  .ui-metric-label {
+    @apply text-[13px] font-normal text-[#6b6660];
   }
-  .ui-readout-num {
-    @apply text-[15px] font-semibold tracking-tight tabular-nums text-[#1c1b1a];
+  .ui-metric-value {
+    @apply mt-1 text-[20px] font-semibold leading-none tracking-tight tabular-nums text-[#1c1b1a];
   }
   .ui-note {
     @apply text-[13px] font-normal leading-relaxed text-[#6b6660];

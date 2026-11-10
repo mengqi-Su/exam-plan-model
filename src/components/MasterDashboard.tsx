@@ -75,9 +75,9 @@ export function MasterDashboard({
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10 space-y-8 animate-fadeIn text-[#1c1b1a]">
-      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2.5">
+      <header className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div className="flex min-w-0 items-center gap-2.5">
             <h1 className="ui-page-title">{isZh ? "科目" : "Subjects"}</h1>
             {/* 计数只在这里数一遍。原来页头、这条读数、下面的段头各有一份 plans.length，
                 第三份还起名叫「备考科目」——和 h1 是同一件事的两种叫法。 */}
@@ -86,62 +86,68 @@ export function MasterDashboard({
             )}
           </div>
 
-          {/* 元信息不该住盒子：一条带边框的白卡把四个短读数框成了「一块内容」，
-              而它只是页头的附属说明。改成与「今日」页同一口径的一行裸字，
-              项与项之间用一个中点断开（独立成元素的「·」被 design-scale 禁掉，句子内的连接符才合法）。
-              没值的项直接不写，不摆「—」占位——那等于告诉用户这里有一个数，而这个数不存在。
-              但这行字不能小到读不见：标签 13、数字 15，见 index.css 的 ui-readout。 */}
-          {plans.length > 0 && (
-            <p className="ui-readout mt-1.5">
-              {workspaceMetrics.todayTotal === 0
-                ? isZh
-                  ? "今日无任务"
-                  : "No tasks today"
-                : (
-                  <>
-                    {isZh ? "今日" : "Today"}{" "}
-                    <span className="ui-readout-num">
-                      {workspaceMetrics.todayCompleted}/{workspaceMetrics.todayTotal}
-                    </span>
-                  </>
-                )}
-              {workspaceMetrics.nearestDays !== null && (
-                <>
-                  {" · "}
-                  {isZh ? "最近考试" : "Next exam"}{" "}
-                  <span className="ui-row-title">
+          <button onClick={onAddNewSubject} className="ui-btn ui-btn-primary shrink-0">
+            <Plus className="w-4 h-4" />
+            {isZh ? "新建科目" : "New subject"}
+          </button>
+        </div>
+
+        {/* 三个数排成一排读数格：标签在上、数字在下，格与格之间只留空白（10 的间距），
+            既不装盒子（带边框的白卡把附属说明抬成了「一块内容」），也不拼成一句话——
+            散文那版要按顺序读完才知道哪个数属于哪件事，横排格子扫一眼就拿到三个数。
+            数字是这条的落点：标签 13 灰、数字 20 加粗，见 index.css 的 ui-metric-*。
+            没值的格整格不写，不摆「—」也不报 0/0——那等于说这里有一个数，而这个数不存在。 */}
+        {plans.length > 0 && (
+          <div className="flex flex-wrap items-start gap-x-10 gap-y-4">
+            <div className="min-w-0">
+              <p className="ui-metric-label">{isZh ? "今日" : "Today"}</p>
+              <p className="ui-metric-value">
+                {workspaceMetrics.todayTotal === 0
+                  ? isZh
+                    ? "无"
+                    : "None"
+                  : `${workspaceMetrics.todayCompleted}/${workspaceMetrics.todayTotal}`}
+              </p>
+            </div>
+
+            {workspaceMetrics.nearestDays !== null && (
+              <div className="min-w-0">
+                <p className="ui-metric-label">{isZh ? "最近考试" : "Next exam"}</p>
+                <p className="ui-metric-value">
+                  {workspaceMetrics.nearestDays}
+                  {/* 科目名是词不是数，跟在倒计时后面走 13 medium，
+                      让 D-42 成为这一格的落点；长名字截断（title 给全名），不把整排挤下去。 */}
+                  <span
+                    className="ui-row-title ml-2 inline-block max-w-[220px] truncate align-baseline"
+                    title={workspaceMetrics.nearestPlan?.subject || workspaceMetrics.nearestPlan?.examName}
+                  >
                     {workspaceMetrics.nearestPlan?.subject || workspaceMetrics.nearestPlan?.examName}
-                  </span>{" "}
-                  <span className="ui-readout-num">{workspaceMetrics.nearestDays}</span>
-                </>
-              )}
-              {!workspaceMetrics.awaitingSchedule && (
-                <>
-                  {" · "}
-                  {isZh ? "总进度" : "Overall"}{" "}
-                  <span className="ui-readout-num">{workspaceMetrics.globalProgress}%</span>
+                  </span>
+                </p>
+              </div>
+            )}
+
+            {!workspaceMetrics.awaitingSchedule && (
+              <div className="min-w-0">
+                <p className="ui-metric-label">{isZh ? "总进度" : "Overall"}</p>
+                <p className="ui-metric-value">
+                  {workspaceMetrics.globalProgress}%
                   {/* 完成度是个比例，条比裸数字一眼读得出来（GitHub Pulse 的口径），
-                      所以它跟在数字后面，而不是再开一处读数。粗细跟着这行的字号一起升，
-                      1px 高的条在 15 的数字旁边只剩一层灰。 */}
+                      所以它跟在数字后面，而不是再开一格读数。 */}
                   <span
                     aria-hidden="true"
-                    className="ml-2 inline-block h-1.5 w-16 overflow-hidden rounded-full bg-[#e5e2dc] align-middle"
+                    className="ml-2.5 inline-block h-1.5 w-16 overflow-hidden rounded-full bg-[#e5e2dc] align-middle"
                   >
                     <span
                       className="block h-full rounded-full bg-[#1c1b1a]"
                       style={{ width: `${workspaceMetrics.globalProgress}%` }}
                     />
                   </span>
-                </>
-              )}
-            </p>
-          )}
-        </div>
-
-        <button onClick={onAddNewSubject} className="ui-btn ui-btn-primary shrink-0">
-          <Plus className="w-4 h-4" />
-          {isZh ? "新建科目" : "New subject"}
-        </button>
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       <CourseAccordionGallery

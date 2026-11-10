@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>probe frame</title>
+<style>
+  body { margin: 0; background: #666; font-family: sans-serif; }
+  iframe { display: block; border: 0; background: #f8f7f4; }
+</style>
+</head>
+<body>
+<!-- 宽高写成属性：iframe 的视口决定 App 走桌面还是移动端分支，量之前必须先定这一格。 -->
+<iframe id="app" src="/probe-app.html?lang=zh" width="1280" height="900"></iframe>
+<script>
+  const frame = () => document.getElementById("app");
+  const win = () => frame().contentWindow;
+  const doc = () => frame().contentDocument;
+
+  /* 改尺寸和 reload 必须在同一次 await 里：width/height 属性写在 src 赋值之前，
+     否则量到的是上一轮的视口。 */
+  window.go = function (lang, w, h) {
+    return new Promise((resolve) => {
+      const el = frame();
+      el.width = String(w);
+      el.height = String(h);
+      el.onload = () => setTimeout(() => resolve("loaded " + lang + " " + w + "x" + h), 350);
+      el.src = "/probe-app.html?lang=" + lang;
+    });
+  };
+  window.reloadApp = window.go;
+
+  /* 种子里的 id 决定了科目在侧栏/卡组里排第几，写数据的人说了算。 */
+  window.ID = "p1";
+
+  /* 一个计划最少要哪些字段，这里给全；测试只要说「今天有几条、什么时候考试」。 */
+  window.makePlan = function (opt) {
+    const o = opt || {};
+    const id = o.id || window.ID;
+    const tasks = (o.tasks || []).map((t, i) => ({
+      id: id + "-t" + i,
+      title: "任务 " + i,
+      description: "",
+      category: "study",
+      topicTitle: "考点 " + i,
+      date: typeof t === "string" ? t : t.date,
+      durationMinutes: 45,
+      priority: "medium",
+      status: (typeof t === "object" && t.status) || "pending",
+      keyObjectives: [],
+    }));
+    const subject = o.subject || "科目 " + id;
+    const examName = o.examName || "考试 " + id;
+    return {
+      id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      examName,
+      subject,
+      icon: o.icon,
+      examDate: o.examDate || "",
+      examTime: o.examTime || "",
+      startDate: o.startDate || window.d(0),
+      totalPlannedHours: o.totalPlannedHours || 20,
+      phases: [],
+      topics: o.topics ? Array.from({ length: o.topics }, (_, i) => ({
+        id: "tp" + i, title: "考点 " + i, category: "", weightPercentage: 10,
+        difficulty: "medium", subtopics: [], estimatedHours: 2, source: "material",
+      })) : [],
+      tasks,
+      preferences: {
+        examName, subject,
+        examDate: o.examDate || "", startDate: o.startDate || window.d(0),
+        dailySchedules: [], studyPace: "balanced", sessionLengthMinutes: 45,
+        includePracticeExams: false, includeBufferDays: false, bufferDaysCount: 0,
+        weakTopicsFocus: [],
+      },
+      materials: [],
+    };
+  };
+
+  /* 日期按本机今天算：App 的「今日」口径也是本机今天，写死字符串会隔天失真。 */
+  window.d = function (offset) {
+    const t = new Date();
+    t.setDate(t.getDate() + offset);
+    const pad = (n) => String(n).padStart(2, "0");
+    return t.getFullYear() + "-" + pad(t.getMonth() + 1) + "-" + pad(t.getDate());
+  };
+
+  window.seed = async function (plans) {
+    await win().__probeSeed(plans);
+    return plans.length;
+  };
+  window.clearPlans = async function () {
+    await win().__probeClearPlans();
+    return 0;
+  };
+
+  window.all = (sel) => Array.from(doc().querySelectorAll(sel));
+  window.byText = (sel, text) => window.all(sel).filter((el) => (el.textContent || "").includes(text));
+  window.text = () => doc().body.innerText;
+  window.rect = function (el) {
+    const r = el.getBoundingClientRect();
+    return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+  };
+  /* styleOf 一定要传属性数组：漏了就把整个 CSSStyleDeclaration 当 undefined 遍历，报错点在探针里。 */
+  window.styleOf = function (el, props) {
+    const cs = win().getComputedStyle(el);
+    const out = {};
+    props.forEach((p) => { out[p] = cs.getPropertyValue(p); });
+    return out;
+  };
+</script>
+</body>
+</html>
