@@ -1,5 +1,12 @@
-import React from "react";
-import { Calendar, BookOpen, Trash2, ArrowUpRight, Plus } from "lucide-react";
+import React, { useState } from "react";
+import {
+  Calendar,
+  BookOpen,
+  Trash2,
+  ArrowUpRight,
+  ChevronDown,
+  Plus,
+} from "lucide-react";
 import { AppTab, ExamStudyPlan } from "../types";
 import { countdownDnLabel, examCountdown } from "../lib/date";
 import { PageIconGlyph } from "./PageIconGlyph";
@@ -29,29 +36,36 @@ export function CourseAccordionGallery({
   todayStr,
 }: CourseAccordionGalleryProps) {
   const isZh = language === "zh";
+  const [activeHoverId, setActiveHoverId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string>("add_new");
+
+  const effectiveExpandedId = activeHoverId !== null ? activeHoverId : selectedId;
 
   const requestDelete = (plan: ExamStudyPlan) => {
     if (onRequestDeletePlan) onRequestDeletePlan(plan);
     else if (onDeletePlan) onDeletePlan(plan.id);
   };
 
-  const enterCourse = (planId: string) => {
-    onSelectPlan(planId);
-    onNavigateToTab("course", planId);
-  };
-
+  /**
+   * 卡组每门科目对外说的那几个数：只有真的排出过任务，进度才是一个百分数。
+   * 「先建科目、资料回头再传」的门不报 0%——它不是落后，是还没开始，
+   * 口径由 lib/planReadiness 一处决定，卡片只负责把它摆出来。
+   */
   const cardFacts = (plan: ExamStudyPlan) => {
     const completedCount = plan.tasks.filter((t) => t.status === "completed").length;
     const totalCount = plan.tasks.length;
-    const todayTasks = plan.tasks.filter((t) => t.date === todayStr);
     const countdown = examCountdown(plan.examDate, plan.examTime);
     return {
       pending: readinessCopy(planReadiness(plan), isZh),
       progress: totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0,
+      // D-N 和今日页、科目页那条倒计时是同一个数：都由 lib/date 算，卡片不再自己数天
       examLabel: countdown ? countdownDnLabel(countdown, isZh) : null,
-      todayDone: todayTasks.filter((t) => t.status === "completed").length,
-      todayTotal: todayTasks.length,
     };
+  };
+
+  const enterCourse = (planId: string) => {
+    onSelectPlan(planId);
+    onNavigateToTab("course", planId);
   };
 
   if (!plans || plans.length === 0) {
@@ -73,95 +87,350 @@ export function CourseAccordionGallery({
     );
   }
 
+  const isAddNewExpanded = effectiveExpandedId === "add_new";
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-      {plans.map((plan) => {
-        const { pending, progress, examLabel, todayDone, todayTotal } = cardFacts(plan);
-        const title = plan.examName || plan.subject || (isZh ? "未命名科目" : "Untitled");
-        const genericSubject = !plan.subject || plan.subject === "综合学科" || plan.subject === "General";
-        const subtitle = genericSubject ? "" : plan.subject;
-        return (
-          <article
-            key={plan.id}
-            className={`ui-card p-4 sm:p-5 flex flex-col gap-3 transition-shadow hover:shadow-[0_2px_10px_rgba(28,27,26,0.07)] ${
-              activePlan?.id === plan.id ? "ring-1 ring-[#1c1b1a]/15" : ""
+    <div className="space-y-3">
+      {/* Desktop: expand-on-hover accordion */}
+      <div
+        className="hidden md:flex w-full h-[400px] gap-3 overflow-hidden items-stretch"
+        onMouseLeave={() => setActiveHoverId(null)}
+      >
+        {plans.map((plan) => {
+          const isExpanded = effectiveExpandedId === plan.id;
+          const { pending, progress, examLabel } = cardFacts(plan);
+
+          return (
+            <div
+              key={plan.id}
+              role="button"
+              tabIndex={0}
+              aria-expanded={isExpanded}
+              aria-label={
+                isZh
+                  ? `${plan.examName}，${isExpanded ? "收起" : "展开"}科目`
+                  : `${plan.examName}, ${isExpanded ? "collapse" : "expand"} subject`
+              }
+              onMouseEnter={() => setActiveHoverId(plan.id)}
+              onClick={() => {
+                setSelectedId(plan.id);
+                onSelectPlan(plan.id);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setSelectedId(plan.id);
+                  setActiveHoverId(plan.id);
+                  onSelectPlan(plan.id);
+                }
+              }}
+              style={{
+                flex: isExpanded ? "5" : "1",
+                minWidth: isExpanded ? "380px" : "60px",
+              }}
+              className={`relative overflow-hidden rounded-xl border bg-white transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] cursor-pointer flex flex-col ${
+                isExpanded
+                  ? "border-[#ddd8d0] shadow-[0_2px_12px_rgba(28,27,26,0.08)] p-5 justify-between"
+                  : "border-[#eae7e1] p-3 items-center justify-between hover:border-[#ddd8d0]"
+              }`}
+            >
+              {isExpanded ? (
+                <div className="flex flex-col justify-between h-full w-full space-y-4">
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      {/* 科目身份就是页面图标，与详情页页头、侧栏取同一个值；不再靠一根色条区分。 */}
+                      <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                        <PageIconGlyph plan={plan} className="mt-[3px] text-[20px]" />
+                        <h3
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            enterCourse(plan.id);
+                          }}
+                          className="min-w-0 text-[20px] font-semibold text-[#1c1b1a] hover:underline cursor-pointer tracking-tight leading-snug line-clamp-2"
+                        >
+                          {plan.examName}
+                        </h3>
+                      </div>
+                      {examLabel && (
+                        <span className="ui-chip shrink-0 tabular-nums">
+                          {examLabel}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-[12px] ui-muted">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>
+                        {plan.examDate || (isZh ? "待定" : "TBD")}
+                        {plan.examTime ? ` · ${plan.examTime}` : ""}
+                      </span>
+                    </div>
+
+                    {pending ? (
+                      <div className="pt-1">
+                        <span className="ui-chip">{pending.title}</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between text-[12px]">
+                          <span className="ui-muted">{isZh ? "备考进度" : "Progress"}</span>
+                          <span className="font-medium tabular-nums text-[#1c1b1a]">{progress}%</span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-[#1c1b1a] transition-all duration-500"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-3 border-t border-[#f0ede8] flex items-center justify-between gap-2">
+                    {onRequestDeletePlan || onDeletePlan ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          requestDelete(plan);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-[#B42318] hover:bg-[#FDF0EE] transition-colors cursor-pointer"
+                        title={isZh ? "删除此科目" : "Delete subject"}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>{isZh ? "删除" : "Delete"}</span>
+                      </button>
+                    ) : (
+                      <div />
+                    )}
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        enterCourse(plan.id);
+                      }}
+                      className="ui-btn ui-btn-primary px-3 py-1.5 text-[12px]"
+                    >
+                      <span>{isZh ? "进入" : "Open"}</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-between h-full w-full py-2">
+                  <PageIconGlyph plan={plan} className="text-[20px]" />
+                  <div className="flex-1 flex items-center justify-center overflow-hidden pt-2">
+                    <span className="text-[12px] font-medium text-[#6b6660] whitespace-nowrap rotate-90 origin-center max-w-[220px] truncate">
+                      {plan.examName}
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1 w-full pt-2">
+                    {examLabel && (
+                      <span className="text-[11px] font-medium tabular-nums text-[#6b6660]">{examLabel}</span>
+                    )}
+                    {/* 没排任务的科目在窄条上不给百分数：一格 0% 只会读成「落后了」。 */}
+                    {!pending && (
+                      <>
+                        <span className="text-[11px] font-semibold tabular-nums text-[#1c1b1a]">{progress}%</span>
+                        <div className="w-full h-1 rounded-full bg-[#f1efe9] overflow-hidden">
+                          <div className="h-full rounded-full bg-[#1c1b1a]" style={{ width: `${progress}%` }} />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {onAddNewSubject && (
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label={isZh ? "新建备考科目" : "Create new subject"}
+            onMouseEnter={() => setActiveHoverId("add_new")}
+            onClick={() => {
+              setSelectedId("add_new");
+              onAddNewSubject();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setSelectedId("add_new");
+                onAddNewSubject();
+              }
+            }}
+            style={{
+              flex: isAddNewExpanded ? "5" : "1",
+              minWidth: isAddNewExpanded ? "360px" : "60px",
+            }}
+            className={`relative overflow-hidden rounded-xl border-2 border-dashed transition-all duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] cursor-pointer flex flex-col justify-between ${
+              isAddNewExpanded
+                ? "border-[#ddd8d0] bg-white p-5"
+                : "border-[#e5e2dc] bg-[#faf9f6]/60 p-3 items-center justify-between hover:border-[#cfc9c0] hover:bg-[#f5f3ee]"
             }`}
           >
-            <div className="flex items-start gap-3 min-w-0">
-              <PageIconGlyph plan={plan} className="mt-[3px] text-[20px]" />
-              <div className="min-w-0 flex-1">
-                <h3 className="truncate text-[15px] font-semibold tracking-tight text-[#1c1b1a]">{title}</h3>
-                {subtitle && <p className="mt-0.5 truncate text-[12px] ui-muted">{subtitle}</p>}
-                <div className="mt-1 flex items-center gap-1.5 text-[12px] ui-muted">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>
-                    {plan.examDate || (isZh ? "考试日期待定" : "Date TBD")}
-                    {plan.examTime ? ` · ${plan.examTime}` : ""}
+            {isAddNewExpanded ? (
+              <div className="flex flex-col justify-between h-full w-full">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-lg bg-[#1c1b1a] text-white flex items-center justify-center shrink-0">
+                    <Plus className="w-4 h-4" />
+                  </span>
+                  <span className="text-[13px] font-medium text-[#6b6660]">
+                    {isZh ? "新建科目" : "New subject"}
                   </span>
                 </div>
-              </div>
-              {examLabel && <span className="ui-chip shrink-0 tabular-nums">{examLabel}</span>}
-            </div>
 
-            {pending ? (
-              <div className="space-y-1">
-                <span className="ui-chip">{pending.title}</span>
+                <div className="my-auto py-6">
+                  <h3 className="text-[20px] font-semibold text-[#1c1b1a] tracking-tight">
+                    {isZh ? "创建新的考试科目计划" : "Create a new subject plan"}
+                  </h3>
+                </div>
+
+                <div className="pt-3 border-t border-[#f0ede8] flex items-center justify-end">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddNewSubject();
+                    }}
+                    className="ui-btn ui-btn-primary"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{isZh ? "立即创建" : "Create now"}</span>
+                  </button>
+                </div>
               </div>
             ) : (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[12px]">
-                  <span className="ui-muted">{isZh ? "整科进度" : "Progress"}</span>
-                  <span className="font-medium tabular-nums text-[#1c1b1a]">{progress}%</span>
+              <div className="flex flex-col items-center justify-between h-full w-full py-2">
+                <span className="w-7 h-7 rounded-lg bg-white border border-[#e5e2dc] text-[#6b6660] flex items-center justify-center shrink-0">
+                  <Plus className="w-4 h-4" />
+                </span>
+                <div className="flex-1 flex items-center justify-center my-3 overflow-hidden">
+                  <span className="text-[12px] font-medium text-[#6b6660] whitespace-nowrap rotate-90 origin-center">
+                    {isZh ? "新建科目" : "New subject"}
+                  </span>
                 </div>
-                <div className="w-full h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
-                  <div className="h-full rounded-full bg-[#1c1b1a]" style={{ width: `${progress}%` }} />
-                </div>
-                {todayTotal > 0 && (
-                  <p className="text-[11px] ui-muted tabular-nums">
-                    {isZh ? `今日 ${todayDone}/${todayTotal} 项` : `Today ${todayDone}/${todayTotal}`}
-                  </p>
-                )}
+                <ArrowUpRight className="w-4 h-4 text-[#6b6660]" />
               </div>
             )}
+          </div>
+        )}
+      </div>
 
-            <div className="mt-auto pt-3 border-t border-[#f0ede8] flex items-center justify-between gap-2">
-              {(onRequestDeletePlan || onDeletePlan) ? (
-                <button
-                  type="button"
-                  onClick={() => requestDelete(plan)}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-medium text-[#B42318] hover:bg-[#FDF0EE] transition-colors cursor-pointer"
-                  title={isZh ? "删除此科目" : "Delete subject"}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>{isZh ? "删除" : "Delete"}</span>
-                </button>
-              ) : <span />}
-              <button
-                type="button"
-                onClick={() => enterCourse(plan.id)}
-                className="ui-btn ui-btn-primary px-3 py-1.5 text-[12px]"
-              >
-                <span>{pending ? (isZh ? "去处理" : "Open") : (isZh ? "进入" : "Open")}</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </button>
+      {/* Mobile: stacked expandable cards */}
+      <div className="md:hidden space-y-2.5">
+        {onAddNewSubject && (
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={onAddNewSubject}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onAddNewSubject();
+              }
+            }}
+            className="rounded-xl border-2 border-dashed border-[#e5e2dc] bg-[#faf9f6]/60 p-4 cursor-pointer transition-colors hover:border-[#cfc9c0] hover:bg-[#f5f3ee] flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="w-7 h-7 rounded-lg bg-[#1c1b1a] text-white flex items-center justify-center">
+                <Plus className="w-4 h-4" />
+              </span>
+              <span className="text-[13px] font-medium text-[#1c1b1a]">
+                {isZh ? "新建考试科目" : "New subject"}
+              </span>
             </div>
-          </article>
-        );
-      })}
+            <ArrowUpRight className="w-4 h-4 text-[#6b6660]" />
+          </div>
+        )}
 
-      {onAddNewSubject && (
-        <button
-          type="button"
-          onClick={onAddNewSubject}
-          className="min-h-[180px] rounded-xl border-2 border-dashed border-[#e5e2dc] bg-[#faf9f6]/60 p-5 flex flex-col items-center justify-center gap-2 text-[#6b6660] transition-colors hover:border-[#cfc9c0] hover:bg-[#f5f3ee]"
-        >
-          <span className="w-9 h-9 rounded-lg bg-[#1c1b1a] text-white flex items-center justify-center">
-            <Plus className="w-4 h-4" />
-          </span>
-          <span className="text-[13px] font-medium">{isZh ? "新建科目" : "New subject"}</span>
-          <span className="text-[11px] ui-muted">{isZh ? "填考试信息，资料可稍后补" : "Exam details first, materials later"}</span>
-        </button>
-      )}
+        {plans.map((plan) => {
+          const isExpanded = effectiveExpandedId === plan.id;
+          const { pending, progress, examLabel } = cardFacts(plan);
+
+          return (
+            <div key={plan.id} className="ui-card overflow-hidden">
+              <div
+                role="button"
+                tabIndex={0}
+                aria-expanded={isExpanded}
+                onClick={() => {
+                  setSelectedId(isExpanded ? "add_new" : plan.id);
+                  onSelectPlan(plan.id);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedId(isExpanded ? "add_new" : plan.id);
+                    onSelectPlan(plan.id);
+                  }
+                }}
+                className="p-4 flex items-center justify-between gap-3 cursor-pointer"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <PageIconGlyph plan={plan} className="text-[20px]" />
+                  <div className="min-w-0">
+                    <h4 className="text-[13px] font-semibold text-[#1c1b1a] truncate">{plan.examName}</h4>
+                    <span className="text-[12px] ui-muted block mt-0.5 truncate">
+                      {plan.subject} ·{" "}
+                      {pending ? pending.title : `${progress}% ${isZh ? "完成" : "done"}`}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  {examLabel && <span className="ui-chip tabular-nums">{examLabel}</span>}
+                  <ChevronDown
+                    className={`w-4 h-4 text-[#6b6660] transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                  />
+                </div>
+              </div>
+
+              {isExpanded && (
+                <div className="px-4 pb-4 pt-3 space-y-3 border-t border-[#f0ede8]">
+                  {pending ? (
+                    <div className="space-y-1.5">
+                      <span className="ui-chip">{pending.title}</span>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="ui-muted">{isZh ? "进度" : "Progress"}</span>
+                        <span className="font-medium tabular-nums text-[#1c1b1a]">{progress}%</span>
+                      </div>
+                      <div className="w-full h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
+                        <div className="h-full rounded-full bg-[#1c1b1a]" style={{ width: `${progress}%` }} />
+                      </div>
+                    </>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1">
+                    {(onRequestDeletePlan || onDeletePlan) && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          requestDelete(plan);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-[#B42318] hover:bg-[#FDF0EE] transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>{isZh ? "删除" : "Delete"}</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => enterCourse(plan.id)}
+                      className="ui-btn ui-btn-primary px-3 py-1.5 text-[12px] ml-auto"
+                    >
+                      <span>{isZh ? "进入" : "Open"}</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
