@@ -35,7 +35,6 @@ export function MasterDashboard({
   };
 
   const workspaceMetrics = useMemo(() => {
-    const totalSubjects = plans.length;
     let totalTasks = 0;
     let completedTasks = 0;
 
@@ -61,7 +60,6 @@ export function MasterDashboard({
     });
 
     return {
-      totalSubjects,
       totalTasks,
       completedTasks,
       globalProgress,
@@ -75,64 +73,84 @@ export function MasterDashboard({
     };
   }, [plans, todayStr]);
 
-  const nearestDisplay =
-    workspaceMetrics.nearestDays !== null
-      ? workspaceMetrics.nearestDays
-      : "—";
-
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10 space-y-8 animate-fadeIn text-[#1c1b1a]">
-      <header className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-        <h1 className="ui-page-title min-w-0">{isZh ? "科目" : "Subjects"}</h1>
+      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5">
+            <h1 className="ui-page-title">{isZh ? "科目" : "Subjects"}</h1>
+            {/* 计数只在这里数一遍。原来页头、这条读数、下面的段头各有一份 plans.length，
+                第三份还起名叫「备考科目」——和 h1 是同一件事的两种叫法。 */}
+            {plans.length > 0 && (
+              <span className="ui-chip tabular-nums">{plans.length}</span>
+            )}
+          </div>
+
+          {/* 元信息不该住盒子：一条带边框的白卡把四个短读数框成了「一块内容」，
+              而它只是页头的附属说明。改成与「今日」页同一口径的一行裸字，
+              项与项之间用一个中点断开（独立成元素的「·」被 design-scale 禁掉，句子内的连接符才合法）。
+              没值的项直接不写，不摆「—」占位——那等于告诉用户这里有一个数，而这个数不存在。 */}
+          {plans.length > 0 && (
+            <p className="ui-row-meta mt-2 tabular-nums">
+              {workspaceMetrics.todayTotal === 0
+                ? isZh
+                  ? "今日无任务"
+                  : "No tasks today"
+                : (
+                  <>
+                    {isZh ? "今日" : "Today"}{" "}
+                    <span className="ui-row-value">
+                      {workspaceMetrics.todayCompleted}/{workspaceMetrics.todayTotal}
+                    </span>
+                  </>
+                )}
+              {workspaceMetrics.nearestDays !== null && (
+                <>
+                  {" · "}
+                  {isZh ? "最近考试" : "Next exam"}{" "}
+                  {workspaceMetrics.nearestPlan?.subject || workspaceMetrics.nearestPlan?.examName}{" "}
+                  <span className="ui-row-value">{workspaceMetrics.nearestDays}</span>
+                </>
+              )}
+              {!workspaceMetrics.awaitingSchedule && (
+                <>
+                  {" · "}
+                  {isZh ? "总进度" : "Overall"}{" "}
+                  <span className="ui-row-value">{workspaceMetrics.globalProgress}%</span>
+                  {/* 完成度是个比例，条比裸数字一眼读得出来（GitHub Pulse 的口径），
+                      所以它跟在数字后面，而不是再开一处读数。 */}
+                  <span
+                    aria-hidden="true"
+                    className="ml-1.5 inline-block h-1 w-10 overflow-hidden rounded-full bg-[#f1efe9] align-middle"
+                  >
+                    <span
+                      className="block h-full rounded-full bg-[#1c1b1a]"
+                      style={{ width: `${workspaceMetrics.globalProgress}%` }}
+                    />
+                  </span>
+                </>
+              )}
+            </p>
+          )}
+        </div>
+
         <button onClick={onAddNewSubject} className="ui-btn ui-btn-primary shrink-0">
           <Plus className="w-4 h-4" />
           {isZh ? "新建科目" : "New subject"}
         </button>
       </header>
 
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-[#eae7e1] bg-white px-4 py-3 text-[13px] text-[#6b6660]">
-        <span>
-          {isZh ? "科目" : "Subjects"} <b className="font-semibold tabular-nums text-[#1c1b1a]">{workspaceMetrics.totalSubjects}</b>
-        </span>
-        <span>
-          {isZh ? "最近考试" : "Nearest"}{" "}
-          <b className="font-semibold tabular-nums text-[#1c1b1a]">{nearestDisplay}</b>
-          {workspaceMetrics.nearestPlan && (
-            <span className="ml-1.5 text-[12px] text-[#6b6660]">{workspaceMetrics.nearestPlan.examName}</span>
-          )}
-        </span>
-        <span>
-          {isZh ? "今日" : "Today"}{" "}
-          <b className="font-semibold tabular-nums text-[#1c1b1a]">
-            {workspaceMetrics.todayCompleted}/{workspaceMetrics.todayTotal}
-          </b>
-        </span>
-        <span className="ml-auto">
-          {isZh ? "总进度" : "Progress"}{" "}
-          <b className="font-semibold tabular-nums text-[#1c1b1a]">
-            {workspaceMetrics.awaitingSchedule ? "—" : `${workspaceMetrics.globalProgress}%`}
-          </b>
-        </span>
-      </div>
-
-      <section className="space-y-4">
-        <div className="flex items-center gap-2.5">
-          <h2 className="ui-section-title">{isZh ? "备考科目" : "Your subjects"}</h2>
-          <span className="ui-chip tabular-nums">{plans.length}</span>
-        </div>
-
-        <CourseAccordionGallery
-          plans={plans}
-          activePlan={activePlan}
-          onSelectPlan={onSelectPlan}
-          onNavigateToTab={onNavigateToTab}
-          onDeletePlan={onDeletePlan}
-          onRequestDeletePlan={onRequestDeletePlan}
-          onAddNewSubject={onAddNewSubject}
-          language={language}
-          todayStr={todayStr}
-        />
-      </section>
+      <CourseAccordionGallery
+        plans={plans}
+        activePlan={activePlan}
+        onSelectPlan={onSelectPlan}
+        onNavigateToTab={onNavigateToTab}
+        onDeletePlan={onDeletePlan}
+        onRequestDeletePlan={onRequestDeletePlan}
+        onAddNewSubject={onAddNewSubject}
+        language={language}
+        todayStr={todayStr}
+      />
     </div>
   );
 }

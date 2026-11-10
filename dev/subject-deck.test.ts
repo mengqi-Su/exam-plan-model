@@ -7,6 +7,8 @@
 //   3) 「新建科目」是同一排里的一条板条，不是网格末尾一块虚线瓷砖。
 //   4) 移动端同一批科目换成手风琴行，展开态由 aria-expanded 说出来，箭头跟着转。
 //   5) 键盘和指针同权：板条可聚焦，Enter / Space 与点击做同一件事。
+//   6) 总览页页头那条读数是一行裸字（与「今日」页同一口径），不是带边框的统计卡；
+//      科目计数全站一处，没值的项直接不写。
 // 文案风格归 dev/copy-guard.test.ts，字阶圆角颜色归 dev/design-scale.test.ts，这里不重复。
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -32,6 +34,18 @@ function gridOffenses(text: string): string[] {
   const bad: string[] = [];
   for (const m of text.matchAll(/(?:^|[\s"'`])((?:[a-z-]+:)*grid-cols-[^\s"'`]*)/g)) bad.push(m[1]);
   if (/<article[\s>]/.test(text)) bad.push('<article> 独立卡片');
+  return bad;
+}
+
+/* 总览页读数行的反面写法：四个短读数被 rounded+border+bg-white 框成「一块内容」，
+   最后一项再用 ml-auto 推到最右边拉出一段空洞，值靠手写 <b> 加粗，没数的地方印「—」。
+   这一行现在跟「今日」页同一口径——标题下一条裸字，中点断开，值走 ui-row-value。 */
+function stripOffenses(text: string): string[] {
+  const bad: string[] = [];
+  if (/rounded-(?:xl|2xl|lg)[^>\n]*border[^>\n]*bg-white/.test(text)) bad.push('带边框的白底统计卡');
+  if (/\bml-auto\b/.test(text)) bad.push('ml-auto 把最后一项推出一段空洞');
+  if (/<b[\s>]/.test(text)) bad.push('<b> 手写加粗：取值该挂 ui-row-value');
+  if (/nearestDisplay|"—"/.test(text)) bad.push('用「—」给一个不存在的数占位');
   return bad;
 }
 
@@ -115,6 +129,27 @@ await check('总览页仍然把这一排挂出来，没有绕过它另铺一份'
   assert.ok(/todayStr=\{todayStr\}/.test(dash), '今日口径由总览页传进来，卡组不自己算今天');
 });
 
+await check('总览页的读数是一行裸字，不是一张统计卡', () => {
+  const dash = codeOnly(read(DASHBOARD));
+  assert.deepEqual(stripOffenses(dash), [], `读数行被换回盒装了：\n${stripOffenses(dash).join('\n')}`);
+  /* 行本体：元信息层的一句话，标签走 ui-row-meta，取值走 ui-row-value */
+  assert.ok(/<p className="ui-row-meta mt-2 tabular-nums">/.test(dash), '读数行是挂在标题下的一行字');
+  assert.ok((dash.match(/ui-row-value/g) || []).length >= 3, '每个取值都用 token，不各写各的加粗');
+  assert.equal((dash.match(/\{" · "\}/g) || []).length, 2, '三项之间两个中点，都在句子里');
+  assert.ok(!/<span[^>]*>\s*·\s*<\/span>/.test(dash), '中点不独立成元素（design-scale 同一条规矩）');
+  /* 计数只数一遍：h1 后面那颗 chip 是全站唯一一处，段头「备考科目」整块没了 */
+  assert.equal((dash.match(/\{plans\.length\}/g) || []).length, 1, '科目计数只有一处');
+  assert.ok(!/ui-section-title/.test(dash) && !/备考科目/.test(dash), '卡组上面不再有一个和自己抢名字的段头');
+  /* 没值就不写这一项：0/0、— 和「0%」都是在说一件并不存在的事 */
+  assert.ok(/todayTotal === 0\s*\n?\s*\? isZh\s*\n?\s*\?\s*"今日无任务"/.test(dash), '今天没排任务时说实话，不摆 0/0');
+  assert.ok(/nearestDays !== null && \(/.test(dash), '没有带日期的考试时，「最近考试」整项消失');
+  assert.ok(!/awaitingSchedule \? "—"/.test(dash), '还没生成计划时不报 0%，也不报 —');
+  assert.ok(/!workspaceMetrics\.awaitingSchedule && \(/.test(dash), '总进度这一项在这种时候根本不出现');
+  /* 完成度是比例：数字后面跟一条极细的内联条，纯装饰所以 aria-hidden */
+  assert.ok(/aria-hidden="true"[\s\S]{0,160}inline-block h-1 w-10/.test(dash), '内联进度条对读屏是装饰，百分数才是话');
+  assert.ok(/style=\{\{ width: `\$\{workspaceMetrics\.globalProgress\}%` \}\}/.test(dash), '条的宽度和那个百分数同一个数');
+});
+
 /* 反面样本：规则抓不住就等于没规则，这里先验自己 */
 await check('守卫有效：网格写法抓得住，百叶窗写法不误伤', () => {
   assert.deepEqual(gridOffenses('className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"'),
@@ -124,6 +159,16 @@ await check('守卫有效：网格写法抓得住，百叶窗写法不误伤', (
   assert.deepEqual(gridOffenses('className="md:hidden space-y-2.5"'), [], '手风琴也不是网格');
   assert.deepEqual(gridOffenses(codeOnly('/* 以前被换成 grid-cols-3，现在恢复了 */ const a = 1;')), [], '注释不会渲染出去');
   assert.deepEqual(gridOffenses('className="flex gap-3 items-stretch"'), [], 'flex 排不是网格');
+  /* 统计卡那一段就是改版前的原文，一条都不能漏 */
+  const OLD_STRIP = `<div className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-[#eae7e1] bg-white px-4 py-3">
+        <span>最近考试 <b className="font-semibold">{nearestDisplay}</b></span>
+        <span className="ml-auto">总进度 <b>{p}%</b></span>
+      </div>`;
+  assert.deepEqual(stripOffenses(OLD_STRIP),
+    ['带边框的白底统计卡', 'ml-auto 把最后一项推出一段空洞', '<b> 手写加粗：取值该挂 ui-row-value', '用「—」给一个不存在的数占位'],
+    '这正是上一版的写法');
+  assert.deepEqual(stripOffenses('<p className="ui-row-meta mt-2 tabular-nums">今日 <span className="ui-row-value">2/5</span></p>'),
+    [], '裸字行不是统计卡');
 });
 
 console.log(`\n${passed} subject-deck checks passed`);
