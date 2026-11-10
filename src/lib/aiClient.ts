@@ -1,5 +1,6 @@
 import { StudyMaterial, TextbookChapter, TextbookOutline } from "../types";
 import { attachTaskTopicIds } from "./links";
+import { formatBookTitle } from "./text";
 
 // 资料库容量和单次生成用量是两件事：库里能存 100 份，一次生成只吃 20 份。
 // 20 这个数字来自提示词预算（每份均分 45,000 字），再多后面的资料就到不了模型面前。
@@ -7,7 +8,6 @@ export const MAX_AI_MATERIALS = 20;
 export const MAX_LIBRARY_MATERIALS = 100;
 // 单次 AI 调用只需要片段文本：本地阅读器仍保留完整原文
 export const MAX_AI_CHARS_PER_MATERIAL = 60_000;
-export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 export interface AiResponseMeta {
   source?: "ai" | "fallback";
@@ -83,14 +83,10 @@ const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
     zh: "请求过于频繁，请等待一分钟后重试。",
     en: "Too many requests. Please wait a minute and try again.",
   },
-  PAYLOAD_TOO_LARGE: {
-    zh: "上传内容超过上限（16 MB），请减少文件数量或压缩文件。",
-    en: "The request exceeds the 16 MB limit. Reduce the number of files or compress them.",
-  },
-  FILE_TOO_LARGE: {
-    zh: "单个文件超过 10 MB 上限，请压缩或拆分后再上传。",
-    en: "Each file must be 10 MB or smaller.",
-  },
+  /* 这里原来挂着 PAYLOAD_TOO_LARGE / FILE_TOO_LARGE 两条，写着「16 MB」「10 MB」。
+     两条都没有产生者：函数闸门发的是小写 body_too_large（下面有），单份体积由
+     documentParser 在本地拦、自己报数。留着等于让同一个上限在文案里还有第二份字面量，
+     改上限时必然漏掉一处，所以删掉。 */
   TOO_MANY_MATERIALS: {
     zh: "一次生成最多用 20 份资料，请取消勾选一部分。",
     en: "One run uses at most 20 materials. Uncheck some files and try again.",
@@ -604,7 +600,7 @@ async function generateTextbookTopics(payload: Record<string, unknown>, ctx: Cal
     );
   }
   const summary = textbook
-    ? ctx.tt(`按《${textbook}》的 ${clean.length} 个章节整理`, `From ${clean.length} chapters of "${textbook}"`)
+    ? ctx.tt(`按${formatBookTitle(textbook)}的 ${clean.length} 个章节整理`, `From ${clean.length} chapters of "${textbook}"`)
     : "";
   return { result: { summary, topics: clean }, meta: { source: "ai" as const } };
 }

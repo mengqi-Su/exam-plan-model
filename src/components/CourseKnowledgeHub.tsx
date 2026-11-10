@@ -20,6 +20,7 @@ import {
 } from "../lib/aiClient";
 import { mergeTopics, nonTextbookTitles, replaceTextbookTopics } from "../lib/topics";
 import { duplicateMaterialsNotice, mergeMaterials } from "../lib/materials";
+import { formatBookTitle } from "../lib/text";
 import { TabbedFolderArchive } from "./TabbedFolderArchive";
 import { UploadModal } from "./UploadModal";
 import { NoteModal } from "./NoteModal";
@@ -251,7 +252,7 @@ export function CourseKnowledgeHub({
       ...plan,
       topics: replaceTextbookTopics(topics, nextTopics),
       materialsSummary: zh
-        ? `《${bookTitle}》目录 · AI 整理 ${nextTopics.length} 个考点`
+        ? `${formatBookTitle(bookTitle)}目录 · AI 整理 ${nextTopics.length} 个考点`
         : `Outline of "${bookTitle}" · ${nextTopics.length} topics recalled by AI`,
       updatedAt: new Date().toISOString(),
     });
@@ -259,7 +260,7 @@ export function CourseKnowledgeHub({
     setExtractError(null);
     setSuccessNote(
       zh
-        ? `已按《${bookTitle}》目录整理 ${nextTopics.length} 个考点，标着「教材目录」，随时可以删。`
+        ? `已按${formatBookTitle(bookTitle)}目录整理 ${nextTopics.length} 个考点，标着「教材目录」，随时可以删。`
         : `${nextTopics.length} topics added from "${bookTitle}", marked “Textbook” and removable any time.`
     );
     window.setTimeout(() => setSuccessNote(null), 6000);

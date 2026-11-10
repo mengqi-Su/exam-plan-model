@@ -193,6 +193,14 @@ export function CourseDetailPage({
     setKnowledgeReveal((n) => n + 1);
   };
 
+  // 按钮写的是「去上传资料」，那就该把人送到上传口：先展开资料区，再把上传弹窗打开，
+  // 不该让人在展开之后自己找那颗「上传文件」。页头主动作和待办卡那颗按钮共用这一份，
+  // 同一个标签不许一处送到弹窗、另一处只展开半件事。
+  const revealUpload = () => {
+    revealKnowledge();
+    setUploadRequest((n) => n + 1);
+  };
+
   const toggleTask = (taskId: string) => {
     const task = plan.tasks.find((item) => item.id === taskId);
     if (!task) return;
@@ -212,7 +220,7 @@ export function CourseDetailPage({
     if (pendingCopy) {
       return {
         label: pendingCopy.action,
-        onClick: readiness === "awaiting-materials" ? revealKnowledge : () => onRequestPlanGeneration?.(plan),
+        onClick: readiness === "awaiting-materials" ? revealUpload : () => onRequestPlanGeneration?.(plan),
       };
     }
     const hasOpenToday = todayTasks.some((task) => task.status !== "completed" && task.status !== "skipped");
@@ -221,13 +229,6 @@ export function CourseDetailPage({
       onClick: () => onNavigateToTab("today"),
     };
   })();
-
-  // 按钮写的是「去上传资料」，那就该把人送到上传口：先展开资料区，再把上传弹窗打开，
-  // 不该让人在展开之后自己找那颗「上传文件」。
-  const revealUpload = () => {
-    revealKnowledge();
-    setUploadRequest((n) => n + 1);
-  };
 
   const handleSaveExam = (draft: ExamDraft) => {
     const dateChanged = draft.examDate !== plan.examDate;

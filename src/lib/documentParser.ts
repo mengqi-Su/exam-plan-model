@@ -1,4 +1,3 @@
-import { MAX_UPLOAD_BYTES } from "./aiClient";
 import { LegacyWordError, extractLegacyWordText, isOleCompoundFile } from "./legacyWord";
 
 export interface ParsedDocumentResult {
@@ -27,6 +26,15 @@ const TEXT_EXTENSIONS = new Set(["txt", "md", "markdown", "json", "csv", "rtf"])
 export const UPLOAD_ACCEPT = Array.from(SUPPORTED_EXTENSIONS)
   .map((e) => `.${e}`)
   .join(",");
+
+/* 单份资料的体积上限。解析全在浏览器本地做（文件不离开设备），所以这个数管的是内存和解析时间，
+   不是网络带宽：20 MB 装得下图多的讲义 PPTX 和上百页的文字 PDF，而 10 MB 会把它们挡在门外。
+   再往上放宽买不到东西——正文本来就要截到 MAX_MATERIAL_CHARS，更大的文件不会多产出考点；
+   扫描件又没有文字层，收进来也只是多一次失败。队列并发是 UPLOAD_CONCURRENCY 份，
+   峰值缓冲因此是这个数的两倍，20 MB 在手机上仍然留得住余量。
+   上限只在这里定义一次，报错文案和界面规格都由它算出，别处不再写死一个 MB 数字。 */
+export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+export const MAX_UPLOAD_MB = MAX_UPLOAD_BYTES / (1024 * 1024);
 
 // 旧版 PowerPoint 走的是另一套 OLE 流（PowerPoint Document，记录式结构），
 // 与 Word 的 piece table 完全不同，不值得在这里重写一遍。但它和 .doc 共用同一个文件头，
@@ -72,8 +80,15 @@ export async function parseDocumentFile(
   }
 
   if (file.size > MAX_UPLOAD_BYTES) {
+    /* 只报它多大、上限多少，不报文件名：两个上传入口都已经用「文件名：原因」这一份格式
+       把名字挂在行首，这里再带一遍就印成「探针.pdf：「探针.pdf」21.0 MB…」。
+       应用里没有能把文件变小的动作，所以也不摆一句「压缩后再试」——读数本身就是原因，
+       上限在上传入口一直挂着。 */
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
     throw new Error(
-      isZh ? "单个文件超过 10 MB 上限，请压缩或拆分后再上传。" : "Each file must be 10 MB or smaller."
+      isZh
+        ? `${sizeMb} MB，超过单份 ${MAX_UPLOAD_MB} MB 上限。`
+        : `${sizeMb} MB, over the ${MAX_UPLOAD_MB} MB per-file limit.`
     );
   }
 

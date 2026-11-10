@@ -5,12 +5,16 @@ import { useI18n } from "../lib/i18n";
 import { GenerationError, runGeneration } from "../lib/aiClient";
 import { ModalShell } from "./ModalShell";
 import { normalizeTopicTitle } from "../lib/topics";
+import { formatBookTitle } from "../lib/text";
 
 /**
  * 只填一个教材名，先把这本教材的通行目录回忆出来给人过目：
  * 勾选 / 改名 / 调学时都在这一屏做完，确认后才逐章展开成考点。
  * 目录记错是常态而不是意外，所以「先看目录、再生成考点」这两步不能合成一步。
  * 向导与科目页共用这一个弹窗，不在两处各写一套。
+ *
+ * 两种进法：向导第二步的书名输入框已经填好，带 initialTextbook 进来直接回忆目录；
+ * 科目页工具条没有输入框，落到本弹窗自己的书名屏。回忆与展开的逻辑只有下面这一份。
  */
 
 interface DraftChapter extends TextbookChapter {
@@ -26,6 +30,9 @@ const CONFIDENCE_TONE: Record<string, string> = {
 interface TextbookOutlineDialogProps {
   open: boolean;
   onClose: () => void;
+  /** 调用方那一层已经填好的书名（向导第二步的输入框）。带着它开窗就直接去回忆目录，
+      不再让人在浮层里把同一个书名重打一遍；没有它才落到本弹窗自己的书名屏。 */
+  initialTextbook?: string;
   examName?: string;
   subject?: string;
   /** 展开好的考点由调用方决定是替换资料提炼的结果，还是并科目里现有的考点 */
@@ -37,6 +44,7 @@ interface TextbookOutlineDialogProps {
 export function TextbookOutlineDialog({
   open,
   onClose,
+  initialTextbook,
   examName,
   subject,
   onApply,
@@ -94,8 +102,8 @@ export function TextbookOutlineDialog({
     setDrafts((prev) => prev.map((draft) => (draft.id === id ? { ...draft, ...patch } : draft)));
   };
 
-  const requestToc = async () => {
-    const name = textbook.trim();
+  const requestToc = async (nameOverride?: string) => {
+    const name = (nameOverride ?? textbook).trim();
     if (!name || workingRef.current) return;
     workingRef.current = true;
     setIsWorking(true);
@@ -158,6 +166,22 @@ export function TextbookOutlineDialog({
       abortRef.current = null;
     }
   };
+
+  /* 带着书名开窗（向导第二步的输入框已经填好）就直接去回忆目录，落在章节核对那一屏，
+     不让人在浮层里把同一个书名重打一遍。一次开窗只自动跑一次：在核对屏点「换一本」
+     要的是书名屏，不该又被弹回目录。没有 initialTextbook 的入口（科目页工具条）照旧先看书名屏。 */
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (!open) {
+      autoStartedRef.current = false;
+      return;
+    }
+    const name = (initialTextbook || "").trim();
+    if (!name || autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    setTextbook(name);
+    void requestToc(name);
+  }, [open, initialTextbook]);
 
   const stopWorking = () => abortRef.current?.abort();
 
@@ -251,7 +275,10 @@ export function TextbookOutlineDialog({
     <ModalShell
       open={open}
       onClose={close}
-      title={tt(`《${outline.textbook || textbook.trim()}》目录`, `Outline of "${outline.textbook || textbook.trim()}"`)}
+      title={tt(
+        `${formatBookTitle(outline.textbook || textbook)}目录`,
+        `Outline of "${(outline.textbook || textbook).trim()}"`
+      )}
       closeLabel={tt("关闭教材目录弹窗", "Close textbook outline dialog")}
       icon={<BookOpen className="h-4 w-4" />}
       size="lg"

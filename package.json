@@ -23,6 +23,7 @@
     "test:countdown": "tsx dev/countdown.test.ts",
     "test:draft": "tsx dev/wizard-draft.test.ts",
     "test:queue": "tsx dev/upload-queue.test.ts",
+    "test:uploadlimit": "tsx dev/upload-limit.test.ts",
     "test:zipbomb": "tsx dev/zip-bomb.test.ts",
     "test:csp": "tsx dev/csp.test.ts",
     "test:focus": "tsx dev/focus.test.ts",

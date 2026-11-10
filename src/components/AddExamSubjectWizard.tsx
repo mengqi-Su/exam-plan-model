@@ -61,7 +61,7 @@ import {
 } from "../lib/dailyHours";
 import { mergeTopics, nonTextbookTitles, replaceTextbookTopics } from "../lib/topics";
 import { duplicateMaterialsNotice, mergeMaterials } from "../lib/materials";
-import { clauseJoin, labelColon, pl, unitNoun, visibleChars } from "../lib/text";
+import { bookNameFromSummary, clauseJoin, formatBookTitle, labelColon, pl, unitNoun, visibleChars } from "../lib/text";
 import {
   clearWizardDraft,
   loadWizardDraft,
@@ -72,7 +72,7 @@ import { RulerTimePicker } from "./RulerTimePicker";
 import { TextbookOutlineDialog } from "./TextbookOutlineDialog";
 import { ModalShell } from "./ModalShell";
 import { NoticeBand } from "./NoticeBand";
-import { UploadQueuePanel } from "./UploadQueuePanel";
+import { UploadLimitChips, UploadQueuePanel } from "./UploadQueuePanel";
 
 interface AddExamSubjectWizardProps {
   onPlanCreated: (newPlan: ExamStudyPlan, notice?: string | null) => void;
@@ -186,7 +186,16 @@ export function AddExamSubjectWizard({
   const [aiReady, setAiReady] = useState<boolean | null>(null);
   const [previewDoc, setPreviewDoc] = useState<StudyMaterial | null>(null);
   const [textbookDialogOpen, setTextbookDialogOpen] = useState(false);
+  /* 两个书名不是一回事：textbookLabel 是「已经整理成考点的那一本」，要写进资料摘要；
+     textbookInput 是第二步输入框里正在打的字，可能还没整理、也可能打了一半就换了。
+     合成一个状态的话，用户改个书名没点整理，摘要就会跟着改口说考点来自那本新书。 */
   const [textbookLabel, setTextbookLabel] = useState("");
+  const [textbookInput, setTextbookInput] = useState("");
+  // 恢复草稿、换科目、整理完成时两边一起走；只有用户正在打字时只动输入框。
+  const setBookName = (name: string) => {
+    setTextbookLabel(name);
+    setTextbookInput(name);
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const workingRef = useRef(false);
@@ -233,8 +242,8 @@ export function AddExamSubjectWizard({
     setCourseDocuments(Array.isArray(initialPlan.materials) ? initialPlan.materials : []);
     setTopics(Array.isArray(initialPlan.topics) ? initialPlan.topics : []);
     // 教材名只存在于那句资料摘要里，回忆出来是为了摘要文案不变成「《教材》目录」。
-    const summary = initialPlan.materialsSummary || "";
-    setTextbookLabel(summary.startsWith("《") && summary.includes("》") ? summary.slice(1, summary.indexOf("》")) : "");
+    // 怎么摘交给 text.ts：用户自己打了书名号时，第一个》并不是书名的结尾，就地切会把版次切掉。
+    setBookName(bookNameFromSummary(initialPlan.materialsSummary || ""));
     setStep(2);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPlan?.id]);
@@ -318,7 +327,7 @@ export function AddExamSubjectWizard({
     setCourseDocuments(draft.materials);
     setAiSelectedIds(draft.aiSelectedIds);
     setTopics(draft.topics);
-    setTextbookLabel(draft.textbookLabel);
+    setBookName(draft.textbookLabel);
     // 回到哪一步看的是「还差什么」，不是草稿里记的那个数字：
     // 停在生成那一步却什么资料都没有，点下去只会撞出一条本来不必出现的报错。
     const detailsOk =
@@ -344,7 +353,7 @@ export function AddExamSubjectWizard({
     setCourseDocuments([]);
     setAiSelectedIds([]);
     setTopics([]);
-    setTextbookLabel("");
+    setBookName("");
     setShowTopics(false);
     setStep(1);
     setError(null);
@@ -490,9 +499,16 @@ export function AddExamSubjectWizard({
 
   const applyTextbookTopics = (nextTopics: SyllabusTopic[], outline: TextbookOutline) => {
     setTopics((prev) => replaceTextbookTopics(prev, nextTopics));
-    setTextbookLabel(outline.textbook || "");
+    setBookName(outline.textbook || "");
     setTextbookDialogOpen(false);
     setError(null);
+  };
+
+  // 输入框就在第二步这一层，书名已经填好了才开弹窗：弹窗直接去回忆目录，
+  // 不再让人在浮层里把同一个书名重打一遍。空书名不开窗，按钮那时本来就是禁用的。
+  const openTextbookOutline = () => {
+    if (isWorking || !textbookInput.trim()) return;
+    setTextbookDialogOpen(true);
   };
 
   const detailsReady =
@@ -896,7 +912,7 @@ export function AddExamSubjectWizard({
             `${courseDocuments.length} materials · ${activeTopics.length} topics extracted by AI`
           )
           : tt(
-            `《${textbookLabel || tt("教材", "textbook")}》目录 · AI 整理 ${activeTopics.length} 个考点`,
+            `${formatBookTitle(textbookLabel || tt("教材", "textbook"))}目录 · AI 整理 ${activeTopics.length} 个考点`,
             `Outline of "${textbookLabel || "the textbook"}" · ${activeTopics.length} topics recalled by AI`
           ),
     };
@@ -1373,7 +1389,52 @@ export function AddExamSubjectWizard({
                   ? parsingStatus || tt("正在读取资料...", "Reading materials...")
                   : tt("拖拽资料到这里，或点击选择文件", "Drop materials here, or click to browse")}
               </p>
+              <UploadLimitChips className="mt-2.5" />
             </label>
+
+            {/* 教材名和上传是两条并列的来路，不是附在末尾的补充：一份资料都没有时它就是唯一输入。
+                所以输入框常驻在这一层，紧跟上传区，不再点一次 ghost 按钮去浮层里找书名。
+                弹窗只负责核对目录，AI 流程仍然只有它那一套，这里不另起一份。 */}
+            <div className="rounded-xl border border-[#eae7e1] bg-white p-3.5 sm:p-4">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f1efe9] text-[#1c1b1a]">
+                  <BookOpen className="h-4 w-4" />
+                </span>
+                <label htmlFor="wizard-textbook-name" className="ui-group-title min-w-0 flex-1">
+                  {tt("教材名", "Textbook name")}
+                </label>
+                {textbookTopicCount > 0 && (
+                  <span className="ui-chip shrink-0 tabular-nums">
+                    {tt(`${textbookTopicCount} 个考点`, `${textbookTopicCount} topics`)}
+                  </span>
+                )}
+              </div>
+              <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
+                <input
+                  id="wizard-textbook-name"
+                  type="text"
+                  value={textbookInput}
+                  maxLength={200}
+                  onChange={(event) => setTextbookInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      openTextbookOutline();
+                    }
+                  }}
+                  placeholder={tt("如：《导游业务》第 4 版", "e.g. Introduction to Algorithms, 3rd ed.")}
+                  className={`${inputClass} min-w-0 flex-1`}
+                />
+                <button
+                  onClick={openTextbookOutline}
+                  disabled={!textbookInput.trim()}
+                  className="ui-btn ui-btn-primary shrink-0 px-4 py-2 text-[13px] disabled:opacity-40"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>{textbookTopicCount > 0 ? tt("重新整理目录", "Re-outline") : tt("整理目录", "Build outline")}</span>
+                </button>
+              </div>
+            </div>
 
             <UploadQueuePanel
               tasks={uploadTasks}
@@ -1485,31 +1546,6 @@ export function AddExamSubjectWizard({
               </div>
             )}
 
-            {/* 第二条来路：一份资料都没有时，只填教材名也能拿到考点。放在资料之后，
-                因为它不产生资料文件，只产生考点，所以不复用上面的上传口径。 */}
-            <div className="h-px bg-[#f0ede8]" aria-hidden="true" />
-
-            <div className="flex flex-col items-start justify-between gap-2 rounded-xl border border-[#eae7e1] bg-[#faf9f6] px-4 py-3 sm:flex-row sm:items-center">
-              <div className="min-w-0">
-                <h3 className="ui-group-title">{tt("只填教材名，按目录整理考点", "No files? Name the textbook instead")}</h3>
-                {textbookTopicCount > 0 && (
-                  <p className="ui-row-meta mt-1 leading-relaxed tabular-nums">
-                    {tt(
-                      `已按《${textbookLabel || tt("教材", "textbook")}》目录整理 ${textbookTopicCount} 个考点`,
-                      `${textbookTopicCount} topics from "${textbookLabel || "the textbook"}"`
-                    )}
-                  </p>
-                )}
-              </div>
-              <button
-                onClick={() => setTextbookDialogOpen(true)}
-                disabled={isWorking}
-                className="ui-btn ui-btn-ghost shrink-0 px-3 py-1.5 text-[12px] disabled:opacity-40"
-              >
-                <BookOpen className="h-3.5 w-3.5" />
-                <span>{textbookTopicCount > 0 ? tt("重新整理目录", "Re-outline") : tt("整理教材目录", "Outline a textbook")}</span>
-              </button>
-            </div>
           </fieldset>
         </section>
       )}
@@ -1548,7 +1584,7 @@ export function AddExamSubjectWizard({
                 <div className="mt-0.5 truncate font-medium text-[#1c1b1a] tabular-nums">
                   {courseDocuments.length > 0
                     ? tt(`${courseDocuments.length} 份资料`, pl(courseDocuments.length, "file", "files"))
-                    : tt(`《${textbookLabel || tt("教材", "textbook")}》目录`, `outline of "${textbookLabel || "textbook"}"`)}
+                    : tt(`${formatBookTitle(textbookLabel || tt("教材", "textbook"))}目录`, `outline of "${textbookLabel || "textbook"}"`)}
                 </div>
               </div>
             </div>
@@ -1745,6 +1781,7 @@ export function AddExamSubjectWizard({
       <TextbookOutlineDialog
         open={textbookDialogOpen}
         onClose={() => setTextbookDialogOpen(false)}
+        initialTextbook={textbookInput.trim()}
         examName={examName.trim()}
         subject={subject.trim()}
         existingTopicTitles={nonTextbookTitles(topics)}

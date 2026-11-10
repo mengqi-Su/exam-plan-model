@@ -12,7 +12,7 @@ import {
 import { useI18n } from "../lib/i18n";
 import { clauseJoin, labelColon, pl } from "../lib/text";
 import { ModalShell } from "./ModalShell";
-import { UploadQueuePanel } from "./UploadQueuePanel";
+import { UploadLimitChips, UploadQueuePanel } from "./UploadQueuePanel";
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -196,6 +196,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           <p className="ui-row-title">
             {isParsing ? parsingStatus : isZh ? "点击选择 或 拖入文件" : "Click or drop files"}
           </p>
+
+          <UploadLimitChips />
         </div>
       </div>
 

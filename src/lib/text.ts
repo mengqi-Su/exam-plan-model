@@ -26,3 +26,27 @@ export function clauseJoin(parts: string[], isZh: boolean): string {
 export function labelColon(isZh: boolean): string {
   return isZh ? "：" : ": ";
 }
+
+/* 书名号只加一次。教材名输入框的示例本身就是「《导游业务》第 4 版」，用户照着打进来再套一层，
+   标题就印成《《导游业务》第 4 版》，资料摘要的前缀解析也跟着错位。自己带号的原样留下，
+   没带号的才补——弹窗标题、向导摘要、科目页提示共用这一份规矩，不在调用处各写一遍模板。 */
+export function formatBookTitle(name: string): string {
+  const value = String(name || "").trim();
+  if (!value) return "";
+  return value.includes("《") || value.includes("》") ? value : `《${value}》`;
+}
+
+/* formatBookTitle 的反向：从「<书名>目录 · AI 整理 N 个考点」里取回用户当初填的那个名字。
+   书名自己可能带号，所以不能拿第一个》当结尾——一直认到「目录 · 」这个由上面保证的后缀，
+   再剥掉正好包住整串的那一对号，两种写法都能原样还原。英文摘要同理解析引号里的那一段。
+   兜底词（「教材」/「the textbook」）不是书名，认出来就返回空串，免得回填进输入框。 */
+export function bookNameFromSummary(summary: string): string {
+  const text = String(summary || "");
+  const zh = /^(.*)目录 · /.exec(text);
+  const en = /^Outline of "(.*)" · /.exec(text);
+  const title = zh ? zh[1] : en ? en[1] : "";
+  if (!title) return "";
+  const wrapped = /^《(.*)》$/.exec(title);
+  const name = wrapped ? wrapped[1] : title;
+  return name === "教材" || name === "the textbook" ? "" : name;
+}

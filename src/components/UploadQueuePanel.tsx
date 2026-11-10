@@ -1,6 +1,8 @@
 import React from "react";
 import { AlertCircle, Check, Loader2 } from "lucide-react";
 import { type UploadTask, pendingUploadCount } from "../lib/uploadQueue";
+import { MAX_UPLOAD_MB } from "../lib/documentParser";
+import { MAX_LIBRARY_MATERIALS } from "../lib/aiClient";
 import { pl } from "../lib/text";
 import { useI18n } from "../lib/i18n";
 
@@ -95,5 +97,24 @@ export const UploadQueuePanel: React.FC<UploadQueuePanelProps> = ({
         ))}
       </ul>
     </div>
+  );
+};
+
+/* 上传规格全站就这一行：向导第二步和科目页上传弹窗都挂它，两个入口不会各说一套数。
+   数字由常量算出，改上限只改 documentParser 一处。这是规格读数（和页头「已存 N 门」同类），
+   不是解释句，所以用 chip 而不是灰字段落——「次要灰字全清」清的是说明文，不是上限本身。
+   一次生成用几份是另一件事，它绑在资料列表的勾选框上，不在这里重复一遍。 */
+export const UploadLimitChips: React.FC<{ className?: string }> = ({ className = "" }) => {
+  const { language } = useI18n();
+  const tt = (zh: string, en: string) => (language === "zh" ? zh : en);
+  return (
+    <span className={`flex flex-wrap items-center justify-center gap-1.5 ${className}`}>
+      <span className="ui-chip tabular-nums">
+        {tt(`单份 ≤ ${MAX_UPLOAD_MB} MB`, `Up to ${MAX_UPLOAD_MB} MB each`)}
+      </span>
+      <span className="ui-chip tabular-nums">
+        {tt(`资料库 ${MAX_LIBRARY_MATERIALS} 份`, `${MAX_LIBRARY_MATERIALS} per library`)}
+      </span>
+    </span>
   );
 };
