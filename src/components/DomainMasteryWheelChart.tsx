@@ -331,8 +331,10 @@ export function DomainMasteryWheelChart({
         </div>
       </div>
 
-      {/* Right: Topic detail card */}
-      <div className="flex-1 w-full max-w-md ui-card p-5 space-y-4">
+      {/* Right: 选中考点的明细。它不再是一张 ui-card：整块轮盘已经站在一张卡上了，
+          卡里再描一圈边就成了「页 → 段 → 卡 → 卡」第四层，两边边界互相打架。
+          宽屏用一条发丝竖线分栏，窄屏落到下面只留上边那一条。 */}
+      <div className="w-full max-w-md flex-1 space-y-4 border-t border-[#f0ede8] pt-5 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
         {/* 卡片标题就是考点名本身：不再先摆一个「考点深度解构」的样板标题，再重复一次名字 */}
         <div className="flex items-start justify-between gap-2 border-b border-[#f0ede8] pb-3 min-w-0">
           <div className="flex items-start gap-2 min-w-0">

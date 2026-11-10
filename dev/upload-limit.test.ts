@@ -158,14 +158,14 @@ await check('书名号只加一次，摘要能原样摘回用户填的名字', (
   assert.deepEqual(offenders, ['src/lib/text.ts'], `\n书名号模板只该出现在 text.ts：\n${offenders.join('\n')}`);
 });
 
-await check('「去上传资料」两颗按钮都真的送到上传弹窗', () => {
+await check('「去上传资料」只有一颗，它真的送到上传弹窗', () => {
   const src = read('src/components/CourseDetailPage.tsx');
   /* 同一个标签不许一处送到弹窗、另一处只把资料区展开：展开之后还要人自己找「上传文件」，
-     等于一句话办半件事。页头主动作以前接的是 revealKnowledge，待办卡接的是 revealUpload。 */
+     等于一句话办半件事。以前这里是两颗按钮（页头主动作 + 待办卡），科目页去重之后只留页头那颗。 */
   assert.equal((src.match(/const revealUpload = /g) || []).length, 1, '送到上传口这件事只有一份实现');
   assert.ok(/revealKnowledge\(\);\s*\n\s*setUploadRequest/.test(src), 'revealUpload 先展开再开弹窗');
   const wired = src.match(/readiness === "awaiting-materials" \? revealUpload/g) || [];
-  assert.equal(wired.length, 2, `页头主动作和待办卡都要接 revealUpload，实际 ${wired.length} 处`);
+  assert.equal(wired.length, 1, `「去上传资料」只接在页头那颗主动作上，实际 ${wired.length} 处`);
   assert.ok(!/awaiting-materials" \? revealKnowledge/.test(src), '不许再有只展开的那条分支');
   /* 定义要在 primaryAction 之前：那是个立即执行的 IIFE，晚定义会撞 TDZ */
   assert.ok(src.indexOf('const revealUpload') < src.indexOf('const primaryAction'), 'revealUpload 先定义再用');

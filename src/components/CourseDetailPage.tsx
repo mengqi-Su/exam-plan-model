@@ -5,7 +5,6 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronDown,
-  Hourglass,
   Layers,
   Pencil,
   Sparkles,
@@ -16,9 +15,9 @@ import type { LucideIcon } from "lucide-react";
 import { ExamStudyPlan, PracticeEvent } from "../types";
 import type { FocusTarget } from "../lib/inbound";
 import { useI18n } from "../lib/i18n";
-import { countdownClockLabel, examCountdown, toLocalDateString } from "../lib/date";
+import { toLocalDateString } from "../lib/date";
 import { planReadiness, readinessCopy } from "../lib/planReadiness";
-import { pl } from "../lib/text";
+import { pl, unitNoun } from "../lib/text";
 import { SectionBlock } from "./SectionBlock";
 import { PageIconGlyph } from "./PageIconGlyph";
 import { PageCover } from "./PageCover";
@@ -85,22 +84,9 @@ export function CourseDetailPage({
     setScheduleNotice(null);
   }, [plan.id]);
 
-  // 只负责一秒一跳的节拍；天数和时分秒怎么算全在 lib/date 一处
-  const [countdownNow, setCountdownNow] = useState(() => new Date());
-
-  useEffect(() => {
-    if (!plan?.examDate) return;
-    const interval = setInterval(() => setCountdownNow(new Date()), 1000);
-    return () => clearInterval(interval);
-  }, [plan?.examDate]);
-
-  // 倒计时收进页头属性行：一行文字，不再挂一块黑色翻页钟。
-  // 这里的整天数和今日页「还剩 N 天」、总览卡 D-N、编辑弹窗那句预告是同一个数。
-  const countdownText = useMemo(() => {
-    const countdown = examCountdown(plan.examDate, plan.examTime, countdownNow);
-    if (!countdown) return isZh ? "未设定" : "Not set";
-    return countdownClockLabel(countdown, isZh);
-  }, [countdownNow, plan.examDate, plan.examTime, isZh]);
+  // 倒计时只由「备考路线」那条轴的考试日节点说一次（D-N），页头不再挂一条属性。
+  // 原来这里还跑着一个 setInterval 每秒重渲染整页，只为把小时分秒读下去——
+  // 天数在一天之内不会变，一秒一跳的读数反而让同一门考试在三个页面报出三种样子。
 
   // 日期和时间合成一条属性：属性行按「事实」分行，不按录入字段分行。
   const examWhenText = useMemo(() => {
@@ -122,15 +108,15 @@ export function CourseDetailPage({
       .reduce((sum, task) => sum + (task.actualMinutesSpent || task.durationMinutes || 0), 0);
 
     return {
-      completedCount,
       totalCount,
       progressPercent,
       plannedHours: Math.round((totalPlannedMinutes / 60) * 10) / 10,
       investedHours: Math.round((completedMinutes / 60) * 10) / 10,
       materialsCount: plan.materials?.length || 0,
-      topicsCount: plan.topics?.length || 0,
+      /* 考点的个数不在这里数：轮盘中心已经写了「N 个考点」，资料段标题再数一次，
+         同一批考点就在同一页印两遍，两处还容易长成两个数（清单 HTTV 那批算了不用的计数）。 */
     };
-  }, [plan.tasks, plan.materials, plan.topics]);
+  }, [plan.tasks, plan.materials]);
 
   const todayStr = useMemo(() => toLocalDateString(), []);
 
@@ -318,8 +304,9 @@ export function CourseDetailPage({
         <header className="relative">
           {/* Notion 三段：页面图标 → 文档标题 → 属性。
               封面只是底，不承载信息也不放内容；科目身份仍然是 planIcon。
-              属性一条是「图标+标签+取值」，桌面两行两列、窄屏退成一行一条，
-              标签定宽所以取值对齐成列；日期和时间合成一条，因为它们是同一个事实。 */}
+              属性一条是「图标+标签+取值」，标签定宽所以取值对齐成列；日期和时间合成一条，
+              因为它们是同一个事实。这里只剩三条（学科 / 考试 / 目标）：倒计时不在属性行里，
+              它属于「备考路线」那条轴的考试日节点，写两遍就会有两个天数口径。 */}
           {!pageHasCover && <div className="mb-1 flex h-6 items-center">{editButton}</div>}
 
           <PageIconGlyph plan={plan} className="ui-page-icon relative z-20" />
@@ -345,7 +332,6 @@ export function CourseDetailPage({
               value={plan.preferences?.targetScoreOrGrade || notSet(isZh)}
               muted={!plan.preferences?.targetScoreOrGrade}
             />
-            <PropItem icon={Hourglass} label={isZh ? "距考试" : "Days left"} value={countdownText} />
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -379,8 +365,14 @@ export function CourseDetailPage({
 
       {/* 页头和正文之间留一整段呼吸（全站块间距 24），发丝分隔线才不会紧贴在属性行底下。 */}
       <main className="max-w-6xl mx-auto px-4 sm:px-8 mt-6">
-        {/* 段落靠左标栏 + 发丝分隔线排布；白卡只留给内容，不再一块块等宽平铺。 */}
+        {/* 段与段之间只靠发丝分隔线断开，标题和它的计数写在同一行；
+            白卡只留给内容本身，不再一块块等宽平铺，也不再左边立一栏标签。 */}
         <div className="border-t border-[#eeece6] divide-y divide-[#eeece6]">
+          {/* 顺序按「整体走到哪 → 今天做什么 → 哪里没掌握 → 凭什么」排。
+              轴先给全景，今日任务才是当下这一格；反过来排会让人先看见五行任务，
+              却不知道这五行站在整个计划的前头还是尾巴上。 */}
+          <PhaseRoadmapSection plan={plan} />
+
           <SectionBlock
             title={isZh ? "今日任务" : "Today"}
             hint={todayStr}
@@ -393,27 +385,18 @@ export function CourseDetailPage({
             }
           >
             {pendingCopy ? (
-              <div className="ui-card px-4 sm:px-5 py-4">
-                <div className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#EEF4EF] text-[#3F6B4F]">
-                    {readiness === "awaiting-materials" ? (
-                      <Upload className="h-4 w-4" />
-                    ) : (
-                      <Sparkles className="h-4 w-4" />
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="ui-row-title">{pendingCopy.title}</p>
-                    <button
-                      onClick={() =>
-                        readiness === "awaiting-materials" ? revealUpload() : onRequestPlanGeneration?.(plan)
-                      }
-                      className="ui-btn ui-btn-primary mt-3 inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium"
-                    >
-                      {pendingCopy.action}
-                    </button>
-                  </div>
-                </div>
+              /* 待办只说「还差什么」，动作交给页头那颗按钮。
+                 原来这张卡里又复刻一颗同名同逻辑的主按钮：同一页两个入口，
+                 第二个还多包一层白卡，而它只装得下一行字和一个按钮。 */
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#EEF4EF] text-[#3F6B4F]">
+                  {readiness === "awaiting-materials" ? (
+                    <Upload className="h-4 w-4" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                </span>
+                <p className="ui-row-title min-w-0 pt-1 leading-relaxed">{pendingCopy.title}</p>
               </div>
             ) : todayTasks.length > 0 ? (
               <ul className="ui-card divide-y divide-[#f0ede8] overflow-hidden">
@@ -450,48 +433,33 @@ export function CourseDetailPage({
               <p className="ui-note">{emptyTodayLine}</p>
             ) : null}
 
-            {/* 两个计量挂在今天下面：进度是这套计划的进度，不再单独占一张大卡。
-                还没生成计划的科目没有进度可言，摆一个 0% 只会让人以为哪里坏了。 */}
-            {!pendingCopy && (
-              <div className="mt-4 ui-card px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:gap-0 gap-4">
-              <div className="sm:flex-1 sm:pr-6 sm:border-r sm:border-[#f0ede8] min-w-0">
-                <span className="ui-row-meta">{isZh ? "任务进度" : "Task progress"}</span>
-                <div className="mt-1.5 flex items-baseline gap-2">
-                  <span className="ui-stat-value">{stats.progressPercent}%</span>
-                  <span className="ui-row-meta tabular-nums">
-                    {stats.completedCount}/{stats.totalCount}
+            {/* 整门科目的进度挂在今天下面，收成一行读数 + 一条 bar。
+                原来这里是两个 30px 大数字各带一条 bar 的白卡：进度这一件事在页头、
+                任务卡页脚、这里各说一遍，而且它自己就占了两层（卡 + 两条计量），
+                读起来比上面的任务列表还重。
+                「已完成 12/40」也不再说一次：它和 32% 是同一个数两种写法，
+                标题旁边那枚 chip 说的是今天，分母不同，只有这一处是整门科目。 */}
+            {!pendingCopy && stats.totalCount > 0 && (
+              <div className="mt-4">
+                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 ui-row-meta tabular-nums">
+                  <span>
+                    {isZh ? "总进度" : "Overall"} <span className="ui-row-value">{stats.progressPercent}%</span>
+                  </span>
+                  <span>
+                    {isZh ? "投入" : "Invested"}{" "}
+                    <span className="ui-row-value">
+                      {stats.investedHours}/{stats.plannedHours}{" "}
+                      {isZh ? "小时" : unitNoun(stats.plannedHours, { one: "hr", many: "hrs" })}
+                    </span>
                   </span>
                 </div>
-                <div className="mt-2.5 h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#f1efe9]">
                   <div
                     className="h-full rounded-full bg-[#1c1b1a] transition-all duration-300"
                     style={{ width: `${stats.progressPercent}%` }}
                   />
                 </div>
               </div>
-
-              <div className="sm:flex-1 sm:pl-6 min-w-0">
-                <span className="ui-row-meta">{isZh ? "学习投入" : "Time invested"}</span>
-                <div className="mt-1.5 flex items-baseline gap-1.5">
-                  <span className="ui-stat-value">{stats.investedHours}</span>
-                  <span className="ui-row-meta tabular-nums">
-                    / {stats.plannedHours} {isZh ? "小时" : "hrs"}
-                  </span>
-                </div>
-                <div className="mt-2.5 h-1.5 rounded-full bg-[#f1efe9] overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-[#cfc9c0] transition-all duration-300"
-                    style={{
-                      width: `${
-                        stats.plannedHours > 0
-                          ? Math.min(100, Math.round((stats.investedHours / stats.plannedHours) * 100))
-                          : 0
-                      }%`,
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
             )}
 
             <PracticeReceiptCard
@@ -501,18 +469,16 @@ export function CourseDetailPage({
             />
           </SectionBlock>
 
-          <PhaseRoadmapSection plan={plan} />
-
           <TopicMasterySection plan={plan} />
 
           <SectionBlock
             title={isZh ? "课程资料与考点体系" : "Materials & topics"}
             hint={
-              /* 两个计数各占一格，由 gap 断句；原来串成「12 files · 8 topics」，
-                 而且英文写死复数，一份资料的时候会显示 "1 files"（清单 UI-04）。 */
-              <span className="flex flex-wrap items-baseline gap-x-3 tabular-nums">
-                <span>{isZh ? `${stats.materialsCount} 份资料` : pl(stats.materialsCount, "file", "files")}</span>
-                <span>{isZh ? `${stats.topicsCount} 个考点` : pl(stats.topicsCount, "topic", "topics")}</span>
+              /* 这一段只报资料的份数：考点的个数由上面「考点掌握度」那段说，
+                 两栏各数自己的东西，原来同一批考点在这里和那里各印一次。
+                 英文的单复数仍由 pl() 管，一份资料不会显示成 "1 files"（清单 UI-04）。 */
+              <span className="tabular-nums">
+                {isZh ? `${stats.materialsCount} 份资料` : pl(stats.materialsCount, "file", "files")}
               </span>
             }
             action={
@@ -531,7 +497,10 @@ export function CourseDetailPage({
             }
           >
             {showKnowledge ? (
-              <div ref={knowledgeRef} className="ui-card p-4 sm:p-5 animate-fadeIn">
+              /* 展开之后这里不再包白卡：资料区自己就是一段一段的卡，
+                 外面再套一层就成了「页 → 段 → 卡 → 卡」，里面的卡反而读不出边界。
+                 收起态那一颗条状按钮仍然是卡，它是这一段里唯一的一层。 */
+              <div ref={knowledgeRef} className="animate-fadeIn">
                 {/* 资料区整块按科目重建：它内部记着上一门的提示、当前文件夹、勾选与草稿，
                     换一门科目还留着，就是拿另一门的进度说这一门的事。 */}
                 <CourseKnowledgeHub

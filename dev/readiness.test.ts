@@ -78,7 +78,11 @@ check('两种待办状态的说法不通用：差资料和差生成说的是两�
 check('「去上传资料」直通上传弹窗，资料区按科目重建', () => {
   const page = readFileSync('src/components/CourseDetailPage.tsx', 'utf8');
   const hub = readFileSync('src/components/CourseKnowledgeHub.tsx', 'utf8');
-  assert.match(page, /revealUpload\(\)/, '差资料那条动作要走「展开资料区 + 开上传弹窗」');
+  /* 「去上传资料」现在只挂在页头那颗按钮上（科目页去重：一个功能一处），
+     接的是函数引用，不是 onClick 里的一次调用——两颗按钮各调一次的时代过去了。 */
+  assert.match(page, /awaiting-materials" \? revealUpload/, '差资料那条动作要走「展开资料区 + 开上传弹窗」');
+  assert.match(page, /revealKnowledge\(\);\s*\n\s*setUploadRequest/, 'revealUpload 一份实现做完整两件事');
+  assert.equal((page.match(/revealUpload\b/g) || []).length, 2, '一份定义 + 页头一处接线，正文不再复刻第二颗');
   assert.match(page, /<CourseKnowledgeHub\s+key=\{plan\.id\}/, '换科目不留上一门的提示');
   assert.match(page, /uploadRequest=\{uploadRequest\}/, '请求由页头交给资料区');
   assert.match(hub, /if \(uploadRequest > 0\) setShowUploadBox\(true\);/, '资料区收到请求就把门打开');

@@ -29,7 +29,8 @@
     "test:focus": "tsx dev/focus.test.ts",
     "test:copy": "tsx dev/copy-guard.test.ts",
     "test:scale": "tsx dev/design-scale.test.ts",
-    "test:deck": "tsx dev/subject-deck.test.ts"
+    "test:deck": "tsx dev/subject-deck.test.ts",
+    "test:course": "tsx dev/course-page-layout.test.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
