@@ -9,6 +9,8 @@
 //   5) 键盘和指针同权：板条可聚焦，Enter / Space 与点击做同一件事。
 //   6) 总览页页头那条读数是一行裸字（与「今日」页同一口径），不是带边框的统计卡；
 //      科目计数全站一处，没值的项直接不写。
+//      字号钉在 13 标签 / 15 数字这一档：拆盒子的时候曾被顺手压成 12 档脚注，
+//      结果页头三个数在 24 的标题下面根本读不见——形态改了不代表可以连可读性一起改没。
 // 文案风格归 dev/copy-guard.test.ts，字阶圆角颜色归 dev/design-scale.test.ts，这里不重复。
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -46,6 +48,7 @@ function stripOffenses(text: string): string[] {
   if (/\bml-auto\b/.test(text)) bad.push('ml-auto 把最后一项推出一段空洞');
   if (/<b[\s>]/.test(text)) bad.push('<b> 手写加粗：取值该挂 ui-row-value');
   if (/nearestDisplay|"—"/.test(text)) bad.push('用「—」给一个不存在的数占位');
+  if (/\bui-row-(?:meta|value)\b/.test(text)) bad.push('读数行退回 12 档脚注：页头的数字要给眼睛看，不是列表附注');
   return bad;
 }
 
@@ -132,9 +135,13 @@ await check('总览页仍然把这一排挂出来，没有绕过它另铺一份'
 await check('总览页的读数是一行裸字，不是一张统计卡', () => {
   const dash = codeOnly(read(DASHBOARD));
   assert.deepEqual(stripOffenses(dash), [], `读数行被换回盒装了：\n${stripOffenses(dash).join('\n')}`);
-  /* 行本体：元信息层的一句话，标签走 ui-row-meta，取值走 ui-row-value */
-  assert.ok(/<p className="ui-row-meta mt-2 tabular-nums">/.test(dash), '读数行是挂在标题下的一行字');
-  assert.ok((dash.match(/ui-row-value/g) || []).length >= 3, '每个取值都用 token，不各写各的加粗');
+  /* 行本体：页头的一行读数，标签走 ui-readout（13），取值走 ui-readout-num（15）。
+     这行曾经挂的是 ui-row-meta / ui-row-value——那是列表脚注的 12 档，
+     坐在 24 的页面标题下面，眼睛要凑上去才读得见；页头要回答的三个数不该是这个待遇。 */
+  assert.ok(/<p className="ui-readout mt-1\.5">/.test(dash), '读数行是挂在标题下的一行字');
+  assert.ok((dash.match(/ui-readout-num/g) || []).length >= 3, '每个数字都升到 15 档，不各写各的加粗');
+  assert.ok(!/\bui-row-(?:meta|value)\b/.test(dash), '这行不退回 12 档脚注：页头的数要给眼睛看');
+  assert.ok(/<span className="ui-row-title">/.test(dash), '科目名是词不是数，走 13 medium');
   assert.equal((dash.match(/\{" · "\}/g) || []).length, 2, '三项之间两个中点，都在句子里');
   assert.ok(!/<span[^>]*>\s*·\s*<\/span>/.test(dash), '中点不独立成元素（design-scale 同一条规矩）');
   /* 计数只数一遍：h1 后面那颗 chip 是全站唯一一处，段头「备考科目」整块没了 */
@@ -145,8 +152,9 @@ await check('总览页的读数是一行裸字，不是一张统计卡', () => {
   assert.ok(/nearestDays !== null && \(/.test(dash), '没有带日期的考试时，「最近考试」整项消失');
   assert.ok(!/awaitingSchedule \? "—"/.test(dash), '还没生成计划时不报 0%，也不报 —');
   assert.ok(/!workspaceMetrics\.awaitingSchedule && \(/.test(dash), '总进度这一项在这种时候根本不出现');
-  /* 完成度是比例：数字后面跟一条极细的内联条，纯装饰所以 aria-hidden */
-  assert.ok(/aria-hidden="true"[\s\S]{0,160}inline-block h-1 w-10/.test(dash), '内联进度条对读屏是装饰，百分数才是话');
+  /* 完成度是比例：数字后面跟一条内联条，纯装饰所以 aria-hidden；粗细跟着字号一起升，
+     1px 高的条在 15 的数字旁边只剩一层灰 */
+  assert.ok(/aria-hidden="true"[\s\S]{0,200}inline-block h-1\.5 w-16/.test(dash), '内联进度条对读屏是装饰，百分数才是话');
   assert.ok(/style=\{\{ width: `\$\{workspaceMetrics\.globalProgress\}%` \}\}/.test(dash), '条的宽度和那个百分数同一个数');
 });
 
@@ -167,8 +175,11 @@ await check('守卫有效：网格写法抓得住，百叶窗写法不误伤', (
   assert.deepEqual(stripOffenses(OLD_STRIP),
     ['带边框的白底统计卡', 'ml-auto 把最后一项推出一段空洞', '<b> 手写加粗：取值该挂 ui-row-value', '用「—」给一个不存在的数占位'],
     '这正是上一版的写法');
-  assert.deepEqual(stripOffenses('<p className="ui-row-meta mt-2 tabular-nums">今日 <span className="ui-row-value">2/5</span></p>'),
+  assert.deepEqual(stripOffenses('<p className="ui-readout mt-1.5">今日 <span className="ui-readout-num">2/5</span></p>'),
     [], '裸字行不是统计卡');
+  assert.deepEqual(stripOffenses('<p className="ui-row-meta mt-2 tabular-nums">今日 <span className="ui-row-value">2/5</span></p>'),
+    ['读数行退回 12 档脚注：页头的数字要给眼睛看，不是列表附注'],
+    '上一版就是这一行：盒子拆了，字号却压成了脚注那档');
 });
 
 console.log(`\n${passed} subject-deck checks passed`);

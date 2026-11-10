@@ -89,9 +89,10 @@ export function MasterDashboard({
           {/* 元信息不该住盒子：一条带边框的白卡把四个短读数框成了「一块内容」，
               而它只是页头的附属说明。改成与「今日」页同一口径的一行裸字，
               项与项之间用一个中点断开（独立成元素的「·」被 design-scale 禁掉，句子内的连接符才合法）。
-              没值的项直接不写，不摆「—」占位——那等于告诉用户这里有一个数，而这个数不存在。 */}
+              没值的项直接不写，不摆「—」占位——那等于告诉用户这里有一个数，而这个数不存在。
+              但这行字不能小到读不见：标签 13、数字 15，见 index.css 的 ui-readout。 */}
           {plans.length > 0 && (
-            <p className="ui-row-meta mt-2 tabular-nums">
+            <p className="ui-readout mt-1.5">
               {workspaceMetrics.todayTotal === 0
                 ? isZh
                   ? "今日无任务"
@@ -99,7 +100,7 @@ export function MasterDashboard({
                 : (
                   <>
                     {isZh ? "今日" : "Today"}{" "}
-                    <span className="ui-row-value">
+                    <span className="ui-readout-num">
                       {workspaceMetrics.todayCompleted}/{workspaceMetrics.todayTotal}
                     </span>
                   </>
@@ -108,20 +109,23 @@ export function MasterDashboard({
                 <>
                   {" · "}
                   {isZh ? "最近考试" : "Next exam"}{" "}
-                  {workspaceMetrics.nearestPlan?.subject || workspaceMetrics.nearestPlan?.examName}{" "}
-                  <span className="ui-row-value">{workspaceMetrics.nearestDays}</span>
+                  <span className="ui-row-title">
+                    {workspaceMetrics.nearestPlan?.subject || workspaceMetrics.nearestPlan?.examName}
+                  </span>{" "}
+                  <span className="ui-readout-num">{workspaceMetrics.nearestDays}</span>
                 </>
               )}
               {!workspaceMetrics.awaitingSchedule && (
                 <>
                   {" · "}
                   {isZh ? "总进度" : "Overall"}{" "}
-                  <span className="ui-row-value">{workspaceMetrics.globalProgress}%</span>
+                  <span className="ui-readout-num">{workspaceMetrics.globalProgress}%</span>
                   {/* 完成度是个比例，条比裸数字一眼读得出来（GitHub Pulse 的口径），
-                      所以它跟在数字后面，而不是再开一处读数。 */}
+                      所以它跟在数字后面，而不是再开一处读数。粗细跟着这行的字号一起升，
+                      1px 高的条在 15 的数字旁边只剩一层灰。 */}
                   <span
                     aria-hidden="true"
-                    className="ml-1.5 inline-block h-1 w-10 overflow-hidden rounded-full bg-[#f1efe9] align-middle"
+                    className="ml-2 inline-block h-1.5 w-16 overflow-hidden rounded-full bg-[#e5e2dc] align-middle"
                   >
                     <span
                       className="block h-full rounded-full bg-[#1c1b1a]"
