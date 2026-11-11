@@ -129,7 +129,7 @@ function takeToken(req: Request, bucket: RateBucket, now: number) {
     const minutesToWait = (1 - state.tokens) / limits.refillPerMinute;
     throw new GateRejection(
       'rate_limited',
-      '请求太频繁了，请等一会儿再试。',
+      '请求太频繁，请稍后重试。',
       429,
       sleepSeconds(minutesToWait * 60_000)
     );
@@ -146,7 +146,7 @@ function takeToken(req: Request, bucket: RateBucket, now: number) {
 function assertSameSite(req: Request) {
   const secFetchSite = (req.headers.get('sec-fetch-site') || '').toLowerCase();
   if (secFetchSite && !['same-origin', 'same-site', 'none'].includes(secFetchSite)) {
-    throw new GateRejection('cross_origin', '这个页面不能调用本服务，请在站点内使用。', 403);
+    throw new GateRejection('cross_origin', '这个页面不在本站内，请从本站地址重新打开。', 403);
   }
   const origin = req.headers.get('origin');
   if (!origin || origin === 'null') return;
@@ -154,7 +154,7 @@ function assertSameSite(req: Request) {
   try {
     host = new URL(origin).hostname.toLowerCase();
   } catch {
-    throw new GateRejection('cross_origin', '这个页面不能调用本服务，请在站点内使用。', 403);
+    throw new GateRejection('cross_origin', '这个页面不在本站内，请从本站地址重新打开。', 403);
   }
   const allowed = host === 'localhost'
     || host === '127.0.0.1'
@@ -163,7 +163,7 @@ function assertSameSite(req: Request) {
     || host === 'qoder.zone'
     || host.endsWith('.qoder.zone');
   if (!allowed) {
-    throw new GateRejection('cross_origin', '这个页面不能调用本服务，请在站点内使用。', 403);
+    throw new GateRejection('cross_origin', '这个页面不在本站内，请从本站地址重新打开。', 403);
   }
 }
 
@@ -187,7 +187,7 @@ function declaredLength(req: Request): number {
 async function readCappedBytes(req: Request, maxBytes: number): Promise<Uint8Array> {
   const declared = declaredLength(req);
   if (Number.isFinite(declared) && declared > maxBytes) {
-    throw new GateRejection('body_too_large', '提交内容过大，请减少资料数量后重试。', 413);
+    throw new GateRejection('body_too_large', '这次提交的内容超过服务上限，请减少资料量后重试。', 413);
   }
   const stream = req.body;
   if (!stream) return new Uint8Array();
@@ -218,7 +218,7 @@ async function readCappedBytes(req: Request, maxBytes: number): Promise<Uint8Arr
       total += value.byteLength;
       if (total > maxBytes) {
         await abort();
-        throw new GateRejection('body_too_large', '提交内容过大，请减少资料数量后重试。', 413);
+        throw new GateRejection('body_too_large', '这次提交的内容超过服务上限，请减少资料量后重试。', 413);
       }
       chunks.push(value);
     }
@@ -226,7 +226,7 @@ async function readCappedBytes(req: Request, maxBytes: number): Promise<Uint8Arr
     await abort();
     if (error instanceof GateRejection) throw error;
     // 读太慢、网关掐断、客户端中途关页面都走到这里：说人话，别把底层报错甩给用户
-    throw new GateRejection('body_timeout', '上传太慢了，请检查网络，或减少资料量后重试。', 408);
+    throw new GateRejection('body_timeout', '上传太慢，请减少资料量后重试。', 408);
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
@@ -247,7 +247,7 @@ async function readCappedBytes(req: Request, maxBytes: number): Promise<Uint8Arr
 export async function readJsonBody(req: Request, maxBytes: number): Promise<Record<string, unknown>> {
   const contentType = (req.headers.get('content-type') || '').toLowerCase();
   if (!contentType.startsWith('application/json')) {
-    throw new GateRejection('unsupported_media_type', '这个接口只接受 JSON 请求。', 415);
+    throw new GateRejection('unsupported_media_type', '这次提交的内容类型不对，请刷新后重试。', 415);
   }
   const cap = Math.min(maxBytes, ABSOLUTE_MAX_BODY);
   const bytes = await readCappedBytes(req, cap);
@@ -255,10 +255,10 @@ export async function readJsonBody(req: Request, maxBytes: number): Promise<Reco
   try {
     parsed = JSON.parse(new TextDecoder().decode(bytes));
   } catch {
-    throw new GateRejection('bad_body', '请求内容不是有效的 JSON。', 400);
+    throw new GateRejection('bad_body', '页面数据已过期，请刷新后重试。', 400);
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new GateRejection('bad_body', '请求内容不是有效的 JSON 对象。', 400);
+    throw new GateRejection('bad_body', '页面数据已过期，请刷新后重试。', 400);
   }
   return parsed as Record<string, unknown>;
 }

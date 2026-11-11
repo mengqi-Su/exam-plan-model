@@ -43,6 +43,9 @@ import {
   MAX_LIBRARY_MATERIALS,
   aiSelectionNotice,
   defaultAiSelection,
+  libraryFullNotice,
+  libraryOverflowNotice,
+  localizeApiError,
   prepareMaterialsForAI,
   runGeneration,
 } from "../lib/aiClient";
@@ -61,7 +64,7 @@ import {
 } from "../lib/dailyHours";
 import { mergeTopics, nonTextbookTitles, replaceTextbookTopics } from "../lib/topics";
 import { duplicateMaterialsNotice, mergeMaterials } from "../lib/materials";
-import { bookNameFromSummary, clauseJoin, formatBookTitle, labelColon, pl, unitNoun, visibleChars } from "../lib/text";
+import { appendClause, bookNameFromSummary, clauseJoin, examNameLabel, formatBookTitle, labelColon, newSubjectEntry, pl, textbookEntry, textbookExample, textbookNameLabel, unitNoun, visibleChars } from "../lib/text";
 import {
   clearWizardDraft,
   loadWizardDraft,
@@ -511,12 +514,19 @@ export function AddExamSubjectWizard({
     setTextbookDialogOpen(true);
   };
 
-  const detailsReady =
-    !!examName.trim() &&
-    !!startDate &&
-    !!examDate &&
-    daysBetween(startDate, examDate) >= 0 &&
-    hoursReady;
+  /* 第一步差哪一栏，报错就点名哪一栏：「请先完善考试信息」让用户自己猜，猜完还得翻回第一步。
+     名字必须和输入框上方的标签逐字一致，所以名称那一栏的标签也从 examNameLabel 取。 */
+  const step1Gap = !examName.trim()
+    ? examNameLabel(language !== "en")
+    : !startDate
+      ? tt("开始复习日期", "Start date")
+      : !examDate
+        ? tt("考试日期", "Exam date")
+        : !hoursReady
+          ? tt("每天可学习时长", "Study time per day")
+          : "";
+  const examBeforeStart = !!startDate && !!examDate && daysBetween(startDate, examDate) < 0;
+  const detailsReady = !step1Gap && !examBeforeStart;
   // 考点有两种来路：上传资料提炼，或只填教材名让 AI 回忆目录。任意一条走通都算「有了输入」，
   // 所以只有两者都空时才拦住下一步。资料这条路还要求至少勾选一份——库里存着不等于这次会用。
   const materialsReady =
@@ -643,7 +653,7 @@ export function AddExamSubjectWizard({
         sizeBytes: item.value.sizeBytes,
         uploadedAt: new Date().toISOString(),
         difficulty: type === "past_exam" ? "hard" : "medium",
-        summaryNotes: item.value.text.slice(0, 160) + (item.value.text.length > 160 ? "..." : ""),
+        summaryNotes: item.value.text.slice(0, 160) + (item.value.text.length > 160 ? "…" : ""),
       });
       if (!suggestedName) suggestedName = suggestExamName(item.name);
     }
@@ -692,23 +702,13 @@ export function AddExamSubjectWizard({
     if (incoming.length === 0) return;
 
     if (courseDocuments.length >= MAX_LIBRARY_MATERIALS) {
-      remark(
-        tt(
-          `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，请先删除部分文件。`,
-          `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Remove some files first.`
-        )
-      );
+      remark(libraryFullNotice(language !== "en"));
       return;
     }
 
     const remainingSlots = MAX_LIBRARY_MATERIALS - courseDocuments.length;
     if (incoming.length > remainingSlots) {
-      remark(
-        tt(
-          `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，本次仅处理前 ${remainingSlots} 份。`,
-          `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Only the first ${remainingSlots} files were processed.`
-        )
-      );
+      remark(libraryOverflowNotice(remainingSlots, language !== "en"));
       await runUploadBatch(incoming.slice(0, remainingSlots));
       return;
     }
@@ -766,12 +766,7 @@ export function AddExamSubjectWizard({
       return;
     }
     if (courseDocuments.length >= MAX_LIBRARY_MATERIALS) {
-      remark(
-        tt(
-          `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，请先删除部分文件。`,
-          `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Remove some files first.`
-        )
-      );
+      remark(libraryFullNotice(language !== "en"));
       return;
     }
 
@@ -787,7 +782,7 @@ export function AddExamSubjectWizard({
       sizeBytes: new Blob([content]).size,
       uploadedAt: new Date().toISOString(),
       difficulty: "medium",
-      summaryNotes: content.slice(0, 160) + (content.length > 160 ? "..." : ""),
+      summaryNotes: content.slice(0, 160) + (content.length > 160 ? "…" : ""),
     };
     // 粘出来的正文和库里已有的一模一样时不重复收：留着输入框里的字，让用户自己决定改哪一处
     const merged = await mergeMaterials(courseDocuments, [pasted], MAX_LIBRARY_MATERIALS);
@@ -880,7 +875,7 @@ export function AddExamSubjectWizard({
       throw new GenerationError(
         tt(
           "AI 没有返回可用的每日任务，请检查资料内容或调整要求后重试。",
-          "AI returned no usable daily tasks. Check your materials or requirements and try again."
+          "AI returned no usable daily tasks. Check the materials or requirements and try again."
         ),
         "PLAN_EMPTY"
       );
@@ -921,16 +916,30 @@ export function AddExamSubjectWizard({
   const handleGenerate = async () => {
     if (workingRef.current || isParsingFiles) return;
 
-    if (!examName.trim() || !startDate || !examDate || daysBetween(startDate, examDate) < 0 || !hoursReady) {
-      remark(tt("请先完善考试信息。", "Complete the exam details first."));
+    if (step1Gap) {
+      remark(
+        language !== "en"
+          ? `第一步的「${step1Gap}」还没填，请先填好。`
+          : `Step 1 still needs "${step1Gap}". Fill it in first.`
+      );
+      setStep(1);
+      return;
+    }
+    if (examBeforeStart) {
+      remark(
+        tt(
+          "考试日期早于开始复习日期，请把考试日期改到开始日期之后。",
+          "The exam date is before the start date. Set it after the start date."
+        )
+      );
       setStep(1);
       return;
     }
     if (courseDocuments.length === 0 && topics.length === 0) {
       remark(
         tt(
-          "先上传一份考纲、讲义、真题或笔记，或者用「整理教材目录」按教材名拿考点。",
-          "Upload a syllabus, slides, past paper, or notes first — or outline a textbook by name to get topics."
+          `还没有考点来源。请先上传一份考纲、讲义、真题或笔记，或点「${textbookEntry(true)}」只填教材名。`,
+          `No topic source yet. Upload a syllabus, slides, past paper, or notes, or pick "${textbookEntry(false)}" and enter the book name.`
         )
       );
       setStep(2);
@@ -963,7 +972,7 @@ export function AddExamSubjectWizard({
         fail(
           err.message,
           err.code === "AI_NOT_CONFIGURED"
-            ? tt("AI 尚未配置", "AI is not configured")
+            ? tt("AI 服务未启用", "AI is not enabled")
             : tt("生成未完成", "Generation failed"),
           err.code
         );
@@ -971,8 +980,8 @@ export function AddExamSubjectWizard({
         console.error("Unexpected plan generation error:", err);
         fail(
           tt(
-            "生成过程中出现异常，请稍后重试。",
-            "Something went wrong while generating the plan. Please try again."
+            "生成没有完成，请稍后重试。",
+            "Generation did not finish. Try again in a moment."
           ),
           tt("生成未完成", "Generation failed")
         );
@@ -1043,7 +1052,7 @@ export function AddExamSubjectWizard({
   // 悬浮版只出文字，页头骨架由 ModalShell 统一画；页面版自己带页头。
   const modalTitle = isRefill
     ? tt(`${initialPlan?.examName || ""} · 生成学习计划`, `Plan ${initialPlan?.examName || "this subject"}`)
-    : tt("新建科目", "New subject");
+    : newSubjectEntry(language === "zh");
 
   const modalEyebrow = (
     <>
@@ -1074,7 +1083,7 @@ export function AddExamSubjectWizard({
 
       <header className="space-y-1">
         <h1 className="ui-page-title">
-          {tt("从资料生成学习计划", "Build a plan from your materials")}
+          {tt("从资料生成学习计划", "Build a plan from the materials")}
         </h1>
       </header>
     </>
@@ -1128,7 +1137,7 @@ export function AddExamSubjectWizard({
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <History className="h-3.5 w-3.5 shrink-0 text-[#6b6660]" />
             <span className="text-[13px] font-medium text-[#1c1b1a]">
-              {tt("已接回上次未完成的草稿", "Your unfinished draft is back")}
+              {tt("已接回上次未完成的草稿", "Unfinished draft restored")}
             </span>
             {restoredDraft.materials > 0 && (
               <span className="ui-chip tabular-nums">
@@ -1159,15 +1168,15 @@ export function AddExamSubjectWizard({
       {aiReady === false && (
         <div className="flex items-start gap-2.5 rounded-xl border border-[#f0e2c0] bg-[#FFF6DD] px-4 py-3 text-[#8A5A00]">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div className="min-w-0 text-[13px]">
-            <p className="font-medium">{tt("AI 服务尚未配置，暂时无法自动生成", "AI is not configured on this site yet")}</p>
-            <p className="mt-0.5 leading-relaxed">
-              {tt(
-                "请在站点设置中填写 DeepSeek API Key 后刷新重试。你的资料仍保存在本地。",
-                "Add a DeepSeek API key in the site settings, then refresh. Your materials stay local."
-              )}
-            </p>
-          </div>
+          {/* 这一条和错误码表里的 ai_not_configured 是同一个处境，句子只从那一处取，
+              不在这里另写一份「DeepSeek API Key」——填密钥的人不需要在提示里看到供应商叫什么。 */}
+          <p className="min-w-0 text-[13px] leading-relaxed">
+            {appendClause(
+              localizeApiError("ai_not_configured", language),
+              tt("资料仍保存在本机", "materials stay on this device"),
+              language !== "en"
+            )}
+          </p>
         </div>
       )}
 
@@ -1192,7 +1201,7 @@ export function AddExamSubjectWizard({
           <fieldset disabled={isWorking} className="grid min-w-0 grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-5">
             <label className="sm:col-span-2">
               <span className={`${labelClass} flex items-center gap-1`}>
-                {tt("考试 / 课程名称", "Exam or course name")} <span className="text-[#B42318]">*</span>
+                {examNameLabel(language === "zh")} <span className="text-[#B42318]">*</span>
               </span>
               <input
                 type="text"
@@ -1386,7 +1395,7 @@ export function AddExamSubjectWizard({
               </div>
               <p className="text-[13px] font-medium text-[#1c1b1a]">
                 {isParsingFiles
-                  ? parsingStatus || tt("正在读取资料...", "Reading materials...")
+                  ? parsingStatus || tt("正在读取资料…", "Reading materials…")
                   : tt("拖拽资料到这里，或点击选择文件", "Drop materials here, or click to browse")}
               </p>
               <UploadLimitChips className="mt-2.5" />
@@ -1401,7 +1410,7 @@ export function AddExamSubjectWizard({
                   <BookOpen className="h-4 w-4" />
                 </span>
                 <label htmlFor="wizard-textbook-name" className="ui-group-title min-w-0 flex-1">
-                  {tt("教材名", "Textbook name")}
+                  {textbookNameLabel(language === "zh")}
                 </label>
                 {textbookTopicCount > 0 && (
                   <span className="ui-chip shrink-0 tabular-nums">
@@ -1422,7 +1431,7 @@ export function AddExamSubjectWizard({
                       openTextbookOutline();
                     }
                   }}
-                  placeholder={tt("如：《导游业务》第 4 版", "e.g. Introduction to Algorithms, 3rd ed.")}
+                  placeholder={textbookExample(language === "zh")}
                   className={`${inputClass} min-w-0 flex-1`}
                 />
                 <button
@@ -1431,7 +1440,7 @@ export function AddExamSubjectWizard({
                   className="ui-btn ui-btn-primary shrink-0 px-4 py-2 text-[13px] disabled:opacity-40"
                 >
                   <Sparkles className="h-3.5 w-3.5" />
-                  <span>{textbookTopicCount > 0 ? tt("重新整理目录", "Re-outline") : tt("整理目录", "Build outline")}</span>
+                  <span>{textbookEntry(language === "zh")}</span>
                 </button>
               </div>
             </div>
@@ -1521,7 +1530,7 @@ export function AddExamSubjectWizard({
                   rows={5}
                   value={pasteDocContent}
                   onChange={(event) => setPasteDocContent(event.target.value)}
-                  placeholder={tt("粘贴考纲章节、课堂笔记或典型题目...", "Paste syllabus sections, notes, or sample problems...")}
+                  placeholder={tt("粘贴考纲章节、课堂笔记或典型题目…", "Paste syllabus sections, notes, or sample problems…")}
                   className="w-full resize-y rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] leading-relaxed text-[#1c1b1a] transition-colors focus:border-[#cfc9c0] placeholder:text-[#716c65]"
                 />
                 <div className="flex justify-end gap-2">
@@ -1598,8 +1607,8 @@ export function AddExamSubjectWizard({
                 disabled={isWorking}
                 maxLength={2000}
                 placeholder={tt(
-                  "例如：重点复习第三、四章；周末安排真题模拟；考前留两天总复习...",
-                  "e.g. Focus on chapters 3–4; reserve weekends for mock papers; keep the last two days for review..."
+                  "例如：重点复习第三、四章；周末安排真题模拟；考前留两天总复习…",
+                  "e.g. Focus on chapters 3–4; reserve weekends for mock papers; keep the last two days for review…"
                 )}
                 className="w-full resize-y rounded-lg border border-[#e5e2dc] bg-white px-3 py-2.5 text-[13px] leading-relaxed text-[#1c1b1a] transition-colors focus:border-[#cfc9c0] placeholder:text-[#716c65]"
               />
@@ -1731,8 +1740,8 @@ export function AddExamSubjectWizard({
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>
                   {workStage === "extracting"
-                    ? tt("正在提取考点...", "Extracting topics...")
-                    : tt("正在生成计划...", "Building plan...")}
+                    ? tt("正在提取考点…", "Extracting topics…")
+                    : tt("正在生成计划…", "Building plan…")}
                 </span>
               </>
             ) : (

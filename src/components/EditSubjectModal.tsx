@@ -6,6 +6,7 @@ import { useI18n } from "../lib/i18n";
 import { countdownDays, examCountdown } from "../lib/date";
 import type { ExamCountdown } from "../lib/date";
 import { PAGE_ICON_CHOICES, autoPageIcon } from "../lib/pageIcon";
+import { examNameLabel } from "../lib/text";
 import {
   COVER_PRESETS,
   coverErrorMessage,
@@ -115,7 +116,7 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
     const examDate = draft.examDate.trim();
     const examTime = draft.examTime.trim() || "09:00";
     if (!draft.examName.trim()) {
-      setError(isZh ? "请填写科目名称。" : "Exam title is required.");
+      setError(isZh ? `请先填${examNameLabel(true)}。` : `Enter the ${examNameLabel(false).toLowerCase()} first.`);
       return;
     }
     if (!DATE_RE.test(examDate)) {
@@ -146,7 +147,7 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
     <ModalShell
       open={open}
       onClose={onClose}
-      title={isZh ? "编辑备考科目" : "Edit exam subject"}
+      title={isZh ? "编辑科目" : "Edit subject"}
       closeLabel={isZh ? "关闭编辑窗口" : "Close edit dialog"}
       icon={<Pencil className="h-4 w-4" />}
       size="lg"
@@ -275,7 +276,7 @@ export function EditSubjectModal({ open, plan, onClose, onSave }: EditSubjectMod
         </div>
 
         <label className="block min-w-0 sm:col-span-2">
-          <span className={labelCls}>{isZh ? "科目名称" : "Exam title"}</span>
+          <span className={labelCls}>{examNameLabel(isZh)}</span>
           <input
             value={draft.examName}
             onChange={(event) => patch("examName", event.target.value)}

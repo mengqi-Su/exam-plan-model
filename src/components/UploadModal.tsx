@@ -92,7 +92,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         content: text,
         uploadedAt: new Date().toISOString(),
         sizeBytes: item.value.sizeBytes,
-        summaryNotes: text.slice(0, 160) + "...",
+        summaryNotes: text.slice(0, 160) + "…",
         difficulty: "medium" as const,
       };
     });

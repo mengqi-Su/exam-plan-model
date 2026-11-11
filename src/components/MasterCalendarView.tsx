@@ -285,7 +285,7 @@ export function MasterCalendarView({
               <Search className="w-3.5 h-3.5 text-[#6b6660] absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder={isZh ? "搜索考点..." : "Search..."}
+                placeholder={isZh ? "搜索考点…" : "Search…"}
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 className="pl-8 pr-2.5 py-1.5 text-[12px] rounded-lg border border-[#e5e2dc] bg-white text-[#1c1b1a] placeholder-[#716c65] focus:border-[#cfc9c0] w-32 sm:w-40 transition-colors"

@@ -1,7 +1,7 @@
 // 临时冒烟测试：用假 fetch 驱动前端编排（runGeneration），验证分段并发、重试、合并与错误透传。
 // 不触网、不需要 API Key；跑完即可删除。
 import assert from 'node:assert/strict';
-import { runGeneration, GenerationError } from '../src/lib/aiClient.ts';
+import { runGeneration, GenerationError, ERROR_MESSAGES } from '../src/lib/aiClient.ts';
 
 const requests: Array<{ path: string; body: any }> = [];
 let chunkAttempts = 0;
@@ -218,21 +218,23 @@ try {
     (error: any) =>
       error instanceof GenerationError &&
       error.code === 'rate_limited' &&
-      error.message === '请求太频繁了，请等一会儿再试。'
+      error.message === ERROR_MESSAGES.rate_limited.zh
   );
   assert.equal(forever(), 3, 'rate_limited 应把重试预算用完（1 次 + 2 次重试）');
   console.log('  ok  闸门 rate_limited：先重试，最终给本地化文案而不是「网络异常」');
 
   // 不可重试的几类：一次都不该多打，文案按语言出。
-  for (const [code, status, zh, en] of [
-    ['body_too_large', 413, '这次提交的内容超过了服务上限，请减少资料数量后重试。', 'This request is over the service limit. Reduce the materials and try again.'],
-    ['unsupported_media_type', 415, '这个接口只接受 JSON 请求，请刷新页面后重试。', 'This endpoint only accepts JSON requests. Refresh the page and try again.'],
-    ['bad_body', 400, '请求内容格式无效，请刷新页面后重试。', 'Invalid request format. Refresh the page and try again.'],
-    ['cross_origin', 403, '当前页面不能调用规划服务，请在本站页面内使用。', 'This page cannot call the planning service. Use it from within the site.'],
-    ['daily_quota_reached', 429, '今天的调用次数已用完，请明天再试。', "You've used up today's allowance. Please try again tomorrow."],
+  // 期望句子直接从码表取，不在这里手抄第二份——说法归 test:copy 管，这里只钉「码→哪一句」的管道。
+  for (const [code, status] of [
+    ['body_too_large', 413],
+    ['unsupported_media_type', 415],
+    ['bad_body', 400],
+    ['cross_origin', 403],
+    ['daily_quota_reached', 429],
   ] as const) {
     const calls = gateOnly(code, status);
-    for (const [lang, expect] of [['zh', zh], ['en', en]] as const) {
+    for (const lang of ['zh', 'en'] as const) {
+      const expect = ERROR_MESSAGES[code][lang];
       await assert.rejects(
         () => runGeneration('syllabus', { materials: [], examName: '', subject: '' }, { language: lang }),
         (error: any) => error instanceof GenerationError && error.code === code && error.message === expect,

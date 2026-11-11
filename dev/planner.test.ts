@@ -574,6 +574,10 @@ check('fallbackRebalancePlan 保留已完成并重排积压', () => {
   assert.ok(pending.every((t: any) => t.date >= '2026-11-02'));
   assert.ok(pending.every((t: any) => t.priority === 'medium')); // low -> medium
   assert.ok(result.rebalanceSummary.includes('重排'));
+  // 提示文案规矩：报数、报日期，不带「您」、不带感叹号
+  assert.ok(result.rebalanceSummary.includes('2 个学习日'), result.rebalanceSummary);
+  assert.ok(result.rebalanceSummary.includes('2026-11-09'), result.rebalanceSummary);
+  assert.ok(!/您|！/.test(result.rebalanceSummary), result.rebalanceSummary);
 });
 
 check('addDaysToDateString 跨月正确', () => {

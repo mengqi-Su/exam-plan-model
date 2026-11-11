@@ -15,12 +15,15 @@ import {
   MAX_LIBRARY_MATERIALS,
   aiSelectionNotice,
   defaultAiSelection,
+  libraryFullNotice,
+  libraryOverflowNotice,
+  localizeApiError,
   prepareMaterialsForAI,
   runGeneration,
 } from "../lib/aiClient";
 import { mergeTopics, nonTextbookTitles, replaceTextbookTopics } from "../lib/topics";
 import { duplicateMaterialsNotice, mergeMaterials } from "../lib/materials";
-import { formatBookTitle } from "../lib/text";
+import { clauseJoin, formatBookTitle, textbookEntry } from "../lib/text";
 import { TabbedFolderArchive } from "./TabbedFolderArchive";
 import { UploadModal } from "./UploadModal";
 import { NoteModal } from "./NoteModal";
@@ -113,29 +116,22 @@ export function CourseKnowledgeHub({
   // 去重排在上限之前：同一份正文换个文件名传第二遍，不该挤掉真正的新资料。
   const addToLibrary = async (incoming: StudyMaterial[]) => {
     if (incoming.length === 0) return;
+    const zh = language === "zh";
     const slots = MAX_LIBRARY_MATERIALS - materials.length;
     if (slots <= 0) {
-      setLibraryNotice(
-        language === "zh"
-          ? `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，请先删除部分文件。`
-          : `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Remove some files first.`
-      );
+      setLibraryNotice(libraryFullNotice(zh));
       return;
     }
     const merged = await mergeMaterials(materials, incoming, MAX_LIBRARY_MATERIALS);
     if (merged.accepted.length > 0) updatePlanMaterials([...merged.accepted, ...materials]);
     const notices: string[] = [];
     if (merged.overflow > 0) {
-      notices.push(
-        language === "zh"
-          ? `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，本次仅收下前 ${merged.accepted.length} 份。`
-          : `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Only the first ${merged.accepted.length} files were kept.`
-      );
+      notices.push(libraryOverflowNotice(merged.accepted.length, zh));
     }
     if (merged.duplicates > 0) {
-      notices.push(duplicateMaterialsNotice(merged.duplicates, language === "zh"));
+      notices.push(duplicateMaterialsNotice(merged.duplicates, zh));
     }
-    setLibraryNotice(notices.length > 0 ? notices.join(language === "zh" ? "；" : "; ") : null);
+    setLibraryNotice(notices.length > 0 ? clauseJoin(notices, zh) : null);
   };
 
   const handleDeleteDoc = (docId: string) => {
@@ -147,8 +143,8 @@ export function CourseKnowledgeHub({
     if (materials.length === 0) {
       setExtractError(
         language === "zh"
-          ? "请先在上方知识库中上传课程资料或粘贴笔记，AI 将为您提炼考点架构；一份资料都没有时，可以改用「按教材目录整理」。"
-          : "Upload course materials or paste notes above first so AI can extract the topic blueprint — or use “From a textbook” when you have no files."
+          ? "资料库里还没有资料。请先上传一份资料或粘贴笔记。"
+          : "The library has no materials. Upload a file or paste notes first."
       );
       return;
     }
@@ -156,8 +152,8 @@ export function CourseKnowledgeHub({
     if (materials.length > 0 && aiSelectedIds.length === 0) {
       setExtractError(
         language === "zh"
-          ? "请先在资料库里勾选要用于本次提炼的资料。"
-          : "Check the materials you want this run to use in the library first."
+          ? "没有勾选资料。请先在资料库里勾中要用的那几份。"
+          : "No materials are checked. Select the ones to use in the library first."
       );
       return;
     }
@@ -170,7 +166,7 @@ export function CourseKnowledgeHub({
       const { result } = await runGeneration<{ summary?: string; topics?: SyllabusTopic[] }>(
         "syllabus",
         {
-          materials: prepareMaterialsForAI(materials, aiSelectedIds),
+          materials: prepareMaterialsForAI(materials, aiSelectedIds, language === "zh"),
           examName: plan.examName || (language === "zh" ? "即将到来的期末考试" : "Upcoming Exam"),
           subject: plan.subject || (language === "zh" ? "综合学科" : "General"),
         },
@@ -178,11 +174,8 @@ export function CourseKnowledgeHub({
       );
 
       if (!Array.isArray(result?.topics) || result.topics.length === 0) {
-        setExtractError(
-          language === "zh"
-            ? "AI 未能从这些资料中识别出可用考点，请补充更完整的资料后重试。"
-            : "AI could not identify usable topics from these materials. Add fuller materials and try again."
-        );
+        // 同一句「没提取出考点」在 aiClient 的错误码表里已经有一份，这里不再各写一遍
+        setExtractError(localizeApiError("SYLLABUS_EMPTY", language));
         return;
       }
 
@@ -198,8 +191,8 @@ export function CourseKnowledgeHub({
       });
       setSuccessNote(
         language === "zh"
-          ? "AI 考点架构已根据知识库资料更新完毕。"
-          : "Topic blueprint extracted successfully."
+          ? `已提炼 ${result.topics.length} 个考点。`
+          : `${result.topics.length} topics extracted.`
       );
       window.setTimeout(() => setSuccessNote(null), 4000);
     } catch (error: any) {
@@ -208,7 +201,7 @@ export function CourseKnowledgeHub({
         error?.message ||
           (language === "zh"
             ? "无法连接 AI 服务，请检查网络后重试。"
-            : "Could not reach the AI service. Check your connection and try again.")
+            : "Could not reach the AI service. Check the connection and try again.")
       );
     } finally {
       setIsExtracting(false);
@@ -260,8 +253,8 @@ export function CourseKnowledgeHub({
     setExtractError(null);
     setSuccessNote(
       zh
-        ? `已按${formatBookTitle(bookTitle)}目录整理 ${nextTopics.length} 个考点，标着「教材目录」，随时可以删。`
-        : `${nextTopics.length} topics added from "${bookTitle}", marked “Textbook” and removable any time.`
+        ? `已按${formatBookTitle(bookTitle)}目录整理 ${nextTopics.length} 个考点，标为「教材目录」。`
+        : `${nextTopics.length} topics added from "${bookTitle}", marked "Textbook".`
     );
     window.setTimeout(() => setSuccessNote(null), 6000);
   };
@@ -362,7 +355,7 @@ export function CourseKnowledgeHub({
               content: noteData.content,
               uploadedAt: new Date().toISOString(),
               sizeBytes: new Blob([noteData.content]).size,
-              summaryNotes: noteData.content.slice(0, 150) + "...",
+              summaryNotes: noteData.content.slice(0, 150) + "…",
               difficulty: "medium",
             };
             addToLibrary([newDoc]);
@@ -402,7 +395,7 @@ export function CourseKnowledgeHub({
               className="ui-btn ui-btn-ghost px-3 py-1.5 text-[12px]"
             >
               <BookOpen className="w-3.5 h-3.5" />
-              <span>{isZh ? "按教材目录整理" : "From a textbook"}</span>
+              <span>{textbookEntry(isZh)}</span>
             </button>
             <button
               onClick={() => setIsAddingTopic(true)}
@@ -433,7 +426,7 @@ export function CourseKnowledgeHub({
                 type="text"
                 value={newTopicTitle}
                 onChange={(e) => setNewTopicTitle(e.target.value)}
-                placeholder={isZh ? "大单元名称（如：第 6 单元：红黑树平衡推导）" : "Unit title..."}
+                placeholder={isZh ? "大单元名称（如：第 6 单元：红黑树平衡推导）" : "Unit title…"}
                 className="sm:col-span-2 rounded-lg px-3 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] placeholder-[#716c65] focus:border-[#cfc9c0]"
               />
               <div className="flex items-center gap-1.5">
@@ -465,7 +458,7 @@ export function CourseKnowledgeHub({
               type="text"
               value={newTopicSubtopics}
               onChange={(e) => setNewTopicSubtopics(e.target.value)}
-              placeholder={isZh ? "细分考点列表，逗号分隔（如：插入旋转、删除调整、时间复杂度）" : "Subtopics (comma separated)..."}
+              placeholder={isZh ? "细分考点列表，逗号分隔（如：插入旋转、删除调整、时间复杂度）" : "Subtopics (comma separated)…"}
               className="w-full rounded-lg px-3 py-1.5 bg-white border border-[#e5e2dc] text-[13px] text-[#1c1b1a] placeholder-[#716c65] focus:border-[#cfc9c0]"
             />
             <div className="flex justify-end gap-2">

@@ -78,7 +78,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
             className="ui-btn ui-btn-primary px-4 py-1.5 text-[12px]"
           >
             <Check className="w-3.5 h-3.5" />
-            <span>{isZh ? "保存至知识库" : "Save to knowledge base"}</span>
+            <span>{isZh ? "保存至资料库" : "Save to library"}</span>
           </button>
         </>
       }
@@ -92,7 +92,7 @@ export const NoteModal: React.FC<NoteModalProps> = ({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder={isZh ? "如：第 1-3 周重点笔记 / 核心考点" : "Document title..."}
+              placeholder={isZh ? "如：第 1-3 周重点笔记 / 核心考点" : "Document title…"}
               className={fieldCls}
               autoFocus
             />
@@ -127,8 +127,8 @@ export const NoteModal: React.FC<NoteModalProps> = ({
             rows={8}
             placeholder={
               isZh
-                ? "在此直接粘贴课堂笔记、大纲考点、教材摘录、历年真题或解题公式，AI 将自动分析并融入智能复习排程..."
-                : "Paste your syllabus, notes, key formulas, or past exam questions here..."
+                ? "在此直接粘贴课堂笔记、大纲考点、教材摘录、历年真题或解题公式，AI 将自动分析并融入智能复习排程…"
+                : "Paste syllabus sections, notes, key formulas, or past exam questions here…"
             }
             className={`${fieldCls} resize-none leading-relaxed`}
           />

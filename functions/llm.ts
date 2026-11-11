@@ -115,25 +115,25 @@ function classifyStatus(status: number, payload: unknown): LlmError {
   const message = upstreamMessage(payload);
 
   if (status === 401 || status === 403) {
-    return new LlmError('ai_access_denied', 'AI 服务鉴权失败，请检查站点设置中的 API Key。', 502, 'fatal');
+    return new LlmError('ai_access_denied', 'AI 服务密钥无效，暂时无法自动生成。', 502, 'fatal');
   }
   if (status === 402 || code.includes('insufficient') || message.includes('balance')) {
-    return new LlmError('ai_out_of_credits', 'DeepSeek 账户余额不足，本次无法生成。请充值后重试。', 402, 'fatal');
+    return new LlmError('ai_out_of_credits', 'AI 服务余额不足，暂时无法自动生成。', 402, 'fatal');
   }
   if (status === 429) {
-    return new LlmError('ai_rate_limited', 'AI 调用频率过高，请稍后重试。', 429, 'fatal');
+    return new LlmError('ai_rate_limited', '请求太频繁，请稍后重试。', 429, 'fatal');
   }
   if (status === 404 || code.includes('model_not_found') || message.includes('model')) {
-    return new LlmError('ai_unavailable', 'AI 模型暂不可用，正在尝试其他模型。', 502, 'model');
+    return new LlmError('ai_unavailable', 'AI 服务暂时不可用，请稍后重试。已上传的资料不会被改动。', 502, 'model');
   }
   if (status >= 500) {
-    return new LlmError('ai_unavailable', 'AI 服务暂时不可用，请稍后重试。', 502, 'transport');
+    return new LlmError('ai_unavailable', 'AI 服务暂时不可用，请稍后重试。已上传的资料不会被改动。', 502, 'transport');
   }
   if (status === 400) {
     // 400 常见于参数不被接受（如 max_tokens）：先去掉可选参数再试一次
-    return new LlmError('ai_request_rejected', 'AI 服务拒绝了本次请求，请减少资料量后重试。', 400, 'params');
+    return new LlmError('ai_request_rejected', 'AI 服务拒绝了这次请求，请减少资料量后重试。', 400, 'params');
   }
-  return new LlmError('ai_request_rejected', 'AI 服务拒绝了本次请求。', 400, 'fatal');
+  return new LlmError('ai_request_rejected', 'AI 服务拒绝了这次请求，请减少资料量后重试。', 400, 'fatal');
 }
 
 async function requestOnce(
@@ -163,7 +163,7 @@ async function requestOnce(
 
   const serialized = JSON.stringify(body);
   if (serialized.length > MAX_REQUEST_BYTES) {
-    throw new LlmError('invalid_request', '本次提交的内容过大，请减少资料量或分批生成。', 413, 'fatal');
+    throw new LlmError('body_too_large', '这次提交的内容超过服务上限，请减少资料量后重试。', 413, 'fatal');
   }
 
   const startedAt = Date.now();
@@ -194,15 +194,15 @@ async function requestOnce(
       variant,
     });
     return Promise.reject(new LlmError(timedOut ? 'ai_timeout' : 'ai_unavailable', timedOut
-      ? 'AI 本次生成超过了时间预算，已改用更小的批次重试。'
-      : 'AI 服务暂时不可用，请稍后重试。', 502, 'transport'));
+      ? '这一段生成太慢，已自动拆成更小的批次重试。'
+      : 'AI 服务暂时不可用，请稍后重试。已上传的资料不会被改动。', 502, 'transport'));
   }
   clearTimeout(timer);
 
   const raw = await response.text().catch(() => '');
   if (raw.length > MAX_RESPONSE_CHARS) {
     log('exam_plan_llm_response_too_large', { model, stage: opts.stage, chars: raw.length });
-    throw new LlmError('ai_bad_output', 'AI 返回内容过大，请减少资料后重试。', 502, 'fatal');
+    throw new LlmError('ai_output_too_large', 'AI 返回的内容超过长度上限，请减少资料量后重试。', 502, 'fatal');
   }
 
   let payload: unknown = null;
@@ -238,7 +238,7 @@ async function requestOnce(
     // 输出被 max_tokens 截断：这段 JSON 一定解析不出来，换模型只会更慢，
     // 交给调用方把批次切小，所以标记为 budget 而不是 model。
     log('exam_plan_llm_attempt', { model, stage: opts.stage, ms: Date.now() - startedAt, ok: false, reason: 'truncated', chars: text.length });
-    throw new LlmError('ai_output_capped', 'AI 这次输出被长度上限截断，已改用更小的批次重试。', 502, 'model');
+    throw new LlmError('ai_output_capped', 'AI 单次输出到了上限，已自动改为逐日生成。', 502, 'model');
   }
   log('exam_plan_llm_attempt', { model, stage: opts.stage, ms: Date.now() - startedAt, ok: true, chars: text.length, finishReason });
   return text;
@@ -247,7 +247,7 @@ async function requestOnce(
 /** 调用 DeepSeek，返回助手输出的纯文本（由调用方解析 JSON）。 */
 export async function completeJson(prompt: string, opts: CompletionOptions = {}): Promise<string> {
   if (!deepseekConfigured()) {
-    throw new LlmError('ai_not_configured', 'AI 服务尚未启用，请在站点设置中配置 DeepSeek API Key。', 503, 'fatal');
+    throw new LlmError('ai_not_configured', 'AI 服务未启用，暂时无法自动生成。', 503, 'fatal');
   }
 
   const models = modelCandidates();
@@ -276,7 +276,7 @@ export async function completeJson(prompt: string, opts: CompletionOptions = {})
         );
       } catch (error) {
         if (!(error instanceof LlmError)) {
-          lastError = new LlmError('ai_unavailable', 'AI 服务暂时不可用，请稍后重试。', 502, 'transport');
+          lastError = new LlmError('ai_unavailable', 'AI 服务暂时不可用，请稍后重试。已上传的资料不会被改动。', 502, 'transport');
           switchedModel = true;
           break;
         }
@@ -297,8 +297,8 @@ export async function completeJson(prompt: string, opts: CompletionOptions = {})
   const elapsed = Date.now() - startedAt;
   if (elapsed + MIN_ATTEMPT_MS > budgetMs && lastError?.kind !== 'model') {
     log('exam_plan_llm_budget_exceeded', { stage: opts.stage, elapsed, budgetMs, code: lastError?.code });
-    throw new LlmError('ai_timeout', 'AI 这次没有在规定时间内返回，已改用更小的批次重试。', 504, 'fatal');
+    throw new LlmError('ai_timeout', '这一段生成太慢，已自动拆成更小的批次重试。', 504, 'fatal');
   }
   log('exam_plan_llm_exhausted', { stage: opts.stage, elapsed, code: lastError?.code });
-  throw lastError || new LlmError('ai_unavailable', 'AI 服务暂时不可用，请稍后重试。', 502, 'fatal');
+  throw lastError || new LlmError('ai_unavailable', 'AI 服务暂时不可用，请稍后重试。已上传的资料不会被改动。', 502, 'fatal');
 }

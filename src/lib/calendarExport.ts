@@ -59,19 +59,19 @@ DTSTAMP:${dtStamp}
 DTSTART:${examDtStart}
 DTEND:${examDtEnd}
 SUMMARY:EXAM DAY: ${plan.examName}
-DESCRIPTION:Target Exam Day for ${plan.examName} (${plan.subject}). Good luck!
+DESCRIPTION:Exam day for ${plan.examName} (${plan.subject}).
 STATUS:CONFIRMED
 PRIORITY:1
 CATEGORIES:Exam,Milestone
 BEGIN:VALARM
 TRIGGER:-P1D
 ACTION:DISPLAY
-DESCRIPTION:Tomorrow is your ${plan.examName}!
+DESCRIPTION:${plan.examName} is tomorrow.
 END:VALARM
 BEGIN:VALARM
 TRIGGER:-PT2H
 ACTION:DISPLAY
-DESCRIPTION:${plan.examName} starts in 2 hours!
+DESCRIPTION:${plan.examName} starts in 2 hours.
 END:VALARM
 END:VEVENT`;
 

@@ -48,6 +48,7 @@ import {
 import { processInboundReturn, resolveEventFocus } from "./lib/inbound";
 import type { FocusTarget, InboundNotice } from "./lib/inbound";
 import { toLocalDateString } from "./lib/date";
+import { newSubjectEntry, noSubjectsTitle } from "./lib/text";
 import { useI18n } from "./lib/i18n";
 
 export default function App() {
@@ -94,8 +95,8 @@ export default function App() {
           planLoadFailedRef.current = true;
           setSaveError(
             language === "zh"
-              ? "读取本地备考数据失败，请检查浏览器存储权限。"
-              : "Failed to read local planner data. Check your browser storage permissions."
+              ? "读取本地数据失败，请检查浏览器存储权限后重试。"
+              : "Could not read the local data. Check the browser storage permissions and try again."
           );
         }
       })
@@ -219,8 +220,8 @@ export default function App() {
       console.error("Failed to dismiss practice receipt", err);
       setAppNotice(
         language === "zh"
-          ? "忽略练习回执失败，请检查浏览器存储后重试。"
-          : "Could not dismiss the receipt. Check your browser storage and try again."
+          ? "忽略练习回执失败，请重试。"
+          : "Could not dismiss the receipt. Try again."
       );
     }
   };
@@ -383,7 +384,7 @@ export default function App() {
           <button
             onClick={handleNewPlan}
             className="p-2 min-w-9 min-h-9 rounded-lg border border-[#e5e2dc] bg-white text-[#1c1b1a] hover:bg-[#faf9f6] transition-colors cursor-pointer"
-            aria-label={language === "zh" ? "新建备考科目" : "Create subject"}
+            aria-label={newSubjectEntry(language === "zh")}
           >
             <Plus className="w-4 h-4" />
           </button>
@@ -549,12 +550,12 @@ export default function App() {
                   <LayoutDashboard className="w-6 h-6 text-[#6b6660]" />
                 </div>
                 <h3 className="text-[15px] font-semibold text-[#1c1b1a]">
-                  {language === "zh" ? "暂无备考科目" : "No subjects yet"}
+                  {noSubjectsTitle(language === "zh")}
                 </h3>
                 <div className="pt-2">
                   <button onClick={handleNewPlan} className="ui-btn ui-btn-primary">
                     <Plus className="w-4 h-4" />
-                    <span>{language === "zh" ? "新建备考科目" : "Create subject"}</span>
+                    <span>{newSubjectEntry(language === "zh")}</span>
                   </button>
                 </div>
               </div>

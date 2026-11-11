@@ -1,4 +1,5 @@
 import { LegacyWordError, extractLegacyWordText, isOleCompoundFile } from "./legacyWord";
+import { docxUnreadable } from "./text";
 
 export interface ParsedDocumentResult {
   text: string;
@@ -26,6 +27,42 @@ const TEXT_EXTENSIONS = new Set(["txt", "md", "markdown", "json", "csv", "rtf"])
 export const UPLOAD_ACCEPT = Array.from(SUPPORTED_EXTENSIONS)
   .map((e) => `.${e}`)
   .join(",");
+
+/* 「支持哪些格式」也只列一次，而且由上面那份白名单算出来。
+   以前这里是手写的一份清单，白名单里已经收了 rtf，清单却没有——
+   用户被引导去「换一个格式」，那个格式其实一直是支持的。
+   同一个扩展名的几种写法并成一项（.md 和 .markdown、.doc 和 .docx），
+   说给人听的是软件名加后缀，不是把 accept 里那串逗号原样印出去。 */
+const FORMAT_LABELS: { exts: string[]; zh: string; en: string }[] = [
+  { exts: ["pdf"], zh: "PDF", en: "PDF" },
+  { exts: ["doc", "docx"], zh: "Word（.doc / .docx）", en: "Word (.doc / .docx)" },
+  { exts: ["pptx"], zh: "PPTX", en: "PPTX" },
+  { exts: ["txt"], zh: "TXT", en: "TXT" },
+  { exts: ["md", "markdown"], zh: "Markdown（.md）", en: "Markdown (.md)" },
+  { exts: ["csv"], zh: "CSV", en: "CSV" },
+  { exts: ["json"], zh: "JSON", en: "JSON" },
+  { exts: ["rtf"], zh: "RTF", en: "RTF" },
+];
+
+export function supportedFormatList(isZh: boolean): string {
+  return FORMAT_LABELS.filter((group) => group.exts.some((e) => SUPPORTED_EXTENSIONS.has(e)))
+    .map((group) => (isZh ? group.zh : group.en))
+    .join(isZh ? "、" : ", ");
+}
+
+/* 扫描件只有一种说法：本地解析器拦下时、函数回传同一个错误码时，说的是同一句话。
+   「AI 识别也用不了」是第二件事，只在 AI 这条路确实断着的时候补那半句，
+   而不是让两处各写一遍——以前两处差一个「且」，用户读到的是两个不同的故障。 */
+export function scannedPdfNotice(isZh: boolean, aiOffline = false): string {
+  if (aiOffline) {
+    return isZh
+      ? "这份 PDF 没有可复制的文字（可能是扫描件），AI 识别也用不了。请上传带文字层的 PDF，或 Word、PPTX 文件。"
+      : "This PDF has no text layer (it may be scanned) and AI recognition is unavailable. Upload a text-based PDF, or a Word or PPTX file.";
+  }
+  return isZh
+    ? "这份 PDF 没有可复制的文字（可能是扫描件）。请上传带文字层的 PDF，或 Word、PPTX 文件。"
+    : "This PDF has no text layer (it may be scanned). Upload a text-based PDF, or a Word or PPTX file.";
+}
 
 /* 单份资料的体积上限。解析全在浏览器本地做（文件不离开设备），所以这个数管的是内存和解析时间，
    不是网络带宽：20 MB 装得下图多的讲义 PPTX 和上百页的文字 PDF，而 10 MB 会把它们挡在门外。
@@ -66,16 +103,16 @@ export async function parseDocumentFile(
   if (LEGACY_PRESENTATION_EXTENSIONS.has(ext)) {
     throw new Error(
       isZh
-        ? "这是旧版 PowerPoint（.ppt）文件，请用 PowerPoint 或 WPS 另存为 .pptx 或 PDF 后上传。"
-        : "That is a legacy PowerPoint (.ppt) file. Save it as .pptx or PDF, then upload."
+        ? "旧版 .ppt 读不出文字，请另存为 .pptx 或 PDF 后再上传。"
+        : "Legacy .ppt files can't be read. Save it as .pptx or PDF, then upload."
     );
   }
 
   if (!SUPPORTED_EXTENSIONS.has(ext)) {
     throw new Error(
       isZh
-        ? "不支持此文件格式。请上传 PDF、Word（.doc / .docx）、PPTX、TXT、Markdown、CSV 或 JSON。"
-        : "Unsupported file type. Upload PDF, Word (.doc / .docx), PPTX, TXT, Markdown, CSV, or JSON."
+        ? `这种格式读不了，支持的是 ${supportedFormatList(true)}。`
+        : `This format can't be read. Supported formats: ${supportedFormatList(false)}.`
     );
   }
 
@@ -93,7 +130,7 @@ export async function parseDocumentFile(
   }
 
   if (TEXT_EXTENSIONS.has(ext)) {
-    onProgress?.(isZh ? "正在快速读取文本内容..." : "Reading text content...");
+    onProgress?.(isZh ? "正在快速读取文本内容…" : "Reading text content…");
     const text = await readFileAsText(file);
     const cleaned = ext === "rtf" ? stripRtf(text) : text;
     if (cleaned && cleaned.trim().length > 0 && !containsBinaryGarbage(cleaned)) {
@@ -105,10 +142,12 @@ export async function parseDocumentFile(
     );
   }
 
+  /* 进度里不再挂一份「PDF / Word / PPTX」：支持哪些格式由 FORMAT_LABELS 算，
+     上传入口已经挂着那一份清单，这里再手写一遍就是第二个来源，还漏了 .doc 和文本类。 */
   onProgress?.(
     isZh
-      ? `正在本地解析 ${file.name}（PDF / Word / PPTX）...`
-      : `Parsing ${file.name} locally (PDF / Word / PPTX)...`
+      ? `正在本地解析 ${file.name}…`
+      : `Parsing ${file.name} on this device…`
   );
 
   const buffer = await file.arrayBuffer();
@@ -149,7 +188,7 @@ export async function parseDocumentFile(
 
   throw new Error(
     isZh
-      ? "这个文件读不出文字，请确认它是真正的 PDF、Word 或 PPTX，而不是快捷方式或云文档占位。"
+      ? "这个文件读不出文字。请确认它是完整的 PDF、Word 或 PPTX，不是快捷方式或云端占位文件。"
       : "No text could be read from this file. Make sure it is a real PDF, Word or PPTX file, not a shortcut or cloud placeholder."
   );
 }
@@ -195,8 +234,8 @@ function legacyWordMessage(code: string, isZh: boolean): string {
   }
   if (code === "not_word97") {
     return isZh
-      ? "这份 .doc 比 Word 97 还老，请用 Word 或 WPS 另存为 .docx 后上传。"
-      : "This .doc predates Word 97. Save it as .docx before uploading.";
+      ? "这份 .doc 版本太旧，读不出文字，请另存为 .docx 后上传。"
+      : "This .doc is too old to read. Save it as .docx, then upload.";
   }
   if (code === "not_ole") {
     return isZh
@@ -204,9 +243,10 @@ function legacyWordMessage(code: string, isZh: boolean): string {
       : "The extension says Word but the content is not a Word document — it may be renamed or only half downloaded.";
   }
   return isZh
-    ? "无法读取这份 Word 文档，请确认文件完整未损坏，或另存为 .docx / PDF 后重试。"
-    : "Could not read this Word document. Check that the file is intact, or save it as .docx / PDF and retry.";
+    ? "这份 Word 文档读不出来，请另存为 .docx 或 PDF 后上传。"
+    : "This Word file can't be read. Save it as .docx or PDF, then upload.";
 }
+
 
 /* ---------------- 文本读取 ---------------- */
 
@@ -422,15 +462,11 @@ async function extractDocxText(buffer: ArrayBuffer, isZh: boolean): Promise<stri
   try {
     entries = await readZipEntries(buffer, (name) => name === "word/document.xml");
   } catch (err) {
-    throw new Error(
-      isZh ? "无法读取该 DOCX 文件，请确认文件未损坏后重试。" : "Could not read this DOCX file. Please verify it is not corrupted."
-    );
+    throw new Error(docxUnreadable(isZh));
   }
   const entry = entries[0];
   if (!entry) {
-    throw new Error(
-      isZh ? "无法读取该 DOCX 文件，请确认文件未损坏后重试。" : "Could not read this DOCX file. Please verify it is not corrupted."
-    );
+    throw new Error(docxUnreadable(isZh));
   }
   const xml = new TextDecoder("utf-8").decode(entry.data);
   const text = cleanExtractedText(
@@ -550,11 +586,7 @@ async function extractPdfText(
 
   const text = pages.join("\n\n").slice(0, MAX_MATERIAL_CHARS).trim();
   if (text.length < 20) {
-    throw new Error(
-      isZh
-        ? "该 PDF 没有可提取的文字层（可能是扫描件）。请上传带文字层的 PDF、DOCX 或 PPTX。"
-        : "This PDF has no extractable text layer (it may be scanned). Upload a text-based PDF, DOCX, or PPTX."
-    );
+    throw new Error(scannedPdfNotice(isZh));
   }
   return { text, pageCount };
 }

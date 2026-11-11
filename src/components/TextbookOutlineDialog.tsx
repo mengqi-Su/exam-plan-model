@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, BookOpen, Check, Loader2, Sparkles, X } from "lucide-react";
+import { BookOpen, Check, Loader2, Sparkles } from "lucide-react";
 import { SyllabusTopic, TextbookChapter, TextbookOutline } from "../types";
 import { useI18n } from "../lib/i18n";
 import { GenerationError, runGeneration } from "../lib/aiClient";
 import { ModalShell } from "./ModalShell";
 import { normalizeTopicTitle } from "../lib/topics";
-import { formatBookTitle } from "../lib/text";
+import { formatBookTitle, textbookAction, textbookExample, textbookNameLabel, textbookProgress } from "../lib/text";
+import { NoticeBand } from "./NoticeBand";
 
 /**
  * 只填一个教材名，先把这本教材的通行目录回忆出来给人过目：
@@ -70,7 +71,7 @@ export function TextbookOutlineDialog({
       setStatus("");
       setError("");
       // 关窗即作废这份草稿：勾过的章节已经变成考点了，下次点开该是一段新目录，
-      // 而不是停在上一页（按钮写的是「重新整理目录」）。书名留着，不用重打。
+      // 而不是停在上一页（按钮还是那颗「整理目录」，再点一次就是重跑）。书名留着，不用重打。
       setOutline(null);
       setDrafts([]);
     }
@@ -108,7 +109,7 @@ export function TextbookOutlineDialog({
     workingRef.current = true;
     setIsWorking(true);
     setError("");
-    setStatus(tt("正在整理目录…", "Rebuilding the outline…"));
+    setStatus(textbookProgress(language === "zh"));
     const controller = new AbortController();
     abortRef.current = controller;
     try {
@@ -212,14 +213,14 @@ export function TextbookOutlineDialog({
               className="ui-btn ui-btn-primary px-4 py-1.5 text-[12px]"
             >
               {isWorking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              <span>{isWorking ? status || tt("整理中…", "Working…") : tt("整理目录", "Rebuild outline")}</span>
+              <span>{isWorking ? status || textbookProgress(language === "zh") : textbookAction(language === "zh")}</span>
             </button>
           </>
         }
       >
         <div>
           <label className="ui-field-label" htmlFor="textbook-name">
-            {tt("教材名称", "Textbook")}
+            {textbookNameLabel(language === "zh")}
           </label>
           <input
             id="textbook-name"
@@ -230,7 +231,7 @@ export function TextbookOutlineDialog({
             onKeyDown={(event) => {
               if (event.key === "Enter") void requestToc();
             }}
-            placeholder={tt("如：数据结构（C 语言版）第 2 版", "e.g. Introduction to Algorithms, 3rd ed.")}
+            placeholder={textbookExample(language === "zh")}
             className="ui-field"
             disabled={isWorking}
           />
@@ -253,12 +254,7 @@ export function TextbookOutlineDialog({
           </div>
         )}
 
-        {error && !isWorking && (
-          <div className="flex items-start gap-2 rounded-lg bg-[#FBEAE8] px-3 py-2 text-[12px] leading-relaxed text-[#B42318]">
-            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span className="min-w-0 flex-1">{error}</span>
-          </div>
-        )}
+        {error && !isWorking && <NoticeBand tone="error" message={error} onDismiss={() => setError("")} />}
       </ModalShell>
     );
   }
@@ -339,12 +335,7 @@ export function TextbookOutlineDialog({
 
       {outline.summary && <p className="ui-note">{outline.summary}</p>}
 
-      {outline.note && (
-        <div className="flex items-start gap-2 rounded-lg bg-[#FBF3DC] px-3 py-2 text-[12px] leading-relaxed text-[#8A5A00]">
-          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span className="min-w-0 flex-1">{outline.note}</span>
-        </div>
-      )}
+      {outline.note && <NoticeBand tone="notice" message={outline.note} />}
 
       <ul className="divide-y divide-[#f0ede8] overflow-hidden rounded-xl border border-[#eae7e1] bg-white">
         {drafts.map((draft) => (
@@ -405,15 +396,7 @@ export function TextbookOutlineDialog({
         ))}
       </ul>
 
-      {error && !isWorking && (
-        <div className="flex items-start gap-2 rounded-lg bg-[#FBEAE8] px-3 py-2 text-[12px] leading-relaxed text-[#B42318]">
-          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          <span className="min-w-0 flex-1">{error}</span>
-          <button onClick={() => setError("")} aria-label={tt("关闭提示", "Dismiss")} className="shrink-0">
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
+      {error && !isWorking && <NoticeBand tone="error" message={error} onDismiss={() => setError("")} />}
     </ModalShell>
   );
 }

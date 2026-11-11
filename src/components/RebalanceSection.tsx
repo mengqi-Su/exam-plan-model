@@ -3,7 +3,7 @@ import { AlertTriangle, CheckCircle2, RefreshCw } from "lucide-react";
 import { ExamStudyPlan } from "../types";
 import { playCompletionChime } from "../lib/audio";
 import { useI18n } from "../lib/i18n";
-import { getAiFallbackNotice, runGeneration } from "../lib/aiClient";
+import { getAiFallbackNotice, localRebalanceNotice, runGeneration } from "../lib/aiClient";
 import { addDays, toLocalDateString } from "../lib/date";
 import { SectionBlock } from "./SectionBlock";
 
@@ -25,8 +25,8 @@ export function RebalanceSection({ plan, onUpdatePlan }: RebalanceSectionProps) 
   const [isRebalancing, setIsRebalancing] = useState(false);
   const [rebalanceReason, setRebalanceReason] = useState(
     isZh
-      ? "前几天有未完成的复习模块，请将剩余任务平摊到后续时间"
-      : "Missed study blocks from previous days, rebalance remaining tasks evenly"
+      ? "前几天有没完成的复习模块，请把剩余任务平摊到后面几天"
+      : "Some study blocks slipped in the last few days, spread the remaining tasks over the next days"
   );
   const [rebalanceResultSummary, setRebalanceResultSummary] = useState<string | null>(null);
   const [rebalanceError, setRebalanceError] = useState<string | null>(null);
@@ -57,9 +57,14 @@ export function RebalanceSection({ plan, onUpdatePlan }: RebalanceSectionProps) 
           status: "pending" as const,
         })),
       ],
-      rebalanceSummary: isZh
-        ? `已为您将 ${overdueTasks.length} 项积压任务智能重新平摊排程至今天及未来几天，避免考前突击负担。`
-        : `Successfully rescheduled ${overdueTasks.length} overdue tasks into upcoming study sessions.`,
+      /* 一句实话：一项都没积压时不能说「已平摊 N 项」，N=0 的句子等于宣布了一件没发生的事。 */
+      rebalanceSummary: overdueTasks.length
+        ? isZh
+          ? `已把 ${overdueTasks.length} 项积压任务平摊到今天起的几天里。`
+          : `Rescheduled ${overdueTasks.length} overdue tasks over the next few days.`
+        : isZh
+          ? "没有积压的任务，计划保持不变。"
+          : "Nothing was behind schedule, so the plan stayed as it was.",
     };
   };
 
@@ -82,21 +87,12 @@ export function RebalanceSection({ plan, onUpdatePlan }: RebalanceSectionProps) 
         notice = getAiFallbackNotice(meta, language);
       } catch (fetchErr: any) {
         console.warn("Rebalance via AI failed, using local scheduler:", fetchErr);
-        const msg = fetchErr?.message;
-        notice = msg
-          ? isZh
-            ? `${msg} 已改用本地排程规则。`
-            : `${msg} A local scheduling rule was used instead.`
-          : isZh
-            ? "无法连接 AI 服务，已改用本地排程规则重排计划。"
-            : "Could not reach the AI service. A local scheduling rule was used instead.";
+        notice = localRebalanceNotice(fetchErr?.message, isZh);
       }
 
       if (!data || !Array.isArray(data.tasks)) {
         if (!notice) {
-          notice = isZh
-            ? "AI 未返回有效排程，已改用本地排程规则。"
-            : "AI returned no usable schedule. A local scheduling rule was used instead.";
+          notice = localRebalanceNotice(isZh ? "AI 没有返回可用的排程" : "AI returned no usable schedule", isZh);
         }
         data = localRebalance();
       }
@@ -105,13 +101,13 @@ export function RebalanceSection({ plan, onUpdatePlan }: RebalanceSectionProps) 
       onUpdatePlan({ ...plan, tasks: data.tasks, updatedAt: new Date().toISOString() });
       setRebalanceResultSummary(
         data.rebalanceSummary ||
-          (isZh ? "学习计划已根据剩余天数平摊与动态重排！" : "Study plan successfully rebalanced across remaining days!")
+          (isZh ? "学习计划已按剩余天数重新平摊。" : "Study plan rebalanced across the remaining days.")
       );
       playCompletionChime();
       setArmed(false);
     } catch (err: any) {
       console.error("Rebalance failed:", err);
-      setRebalanceError(isZh ? "计划重排失败，请稍后重试。" : "Rebalance failed. Please try again later.");
+      setRebalanceError(isZh ? "计划重排没有成功，请重试。" : "Rebalance failed. Try again.");
     } finally {
       setIsRebalancing(false);
     }
@@ -158,7 +154,7 @@ export function RebalanceSection({ plan, onUpdatePlan }: RebalanceSectionProps) 
               className="ui-btn ui-btn-primary px-3.5 py-1.5 text-[12px]"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRebalancing ? "animate-spin" : ""}`} />
-              <span>{isRebalancing ? (isZh ? "正在重排…" : "Rebalancing…") : isZh ? "确认重排" : "Confirm"}</span>
+              <span>{isRebalancing ? (isZh ? "重排中…" : "Rebalancing…") : isZh ? "确认重排" : "Confirm"}</span>
             </button>
             <button
               onClick={() => setArmed(false)}

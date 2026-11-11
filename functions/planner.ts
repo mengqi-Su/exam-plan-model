@@ -23,6 +23,13 @@ export function clampText(value: unknown, maxLength: number): string {
   return value.trim().slice(0, maxLength);
 }
 
+/* 说给人听的英文计数只管单复数，规矩和前端 text.pl() 一样：写 "1 file" / "3 files"，
+   不写没人肯念的 "file(s)"。函数是独立的 Deno 模块，import 不到 src/ 那一边，
+   所以这里留一份同规矩的实现，而不是第三种写法。 */
+export function count(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
 export function isChinese(text: string): boolean {
   return /[\u4e00-\u9fa5]/.test(text || '');
 }
@@ -74,7 +81,7 @@ export function sanitizeMaterials(
 ): ClientMaterial[] {
   if (!Array.isArray(raw)) return [];
   if (raw.length > maxDocs) {
-    throw new PlannerError(`一次最多上传 ${maxDocs} 份资料，请分批处理。`, 413, 'TOO_MANY_MATERIALS');
+    throw new PlannerError(`一次生成最多用 ${maxDocs} 份资料，请取消勾选一部分。`, 413, 'TOO_MANY_MATERIALS');
   }
   return raw
     .map((material: any, index: number) => ({
@@ -153,13 +160,13 @@ export function sanitizePreferences(raw: any): any {
   const startDate = clampText(raw?.startDate, 20);
   const examDate = clampText(raw?.examDate, 20);
   if (!startDate || Number.isNaN(parseLocalDate(startDate).getTime())) {
-    throw new PlannerError('开始日期格式无效，应为 YYYY-MM-DD。', 400, 'INVALID_START_DATE');
+    throw new PlannerError('开始日期无效，请重新选择。', 400, 'INVALID_START_DATE');
   }
   if (!examDate || Number.isNaN(parseLocalDate(examDate).getTime())) {
-    throw new PlannerError('考试日期格式无效，应为 YYYY-MM-DD。', 400, 'INVALID_EXAM_DATE');
+    throw new PlannerError('考试日期无效，请重新选择。', 400, 'INVALID_EXAM_DATE');
   }
   if (daysBetweenDateStrings(startDate, examDate) < 0) {
-    throw new PlannerError('考试日期不能早于开始日期。', 400, 'INVALID_DATE_RANGE');
+    throw new PlannerError('考试日期不能早于开始复习日期。', 400, 'INVALID_DATE_RANGE');
   }
   return {
     examName: clampText(raw?.examName, 200),
@@ -186,13 +193,13 @@ export function sanitizePreferences(raw: any): any {
 
 export function sanitizePlanForRebalance(currentPlan: any): any {
   if (!currentPlan || typeof currentPlan !== 'object') {
-    throw new PlannerError('缺少当前计划数据。', 400, 'MISSING_PLAN');
+    throw new PlannerError('没有收到要重排的计划，请刷新后重试。', 400, 'MISSING_PLAN');
   }
   if (!Array.isArray(currentPlan.tasks)) {
-    throw new PlannerError('当前计划缺少任务列表。', 400, 'MISSING_TASKS');
+    throw new PlannerError('这个科目的任务列表读不出来，请刷新后重试。', 400, 'MISSING_TASKS');
   }
   if (currentPlan.tasks.length > MAX_TASKS_PER_PLAN) {
-    throw new PlannerError('计划任务数量过多，无法重排。', 413, 'TOO_MANY_TASKS');
+    throw new PlannerError('这个科目的任务超过重排上限，请缩短复习区间后重新生成计划。', 413, 'TOO_MANY_TASKS');
   }
   return {
     ...currentPlan,
@@ -380,6 +387,11 @@ const GROUNDING_RULES = `GROUNDING RULES:
 - If the documents are thin, return fewer items instead of padding with generic textbook content.
 - Prefer the exact chapter, section and terminology names found in the documents.`;
 
+/* 模型写的 summary / note 会原样印到界面上，所以它得和界面其他提示同一副面孔：
+   先报事实（带具体数字），再说下一步；不寒暄、不带感叹号、不称呼用户。
+   全站只有这一条，几个提示词共用——否则改口径时要一处一处追。 */
+const PROSE_REGISTER_RULE = `- Prose the student reads on screen ("summary", "note", "rebalanceSummary"): plain factual register, state the concrete numbers, no greeting, no exclamation marks, never address the student directly.`;
+
 /** 第一步：只识别核心大单元与权重，输出很小，便于快速返回。 */
 export function buildUnitsPrompt(
   safeMaterials: ClientMaterial[],
@@ -402,6 +414,7 @@ ${GROUNDING_RULES}
 - Do NOT expand subtopics or key points in this step; another pass will drill into each unit.
 - Keep 4-10 units. Merge trivial sections; never pad the list.
 ${isZh ? '- Write every title, category and description in natural academic Simplified Chinese (简体中文).' : ''}
+${PROSE_REGISTER_RULE}
 
 Documents content:
 ${aggregatedContent.slice(0, 48_000)}
@@ -588,6 +601,7 @@ ${TEXTBOOK_RULES}
 - weightPercentage is what this chapter is worth on the exam, or what share of one full pass it takes; keep the list summing to roughly 100.
 - "confidence" says how sure you are about this outline as a whole; "note" is one short honest sentence about what you are least sure about (use "" when nothing).
 ${isZh ? '- Write every title, section name, summary and note in natural academic Simplified Chinese (简体中文).' : ''}
+${PROSE_REGISTER_RULE}
 
 Output ONLY a single JSON object (no markdown fences, no commentary) with exactly this shape:
 {
@@ -1060,6 +1074,7 @@ export function buildRebalancePrompt(currentPlan: any, todayStr: string, reason:
 The student needs to reschedule the remaining tasks of an exam plan as of ${todayStr}.
 Reason / Trigger: ${reason || 'Student missed past tasks or needs schedule rebalancing'}
 ${isZh ? 'CRITICAL: The summary and every task title must be written in natural Simplified Chinese (简体中文).' : ''}
+${PROSE_REGISTER_RULE}
 
 Exam Date: ${currentPlan.examDate}
 Exam Name: ${currentPlan.examName}
@@ -1087,7 +1102,7 @@ INSTRUCTIONS:
 
 Output ONLY a single JSON object (no markdown fences, no commentary) with exactly this shape:
 {
-  "rebalanceSummary": "1-2 sentences in the student's language explaining how the load was redistributed",
+  "rebalanceSummary": "1-2 sentences in the language the plan uses, stating how many tasks moved onto which days",
   "tasks": [ { "id": "task-1", "date": "YYYY-MM-DD", "startTime": "09:00", "endTime": "09:45", "durationMinutes": 45, "priority": "high", "status": "pending" } ]
 }`;
 }
@@ -1325,16 +1340,25 @@ export function fallbackRebalancePlan(currentPlan: any, currentDate: string, rea
   const skippedTasks = unschedulable.map((task: any) => ({ ...task, status: 'skipped' }));
 
   const scheduledDays = slots.filter((slot) => slot.assigned.length).length;
+  /* 重排结果说明：先说这次重排了多少、排到哪几天，再说保持不变的和被跳过的。
+     不称呼「你」/「your」、不用感叹号，英文计数交给 count()——
+     这几条是全站提示文案的规矩，dev/copy-guard.test.ts 盯着前端那一半。 */
   const overflowNote = unschedulable.length
     ? (isZh
-      ? `剩余可用时间不足，${unschedulable.length} 个任务已标记为跳过。`
-      : `${unschedulable.length} task(s) were marked skipped — the available hours you set do not fit them.`)
+      ? `剩余可用时间不够，${unschedulable.length} 个任务标为跳过。`
+      : `${count(unschedulable.length, 'task does', 'tasks do')} not fit the time left and are marked skipped.`)
     : '';
 
   return {
-    rebalanceSummary: isZh
-      ? `已完成自适应重排：剩余 ${rescheduled.length} 个任务按你设置的每日可用时间铺到 ${examDate} 前的 ${scheduledDays} 个学习日，休息日不排任务。${overflowNote}保留 ${completedTasks.length} 个已完成里程碑。`
-      : `Adaptive rebalance done: ${rescheduled.length} remaining task(s) spread across ${scheduledDays} study day(s) before ${examDate}, honouring your per-day hours and rest days. ${overflowNote} Preserved ${completedTasks.length} completed milestone(s).`,
+    rebalanceSummary: [
+      isZh
+        ? `已把 ${rescheduled.length} 个任务重排到 ${examDate} 之前的 ${scheduledDays} 个学习日，休息日不排。`
+        : `Rescheduled ${count(rescheduled.length, 'task', 'tasks')} across ${count(scheduledDays, 'study day', 'study days')} before ${examDate}, keeping rest days empty.`,
+      isZh
+        ? `${completedTasks.length} 个已完成里程碑保持不变。`
+        : `${count(completedTasks.length, 'completed milestone', 'completed milestones')} kept unchanged.`,
+      overflowNote,
+    ].filter(Boolean).join(isZh ? '' : ' '),
     tasks: [...completedTasks, ...rescheduled, ...skippedTasks],
   };
 }

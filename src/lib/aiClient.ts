@@ -1,6 +1,7 @@
 import { StudyMaterial, TextbookChapter, TextbookOutline } from "../types";
 import { attachTaskTopicIds } from "./links";
-import { formatBookTitle } from "./text";
+import { appendClause, docxUnreadable, formatBookTitle, textbookNameLabel, textbookProgress } from "./text";
+import { scannedPdfNotice, supportedFormatList } from "./documentParser";
 
 // 资料库容量和单次生成用量是两件事：库里能存 100 份，一次生成只吃 20 份。
 // 20 这个数字来自提示词预算（每份均分 45,000 字），再多后面的资料就到不了模型面前。
@@ -38,17 +39,45 @@ export function aiSelectionNotice(total: number, selected: number, language: str
 }
 
 /**
+ * 资料库存满了 / 这次只收得下前几份：两句话各有一份，向导和科目页共用。
+ * 以前四处在各自拼，写出过「请先删除部分文件」「请先删除一些」和英文
+ * "Remove some files" / "were kept" / "were processed"——同一个上限三种说法。
+ */
+export function libraryFullNotice(isZh: boolean): string {
+  return isZh
+    ? `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，请先删除一部分。`
+    : `The library holds up to ${MAX_LIBRARY_MATERIALS} materials. Delete some first.`;
+}
+
+export function libraryOverflowNotice(kept: number, isZh: boolean): string {
+  return isZh
+    ? `资料库最多存 ${MAX_LIBRARY_MATERIALS} 份资料，本次只收下 ${kept} 份。`
+    : `The library holds up to ${MAX_LIBRARY_MATERIALS} materials, so only the first ${kept} files were kept.`;
+}
+
+/**
+ * 一次生成用多少份资料，这句话只在这里拼。
+ * 带份数的是本地闸门（用户勾了 21 份，要说清是哪 21 份被挡）；
+ * 不带份数的是错误码表（服务端 planner 也可能发同一个码，那时它说不出用户勾了几份）。
+ * 两种说法共用「上限 + 动作」这半句，改上限时只改 MAX_AI_MATERIALS 一处。
+ */
+export function tooManyMaterialsNotice(picked: number, isZh: boolean): string {
+  const limit = isZh
+    ? `一次生成最多用 ${MAX_AI_MATERIALS} 份资料`
+    : `One run uses at most ${MAX_AI_MATERIALS} materials`;
+  const action = isZh ? "请取消勾选一部分。" : "Uncheck some and try again.";
+  return picked > MAX_AI_MATERIALS ? `${limit}，本次勾选了 ${picked} 份，${action}` : `${limit}，${action}`;
+}
+
+/**
  * 只把勾选的资料交给 AI。超出单次上限就明确报错，绝不替用户悄悄丢掉后面的资料——
  * 选哪几份是用户在列表里勾的，这里只负责忠实执行。
  */
-export function prepareMaterialsForAI(materials?: StudyMaterial[], selectedIds?: string[]) {
+export function prepareMaterialsForAI(materials?: StudyMaterial[], selectedIds?: string[], isZh = true) {
   const list = materials || [];
   const picked = selectedIds ? list.filter((material) => selectedIds.includes(material.id)) : list;
   if (picked.length > MAX_AI_MATERIALS) {
-    throw new GenerationError(
-      `一次生成最多用 ${MAX_AI_MATERIALS} 份资料，当前勾选了 ${picked.length} 份，请取消勾选一部分。`,
-      "TOO_MANY_MATERIALS"
-    );
+    throw new GenerationError(tooManyMaterialsNotice(picked.length, isZh), "TOO_MANY_MATERIALS");
   }
   return picked.map((material) => ({
     id: material.id,
@@ -60,220 +89,288 @@ export function prepareMaterialsForAI(materials?: StudyMaterial[], selectedIds?:
 
 export function getAiFallbackNotice(meta: AiResponseMeta | undefined, language: string): string | null {
   if (meta?.source !== "fallback") return null;
-  if (language === "zh") {
-    if (meta.fallbackReason === "no_api_key") {
-      return "未配置 AI 服务，已按本地排程规则重新分配任务。所有数据仍保存在本浏览器中。";
-    }
-    if (meta.fallbackReason === "too_many_tasks") {
-      return "待办任务较多，已按本地排程规则均匀重排。数据和已完成任务都保留在本浏览器中。";
-    }
-    return "AI 服务暂时不可用，已按本地排程规则重新分配任务。你的数据和已完成的任务都保留在本浏览器中。";
-  }
-  if (meta.fallbackReason === "no_api_key") {
-    return "AI is not configured. Tasks were rescheduled with local rules. Your data stays in this browser.";
-  }
-  if (meta.fallbackReason === "too_many_tasks") {
-    return "There are many open tasks, so they were redistributed with local rules. Your data and completed tasks stay in this browser.";
-  }
-  return "AI is temporarily unavailable. Tasks were rescheduled with local rules. Your data and completed tasks stay in this browser.";
+  const isZh = language !== "en";
+  /* 三种回退原因共用同一个尾巴（数据还在本机），尾巴只写一份，接缝交给 appendClause。
+     不称呼「你」/「your」：这是一条状态读数，不是客服问候。 */
+  const tail = isZh ? "数据和已完成的任务仍保存在本机" : "data and completed tasks stay on this device";
+  const head =
+    meta.fallbackReason === "no_api_key"
+      ? isZh
+        ? "AI 服务未启用，已按本地规则重新分配任务"
+        : "AI is not enabled, so tasks were rescheduled with local rules"
+      : meta.fallbackReason === "too_many_tasks"
+        ? isZh
+          ? "待办任务较多，已按本地规则均匀重排"
+          : "There are many open tasks, so they were redistributed with local rules"
+        : isZh
+          ? "AI 服务暂时不可用，已按本地规则重新分配任务"
+          : "AI is temporarily unavailable, so tasks were rescheduled with local rules";
+  return appendClause(head, tail, isZh);
 }
 
-const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
-  RATE_LIMITED: {
-    zh: "请求过于频繁，请等待一分钟后重试。",
-    en: "Too many requests. Please wait a minute and try again.",
-  },
+/* 重排这条路自己也有本地回退：AI 没跑成时，浏览器里的排程规则接管。
+   上面那份 getAiFallbackNotice 是服务端自己说「我回退了」，这一份是前端调用失败后说的，
+   两条路都在文案里留下「按什么重排」这个事实，措辞同一族（「本地规则」），不另起名字。
+   原因由调用处传进来，句尾标点由这里统一收，避免出现「…不可用。；已按…」这种接缝。 */
+export function localRebalanceNotice(reason: string | undefined, isZh: boolean): string {
+  const tail = isZh ? "已按本地规则重排" : "local rules rebalanced the tasks instead";
+  const joined = appendClause(reason || "", tail, isZh);
+  // 没有前半句时它就是整句，英文首字母得大写
+  return reason || isZh ? joined : joined.charAt(0).toUpperCase() + joined.slice(1);
+}
+
+/* 「AI 没启用」过去在两个错误码里各写了一句：一句让人「检查站点的 AI 状态」，
+   一句让人「在站点设置中填写 AI 服务密钥」。应用里没有这两个入口，指的都是用户看不见的后台，
+   照着做也找不到那一栏。同一个处境只留一句事实，不给不存在的动作；
+   「资料还在本机」这半句由调用处按场景补（appendClause），不在这里写死。 */
+const AI_NOT_ENABLED = {
+  zh: "AI 服务未启用，暂时无法自动生成。",
+  en: "AI is not enabled, so this can't be generated yet.",
+};
+
+/* 同一句话在码表里出现过三四回（限流三个码、页面过期三个码、AI 不可用两个码）。
+   码是协议，句子是文案：码可以有很多个，说法只留一份，改一处就全站一起改。 */
+const RATE_LIMIT = {
+  zh: "请求太频繁，请稍后重试。",
+  en: "Too many requests. Try again in a moment.",
+};
+const STALE_PAGE = {
+  zh: "页面数据已过期，请刷新后重试。",
+  en: "This page is out of date. Reload it and try again.",
+};
+const AI_DOWN = {
+  zh: "AI 服务暂时不可用，请稍后重试。已上传的资料不会被改动。",
+  en: "AI is temporarily unavailable. Try again in a moment. Uploaded materials stay unchanged.",
+};
+
+/* 提示文案的规矩，这一张表按它写，dev/copy-guard.test.ts 把它钉住：
+   1) 先说事实（发生了什么，带具体数字），再说下一步——只给一个动作，而且给的是界面上真的有的那个。
+   2) 中文用「请」，英文用祈使句；两边都不称呼用户（「您」），英文也不写 "Please"。
+   3) 状态和错误不用感叹号。
+   4) 重试建议只有两种：等一会儿有用的写「请稍后重试 / Try again in a moment」，
+      立刻可以再试的写「请重试 / Try again」。旧表里「请稍后再试」「请重试」「请刷新页面后重试」混着来。
+   5) 用户看不见的内部名词不进文案：plans、JSON 请求、接口、API Key、模板回退，也不写厂商名。
+      「DeepSeek API Key」改成「AI 服务密钥」：填密钥的人不需要在提示里看到供应商叫什么。 */
+/* 一个错误码只对应一句话，这张表是唯一的说法来源。函数那边（functions/*.ts）是独立模块，
+   引不到这里，只能照抄同一句；抄没抄对由 test:copy 逐条比对，别在两边各写各的。 */
+export const ERROR_MESSAGES: Record<string, { zh: string; en: string }> = {
+  RATE_LIMITED: RATE_LIMIT,
   /* 这里原来挂着 PAYLOAD_TOO_LARGE / FILE_TOO_LARGE 两条，写着「16 MB」「10 MB」。
      两条都没有产生者：函数闸门发的是小写 body_too_large（下面有），单份体积由
      documentParser 在本地拦、自己报数。留着等于让同一个上限在文案里还有第二份字面量，
-     改上限时必然漏掉一处，所以删掉。 */
+     改上限时必然漏掉一处，所以删掉。
+     TOO_MANY_MATERIALS 留下，但句子由 tooManyMaterialsNotice() 算出：
+     本地闸门和服务端 planner 发的是同一个码，码表里再手写一份「20 份」就是第二个数字来源。 */
   TOO_MANY_MATERIALS: {
-    zh: "一次生成最多用 20 份资料，请取消勾选一部分。",
-    en: "One run uses at most 20 materials. Uncheck some files and try again.",
+    zh: tooManyMaterialsNotice(0, true),
+    en: tooManyMaterialsNotice(0, false),
   },
   UNSUPPORTED_FORMAT: {
-    zh: "不支持此文件格式。请上传 PDF、Word（.doc / .docx）、PPTX、TXT、Markdown、CSV 或 JSON。",
-    en: "Unsupported file type. Upload PDF, Word (.doc / .docx), PPTX, TXT, Markdown, CSV, or JSON.",
+    zh: `这种格式读不了，支持的是 ${supportedFormatList(true)}。`,
+    en: `This format can't be read. Supported formats: ${supportedFormatList(false)}.`,
   },
   // 旧版 Word（.doc）现在能本地直接读，剩下只有旧版 PowerPoint 还得让用户另存一次。
   LEGACY_OFFICE_UNSUPPORTED: {
-    zh: "旧版 PowerPoint（.ppt）暂时读不了，请用 PowerPoint 或 WPS 另存为 .pptx 或 PDF 后上传。",
-    en: "Legacy PowerPoint (.ppt) can't be read yet. Save it as .pptx or PDF, then upload.",
+    zh: "旧版 .ppt 读不出文字，请另存为 .pptx 或 PDF 后再上传。",
+    en: "Legacy .ppt files can't be read. Save it as .pptx or PDF, then upload.",
   },
   SCANNED_PDF_AI_REQUIRED: {
-    zh: "该 PDF 没有可提取的文字层（可能是扫描件），且 AI 解析不可用。请上传可复制文字的 PDF、DOCX 或 PPTX。",
-    en: "This PDF has no text layer (it may be scanned) and AI parsing is unavailable. Upload a text-based PDF, DOCX, or PPTX.",
+    zh: scannedPdfNotice(true, true),
+    en: scannedPdfNotice(false, true),
   },
   AI_PARSE_FAILED: {
-    zh: "AI 解析服务暂时不可用，请稍后重试。",
-    en: "AI document parsing is temporarily unavailable. Please try again later.",
+    zh: "文字识别失败，请稍后重试。",
+    en: "Text recognition failed. Try again in a moment.",
   },
-  AI_UNAVAILABLE: {
-    zh: "AI 服务暂时不可用，请稍后重试。你的资料不会被替换成模板。",
-    en: "The AI service is temporarily unavailable. Please try again. Your materials will not be replaced with a template.",
-  },
-  AI_NOT_CONFIGURED: {
-    zh: "AI 服务尚未启用，无法自动生成。请稍后重试或检查站点 AI 状态。",
-    en: "AI is not enabled yet. Try again later or check the site's AI status.",
-  },
+  AI_UNAVAILABLE: AI_DOWN,
+  AI_NOT_CONFIGURED: AI_NOT_ENABLED,
   MISSING_MATERIALS: {
-    zh: "请先上传至少一份课程资料。",
-    en: "Upload at least one course document first.",
+    zh: "还没有资料。请先上传一份资料。",
+    en: "No materials yet. Upload one first.",
   },
   EMPTY_MATERIALS: {
-    zh: "资料内容为空，请重新上传可读取文字的文件。",
-    en: "The materials contain no readable text. Upload a text-based file and try again.",
+    zh: "这些资料里没有可读的文字，请重新上传带文字的文件。",
+    en: "These materials contain no readable text. Upload a file with text.",
   },
   SYLLABUS_EMPTY: {
-    zh: "AI 没有从这些资料中识别到可用考点，请补充更完整的考纲、讲义或真题后重试。",
-    en: "AI found no usable topics in these materials. Add a fuller syllabus, notes, or past paper and try again.",
+    zh: "AI 没有从这些资料里识别出考点，请补充更完整的考纲、讲义或真题后重试。",
+    en: "AI found no topics in these materials. Add a fuller syllabus, notes, or past paper and try again.",
   },
   SYLLABUS_EXTRACTION_FAILED: {
     zh: "考点提取失败，请稍后重试。",
-    en: "Topic extraction failed. Please try again later.",
+    en: "Topic extraction failed. Try again in a moment.",
+  },
+  /* 教材那两步和「资料提炼」失败的是同一类事，但要教的动作不一样：
+     一个要改教材名，一个要少勾几章。原来它们共用 SYLLABUS_EMPTY，
+     于是同一个码在两处印出两句话——现在各给一个码，一码一句。 */
+  TEXTBOOK_TOC_EMPTY: {
+    zh: "AI 没能整理出这本教材的目录，请换成教材全称（含版次）后重试。",
+    en: "AI couldn't outline this textbook. Try the full title, including the edition.",
+  },
+  TEXTBOOK_TOPICS_EMPTY: {
+    zh: "AI 没能把这些章节展开成考点，请少勾几章后重试。",
+    en: "AI couldn't expand these chapters into topics. Select fewer chapters and try again.",
   },
   PLAN_EMPTY: {
     zh: "AI 没有返回可用的每日任务，请检查资料内容后重试。",
-    en: "AI returned no usable daily tasks. Check your materials and try again.",
+    en: "AI returned no usable daily tasks. Check the materials and try again.",
   },
   PLAN_GENERATION_FAILED: {
     zh: "学习计划生成失败，请稍后重试。",
-    en: "Study plan generation failed. Please try again later.",
+    en: "Plan generation failed. Try again in a moment.",
   },
   PLAN_CHUNK_EMPTY: {
-    zh: "有几天没能生成任务，请重试或减少这几天的资料要求。",
-    en: "Some days got no tasks. Try again, or reduce the requirements for those days.",
+    zh: "有几天没排上任务，请减少这几天的资料量后重试。",
+    en: "Some days got no tasks. Use fewer materials for those days and try again.",
   },
   INVALID_START_DATE: {
-    zh: "开始日期格式无效，请重新选择。",
+    zh: "开始日期无效，请重新选择。",
     en: "The start date is invalid. Pick it again.",
   },
   INVALID_EXAM_DATE: {
-    zh: "考试日期格式无效，请重新选择。",
+    zh: "考试日期无效，请重新选择。",
     en: "The exam date is invalid. Pick it again.",
   },
   INVALID_DATE_RANGE: {
     zh: "考试日期不能早于开始复习日期。",
-    en: "The exam date cannot be earlier than the start date.",
+    en: "The exam date can't be earlier than the start date.",
+  },
+  /* 服务端 planner 对这个情形也发 INVALID_DATE_RANGE，但那句话是「考试日期不能早于开始日期」，
+     这里说的是「这段区间里没有一天被排成学习日」——两件事共用一个码，就会共用一句错的解释。
+     各给一个码，一码一句。 */
+  NO_STUDY_DAYS: {
+    zh: "所选日期里没有可用的学习日，请调整每日安排后重试。",
+    en: "No study days fall in the selected range. Adjust the daily plan and try again.",
   },
   PARSE_FAILED: {
-    zh: "文档解析服务异常，请稍后重试或换一份文件。",
-    en: "Document parsing failed. Please try again or upload a different file.",
+    zh: "文档解析失败，请重试。",
+    en: "Document parsing failed. Try again.",
   },
   EMPTY_DOCUMENT: {
-    zh: "未能从文件中读取到文字内容。",
-    en: "No readable text was found in this file.",
+    zh: "这个文件里没有可读的文字。",
+    en: "This file contains no readable text.",
   },
   DOCX_PARSE_FAILED: {
-    zh: "无法读取该 DOCX 文件，请确认文件未损坏。",
-    en: "Could not read this DOCX file. Please verify it is not corrupted.",
+    zh: docxUnreadable(true),
+    en: docxUnreadable(false),
   },
   PPTX_NO_TEXT: {
-    zh: "未能从 PPTX 中提取文字（可能全部为图片）。请导出为 PDF 或补充文字版讲义。",
-    en: "No text could be extracted from this PPTX. Export it as PDF or upload text-based notes.",
+    zh: "这份 PPTX 里没有文字（可能全是图片），请导出为 PDF 后上传。",
+    en: "This PPTX has no text (it may be all images). Export it as PDF, then upload.",
   },
   MISSING_FILE_DATA: {
-    zh: "缺少文件内容，请重新选择文件。",
-    en: "Missing file data. Please select the file again.",
+    zh: "没有收到文件内容，请重新选择文件。",
+    en: "The file arrived empty. Select it again.",
   },
-  INVALID_JSON: {
-    zh: "请求内容格式无效，请刷新页面后重试。",
-    en: "Invalid request format. Refresh the page and try again.",
-  },
-  ai_not_configured: {
-    zh: "AI 服务尚未启用：请在站点设置中填写 DeepSeek API Key。",
-    en: "AI is not enabled yet: add a DeepSeek API key in the site settings.",
-  },
-  ai_unavailable: {
-    zh: "AI 服务暂时不可用，请稍后重试。你的资料不会被替换成模板。",
-    en: "The AI service is temporarily unavailable. Please try again. Your materials will not be replaced with a template.",
-  },
+  INVALID_JSON: STALE_PAGE,
+  ai_not_configured: AI_NOT_ENABLED,
+  ai_unavailable: AI_DOWN,
   ai_bad_output: {
-    zh: "AI 返回的格式不正确，请重试。",
-    en: "AI returned malformed output. Please try again.",
+    zh: "AI 返回的内容不可用，请重试。",
+    en: "AI returned unusable output. Try again.",
   },
-  ai_rate_limited: {
-    zh: "AI 调用频率过高，请稍后再试。",
-    en: "AI is rate limited. Please try again later.",
-  },
+  ai_rate_limited: RATE_LIMIT,
   ai_access_denied: {
-    zh: "AI 服务鉴权失败，请检查站点设置中的 DeepSeek API Key。",
-    en: "AI authentication failed. Check the DeepSeek API key in the site settings.",
+    zh: "AI 服务密钥无效，暂时无法自动生成。",
+    en: "The AI service key was rejected, so this can't be generated yet.",
   },
   ai_out_of_credits: {
-    zh: "DeepSeek 账户余额不足，本次无法生成。请充值后重试。",
-    en: "The DeepSeek account has no remaining balance, so generation is paused. Top up and try again.",
+    zh: "AI 服务余额不足，暂时无法自动生成。",
+    en: "The AI service has no balance left, so this can't be generated yet.",
   },
   ai_request_rejected: {
-    zh: "AI 服务拒绝了本次请求，请减少资料量或分批生成后重试。",
-    en: "The AI service rejected this request. Reduce the materials or generate in smaller batches.",
+    zh: "AI 服务拒绝了这次请求，请减少资料量后重试。",
+    en: "AI rejected this request. Use fewer materials and try again.",
   },
   AI_EMPTY: {
     zh: "AI 本次没有返回内容，请重试。",
-    en: "AI returned no content this time. Please try again.",
+    en: "AI returned nothing this time. Try again.",
   },
   AI_TIMEOUT: {
-    zh: "生成超时了，请稍后重试，或减少资料量。",
-    en: "Generation timed out. Try again later or reduce the materials.",
+    zh: "生成超时，请减少资料量后重试。",
+    en: "Generation timed out. Use fewer materials and try again.",
   },
   ai_timeout: {
-    zh: "AI 这一段生成太慢了，已自动拆成更小的批次重试。",
-    en: "That segment was too slow for AI, so it is being retried in smaller batches.",
+    zh: "这一段生成太慢，已自动拆成更小的批次重试。",
+    en: "That segment was too slow, so it's being retried in smaller batches.",
   },
   ai_output_capped: {
-    zh: "AI 单次输出长度到顶了，已自动拆成逐日生成。",
-    en: "AI hit its per-call output limit, so the days are being generated one by one.",
+    zh: "AI 单次输出到了上限，已自动改为逐日生成。",
+    en: "AI hit its output limit, so the days are being generated one by one.",
   },
-  invalid_request: {
-    zh: "请求内容格式无效，请刷新页面后重试。",
-    en: "Invalid request format. Refresh the page and try again.",
-  },
+  invalid_request: STALE_PAGE,
   // 下面是函数闸门（functions/requestGuard.ts）的拒绝码。
   body_too_large: {
-    zh: "这次提交的内容超过了服务上限，请减少资料数量后重试。",
-    en: "This request is over the service limit. Reduce the materials and try again.",
+    zh: "这次提交的内容超过服务上限，请减少资料量后重试。",
+    en: "This request is over the service limit. Use fewer materials and try again.",
   },
   body_timeout: {
-    zh: "上传太慢了，请检查网络，或减少资料量后重试。",
-    en: "The upload was too slow. Check your connection, or reduce the materials and try again.",
+    zh: "上传太慢，请减少资料量后重试。",
+    en: "The upload was too slow. Use fewer materials and try again.",
   },
-  bad_body: {
-    zh: "请求内容格式无效，请刷新页面后重试。",
-    en: "Invalid request format. Refresh the page and try again.",
-  },
+  bad_body: STALE_PAGE,
   unsupported_media_type: {
-    zh: "这个接口只接受 JSON 请求，请刷新页面后重试。",
-    en: "This endpoint only accepts JSON requests. Refresh the page and try again.",
+    zh: "这次提交的内容类型不对，请刷新后重试。",
+    en: "This request was sent in the wrong form. Reload the page and try again.",
   },
   cross_origin: {
-    zh: "当前页面不能调用规划服务，请在本站页面内使用。",
-    en: "This page cannot call the planning service. Use it from within the site.",
+    zh: "这个页面不在本站内，请从本站地址重新打开。",
+    en: "This page is outside the site. Open it again from the site address.",
   },
-  rate_limited: {
-    zh: "请求太频繁了，请等一会儿再试。",
-    en: "Too many requests. Please wait a moment and try again.",
-  },
+  rate_limited: RATE_LIMIT,
   // 与 rate_limited 分开：那是等几分钟，重试有意义；这是等明天，重试只是耗时间。
   daily_quota_reached: {
     zh: "今天的调用次数已用完，请明天再试。",
-    en: "You've used up today's allowance. Please try again tomorrow.",
+    en: "Today's quota is used up. Try again tomorrow.",
   },
   internal_error: {
     zh: "服务暂时不可用，请稍后重试。",
-    en: "The service is temporarily unavailable. Please try again later.",
+    en: "The service is temporarily unavailable. Try again in a moment.",
+  },
+  // 路由没命中（旧标签页还在打已改名的地址）。服务端那句是兜底，说法以这里为准。
+  not_found: {
+    zh: "这个功能暂时不可用，请刷新后重试。",
+    en: "This feature is unavailable. Reload the page and try again.",
+  },
+  // 打到了只收 POST 的地址，对用户和「路由没命中」是同一件事，共用一句话。
+  method_not_allowed: {
+    zh: "这个功能暂时不可用，请刷新后重试。",
+    en: "This feature is unavailable. Reload the page and try again.",
+  },
+  /* 下面几条原来只在服务端有句子，前端码表里没有，于是同一个处境走哪条路就印哪句话。
+     码表是唯一的说法来源，服务端只许照抄（由 test:copy 钉住）。 */
+  TEXTBOOK_NAME_MISSING: {
+    zh: `还没有${textbookNameLabel(true)}，请填写教材全称（含版次）。`,
+    en: `No ${textbookNameLabel(false).toLowerCase()} yet. Enter the full title, including the edition.`,
+  },
+  MISSING_PLAN: {
+    zh: "没有收到要重排的计划，请刷新后重试。",
+    en: "No plan came through for rebalancing. Reload the page and try again.",
+  },
+  MISSING_TASKS: {
+    zh: "这个科目的任务列表读不出来，请刷新后重试。",
+    en: "This subject's task list can't be read. Reload the page and try again.",
+  },
+  TOO_MANY_TASKS: {
+    zh: "这个科目的任务超过重排上限，请缩短复习区间后重新生成计划。",
+    en: "This subject has more tasks than rebalancing can handle. Shorten the study range and generate the plan again.",
+  },
+  ai_output_too_large: {
+    zh: "AI 返回的内容超过长度上限，请减少资料量后重试。",
+    en: "AI returned more text than the limit allows. Use fewer materials and try again.",
   },
 };
 
 export function localizeApiError(
   code: string | undefined,
-  status: number,
   language: string,
   serverMessage?: string
 ): string {
   const entry = code ? ERROR_MESSAGES[code] : undefined;
   if (entry) return language === "zh" ? entry.zh : entry.en;
-  if (language === "zh") return serverMessage || `请求失败（HTTP ${status}）。`;
-  return `Request failed (HTTP ${status}).`;
+  /* 码表里没有的码：状态码是排查用的内部读数，不摊给用户，只说事实和一个动作。 */
+  if (language === "zh") return serverMessage || "这次请求没有成功，请刷新后重试。";
+  return "This request did not go through. Reload the page and try again.";
 }
 
 export async function readApiError(
@@ -290,7 +387,7 @@ export async function readApiError(
     // response body was not JSON
   }
   return {
-    message: localizeApiError(code, response.status, language, serverMessage),
+    message: localizeApiError(code, language, serverMessage),
     code,
   };
 }
@@ -387,10 +484,7 @@ async function callAi<T = any>(
   for (let attempt = 0; attempt <= CALL_RETRY_DELAYS.length; attempt++) {
     if (ctx.signal.aborted) throw abortError(ctx);
     if (Date.now() > ctx.deadlineAt) {
-      throw new GenerationError(
-        ctx.tt("生成超时了，请稍后重试，或减少资料量。", "Generation timed out. Try again later or reduce the materials."),
-        "AI_TIMEOUT"
-      );
+      throw new GenerationError(localizeApiError("AI_TIMEOUT", ctx.lang), "AI_TIMEOUT");
     }
 
     let res: Response | null = null;
@@ -416,7 +510,7 @@ async function callAi<T = any>(
         continue;
       }
       throw new GenerationError(
-        ctx.tt("无法连接 AI 服务，请检查网络后重试。", "Could not reach the AI service. Check your connection and try again."),
+        ctx.tt("无法连接 AI 服务，请检查网络后重试。", "Could not reach the AI service. Check the connection and try again."),
         "ai_unavailable"
       );
     }
@@ -428,14 +522,14 @@ async function callAi<T = any>(
         await sleep(CALL_RETRY_DELAYS[attempt], ctx.signal);
         continue;
       }
-      throw new GenerationError(localizeApiError(code, res.status, ctx.lang, data?.error), code);
+      throw new GenerationError(localizeApiError(code, ctx.lang, data?.error), code);
     }
 
     return data as T;
   }
 
   throw new GenerationError(
-    ctx.tt("无法连接 AI 服务，请检查网络后重试。", "Could not reach the AI service. Check your connection and try again."),
+    ctx.tt("无法连接 AI 服务，请检查网络后重试。", "Could not reach the AI service. Check the connection and try again."),
     "ai_unavailable"
   );
 }
@@ -504,13 +598,9 @@ async function generateSyllabus(payload: Record<string, unknown>, ctx: CallConte
   );
   const units = Array.isArray(unitsRes.units) ? unitsRes.units : [];
   if (!units.length) {
-    throw new GenerationError(
-      ctx.tt(
-        "AI 没有从这些资料中识别到可用单元，请补充更完整的考纲、讲义或真题后重试。",
-        "AI found no usable units in these materials. Add a fuller syllabus, notes, or past paper and try again."
-      ),
-      "SYLLABUS_EMPTY"
-    );
+    // 认不出单元和展不开考点是同一个故障的两个阶段，错误码也同为 SYLLABUS_EMPTY，
+    // 就不该有两句话：一个码一句话，用户看到的说法才不会随哪条路失败而变。
+    throw new GenerationError(localizeApiError("SYLLABUS_EMPTY", ctx.lang), "SYLLABUS_EMPTY");
   }
 
   ctx.onStatus?.(ctx.tt(`展开 ${units.length} 个单元的考点…`, `Expanding ${units.length} units…`));
@@ -528,13 +618,7 @@ async function generateSyllabus(payload: Record<string, unknown>, ctx: CallConte
 
   const clean = topics.filter(Boolean);
   if (!clean.length) {
-    throw new GenerationError(
-      ctx.tt(
-        "AI 没有从这些资料中识别到可用考点，请补充更完整的考纲、讲义或真题后重试。",
-        "AI found no usable topics in these materials. Add a fuller syllabus, notes, or past paper and try again."
-      ),
-      "SYLLABUS_EMPTY"
-    );
+    throw new GenerationError(localizeApiError("SYLLABUS_EMPTY", ctx.lang), "SYLLABUS_EMPTY");
   }
   return { result: { summary: unitsRes.summary || "", topics: clean }, meta: { source: "ai" as const } };
 }
@@ -542,7 +626,7 @@ async function generateSyllabus(payload: Record<string, unknown>, ctx: CallConte
 /* ---------------- 教材目录：先给章节，勾选后再展开成考点 ---------------- */
 
 async function generateTextbookToc(payload: Record<string, unknown>, ctx: CallContext) {
-  ctx.onStatus?.(ctx.tt("整理教材目录…", "Rebuilding the textbook outline…"));
+  ctx.onStatus?.(textbookProgress(ctx.lang === "zh"));
   const res = await callAi<TextbookOutline>(
     "/ai/textbook-toc",
     { textbook: payload.textbook, examName: payload.examName, subject: payload.subject },
@@ -550,13 +634,7 @@ async function generateTextbookToc(payload: Record<string, unknown>, ctx: CallCo
   );
   const chapters = Array.isArray(res?.chapters) ? res.chapters : [];
   if (!chapters.length) {
-    throw new GenerationError(
-      ctx.tt(
-        "AI 没能整理出这本教材的可靠目录，换成本教材全称（含版次）再试，或直接上传目录/考纲。",
-        "AI could not rebuild a reliable outline for this textbook. Try the full title with edition, or upload the table of contents."
-      ),
-      "SYLLABUS_EMPTY"
-    );
+    throw new GenerationError(localizeApiError("TEXTBOOK_TOC_EMPTY", ctx.lang), "TEXTBOOK_TOC_EMPTY");
   }
   return { result: { ...res, chapters }, meta: { source: "ai" as const } };
 }
@@ -591,13 +669,7 @@ async function generateTextbookTopics(payload: Record<string, unknown>, ctx: Cal
 
   const clean = topics.filter(Boolean);
   if (!clean.length) {
-    throw new GenerationError(
-      ctx.tt(
-        "AI 没能把这些章节展开成考点，可以少勾几章再试，或补一份目录/讲义资料。",
-        "AI could not expand these chapters into topics. Select fewer chapters, or add a syllabus/outline material."
-      ),
-      "SYLLABUS_EMPTY"
-    );
+    throw new GenerationError(localizeApiError("TEXTBOOK_TOPICS_EMPTY", ctx.lang), "TEXTBOOK_TOPICS_EMPTY");
   }
   const summary = textbook
     ? ctx.tt(`按${formatBookTitle(textbook)}的 ${clean.length} 个章节整理`, `From ${clean.length} chapters of "${textbook}"`)
@@ -616,10 +688,7 @@ async function generatePlan(payload: Record<string, unknown>, ctx: CallContext) 
   const studyDates = Array.isArray(schedule.studyDates) ? schedule.studyDates : [];
   const chunks = Array.isArray(schedule.chunks) ? schedule.chunks : [];
   if (!chunks.length || !studyDates.length) {
-    throw new GenerationError(
-      ctx.tt("所选日期内没有可用的学习日，请调整日期或每日安排。", "No study days fall in the selected range. Adjust the dates or daily availability."),
-      "INVALID_DATE_RANGE"
-    );
+    throw new GenerationError(localizeApiError("NO_STUDY_DAYS", ctx.lang), "NO_STUDY_DAYS");
   }
 
   ctx.onStatus?.(
@@ -701,7 +770,7 @@ async function generatePlan(payload: Record<string, unknown>, ctx: CallContext) 
   tasks = attachTaskTopicIds(dedupeTasks(tasks), payload.topics);
   if (!tasks.length) {
     throw new GenerationError(
-      ctx.tt("AI 没有返回可用的每日任务，请检查资料内容后重试。", "AI returned no usable daily tasks. Check your materials and try again."),
+      ctx.tt("AI 没有返回可用的每日任务，请检查资料内容后重试。", "AI returned no usable daily tasks. Check the materials and try again."),
       "PLAN_EMPTY"
     );
   }
@@ -727,10 +796,7 @@ async function generateRebalance(payload: Record<string, unknown>, ctx: CallCont
     ctx
   );
   if (!res?.result || !Array.isArray(res.result.tasks)) {
-    throw new GenerationError(
-      ctx.tt("AI 未返回有效排程，请重试。", "AI returned no usable schedule. Please try again."),
-      "ai_bad_output"
-    );
+    throw new GenerationError(localizeApiError("ai_bad_output", ctx.lang), "ai_bad_output");
   }
   return { result: res.result, meta: res.meta };
 }

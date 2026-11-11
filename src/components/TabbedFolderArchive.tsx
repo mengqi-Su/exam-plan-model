@@ -288,7 +288,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
             <div>
               {/* 段标题（h2 / 15px）已经给了「课程资料与考点体系」，这里只是段内的子面板。 */}
               <h3 className="ui-group-title">
-                {isZh ? "知识库" : "Knowledge base"}
+                {isZh ? "资料库" : "Library"}
               </h3>
             </div>
 
@@ -401,7 +401,7 @@ export const TabbedFolderArchive: React.FC<TabbedFolderArchiveProps> = ({
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={isZh ? "搜索文件…" : "Search..."}
+                    placeholder={isZh ? "搜索文件…" : "Search…"}
                     className="w-full pl-8 pr-2.5 py-1.5 rounded-lg bg-white text-[13px] text-[#1c1b1a] placeholder-[#716c65] border border-[#e5e2dc] focus:border-[#cfc9c0]"
                   />
                 </div>

@@ -84,7 +84,7 @@ console.log('  ok  /ai/unit-tree 无 Key 时返回 ai_not_configured');
 
 const tocMissingName = await call('/ai/textbook-toc', { textbook: '   ', language: 'zh' });
 assert.equal(tocMissingName.status, 400, JSON.stringify(tocMissingName.data));
-assert.equal(tocMissingName.data.code, 'invalid_request');
+assert.equal(tocMissingName.data.code, 'TEXTBOOK_NAME_MISSING');
 console.log('  ok  /ai/textbook-toc 没有教材名时直接拦下');
 
 const toc = await call('/ai/textbook-toc', { textbook: '计算机网络（第 8 版）', examName: '考研 408', subject: '计算机网络', language: 'zh' });
@@ -120,7 +120,7 @@ const badChunk = await call('/ai/plan-chunk', {
   preferences, topics, materials: [material], dates: ['2026-11-08'], language: 'zh'
 });
 assert.equal(badChunk.status, 400, JSON.stringify(badChunk.data));
-assert.equal(badChunk.data.code, 'INVALID_DATE_RANGE');
+assert.equal(badChunk.data.code, 'NO_STUDY_DAYS');
 console.log('  ok  /ai/plan-chunk 拒绝禁用日（周日）');
 
 const noDates = await call('/ai/plan-chunk', { preferences, topics, materials: [material], dates: [], language: 'zh' });

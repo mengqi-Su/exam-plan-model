@@ -91,7 +91,7 @@ function fail(code: string, message: string, status = 400, headers?: Record<stri
 // 闸门的拒绝原样透传：这些 code 前端有对应文案，中文原文只是兜底。
 function reject(error: unknown): Response {
   const rejection = asRejection(error);
-  if (!rejection) return fail('internal_error', '服务暂时不可用，请稍后重试', 500);
+  if (!rejection) return fail('internal_error', '服务暂时不可用，请稍后重试。', 500);
   return fail(rejection.code, rejection.message, rejection.status, rejection.headers());
 }
 
@@ -104,7 +104,7 @@ async function readBody(req: Request, maxBytes: number): Promise<Record<string, 
     return await readJsonBody(req, maxBytes);
   } catch (error) {
     if (asRejection(error)) return reject(error);
-    return fail('invalid_request', '请求格式错误');
+    return fail('invalid_request', '页面数据已过期，请刷新后重试。');
   }
 }
 
@@ -118,7 +118,7 @@ function parseOutput(text: string, isZh: boolean): any {
     return extractJson(text);
   } catch {
     throw new PlannerError(
-      isZh ? 'AI 返回的格式不正确，请重试。' : 'AI returned malformed output. Please try again.',
+      isZh ? 'AI 返回的内容不可用，请重试。' : 'AI returned unusable output. Try again.',
       502,
       'ai_bad_output'
     );
@@ -130,7 +130,7 @@ function failFromError(error: unknown, isZh: boolean): Response {
   if (error instanceof LlmError) return fail(error.code, error.message, error.status);
   return fail(
     'ai_unavailable',
-    isZh ? 'AI 服务暂时不可用，请稍后重试。你的资料不会被替换成模板。' : 'The AI service is temporarily unavailable. Please try again.',
+    isZh ? 'AI 服务暂时不可用，请稍后重试。已上传的资料不会被改动。' : 'AI is temporarily unavailable. Try again in a moment. Uploaded materials stay unchanged.',
     502
   );
 }
@@ -146,7 +146,7 @@ async function handleUnits(req: Request): Promise<Response> {
   try {
     const materials = aiMaterials(body.materials);
     if (materials.length === 0) {
-      return fail('EMPTY_MATERIALS', isZh ? '资料内容为空，请重新上传。' : 'The materials contain no readable text.');
+      return fail('EMPTY_MATERIALS', isZh ? '这些资料里没有可读的文字，请重新上传带文字的文件。' : 'These materials contain no readable text. Upload a file with text.');
     }
     const examName = clampText(body.examName, 200);
     const subject = clampText(body.subject, 200);
@@ -156,8 +156,8 @@ async function handleUnits(req: Request): Promise<Response> {
     const { summary, units } = sanitizeUnitsResult(parseOutput(output, isZh));
     if (!units.length) {
       return fail('SYLLABUS_EMPTY', isZh
-        ? 'AI 未能从这些资料中识别出可用单元，请补充更完整的考纲、讲义或真题后重试。'
-        : 'AI could not identify usable units from these materials. Add a fuller syllabus, notes, or past paper and try again.', 502);
+        ? 'AI 没有从这些资料里识别出考点，请补充更完整的考纲、讲义或真题后重试。'
+        : 'AI found no topics in these materials. Add a fuller syllabus, notes, or past paper and try again.', 502);
     }
     // 预先为每个单元挑好原文片段：展开考点时只回传这几 KB，不必重复上传整份资料
     const allChunks = chunkAllMaterials(materials);
@@ -179,7 +179,7 @@ async function handleUnitTree(req: Request): Promise<Response> {
     const rawUnit = body.unit;
     const unitId = clampText((rawUnit as any)?.id, 120);
     const title = clampText((rawUnit as any)?.title, 300);
-    if (!title) return fail('invalid_request', isZh ? '缺少要展开的单元。' : 'Missing unit to expand.');
+    if (!title) return fail('invalid_request', isZh ? '页面数据已过期，请刷新后重试。' : 'This page is out of date. Reload it and try again.');
     // 教材目录来的章节没有原文片段可接地，走另一套回忆规矩；输出形状与资料提取完全一致。
     const source = clampText((rawUnit as any)?.source, 20) === 'textbook' ? 'textbook' : 'material';
     const textbook = clampText(body.textbook, 200);
@@ -206,7 +206,7 @@ async function handleUnitTree(req: Request): Promise<Response> {
     const output = await completeJson(prompt, { stage: 'unit-tree', maxTokens: 2_400, temperature: 0.25 });
     const topic = normalizeUnitTopic(unit, parseOutput(output, isZh));
     if (!topic) {
-      return fail('ai_bad_output', isZh ? 'AI 未返回该单元的有效考点，请重试。' : 'AI returned no valid topics for this unit. Please try again.', 502);
+      return fail('ai_bad_output', isZh ? 'AI 返回的内容不可用，请重试。' : 'AI returned unusable output. Try again.', 502);
     }
     return json({ ok: true, topic, unitId: unit.id });
   } catch (error) {
@@ -225,7 +225,7 @@ async function handleTextbookToc(req: Request): Promise<Response> {
   try {
     const textbook = clampText(body.textbook, 200);
     if (!textbook) {
-      return fail('invalid_request', isZh ? '请先填写教材名称。' : 'Enter the textbook name first.');
+      return fail('TEXTBOOK_NAME_MISSING', isZh ? '还没有教材名，请填写教材全称（含版次）。' : 'No textbook name yet. Enter the full title, including the edition.');
     }
     const examName = clampText(body.examName, 200);
     const subject = clampText(body.subject, 200);
@@ -234,9 +234,9 @@ async function handleTextbookToc(req: Request): Promise<Response> {
     const output = await completeJson(prompt, { stage: 'textbook-toc', maxTokens: 2_000, temperature: 0.3 });
     const result = sanitizeTocResult(parseOutput(output, isZh));
     if (!result.chapters.length) {
-      return fail('SYLLABUS_EMPTY', isZh
-        ? `AI 没能整理出《${textbook}》的可靠目录，换成本人教全称（含版次）或补一份资料再试。`
-        : `AI could not reconstruct a reliable outline for "${textbook}". Try the full title with edition, or upload a syllabus.`, 502);
+      return fail('TEXTBOOK_TOC_EMPTY', isZh
+        ? 'AI 没能整理出这本教材的目录，请换成教材全称（含版次）后重试。'
+        : "AI couldn't outline this textbook. Try the full title, including the edition.", 502);
     }
     return json({ ok: true, ...result, chapterCount: result.chapters.length });
   } catch (error) {
@@ -262,7 +262,7 @@ async function handlePlanSchedule(req: Request): Promise<Response> {
     const preferences = sanitizePreferences(body.preferences);
     const { days, studyDates } = calendarFor(preferences);
     if (!days.length) {
-      return fail('INVALID_DATE_RANGE', isZh ? '所选日期内没有可用的学习日，请调整日期或每日安排。' : 'No study days fall in the selected range.');
+      return fail('NO_STUDY_DAYS', isZh ? '所选日期里没有可用的学习日，请调整每日安排后重试。' : 'No study days fall in the selected range. Adjust the daily plan and try again.');
     }
     const chunks = chunkStudyDays(days, {
       // 一天 1~3 个任务，每段最多 2 天：单次输出控制在两千字以内，
@@ -287,20 +287,20 @@ async function handlePlanChunk(req: Request): Promise<Response> {
     const preferences = sanitizePreferences(body.preferences);
     const topics = sanitizeTopics(body.topics);
     if (!topics.length) {
-      return fail('invalid_request', isZh ? '缺少考点信息，请重新提取考点。' : 'Missing syllabus topics. Extract topics first.');
+      return fail('invalid_request', isZh ? '页面数据已过期，请刷新后重试。' : 'This page is out of date. Reload it and try again.');
     }
     const materials = aiMaterials(body.materials || []);
     const requestedDates = Array.isArray(body.dates) ? body.dates.map((d) => clampText(d, 20)).filter(Boolean) : [];
-    if (!requestedDates.length) return fail('invalid_request', isZh ? '缺少要排程的日期。' : 'Missing dates to schedule.');
+    if (!requestedDates.length) return fail('invalid_request', isZh ? '页面数据已过期，请刷新后重试。' : 'This page is out of date. Reload it and try again.');
     if (requestedDates.length > MAX_CHUNK_DATES) {
-      return fail('invalid_request', isZh ? `单次最多排程 ${MAX_CHUNK_DATES} 天，请分段生成。` : `At most ${MAX_CHUNK_DATES} days per call.`, 413);
+      return fail('invalid_request', isZh ? `一次最多排程 ${MAX_CHUNK_DATES} 天，请刷新后重试。` : `At most ${MAX_CHUNK_DATES} days per run. Reload the page and try again.`, 413);
     }
 
     const { days, byDate, studyDates } = calendarFor(preferences);
     // 只接受日历内真实存在的日期，顺序按日历走
     const chunkDays = studyDates.filter((date) => requestedDates.includes(date)).map((date) => byDate.get(date) as StudyDay);
     if (!chunkDays.length) {
-      return fail('INVALID_DATE_RANGE', isZh ? '所选日期内没有可用的学习日。' : 'None of the requested dates are study days.');
+      return fail('NO_STUDY_DAYS', isZh ? '所选日期里没有可用的学习日，请调整每日安排后重试。' : 'No study days fall in the selected range. Adjust the daily plan and try again.');
     }
 
     const coveredTopicTitles = Array.isArray(body.coveredTopicTitles)
@@ -320,7 +320,7 @@ async function handlePlanChunk(req: Request): Promise<Response> {
       isZh,
     });
     if (!result.tasks.length) {
-      return fail('PLAN_CHUNK_EMPTY', isZh ? 'AI 未返回这几天的任务，请重试。' : 'AI returned no tasks for these days. Please try again.', 502);
+      return fail('PLAN_CHUNK_EMPTY', isZh ? '有几天没排上任务，请减少这几天的资料量后重试。' : 'Some days got no tasks. Use fewer materials for those days and try again.', 502);
     }
     return json({
       ok: true,
@@ -420,7 +420,7 @@ export async function handler(req: Request): Promise<Response> {
     }
 
     if (req.method !== 'POST') {
-      return fail('method_not_allowed', '仅支持 POST 请求', 405);
+      return fail('method_not_allowed', '这个功能暂时不可用，请刷新后重试。', 405);
     }
 
     // 安检只在这里判一次：来源与频率都不依赖具体路由，
@@ -435,7 +435,7 @@ export async function handler(req: Request): Promise<Response> {
     if (path.endsWith('/ai/plan-chunk')) return await handlePlanChunk(req);
     if (path.endsWith('/ai/rebalance')) return await handleRebalance(req);
 
-    return fail('not_found', '接口不存在', 404);
+    return fail('not_found', '这个功能暂时不可用，请刷新后重试。', 404);
   } catch (error) {
     // 闸门的拒绝带 code 与状态码，原样透传；其余才是真的服务端意外。
     return reject(error);

@@ -278,7 +278,7 @@ export function HierarchicalTopicTreeView({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={isZh ? "搜索考点 / 公式 / 概念…" : "Search topics & points..."}
+            placeholder={isZh ? "搜索考点 / 公式 / 概念…" : "Search topics & points…"}
             className={`w-full pl-8 pr-2.5 py-1.5 text-[13px] ${inputCls}`}
           />
         </div>
@@ -507,7 +507,7 @@ export function HierarchicalTopicTreeView({
                             type="text"
                             value={newSubtopicTitle}
                             onChange={(e) => setNewSubtopicTitle(e.target.value)}
-                            placeholder={isZh ? "细分考点名称（如：动态规划状态转移方程推导）" : "Subtopic title..."}
+                            placeholder={isZh ? "细分考点名称（如：动态规划状态转移方程推导）" : "Subtopic title…"}
                             className={`sm:col-span-2 px-2.5 py-1.5 text-[13px] ${inputCls}`}
                           />
                           <div className="flex items-center gap-2">
@@ -539,7 +539,7 @@ export function HierarchicalTopicTreeView({
                           placeholder={
                             isZh
                               ? "细分考查要点 / 关键公式，用逗号分隔（如：无后效性检验、边界初始化、空间压缩）"
-                              : "Key points / formulas, comma separated..."
+                              : "Key points / formulas, comma separated…"
                           }
                           className={`w-full px-2.5 py-1.5 text-[13px] ${inputCls}`}
                         />

@@ -122,8 +122,8 @@ export function DailyMoodMemoPad({
           onChange={handleContentChange}
           placeholder={
             isZh
-              ? "写下今天的心情、闪念收获、或是给自己打打气..."
-              : "Write down your thoughts, reflections, or note to self..."
+              ? "写下今天的心情、闪念收获、或是给自己打打气…"
+              : "Write down thoughts, reflections, or a note to self…"
           }
           rows={4}
           className="w-full p-2.5 rounded-lg bg-white border border-[#ece5d2] text-[12px] text-[#1c1b1a] placeholder-[#716c65] focus:border-[#d9cfae] resize-y leading-relaxed transition-colors"

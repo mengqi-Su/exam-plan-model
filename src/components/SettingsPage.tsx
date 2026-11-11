@@ -215,8 +215,14 @@ export function SettingsPage({
     if (!file) return;
     setImportError(null);
 
-    if (file.size > 50 * 1024 * 1024) {
-      setImportError(isZh ? "备份文件超过 50 MB，无法导入。" : "Backup file exceeds 50 MB.");
+    /* 上限只写一处，提示里的数字由它算出来：改上限时不会留下一句还在说旧数字的报错。 */
+    const MAX_BACKUP_BYTES = 50 * 1024 * 1024;
+    if (file.size > MAX_BACKUP_BYTES) {
+      setImportError(
+        isZh
+          ? `备份文件超过 ${formatBytes(MAX_BACKUP_BYTES)}，无法导入。`
+          : `Backup file is larger than ${formatBytes(MAX_BACKUP_BYTES)}, so it can't be imported.`
+      );
       return;
     }
 
@@ -225,8 +231,10 @@ export function SettingsPage({
       try {
         const parsed = JSON.parse(String(loadEvent.target?.result || ""));
         const rawPlans = Array.isArray(parsed) ? parsed : parsed?.plans;
+        /* 报错里不写 plans / JSON 这些文件内部的名字：用户手上只有「一份备份」，
+           按内部字段名去找，界面上没有那一栏。 */
         if (!Array.isArray(rawPlans)) {
-          setImportError(isZh ? "备份文件缺少 plans 数据，无法识别。" : "No plan data found in this backup.");
+          setImportError(isZh ? "这份备份里没有科目数据，无法导入。" : "This backup has no subject data, so it can't be imported.");
           return;
         }
         const validPlans = rawPlans.filter(
@@ -234,7 +242,7 @@ export function SettingsPage({
             plan && typeof plan.id === "string" && typeof plan.examName === "string" && Array.isArray(plan.tasks)
         );
         if (validPlans.length === 0) {
-          setImportError(isZh ? "备份文件中没有有效的备考计划。" : "The backup contains no valid study plans.");
+          setImportError(isZh ? "这份备份里没有可用的科目。" : "This backup has no usable subjects.");
           return;
         }
         if (parsed?.dailyMemos && typeof parsed.dailyMemos === "object") {
@@ -243,16 +251,16 @@ export function SettingsPage({
         onImportPlans?.(validPlans, parsed?.settings);
         showToast(
           isZh
-            ? `已导入 ${validPlans.length} 个备考计划。`
-            : `Imported ${pl(validPlans.length, "study plan", "study plans")}.`
+            ? `已导入 ${validPlans.length} 个科目。`
+            : `Imported ${pl(validPlans.length, "subject", "subjects")}.`
         );
       } catch (error) {
         console.error("Failed to import backup", error);
-        setImportError(isZh ? "无法解析该 JSON 文件，请确认文件完整未损坏。" : "Could not parse this JSON backup.");
+        setImportError(isZh ? "这份备份读不出来，请重新导出一份再导入。" : "This backup can't be read. Export a fresh one and import that.");
       }
     };
     reader.onerror = () => {
-      setImportError(isZh ? "读取文件失败，请重试。" : "Failed to read the file. Please retry.");
+      setImportError(isZh ? "读取文件失败，请重试。" : "Could not read the file. Try again.");
     };
     reader.readAsText(file);
   };
@@ -270,7 +278,7 @@ export function SettingsPage({
       setConfirmClear(false);
     } catch (error) {
       console.error("Failed to clear planner data", error);
-      showToast(isZh ? "清除失败，请检查浏览器存储权限。" : "Failed to clear local data.");
+      showToast(isZh ? "清除没有完成，请重试。" : "Clearing did not finish. Try again.");
     } finally {
       setIsClearing(false);
     }
@@ -284,11 +292,11 @@ export function SettingsPage({
       showToast(
         granted
           ? isZh
-            ? "已获得持久化存储权限，浏览器不会自动清理备考数据。"
-            : "Persistent storage granted."
+            ? "已启用持久化存储，浏览器不会自动清理这些数据。"
+            : "Persistent storage is on. The browser will not clear this data automatically."
           : isZh
-            ? "浏览器未授予持久化权限，请定期导出备份。"
-            : "Persistence not granted. Please export backups regularly."
+            ? "浏览器没有授予持久化存储，请定期导出备份。"
+            : "Persistent storage was not granted. Export backups regularly."
       );
     } catch (error) {
       console.error("Failed to request persistent storage", error);
@@ -302,7 +310,7 @@ export function SettingsPage({
   ];
 
   const stats = [
-    { label: isZh ? "备考科目" : "Subjects", value: String(plans.length) },
+    { label: isZh ? "科目" : "Subjects", value: String(plans.length) },
     { label: isZh ? "任务" : "Tasks", value: String(totalTasks) },
     { label: isZh ? "资料" : "Files", value: String(totalMaterials) },
     { label: isZh ? "占用空间" : "Storage", value: storageInfo ? formatBytes(storageInfo.usage) : "—" },

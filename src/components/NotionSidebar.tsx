@@ -107,7 +107,7 @@ export function NotionSidebar({
 
       <div className="flex-1 overflow-y-auto px-2.5 pt-2 space-y-0.5 border-t border-[#e7e4de]">
         <div className="flex items-center justify-between px-2.5 py-1.5 mb-0.5">
-          <span className="text-[11px] font-medium text-[#6b6660]">{isZh ? "备考科目" : "Courses"}</span>
+          <span className="text-[11px] font-medium text-[#6b6660]">{isZh ? "科目" : "Subjects"}</span>
           <span className="ui-chip tabular-nums">{plans.length}</span>
         </div>
 

@@ -11,6 +11,7 @@ import { AppTab, ExamStudyPlan } from "../types";
 import { countdownDnLabel, examCountdown } from "../lib/date";
 import { PageIconGlyph } from "./PageIconGlyph";
 import { planReadiness, readinessCopy } from "../lib/planReadiness";
+import { newSubjectEntry } from "../lib/text";
 
 interface CourseAccordionGalleryProps {
   plans: ExamStudyPlan[];
@@ -76,12 +77,12 @@ export function CourseAccordionGallery({
         </div>
         <div className="space-y-2 max-w-md">
           <h3 className="text-[20px] font-semibold tracking-tight text-[#1c1b1a]">
-            {isZh ? "还没有备考科目" : "No subjects yet"}
+            {isZh ? "还没有科目" : "No subjects yet"}
           </h3>
         </div>
         <button onClick={onAddNewSubject} className="ui-btn ui-btn-primary">
           <Plus className="w-4 h-4" />
-          <span>{isZh ? "新建备考科目" : "Create subject"}</span>
+          <span>{newSubjectEntry(isZh)}</span>
         </button>
       </div>
     );
@@ -247,7 +248,7 @@ export function CourseAccordionGallery({
           <div
             role="button"
             tabIndex={0}
-            aria-label={isZh ? "新建备考科目" : "Create new subject"}
+            aria-label={newSubjectEntry(isZh)}
             onMouseEnter={() => setActiveHoverId("add_new")}
             onClick={() => {
               setSelectedId("add_new");
@@ -277,13 +278,13 @@ export function CourseAccordionGallery({
                     <Plus className="w-4 h-4" />
                   </span>
                   <span className="text-[13px] font-medium text-[#6b6660]">
-                    {isZh ? "新建科目" : "New subject"}
+                    {newSubjectEntry(isZh)}
                   </span>
                 </div>
 
                 <div className="my-auto py-6">
                   <h3 className="text-[20px] font-semibold text-[#1c1b1a] tracking-tight">
-                    {isZh ? "创建新的考试科目计划" : "Create a new subject plan"}
+                    {newSubjectEntry(isZh)}
                   </h3>
                 </div>
 
@@ -307,7 +308,7 @@ export function CourseAccordionGallery({
                 </span>
                 <div className="flex-1 flex items-center justify-center my-3 overflow-hidden">
                   <span className="text-[12px] font-medium text-[#6b6660] whitespace-nowrap rotate-90 origin-center">
-                    {isZh ? "新建科目" : "New subject"}
+                    {newSubjectEntry(isZh)}
                   </span>
                 </div>
                 <ArrowUpRight className="w-4 h-4 text-[#6b6660]" />
@@ -337,7 +338,7 @@ export function CourseAccordionGallery({
                 <Plus className="w-4 h-4" />
               </span>
               <span className="text-[13px] font-medium text-[#1c1b1a]">
-                {isZh ? "新建考试科目" : "New subject"}
+                {newSubjectEntry(isZh)}
               </span>
             </div>
             <ArrowUpRight className="w-4 h-4 text-[#6b6660]" />

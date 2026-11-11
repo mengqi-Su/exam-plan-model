@@ -16,6 +16,7 @@ import { useI18n } from "../lib/i18n";
 import { playCompletionChime } from "../lib/audio";
 import { starquizPracticeUrlForTask } from "../lib/links";
 import { primeHandoffForTask } from "../lib/handoff";
+import { newSubjectEntry, noSubjectsTitle } from "../lib/text";
 import { PinnedRoadmapTodoList } from "./PinnedRoadmapTodoList";
 
 /* 专注计时器点开才需要，首屏（今日）不必先把它下载下来（清单 PERF-01）。 */
@@ -252,11 +253,11 @@ export function TodayFocusView({
             <Sun className="w-6 h-6" />
           </div>
           <h2 className="text-[15px] font-semibold tracking-tight">
-            {isZh ? "还没有备考科目" : "No exam subjects yet"}
+            {noSubjectsTitle(isZh)}
           </h2>
           <button onClick={onAddNewSubject} className="ui-btn ui-btn-primary">
             <Plus className="w-4 h-4" />
-            {isZh ? "新建备考科目" : "Create subject"}
+            {newSubjectEntry(isZh)}
           </button>
         </div>
       ) : dayItems.length === 0 ? (
