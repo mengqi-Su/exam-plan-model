@@ -108,13 +108,11 @@ const JARGON: Array<[RegExp, string]> = [
   [/接口/, '接口'],
   [/模板回退/, '模板回退'],
 ];
-/* storage.ts 里那两条是历史更新日志，记的是当时接了什么，不是给用户的操作提示，
-   厂商名在这里是事实记录，留着。只豁免这一处、只豁免内部名词这一条。 */
-const JARGON_EXEMPT = 'src/lib/storage.ts';
-
-function jargonOffense(value: string, where = ''): string | null {
+/* storage.ts 里那两条曾经整个豁免，理由是「历史更新日志记的是当时接了什么」。
+   但更新日志就在设置页底部摊给用户看，用户照样读得到厂商名——豁免等于给规则开了个洞。
+   现在日志也按同一口径写，豁免撤掉。 */
+function jargonOffense(value: string, _where = ''): string | null {
   if (!isProse(value)) return null;
-  if (where.replace(/\\/g, '/').startsWith(JARGON_EXEMPT)) return null;
   for (const [re, name] of JARGON) if (re.test(value)) return `内部名词不进文案：${name}`;
   if (CJK_HAN.test(value) && /\bplans\b/.test(value)) return '内部名词不进文案：plans';
   return null;
@@ -393,14 +391,14 @@ await check('守卫有效：每条规则都抓得住反面写法，也不误伤�
   assert.equal(exclamationOffense('ui-chip !text-[#8A5A00] !bg-[#FFF6DD]'), null);
   assert.equal(exclamationOffense('hover:!bg-[#FFF6DD]'), null);
 
-  /* 内部名词：夹汉字的 plans 算漏，正常英文复数不算，历史更新日志豁免 */
+  /* 内部名词：夹汉字的 plans 算漏，正常英文复数不算；更新日志也照同一口径查，不再豁免 */
   assert.ok(jargonOffense('plans 数据已保存到本机'));
   assert.ok(jargonOffense('请填入 API Key 后重试'));
   assert.ok(jargonOffense('已调用 DeepSeek 接口'));
   assert.equal(jargonOffense('Study plans stay on this device.'), null);
   assert.equal(jargonOffense('plans'), null);
   assert.equal(jargonOffense('application/json'), null);
-  assert.equal(jargonOffense('接入 DeepSeek 接口', 'src/lib/storage.ts:455'), null);
+  assert.ok(jargonOffense('接入 DeepSeek 接口', 'src/lib/storage.ts:455'));
   assert.ok(jargonOffense('接入 DeepSeek 接口', 'src/lib/aiClient.ts:12'));
 
   /* 一个东西一个名字 */
